@@ -28,13 +28,19 @@ export function renderTitle(
   const line1 = `${gua.u} ${gua.n}`;
   // Line 2: Pinyin
   const line2 = gua.p;
-  // Line 3: English — truncate to fit terminal width with some padding
-  const maxWidth = Math.max(20, buf.width - 8);
-  const line3 = stringWidth(gua.en) > maxWidth ? gua.en.slice(0, maxWidth - 1) + "…" : gua.en;
-  // Line 4: Trigram meta
-  const line4 = `${structure.upper.sym} above ${structure.lower.sym}`;
 
-  const lines = [line1, line2, line3, line4];
+  const isSplit = model.layout !== "centered";
+
+  // In split mode: compact (just name + pinyin). Centered mode: full commentary.
+  let lines: string[];
+  if (isSplit) {
+    lines = [line1, line2];
+  } else {
+    const maxWidth = Math.max(20, buf.width - 8);
+    const line3 = stringWidth(gua.en) > maxWidth ? gua.en.slice(0, maxWidth - 1) + "…" : gua.en;
+    const line4 = `${structure.upper.sym} above ${structure.lower.sym}`;
+    lines = [line1, line2, line3, line4];
+  }
   const progress = model.titleProgress;
 
   for (let i = 0; i < lines.length; i++) {

@@ -35,7 +35,29 @@ async function main() {
     // Run animated ritual
     const session = new TerminalSession();
     const scene = new CastScene(cast, preset, session.cols);
-    await runScene(scene, session, new RealClock(), detectColorSupport());
+    const signal = await runScene(scene, session, new RealClock(), detectColorSupport());
+
+    // Handle post-ritual action
+    if (typeof signal === "object" && signal !== null && "goto" in signal) {
+      const { formatCastPlain } = await import("./output/plain.js");
+      const { GUA } = await import("@iching/core");
+      const primary = GUA[cast.primary - 1];
+
+      if (signal.goto === "reading") {
+        console.log(formatCastPlain(cast, primary, structure));
+      } else if (signal.goto === "journal") {
+        const journalStore = new JsonlJournalStore(paths.state);
+        const latest = await journalStore.latest();
+        if (latest) {
+          const g = GUA[latest.cast.primary - 1];
+          const s = buildStructure(latest.cast);
+          console.log(`Latest reading (${latest.date}):\n`);
+          console.log(formatCastPlain(latest.cast, g, s));
+        } else {
+          console.log("No journal entries found.");
+        }
+      }
+    }
     process.exit(0);
   }
 

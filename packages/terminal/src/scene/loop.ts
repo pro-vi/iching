@@ -1,7 +1,7 @@
 // Main render loop — 30 FPS with drift compensation
 
 import type { Clock } from "../clock.ts";
-import type { Scene, SceneContext } from "./types.ts";
+import type { Scene, SceneContext, SceneSignal } from "./types.ts";
 import type { ColorSupport } from "../color/detect.ts";
 import { TerminalSession } from "../session/terminal-session.ts";
 import type { KeyEvent } from "../input/key-parser.ts";
@@ -27,9 +27,11 @@ export async function runScene(
   session: TerminalSession,
   clock: Clock,
   colorSupport: ColorSupport,
-): Promise<void> {
+): Promise<SceneSignal | void> {
   // Enter alt screen, raw mode, hide cursor
   session.enter();
+
+  let exitSignal: SceneSignal | void;
 
   try {
     const ctx: SceneContext = {
@@ -73,7 +75,8 @@ export async function runScene(
       while (inputQueue.length > 0) {
         const key = inputQueue.shift()!;
         const signal = scene.handleKey?.(key, ctx);
-        if (signal === "exit") {
+        if (signal === "exit" || (typeof signal === "object" && signal !== null)) {
+          exitSignal = signal;
           ctx.done = true;
           break;
         }
@@ -101,4 +104,6 @@ export async function runScene(
     // Always restore terminal, even on error
     session.exit();
   }
+
+  return exitSignal;
 }
