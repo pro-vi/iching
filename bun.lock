@@ -1,0 +1,45 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "iching",
+    },
+    "apps/cli": {
+      "name": "@iching/cli",
+      "version": "0.1.0",
+      "dependencies": {
+        "@iching/core": "workspace:*",
+        "@iching/storage": "workspace:*",
+        "@iching/terminal": "workspace:*",
+      },
+    },
+    "packages/core": {
+      "name": "@iching/core",
+      "version": "0.1.0",
+    },
+    "packages/storage": {
+      "name": "@iching/storage",
+      "version": "0.1.0",
+      "dependencies": {
+        "@iching/core": "workspace:*",
+      },
+    },
+    "packages/terminal": {
+      "name": "@iching/terminal",
+      "version": "0.1.0",
+      "dependencies": {
+        "@iching/core": "workspace:*",
+      },
+    },
+  },
+  "packages": {
+    "@iching/cli": ["@iching/cli@workspace:apps/cli"],
+
+    "@iching/core": ["@iching/core@workspace:packages/core"],
+
+    "@iching/storage": ["@iching/storage@workspace:packages/storage"],
+
+    "@iching/terminal": ["@iching/terminal@workspace:packages/terminal"],
+  }
+}

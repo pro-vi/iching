@@ -1,0 +1,11 @@
+{
+  "name": "iching",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "build": "bun build --compile apps/cli/src/main.ts --outfile dist/iching"
+  }
+}

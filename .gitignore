@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.db
+*.db-journal
+.cache/
+.DS_Store
+*.log
+.claude/
+.prov/
+logs/

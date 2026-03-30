@@ -1,0 +1,14 @@
+{
+  "name": "@iching/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/main.ts"
+  },
+  "dependencies": {
+    "@iching/core": "workspace:*",
+    "@iching/storage": "workspace:*",
+    "@iching/terminal": "workspace:*"
+  }
+}
