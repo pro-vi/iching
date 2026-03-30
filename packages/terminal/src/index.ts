@@ -51,3 +51,39 @@ export { stringWidth, centerPad } from "./layout/measure.ts";
 
 // Session
 export { TerminalSession } from "./session/terminal-session.ts";
+
+// Clock
+export { type Clock, RealClock, ManualClock } from "./clock.ts";
+
+// Animation: easing
+export { type EasingFn, linear, easeIn, easeOut, easeInOut } from "./animation/easing.ts";
+
+// Animation: timeline DSL
+export {
+  type Step,
+  seq,
+  par,
+  wait,
+  call,
+  tween,
+  stepDuration,
+} from "./animation/timeline.ts";
+
+// Animation: runner
+export { TimelineRunner } from "./animation/runner.ts";
+
+// Animation: motion presets
+export {
+  type RitualTiming,
+  type MotionPreset,
+  getPreset,
+} from "./animation/presets.ts";
+
+// Scene
+export {
+  type SceneContext,
+  type SceneSignal,
+  type Scene,
+} from "./scene/types.ts";
+
+export { runScene } from "./scene/loop.ts";
