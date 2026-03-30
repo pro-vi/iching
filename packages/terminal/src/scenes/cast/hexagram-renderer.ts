@@ -44,6 +44,7 @@ export function anchorRow(rows: number): number {
 export function renderHexagram(
   buf: CellBuffer,
   model: CastModel,
+  xOffset: number = 0,
 ): void {
   const anchor = anchorRow(buf.height);
 
@@ -84,14 +85,14 @@ export function renderHexagram(
     if (lineState.morphComplete) {
       // After morph: yang becomes yin, yin becomes yang
       const transformedIsYang = !line.isYang;
-      renderLine(buf, row, transformedIsYang, 1, color ?? TEMPLE_NIGHT.bone);
+      renderLine(buf, row, transformedIsYang, 1, color ?? TEMPLE_NIGHT.bone, xOffset);
     } else {
-      renderLine(buf, row, line.isYang, lineState.progress, color);
+      renderLine(buf, row, line.isYang, lineState.progress, color, xOffset);
     }
 
     // Gutter markers for changing lines
     if (lineState.markerVisible && line.isChanging) {
-      const centerCol = Math.floor(buf.width / 2);
+      const centerCol = Math.floor(buf.width / 2) + xOffset;
       const halfLine = Math.floor(LINE_WIDTH / 2);
       const markerCol = centerCol + halfLine + 2; // 2 cols right of line
       const marker =

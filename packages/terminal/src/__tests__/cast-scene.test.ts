@@ -171,4 +171,73 @@ describe("CastScene", () => {
       expect(scene.getTimeline().duration).toBeGreaterThan(0);
     }
   });
+
+  test("side-by-side activates for wide terminal with becoming", () => {
+    const cast = makeChangingCast();
+    const scene = new CastScene(cast, "reduced", 80); // wide terminal
+    const ctx = makeCtx();
+
+    scene.enter(ctx);
+
+    // Advance to completion
+    const duration = scene.getTimeline().duration;
+    scene.update(duration + 100, 33, ctx);
+
+    const model = scene.getModel();
+    // Wide terminal should use side-by-side layout
+    expect(model.layout).toBe("side-by-side");
+    expect(model.splitProgress).toBe(1);
+    expect(model.rightHexMorphComplete).toBe(true);
+    expect(model.becomingTitleProgress).toBe(1);
+  });
+
+  test("narrow terminal falls back to in-place morph", () => {
+    const cast = makeChangingCast();
+    const scene = new CastScene(cast, "reduced", 40); // narrow terminal
+    const ctx = makeCtx();
+
+    scene.enter(ctx);
+
+    // Advance to completion
+    const duration = scene.getTimeline().duration;
+    scene.update(duration + 100, 33, ctx);
+
+    const model = scene.getModel();
+    // Narrow terminal should stay centered with in-place morph
+    expect(model.layout).toBe("centered");
+    expect(model.splitProgress).toBe(0);
+    // In-place morph should have completed on the primary lines
+    for (const pos of cast.changingPositions) {
+      expect(model.lines[pos - 1].morphComplete).toBe(true);
+    }
+  });
+
+  test("side-by-side renders without errors on wide buffer", () => {
+    const cast = makeChangingCast();
+    const scene = new CastScene(cast, "reduced", 80);
+    const ctx = makeCtx();
+
+    scene.enter(ctx);
+
+    // Advance to completion
+    const duration = scene.getTimeline().duration;
+    scene.update(duration + 100, 33, ctx);
+
+    const frame = CellBuffer.create(80, 24);
+    // Should not throw
+    scene.render(frame, ctx);
+
+    // Check that buffer has content
+    let hasContent = false;
+    for (let r = 0; r < frame.height; r++) {
+      for (let c = 0; c < frame.width; c++) {
+        if (frame.getCell(r, c).char !== " ") {
+          hasContent = true;
+          break;
+        }
+      }
+      if (hasContent) break;
+    }
+    expect(hasContent).toBe(true);
+  });
 });

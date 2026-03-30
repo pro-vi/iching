@@ -37,6 +37,12 @@ export class CastModel {
   morphComplete: boolean;
   becomingTitleProgress: number;
 
+  // Side-by-side layout
+  layout: "centered" | "splitting" | "side-by-side";
+  splitProgress: number; // 0 (centered) to 1 (fully split)
+  rightHexMorphProgress: number[]; // per changing line (indexed by changingPositions index)
+  rightHexMorphComplete: boolean;
+
   // Prompt
   showPrompt: boolean;
   promptChoice: string | null;
@@ -70,6 +76,11 @@ export class CastModel {
     this.morphProgress = cast.changingPositions.map(() => 0);
     this.morphComplete = false;
     this.becomingTitleProgress = 0;
+
+    this.layout = "centered";
+    this.splitProgress = 0;
+    this.rightHexMorphProgress = cast.changingPositions.map(() => 0);
+    this.rightHexMorphComplete = false;
 
     this.showPrompt = false;
     this.promptChoice = null;

@@ -34,7 +34,7 @@ async function main() {
 
     // Run animated ritual
     const session = new TerminalSession();
-    const scene = new CastScene(cast, preset);
+    const scene = new CastScene(cast, preset, session.cols);
     await runScene(scene, session, new RealClock(), detectColorSupport());
     process.exit(0);
   }

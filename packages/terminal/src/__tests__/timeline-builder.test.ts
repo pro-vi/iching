@@ -162,4 +162,52 @@ describe("buildCastTimeline", () => {
 
     expect(model.subtitleText).toBe("");
   });
+
+  test("wide terminal timeline includes split steps for becoming cast", () => {
+    const cast = makeChangingCast();
+    const model = new CastModel(cast);
+    const timing = getPreset("reduced");
+    const step = buildCastTimeline(cast, model, timing, 80); // wide
+
+    const { TimelineRunner } = require("../animation/runner.ts");
+    const runner = new TimelineRunner(step);
+    runner.advance(runner.duration + 100, model);
+
+    // Should be in side-by-side layout
+    expect(model.layout).toBe("side-by-side");
+    expect(model.splitProgress).toBe(1);
+    expect(model.rightHexMorphComplete).toBe(true);
+    // Primary lines should NOT have been morphed in-place
+    for (const pos of cast.changingPositions) {
+      expect(model.lines[pos - 1].morphComplete).toBe(false);
+    }
+  });
+
+  test("narrow terminal uses in-place morph for becoming cast", () => {
+    const cast = makeChangingCast();
+    const model = new CastModel(cast);
+    const timing = getPreset("reduced");
+    const step = buildCastTimeline(cast, model, timing, 40); // narrow
+
+    const { TimelineRunner } = require("../animation/runner.ts");
+    const runner = new TimelineRunner(step);
+    runner.advance(runner.duration + 100, model);
+
+    // Should stay centered
+    expect(model.layout).toBe("centered");
+    expect(model.splitProgress).toBe(0);
+    // Primary lines SHOULD have been morphed in-place
+    for (const pos of cast.changingPositions) {
+      expect(model.lines[pos - 1].morphComplete).toBe(true);
+    }
+  });
+
+  test("wide terminal timeline has positive duration with changing lines", () => {
+    const cast = makeChangingCast();
+    const model = new CastModel(cast);
+    const timing = getPreset("default");
+    const step = buildCastTimeline(cast, model, timing, 80);
+    const duration = stepDuration(step);
+    expect(duration).toBeGreaterThan(0);
+  });
 });

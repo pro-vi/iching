@@ -21,6 +21,7 @@ export function renderLine(
   isYang: boolean,
   progress: number,
   color?: string,
+  xOffset: number = 0,
 ): void {
   if (progress <= 0) return;
 
@@ -46,7 +47,7 @@ export function renderLine(
 
   const style: Partial<StyledCell> = { fg };
   const lineW = stringWidth(frameStr);
-  const col = Math.max(0, Math.floor((buf.width - lineW) / 2));
+  const col = Math.max(0, Math.floor((buf.width - lineW) / 2) + xOffset);
   buf.writeText(row, col, frameStr, style);
 }
 

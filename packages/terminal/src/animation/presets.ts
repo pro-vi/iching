@@ -17,6 +17,7 @@ export interface RitualTiming {
   titleStaggerMs: number;
   perChangeMs: number;
   compareRevealMs: number;
+  splitSlideMs: number;
   restMs: number;
 }
 
@@ -39,6 +40,7 @@ const DEFAULT: RitualTiming = {
   titleStaggerMs: 60,
   perChangeMs: 300,
   compareRevealMs: 400,
+  splitSlideMs: 400,
   restMs: 200,
 };
 
@@ -59,6 +61,7 @@ const BRISK: RitualTiming = {
   titleStaggerMs: 35,
   perChangeMs: 150,
   compareRevealMs: 200,
+  splitSlideMs: 250,
   restMs: 100,
 };
 
@@ -79,6 +82,7 @@ const DEEP: RitualTiming = {
   titleStaggerMs: 80,
   perChangeMs: 500,
   compareRevealMs: 600,
+  splitSlideMs: 600,
   restMs: 350,
 };
 
@@ -101,6 +105,7 @@ const REDUCED: RitualTiming = {
   titleStaggerMs: 0,
   perChangeMs: 0,
   compareRevealMs: 0,
+  splitSlideMs: 0,
   restMs: 200,
 };
 

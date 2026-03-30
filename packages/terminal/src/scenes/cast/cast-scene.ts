@@ -12,8 +12,11 @@ import { renderCoins } from "./coin-renderer.ts";
 import { renderHexagram, anchorRow, LINE_ROW_OFFSETS, COIN_ROW_OFFSET } from "./hexagram-renderer.ts";
 import { renderTitle, renderBecomingTitle } from "./reveal-renderer.ts";
 import { renderMorph } from "./morph-renderer.ts";
+import { renderRightHexagram, renderRightMorph } from "./right-hex-renderer.ts";
 import { buildCastTimeline } from "./timeline-builder.ts";
+import { hexColOffset } from "./layout-calc.ts";
 import { TEMPLE_NIGHT } from "../../color/themes/temple-night.ts";
+import { SPLIT_ARROW } from "../../glyphs.ts";
 import { stringWidth } from "../../layout/measure.ts";
 
 export class CastScene implements Scene {
@@ -21,10 +24,10 @@ export class CastScene implements Scene {
   private timeline: TimelineRunner;
   private complete = false;
 
-  constructor(cast: Cast, preset: MotionPreset = "default") {
+  constructor(cast: Cast, preset: MotionPreset = "default", termWidth: number = 80) {
     this.model = new CastModel(cast);
     const timing = getPreset(preset);
-    const step = buildCastTimeline(cast, this.model, timing);
+    const step = buildCastTimeline(cast, this.model, timing, termWidth);
     this.timeline = new TimelineRunner(step);
   }
 
@@ -38,6 +41,9 @@ export class CastScene implements Scene {
 
   render(frame: CellBuffer, _ctx: SceneContext): void {
     const model = this.model;
+    const isSplit = model.layout !== "centered";
+    const leftOffset = hexColOffset(isSplit ? "left" : "center", model.splitProgress);
+    const rightOffset = hexColOffset("right", model.splitProgress);
 
     // Render coins if active
     if (model.coinPhase !== "idle" && model.coinPhase !== "done" && model.activeLine >= 0) {
@@ -47,17 +53,28 @@ export class CastScene implements Scene {
       renderCoins(frame, model, coinRow);
     }
 
-    // Render hexagram lines
-    renderHexagram(frame, model);
+    // Render primary hexagram (left side when split)
+    renderHexagram(frame, model, leftOffset);
 
-    // Render morph animations
-    renderMorph(frame, model);
+    if (isSplit) {
+      // Render right hexagram (becoming)
+      renderRightHexagram(frame, model, rightOffset);
 
-    // Render title
-    renderTitle(frame, model);
+      // Render right morph animations
+      renderRightMorph(frame, model, rightOffset);
 
-    // Render becoming title
-    renderBecomingTitle(frame, model);
+      // Render arrow between hexagrams
+      renderSplitArrow(frame, model);
+    } else {
+      // Centered morph (narrow terminal fallback)
+      renderMorph(frame, model);
+    }
+
+    // Render primary title (left offset when split)
+    renderTitle(frame, model, leftOffset);
+
+    // Render becoming title (right offset when split, centered otherwise)
+    renderBecomingTitle(frame, model, isSplit ? rightOffset : 0);
 
     // Render prompt
     if (model.showPrompt) {
@@ -96,6 +113,27 @@ export class CastScene implements Scene {
   getTimeline(): TimelineRunner {
     return this.timeline;
   }
+}
+
+/** Render the ⇒ arrow between primary and becoming hexagrams. */
+function renderSplitArrow(buf: CellBuffer, model: CastModel): void {
+  if (model.splitProgress <= 0) return;
+
+  const anchor = anchorRow(buf.height);
+  // Vertical midpoint between upper and lower trigrams
+  // Line 3 is at anchor + LINE_ROW_OFFSETS[2] = anchor - 5
+  // Line 4 is at anchor + LINE_ROW_OFFSETS[3] = anchor - 8
+  // Midpoint is between them (the trigram gap)
+  const arrowRow = anchor + Math.floor((LINE_ROW_OFFSETS[2] + LINE_ROW_OFFSETS[3]) / 2);
+  if (arrowRow < 0 || arrowRow >= buf.height) return;
+
+  // Center horizontally between the two hexagrams
+  const arrowW = stringWidth(SPLIT_ARROW);
+  const col = Math.max(0, Math.floor((buf.width - arrowW) / 2));
+
+  // Fade in with split progress
+  const fg = model.splitProgress < 0.5 ? TEMPLE_NIGHT.ash : TEMPLE_NIGHT.stone;
+  buf.writeText(arrowRow, col, SPLIT_ARROW, { fg });
 }
 
 /** Render the prompt bar at the bottom of the hexagram area. */

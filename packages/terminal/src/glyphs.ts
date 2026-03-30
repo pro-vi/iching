@@ -47,3 +47,6 @@ export const GLYPHS = {
 
 /** Width of a hexagram line in characters */
 export const LINE_WIDTH = 15;
+
+/** Arrow glyph shown between primary and becoming hexagrams in side-by-side layout */
+export const SPLIT_ARROW = "\u21D2"; // ⇒

@@ -89,7 +89,7 @@ export {
 export { runScene } from "./scene/loop.ts";
 
 // Glyphs
-export { GLYPHS, LINE_WIDTH } from "./glyphs.ts";
+export { GLYPHS, LINE_WIDTH, SPLIT_ARROW } from "./glyphs.ts";
 
 // Scenes: casting ritual
 export { CastScene } from "./scenes/cast/cast-scene.ts";
@@ -99,7 +99,9 @@ export { renderLine, lineFrame } from "./scenes/cast/line-renderer.ts";
 export { renderHexagram, anchorRow, LINE_ROW_OFFSETS } from "./scenes/cast/hexagram-renderer.ts";
 export { renderTitle, renderBecomingTitle } from "./scenes/cast/reveal-renderer.ts";
 export { renderMorph, morphFrame } from "./scenes/cast/morph-renderer.ts";
+export { renderRightHexagram, renderRightMorph } from "./scenes/cast/right-hex-renderer.ts";
 export { buildCastTimeline } from "./scenes/cast/timeline-builder.ts";
+export { canSplit, hexColOffset, MIN_SPLIT_WIDTH, SPLIT_OFFSET, ARROW_GAP } from "./scenes/cast/layout-calc.ts";
 
 // Scenes: prompt
 export { PromptScene } from "./scenes/prompt/prompt-scene.ts";

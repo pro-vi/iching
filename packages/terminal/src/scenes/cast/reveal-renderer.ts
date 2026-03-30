@@ -14,6 +14,7 @@ import { anchorRow, TITLE_ROW_OFFSET } from "./hexagram-renderer.ts";
 export function renderTitle(
   buf: CellBuffer,
   model: CastModel,
+  xOffset: number = 0,
 ): void {
   if (model.titleProgress <= 0) return;
 
@@ -55,7 +56,7 @@ export function renderTitle(
     }
 
     const w = stringWidth(lines[i]);
-    const col = Math.max(0, Math.floor((buf.width - w) / 2));
+    const col = Math.max(0, Math.floor((buf.width - w) / 2) + xOffset);
     buf.writeText(row, col, lines[i], { fg, dim: lineProgress < 0.3 });
   }
 
@@ -64,7 +65,7 @@ export function renderTitle(
     const subRow = baseRow + 5;
     if (subRow < buf.height) {
       const w = stringWidth(model.subtitleText);
-      const col = Math.max(0, Math.floor((buf.width - w) / 2));
+      const col = Math.max(0, Math.floor((buf.width - w) / 2) + xOffset);
       buf.writeText(subRow, col, model.subtitleText, {
         fg: TEMPLE_NIGHT.ash,
         dim: true,
@@ -79,16 +80,19 @@ export function renderTitle(
 export function renderBecomingTitle(
   buf: CellBuffer,
   model: CastModel,
+  xOffset: number = 0,
 ): void {
   if (model.becomingTitleProgress <= 0 || model.cast.becoming === null) return;
 
   const anchor = anchorRow(buf.height);
-  const baseRow = anchor + TITLE_ROW_OFFSET + 6;
+  const isSplit = model.layout !== "centered";
+  // In split mode, becoming title renders at same row as primary title (not +6)
+  const baseRow = anchor + TITLE_ROW_OFFSET + (isSplit ? 0 : 6);
   const hexNum = model.cast.becoming;
   const gua = GUA[hexNum - 1];
 
-  const arrow = "\u2192"; // →
-  const line1 = `${arrow} ${gua.u} ${gua.n}`;
+  // In split mode, drop the arrow prefix
+  const line1 = isSplit ? `${gua.u} ${gua.n}` : `\u2192 ${gua.u} ${gua.n}`;
   const line2 = gua.p;
 
   const progress = model.becomingTitleProgress;
@@ -103,7 +107,7 @@ export function renderBecomingTitle(
 
     const fg = i === 0 ? TEMPLE_NIGHT.jade : TEMPLE_NIGHT.ash;
     const w = stringWidth(lines[i]);
-    const col = Math.max(0, Math.floor((buf.width - w) / 2));
+    const col = Math.max(0, Math.floor((buf.width - w) / 2) + xOffset);
     buf.writeText(row, col, lines[i], { fg });
   }
 }

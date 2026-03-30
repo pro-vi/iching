@@ -6,6 +6,7 @@ import type { Step } from "../../animation/timeline.ts";
 import { seq, par, wait, call, tween } from "../../animation/timeline.ts";
 import { easeOut, easeInOut } from "../../animation/easing.ts";
 import type { CastModel } from "./model.ts";
+import { canSplit } from "./layout-calc.ts";
 
 /**
  * Build the full ritual timeline for a casting sequence.
@@ -26,6 +27,7 @@ export function buildCastTimeline(
   cast: Cast,
   model: CastModel,
   timing: RitualTiming,
+  termWidth: number = 80,
 ): Step {
   return seq(
     // 1. Opening breath
@@ -64,34 +66,9 @@ export function buildCastTimeline(
 
     // 8/9. Becoming or unchanging
     ...(cast.becoming !== null
-      ? [
-          wait(680),
-          // Marker pulse: show markers on all changing lines
-          // Note: changingPositions is 1-indexed, model.lines is 0-indexed
-          call(() => {
-            for (const pos of cast.changingPositions) {
-              model.lines[pos - 1].glowing = true;
-              model.lines[pos - 1].markerVisible = true;
-            }
-          }),
-          tween(320, (p) => {
-            for (const pos of cast.changingPositions) {
-              model.lines[pos - 1].glowProgress = p;
-            }
-          }, easeInOut),
-          call(() => {
-            for (const pos of cast.changingPositions) {
-              model.lines[pos - 1].glowing = false;
-              model.lines[pos - 1].glowProgress = 0;
-            }
-          }),
-          // Morph wave: bottom-to-top
-          ...buildMorphWave(cast, model, timing),
-          // Becoming title
-          tween(timing.compareRevealMs > 0 ? timing.compareRevealMs : 1, (p) => {
-            model.becomingTitleProgress = p;
-          }, easeOut),
-        ]
+      ? canSplit(termWidth)
+        ? buildWideBecoming(cast, model, timing)
+        : buildNarrowBecoming(cast, model, timing)
       : [
           wait(1200),
           call(() => {
@@ -251,4 +228,141 @@ function buildMorphWave(
     staggered.push(steps[i]);
   }
   return [seq(...staggered)];
+}
+
+/**
+ * Wide terminal becoming sequence: slide apart + right hexagram morph.
+ * Primary stays on the left; right copy morphs changing lines.
+ */
+function buildWideBecoming(
+  cast: Cast,
+  model: CastModel,
+  timing: RitualTiming,
+): Step[] {
+  return [
+    wait(680),
+    // Marker pulse on all changing lines
+    call(() => {
+      for (const pos of cast.changingPositions) {
+        model.lines[pos - 1].glowing = true;
+        model.lines[pos - 1].markerVisible = true;
+      }
+    }),
+    tween(320, (p) => {
+      for (const pos of cast.changingPositions) {
+        model.lines[pos - 1].glowProgress = p;
+      }
+    }, easeInOut),
+    call(() => {
+      for (const pos of cast.changingPositions) {
+        model.lines[pos - 1].glowing = false;
+        model.lines[pos - 1].glowProgress = 0;
+      }
+    }),
+    // Wait before split
+    wait(200),
+    // Split slide: primary slides left, right copy appears
+    call(() => {
+      model.layout = "splitting";
+    }),
+    tween(timing.splitSlideMs > 0 ? timing.splitSlideMs : 1, (p) => {
+      model.splitProgress = p;
+    }, easeInOut),
+    call(() => {
+      model.layout = "side-by-side";
+      model.splitProgress = 1;
+    }),
+    // Small pause after split completes
+    wait(200),
+    // Right hexagram morph wave
+    ...buildRightMorphWave(cast, model, timing),
+    // Becoming title (under right hexagram)
+    tween(timing.compareRevealMs > 0 ? timing.compareRevealMs : 1, (p) => {
+      model.becomingTitleProgress = p;
+    }, easeOut),
+  ];
+}
+
+/**
+ * Narrow terminal becoming sequence: in-place morph (original behavior).
+ */
+function buildNarrowBecoming(
+  cast: Cast,
+  model: CastModel,
+  timing: RitualTiming,
+): Step[] {
+  return [
+    wait(680),
+    // Marker pulse
+    call(() => {
+      for (const pos of cast.changingPositions) {
+        model.lines[pos - 1].glowing = true;
+        model.lines[pos - 1].markerVisible = true;
+      }
+    }),
+    tween(320, (p) => {
+      for (const pos of cast.changingPositions) {
+        model.lines[pos - 1].glowProgress = p;
+      }
+    }, easeInOut),
+    call(() => {
+      for (const pos of cast.changingPositions) {
+        model.lines[pos - 1].glowing = false;
+        model.lines[pos - 1].glowProgress = 0;
+      }
+    }),
+    // In-place morph wave
+    ...buildMorphWave(cast, model, timing),
+    // Becoming title
+    tween(timing.compareRevealMs > 0 ? timing.compareRevealMs : 1, (p) => {
+      model.becomingTitleProgress = p;
+    }, easeOut),
+  ];
+}
+
+/**
+ * Build right-hexagram morph wave: tweens model.rightHexMorphProgress[ci]
+ * where ci is the index into changingPositions (0, 1, 2...).
+ */
+function buildRightMorphWave(
+  cast: Cast,
+  model: CastModel,
+  timing: RitualTiming,
+): Step[] {
+  // Sort by position (bottom to top) but track original index into changingPositions
+  const indexed = cast.changingPositions
+    .map((pos, ci) => ({ pos, ci }))
+    .sort((a, b) => a.pos - b.pos); // bottom to top
+
+  const steps: Step[] = [];
+
+  for (const { ci } of indexed) {
+    steps.push(
+      seq(
+        tween(timing.perChangeMs > 0 ? timing.perChangeMs : 1, (p) => {
+          model.rightHexMorphProgress[ci] = p;
+        }, easeInOut),
+        call(() => {
+          model.rightHexMorphProgress[ci] = 1;
+        }),
+      ),
+    );
+  }
+
+  // After all morph tweens, mark complete
+  const morphComplete = call(() => {
+    model.rightHexMorphComplete = true;
+  });
+
+  if (steps.length <= 1) {
+    return [...steps, morphComplete];
+  }
+
+  // Stagger with 100ms between each
+  const staggered: Step[] = [];
+  for (let i = 0; i < steps.length; i++) {
+    if (i > 0) staggered.push(wait(100));
+    staggered.push(steps[i]);
+  }
+  return [seq(...staggered), morphComplete];
 }

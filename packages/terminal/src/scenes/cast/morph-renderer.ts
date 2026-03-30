@@ -33,6 +33,7 @@ export function morphFrame(isYangToYin: boolean, progress: number): string {
 export function renderMorph(
   buf: CellBuffer,
   model: CastModel,
+  xOffset: number = 0,
 ): void {
   const anchor = anchorRow(buf.height);
   const changingPositions = model.cast.changingPositions;
@@ -65,7 +66,7 @@ export function renderMorph(
 
     const style: Partial<StyledCell> = { fg };
     const lineW = stringWidth(frameStr);
-    const col = Math.max(0, Math.floor((buf.width - lineW) / 2));
+    const col = Math.max(0, Math.floor((buf.width - lineW) / 2) + xOffset);
     buf.writeText(row, col, frameStr, style);
   }
 }
