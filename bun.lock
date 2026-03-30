@@ -12,6 +12,7 @@
         "@iching/core": "workspace:*",
         "@iching/storage": "workspace:*",
         "@iching/terminal": "workspace:*",
+        "commander": "^14.0.3",
       },
     },
     "packages/core": {
@@ -41,5 +42,7 @@
     "@iching/storage": ["@iching/storage@workspace:packages/storage"],
 
     "@iching/terminal": ["@iching/terminal@workspace:packages/terminal"],
+
+    "commander": ["commander@14.0.3", "", {}, "sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw=="],
   }
 }

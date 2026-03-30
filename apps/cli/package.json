@@ -9,6 +9,7 @@
   "dependencies": {
     "@iching/core": "workspace:*",
     "@iching/storage": "workspace:*",
-    "@iching/terminal": "workspace:*"
+    "@iching/terminal": "workspace:*",
+    "commander": "^14.0.3"
   }
 }
