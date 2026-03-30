@@ -38,7 +38,7 @@ function makeChangingCast(): Cast {
     ],
     primary: 21,
     becoming: 42,
-    changingPositions: [0, 3],
+    changingPositions: [1, 4],
     nuclear: 39,
     polarity: 48,
     mirror: 22,

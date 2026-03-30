@@ -67,21 +67,22 @@ export function buildCastTimeline(
       ? [
           wait(680),
           // Marker pulse: show markers on all changing lines
+          // Note: changingPositions is 1-indexed, model.lines is 0-indexed
           call(() => {
             for (const pos of cast.changingPositions) {
-              model.lines[pos].glowing = true;
-              model.lines[pos].markerVisible = true;
+              model.lines[pos - 1].glowing = true;
+              model.lines[pos - 1].markerVisible = true;
             }
           }),
           tween(320, (p) => {
             for (const pos of cast.changingPositions) {
-              model.lines[pos].glowProgress = p;
+              model.lines[pos - 1].glowProgress = p;
             }
           }, easeInOut),
           call(() => {
             for (const pos of cast.changingPositions) {
-              model.lines[pos].glowing = false;
-              model.lines[pos].glowProgress = 0;
+              model.lines[pos - 1].glowing = false;
+              model.lines[pos - 1].glowProgress = 0;
             }
           }),
           // Morph wave: bottom-to-top
@@ -226,7 +227,7 @@ function buildMorphWave(
   const steps: Step[] = [];
 
   for (let ci = 0; ci < sorted.length; ci++) {
-    const lineIndex = sorted[ci];
+    const lineIndex = sorted[ci] - 1; // changingPositions is 1-indexed
     steps.push(
       seq(
         tween(timing.perChangeMs > 0 ? timing.perChangeMs : 1, (p) => {

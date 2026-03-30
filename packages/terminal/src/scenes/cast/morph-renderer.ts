@@ -38,7 +38,7 @@ export function renderMorph(
   const changingPositions = model.cast.changingPositions;
 
   for (let ci = 0; ci < changingPositions.length; ci++) {
-    const lineIndex = changingPositions[ci];
+    const lineIndex = changingPositions[ci] - 1; // changingPositions is 1-indexed
     const lineState = model.lines[lineIndex];
 
     // Only render during active morph
