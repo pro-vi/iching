@@ -87,3 +87,22 @@ export {
 } from "./scene/types.ts";
 
 export { runScene } from "./scene/loop.ts";
+
+// Glyphs
+export { GLYPHS, LINE_WIDTH } from "./glyphs.ts";
+
+// Scenes: casting ritual
+export { CastScene } from "./scenes/cast/cast-scene.ts";
+export { CastModel } from "./scenes/cast/model.ts";
+export { renderCoins, coinSpinGlyph, coinLandGlyph } from "./scenes/cast/coin-renderer.ts";
+export { renderLine, lineFrame } from "./scenes/cast/line-renderer.ts";
+export { renderHexagram, anchorRow, LINE_ROW_OFFSETS } from "./scenes/cast/hexagram-renderer.ts";
+export { renderTitle, renderBecomingTitle } from "./scenes/cast/reveal-renderer.ts";
+export { renderMorph, morphFrame } from "./scenes/cast/morph-renderer.ts";
+export { buildCastTimeline } from "./scenes/cast/timeline-builder.ts";
+
+// Scenes: prompt
+export { PromptScene } from "./scenes/prompt/prompt-scene.ts";
+
+// Scenes: journal (placeholder)
+export { JournalScene } from "./scenes/journal/journal-scene.ts";
