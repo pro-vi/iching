@@ -1,0 +1,54 @@
+import { describe, test, expect, beforeEach } from "bun:test";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { UserConfig } from "../types.js";
+import { JsonConfigStore } from "../json/json-config.js";
+
+describe("JsonConfigStore", () => {
+  let dir: string;
+  let store: JsonConfigStore;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "config-test-"));
+    store = new JsonConfigStore(join(dir, "config.json"));
+  });
+
+  test("load returns defaults when no file", async () => {
+    const config = await store.load();
+
+    expect(config).toEqual({
+      motion: "default",
+      theme: "temple-night",
+      color: "auto",
+      timezone: "system",
+    });
+  });
+
+  test("save then load round-trip", async () => {
+    const custom: UserConfig = {
+      motion: "brisk",
+      theme: "temple-night",
+      color: "never",
+      timezone: "America/New_York",
+    };
+
+    await store.save(custom);
+    const loaded = await store.load();
+    expect(loaded).toEqual(custom);
+  });
+
+  test("load merges with defaults for partial config file", async () => {
+    // Write a partial config directly
+    const partial = { motion: "deep" };
+    await writeFile(join(dir, "config.json"), JSON.stringify(partial), "utf-8");
+
+    const config = await store.load();
+    expect(config).toEqual({
+      motion: "deep",
+      theme: "temple-night",
+      color: "auto",
+      timezone: "system",
+    });
+  });
+});
