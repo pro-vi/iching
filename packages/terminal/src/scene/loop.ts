@@ -48,10 +48,9 @@ export async function runScene(
 
     // Wire up stdin → KeyParser → input queue
     const inputQueue: KeyEvent[] = [];
-    const keyParser = new KeyParser();
+    const keyParser = new KeyParser((event) => inputQueue.push(event));
     const onData = (chunk: Buffer) => {
-      const events = keyParser.feed(chunk);
-      inputQueue.push(...events);
+      keyParser.feed(new Uint8Array(chunk));
     };
     process.stdin.on("data", onData);
 

@@ -27,8 +27,9 @@ export function renderTitle(
   const line1 = `${gua.u} ${gua.n}`;
   // Line 2: Pinyin
   const line2 = gua.p;
-  // Line 3: English
-  const line3 = gua.en.length > 30 ? gua.en.slice(0, 30) : gua.en;
+  // Line 3: English — truncate to fit terminal width with some padding
+  const maxWidth = Math.max(20, buf.width - 8);
+  const line3 = stringWidth(gua.en) > maxWidth ? gua.en.slice(0, maxWidth - 1) + "…" : gua.en;
   // Line 4: Trigram meta
   const line4 = `${structure.upper.sym} above ${structure.lower.sym}`;
 
