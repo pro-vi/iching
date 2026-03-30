@@ -6,6 +6,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "build": "bun build --compile apps/cli/src/main.ts --outfile dist/iching"
+    "build": "bun scripts/build.ts",
+    "build:all": "bun scripts/build.ts --all",
+    "smoke": "bun scripts/smoke-test.ts"
   }
 }
