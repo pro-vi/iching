@@ -1,10 +1,11 @@
 // Main render loop — 30 FPS with drift compensation
 
 import type { Clock } from "../clock.ts";
-import type { Scene, SceneContext, SceneSignal } from "./types.ts";
+import type { Scene, SceneContext } from "./types.ts";
 import type { ColorSupport } from "../color/detect.ts";
-import type { TerminalSession } from "../session/terminal-session.ts";
+import { TerminalSession } from "../session/terminal-session.ts";
 import type { KeyEvent } from "../input/key-parser.ts";
+import { KeyParser } from "../input/key-parser.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import { DiffRenderer } from "../render/diff-render.ts";
 
@@ -15,11 +16,11 @@ const MAX_DT = 50; // cap dt to avoid large jumps after stalls
 /**
  * Run a scene inside a terminal session.
  *
- * The loop:
- * 1. Create SceneContext from session dimensions
+ * 1. Enter alt screen, hide cursor, enable raw mode
  * 2. Call scene.enter()
  * 3. Loop at <=30 FPS with drift compensation
  * 4. Call scene.exit()
+ * 5. Restore terminal
  */
 export async function runScene(
   scene: Scene,
@@ -27,93 +28,78 @@ export async function runScene(
   clock: Clock,
   colorSupport: ColorSupport,
 ): Promise<void> {
-  const ctx: SceneContext = {
-    cols: session.cols,
-    rows: session.rows,
-    done: false,
-    colorSupport,
-  };
+  // Enter alt screen, raw mode, hide cursor
+  session.enter();
 
-  // Wire up resize
-  const onResize = (cols: number, rows: number) => {
-    ctx.cols = cols;
-    ctx.rows = rows;
-    scene.resize?.(cols, rows);
-  };
-  session.onResize(onResize);
+  try {
+    const ctx: SceneContext = {
+      cols: session.cols,
+      rows: session.rows,
+      done: false,
+      colorSupport,
+    };
 
-  // Wire up input queue
-  const inputQueue: KeyEvent[] = [];
-  const inputCleanup = setupInput(session, inputQueue);
+    // Wire up resize
+    session.onResize((cols, rows) => {
+      ctx.cols = cols;
+      ctx.rows = rows;
+      scene.resize?.(cols, rows);
+    });
 
-  // Create diff renderer
-  const renderer = new DiffRenderer(undefined, colorSupport);
+    // Wire up stdin → KeyParser → input queue
+    const inputQueue: KeyEvent[] = [];
+    const keyParser = new KeyParser();
+    const onData = (chunk: Buffer) => {
+      const events = keyParser.feed(chunk);
+      inputQueue.push(...events);
+    };
+    process.stdin.on("data", onData);
 
-  await scene.enter?.(ctx);
+    // Create diff renderer
+    const renderer = new DiffRenderer(undefined, colorSupport);
 
-  const start = clock.now();
-  let prev = start;
-  let prevBuffer = CellBuffer.create(ctx.cols, ctx.rows);
+    await scene.enter?.(ctx);
 
-  while (!ctx.done) {
-    const now = clock.now();
-    const elapsed = now - start;
-    const dt = Math.min(now - prev, MAX_DT);
-    prev = now;
+    const start = clock.now();
+    let prev = start;
+    let prevBuffer = CellBuffer.create(ctx.cols, ctx.rows);
 
-    // Drain input queue
-    drainInput(scene, ctx, inputQueue);
+    while (!ctx.done) {
+      const now = clock.now();
+      const elapsed = now - start;
+      const dt = Math.min(now - prev, MAX_DT);
+      prev = now;
 
-    // If input signaled exit, break
-    if (ctx.done) break;
+      // Drain input queue
+      while (inputQueue.length > 0) {
+        const key = inputQueue.shift()!;
+        const signal = scene.handleKey?.(key, ctx);
+        if (signal === "exit") {
+          ctx.done = true;
+          break;
+        }
+      }
+      if (ctx.done) break;
 
-    // Update
-    scene.update(elapsed, dt, ctx);
+      // Update
+      scene.update(elapsed, dt, ctx);
 
-    // Render
-    const frame = CellBuffer.create(ctx.cols, ctx.rows);
-    scene.render(frame, ctx);
-    renderer.present(prevBuffer, frame);
-    prevBuffer = frame;
+      // Render
+      const frame = CellBuffer.create(ctx.cols, ctx.rows);
+      scene.render(frame, ctx);
+      renderer.present(prevBuffer, frame);
+      prevBuffer = frame;
 
-    // Sleep until next frame target with drift compensation
-    const target = start + (Math.floor((now - start) / FRAME_MS) + 1) * FRAME_MS;
-    const sleepMs = Math.max(0, target - clock.now());
-    await clock.sleep(sleepMs);
-  }
-
-  await scene.exit?.(ctx);
-  inputCleanup();
-}
-
-/** Drain all pending key events into the scene. */
-function drainInput(
-  scene: Scene,
-  ctx: SceneContext,
-  queue: KeyEvent[],
-): void {
-  while (queue.length > 0) {
-    const key = queue.shift()!;
-    const signal = scene.handleKey?.(key, ctx);
-    if (signal === "exit") {
-      ctx.done = true;
-      return;
+      // Sleep until next frame target with drift compensation
+      const target = start + (Math.floor((now - start) / FRAME_MS) + 1) * FRAME_MS;
+      const sleepMs = Math.max(0, target - clock.now());
+      await clock.sleep(sleepMs);
     }
-  }
-}
 
-/** Set up input reading. Returns cleanup function. */
-function setupInput(
-  _session: TerminalSession,
-  queue: KeyEvent[],
-): () => void {
-  // The session's stdin is in raw mode. We read keys via the
-  // raw-input module in production. For testability, scenes
-  // can also push keys into the queue directly.
-  //
-  // In a real session, TerminalSession would wire stdin → KeyParser → queue.
-  // For now we expose the queue pattern; wiring happens at the call-site.
-  return () => {
-    queue.length = 0;
-  };
+    await scene.exit?.(ctx);
+    process.stdin.off("data", onData);
+  } finally {
+    // Always restore terminal, even on error
+    session.exit();
+  }
 }
