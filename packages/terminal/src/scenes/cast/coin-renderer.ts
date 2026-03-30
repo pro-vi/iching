@@ -3,7 +3,7 @@
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { StyledCell } from "../../render/cell.ts";
 import type { CastModel } from "./model.ts";
-import { GLYPHS } from "../../glyphs.ts";
+import { GLYPHS, LINE_WIDTH } from "../../glyphs.ts";
 import { TEMPLE_NIGHT } from "../../color/themes/temple-night.ts";
 
 /** Render the 3 coins at the given row, centered in the buffer. */
@@ -15,10 +15,13 @@ export function renderCoins(
   const { coinPhase, coinProgress, coinResults } = model;
   if (coinPhase === "done" || coinPhase === "idle") return;
 
-  const centerCol = Math.floor(buf.width / 2);
+  // Center coins on the same axis as the hexagram lines
+  // Lines are LINE_WIDTH (15) chars, centered at (buf.width - LINE_WIDTH) / 2 + floor(LINE_WIDTH / 2)
+  const lineLeft = Math.floor((buf.width - LINE_WIDTH) / 2);
+  const centerCol = lineLeft + Math.floor(LINE_WIDTH / 2);
 
-  // Coins spaced 3 apart: [-3, 0, +3]
-  const offsets = [-3, 0, 3];
+  // Coins spaced 4 apart: [-4, 0, +4]
+  const offsets = [-4, 0, 4];
 
   for (let i = 0; i < 3; i++) {
     const col = centerCol + offsets[i];
