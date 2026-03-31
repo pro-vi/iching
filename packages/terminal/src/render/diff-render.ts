@@ -42,6 +42,12 @@ export class DiffRenderer {
       for (let col = 0; col < next.width; col++) {
         const cell = next.getCell(row, col);
 
+        // Skip continuation cells from wide (CJK) characters —
+        // the terminal already advanced past this column when it
+        // rendered the wide char. Writing a space here would shift
+        // all subsequent characters right.
+        if (cell.char === "") continue;
+
         // Check if style changed
         const fgChanged = cell.fg !== lastFg;
         const bgChanged = cell.bg !== lastBg;
