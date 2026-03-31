@@ -56,6 +56,17 @@ async function main() {
         } else {
           console.log("No journal entries found.");
         }
+      } else if (signal.goto === "dictionary") {
+        const { BrowseScene, DetailScene, SceneRouter } = await import("@iching/terminal");
+        const browseScene = new BrowseScene();
+        const factory = (id: string) => {
+          if (id.startsWith("detail:")) {
+            return new DetailScene(Number(id.slice(7)));
+          }
+          return new BrowseScene();
+        };
+        const router = new SceneRouter(browseScene, factory);
+        await router.run(session, new RealClock(), detectColorSupport());
       }
     }
     process.exit(0);

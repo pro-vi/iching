@@ -5,6 +5,7 @@ import { registerHexagramCommand } from "./commands/hexagram.js";
 import { registerConfigCommand } from "./commands/config.js";
 import { registerPathsCommand } from "./commands/paths.js";
 import { registerDoctorCommand } from "./commands/doctor.js";
+import { registerDictCommand } from "./commands/dict.js";
 
 const pkg = { name: "iching", version: "0.1.0" };
 
@@ -24,3 +25,4 @@ registerHexagramCommand(program);
 registerConfigCommand(program);
 registerPathsCommand(program);
 registerDoctorCommand(program);
+registerDictCommand(program);

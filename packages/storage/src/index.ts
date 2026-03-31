@@ -18,6 +18,9 @@ export { JsonDailyCacheStore } from "./json/json-daily-cache.js";
 export { JsonConfigStore } from "./json/json-config.js";
 export { atomicWriteJson } from "./json/atomic-write.js";
 
+// Journal query
+export { type HexagramHistory, getHexagramHistory } from "./journal-query.js";
+
 // Legacy discovery
 export { discoverLegacyPaths } from "./legacy/discovery.js";
 export type { LegacyPaths } from "./legacy/discovery.js";

@@ -96,6 +96,9 @@ export class CastScene implements Scene {
       if (key.type === "char" && key.char === "j") {
         return { goto: "journal" };
       }
+      if (key.type === "char" && key.char === "d") {
+        return { goto: "dictionary" };
+      }
     }
 
     // Ctrl-C
@@ -138,7 +141,7 @@ function renderSplitArrow(buf: CellBuffer, model: CastModel): void {
 
 /** Render the prompt bar at the bottom of the hexagram area. */
 function renderPrompt(buf: CellBuffer): void {
-  const text = "[enter] open reading   [j] journal   [q] quit";
+  const text = "[enter] reading   [j] journal   [d] dictionary   [q] quit";
   const row = buf.height - 2;
   if (row < 0) return;
   const w = stringWidth(text);
