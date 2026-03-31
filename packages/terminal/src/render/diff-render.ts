@@ -2,7 +2,7 @@
 
 import { CellBuffer } from "./buffer.ts";
 import { type StyledCell, cellsEqual } from "./cell.ts";
-import { cursorTo } from "../ansi/codes.ts";
+import { cursorTo, clearToEndOfLine } from "../ansi/codes.ts";
 import { fgColor, bgColor, boldStyle, dimStyle, resetStyle } from "../ansi/sgr.ts";
 import { detectColorSupport, type ColorSupport } from "../color/detect.ts";
 
@@ -29,8 +29,9 @@ export class DiffRenderer {
     for (let row = 0; row < next.height; row++) {
       if (this.rowsEqual(prev, next, row)) continue;
 
-      // Emit cursor move to start of changed row
+      // Emit cursor move to start of changed row, clear it first
       chunks.push(cursorTo(row, 0));
+      chunks.push(clearToEndOfLine);
 
       // Emit styled cells for the entire row
       let lastFg: string | undefined;
