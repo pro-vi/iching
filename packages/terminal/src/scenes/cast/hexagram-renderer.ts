@@ -4,7 +4,7 @@ import type { CellBuffer } from "../../render/buffer.ts";
 import type { CastModel } from "./model.ts";
 import { renderLine } from "./line-renderer.ts";
 import { GLYPHS, LINE_WIDTH } from "../../glyphs.ts";
-import { TEMPLE_NIGHT } from "../../color/themes/temple-night.ts";
+import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 
 /**
@@ -46,6 +46,7 @@ export function renderHexagram(
   model: CastModel,
   xOffset: number = 0,
 ): void {
+  const t = getTheme();
   const anchor = anchorRow(buf.height);
 
   for (let i = 0; i < 6; i++) {
@@ -61,20 +62,20 @@ export function renderHexagram(
       // Whole-figure glow
       const g = model.glowProgress;
       if (g < 0.5) {
-        color = TEMPLE_NIGHT.gold;
+        color = t.accent;
       } else {
-        color = TEMPLE_NIGHT.bone;
+        color = t.primary;
       }
     }
     if (lineState.glowing && lineState.glowProgress > 0) {
       // Changing line pulse — overrides whole glow
       const isYangChanging = line.value === 9; // old yang
       if (lineState.glowProgress < 0.33) {
-        color = isYangChanging ? TEMPLE_NIGHT.gold : TEMPLE_NIGHT.moon;
+        color = isYangChanging ? t.accent : t.changingYin;
       } else if (lineState.glowProgress < 0.66) {
-        color = isYangChanging ? TEMPLE_NIGHT.brightGold : TEMPLE_NIGHT.moon;
+        color = isYangChanging ? t.selected : t.changingYin;
       } else {
-        color = isYangChanging ? TEMPLE_NIGHT.gold : TEMPLE_NIGHT.moon;
+        color = isYangChanging ? t.accent : t.changingYin;
       }
     }
 
@@ -85,7 +86,7 @@ export function renderHexagram(
     if (lineState.morphComplete) {
       // After morph: yang becomes yin, yin becomes yang
       const transformedIsYang = !line.isYang;
-      renderLine(buf, row, transformedIsYang, 1, color ?? TEMPLE_NIGHT.bone, xOffset);
+      renderLine(buf, row, transformedIsYang, 1, color ?? t.primary, xOffset);
     } else {
       renderLine(buf, row, line.isYang, lineState.progress, color, xOffset);
     }
@@ -100,7 +101,7 @@ export function renderHexagram(
           ? GLYPHS.changingMarkerYang
           : GLYPHS.changingMarkerYin;
       const markerColor =
-        line.value === 9 ? TEMPLE_NIGHT.gold : TEMPLE_NIGHT.moon;
+        line.value === 9 ? t.accent : t.changingYin;
       buf.writeText(row, markerCol, marker, { fg: markerColor });
     }
   }

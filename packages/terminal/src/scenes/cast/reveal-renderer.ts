@@ -3,7 +3,7 @@
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { CastModel } from "./model.ts";
 import { GUA, getStructure } from "@iching/core";
-import { TEMPLE_NIGHT } from "../../color/themes/temple-night.ts";
+import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { anchorRow, TITLE_ROW_OFFSET } from "./hexagram-renderer.ts";
 
@@ -18,6 +18,7 @@ export function renderTitle(
 ): void {
   if (model.titleProgress <= 0) return;
 
+  const t = getTheme();
   const anchor = anchorRow(buf.height);
   const baseRow = anchor + TITLE_ROW_OFFSET;
   const hexNum = model.cast.primary;
@@ -54,11 +55,11 @@ export function renderTitle(
     // Color: dim initially, then brighter
     let fg: string;
     if (i === 0) {
-      fg = lineProgress < 0.5 ? TEMPLE_NIGHT.stone : TEMPLE_NIGHT.bone;
+      fg = lineProgress < 0.5 ? t.secondary : t.primary;
     } else if (i === 3) {
-      fg = TEMPLE_NIGHT.ash;
+      fg = t.tertiary;
     } else {
-      fg = lineProgress < 0.5 ? TEMPLE_NIGHT.ash : TEMPLE_NIGHT.stone;
+      fg = lineProgress < 0.5 ? t.tertiary : t.secondary;
     }
 
     const w = stringWidth(lines[i]);
@@ -73,7 +74,7 @@ export function renderTitle(
       const w = stringWidth(model.subtitleText);
       const col = Math.max(0, Math.floor((buf.width - w) / 2) + xOffset);
       buf.writeText(subRow, col, model.subtitleText, {
-        fg: TEMPLE_NIGHT.ash,
+        fg: t.tertiary,
         dim: true,
       });
     }
@@ -90,6 +91,7 @@ export function renderBecomingTitle(
 ): void {
   if (model.becomingTitleProgress <= 0 || model.cast.becoming === null) return;
 
+  const t = getTheme();
   const anchor = anchorRow(buf.height);
   const isSplit = model.layout !== "centered";
   // In split mode, becoming title renders at same row as primary title (not +6)
@@ -111,7 +113,7 @@ export function renderBecomingTitle(
     const lineProgress = Math.max(0, Math.min(1, (progress - i * 0.2) / 0.6));
     if (lineProgress <= 0) continue;
 
-    const fg = i === 0 ? TEMPLE_NIGHT.jade : TEMPLE_NIGHT.ash;
+    const fg = i === 0 ? t.changingYin : t.tertiary;
     const w = stringWidth(lines[i]);
     const col = Math.max(0, Math.floor((buf.width - w) / 2) + xOffset);
     buf.writeText(row, col, lines[i], { fg });

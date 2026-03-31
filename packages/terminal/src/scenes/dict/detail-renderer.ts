@@ -3,7 +3,7 @@
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { SceneContext } from "../../scene/types.ts";
 import type { DetailModel, DerivedLink } from "./detail-model.ts";
-import { TEMPLE_NIGHT } from "../../color/themes/temple-night.ts";
+import { getTheme } from "../../color/theme.ts";
 import { stringWidth, centerPad } from "../../layout/measure.ts";
 import { wordWrap } from "./word-wrap.ts";
 import { GLYPHS } from "../../glyphs.ts";
@@ -21,6 +21,7 @@ export interface ContentLine {
 
 /** Build all content lines for the detail view */
 export function buildContentLines(model: DetailModel, width: number): ContentLine[] {
+  const t = getTheme();
   const lines: ContentLine[] = [];
   const gua = model.detail.gua;
   const textWidth = width - PADDING * 2;
@@ -28,19 +29,19 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
   // Header — centered name
   lines.push({
     text: centerPad(`${gua.u} ${gua.n} ${gua.p}`, textWidth),
-    fg: TEMPLE_NIGHT.primary,
+    fg: t.primary,
     bold: true,
   });
   lines.push({
     text: centerPad(gua.ename, textWidth),
-    fg: TEMPLE_NIGHT.accent,
+    fg: t.accent,
   });
   lines.push({ text: "" });
 
   // Line diagram (top to bottom: line 6 down to line 1)
   for (let i = 5; i >= 0; i--) {
     const lineChar = gua.l[i] === 1 ? GLYPHS.yangFinal : GLYPHS.yinFinal;
-    lines.push({ text: centerPad(lineChar, textWidth), fg: TEMPLE_NIGHT.primary });
+    lines.push({ text: centerPad(lineChar, textWidth), fg: t.primary });
     // Add gap between upper and lower trigrams (after line 4, before line 3)
     if (i === 3) {
       lines.push({ text: "" });
@@ -53,12 +54,12 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
   const trigramLine = `${s.upper.sym} ${s.upper.n} ${s.upper.img} above  ${s.lower.sym} ${s.lower.n} ${s.lower.img}`;
   lines.push({
     text: centerPad(trigramLine, textWidth),
-    fg: TEMPLE_NIGHT.stone,
+    fg: t.secondary,
   });
 
   // Separator
   lines.push({ text: "" });
-  lines.push({ text: "─".repeat(textWidth), fg: TEMPLE_NIGHT.ash });
+  lines.push({ text: "─".repeat(textWidth), fg: t.tertiary });
   lines.push({ text: "" });
 
   // Commentary sections
@@ -71,19 +72,19 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
   ];
 
   for (const [label, text] of sections) {
-    lines.push({ text: label, fg: TEMPLE_NIGHT.accent, bold: true });
+    lines.push({ text: label, fg: t.accent, bold: true });
     const wrapped = wordWrap(text, textWidth);
     for (const wl of wrapped) {
-      lines.push({ text: wl, fg: TEMPLE_NIGHT.stone });
+      lines.push({ text: wl, fg: t.secondary });
     }
     lines.push({ text: "" });
   }
 
   // Line interpretations (爻辭)
   if (gua.yao && gua.yao.length === 6) {
-    lines.push({ text: "─".repeat(textWidth), fg: TEMPLE_NIGHT.ash });
+    lines.push({ text: "─".repeat(textWidth), fg: t.tertiary });
     lines.push({ text: "" });
-    lines.push({ text: "爻辭 Line Texts", fg: TEMPLE_NIGHT.accent, bold: true });
+    lines.push({ text: "爻辭 Line Texts", fg: t.accent, bold: true });
     lines.push({ text: "" });
 
     // Display top-to-bottom (line 6 down to line 1) to match visual diagram
@@ -91,13 +92,13 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
       // Chinese line text
       const wrapped = wordWrap(gua.yao[i], textWidth);
       for (const wl of wrapped) {
-        lines.push({ text: wl, fg: TEMPLE_NIGHT.stone });
+        lines.push({ text: wl, fg: t.secondary });
       }
       // English translation
       if (gua.yaoEn && gua.yaoEn[i]) {
         const wrappedEn = wordWrap(gua.yaoEn[i], textWidth);
         for (const wl of wrappedEn) {
-          lines.push({ text: wl, fg: TEMPLE_NIGHT.ash });
+          lines.push({ text: wl, fg: t.tertiary });
         }
       }
       lines.push({ text: "" });
@@ -105,18 +106,18 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
   }
 
   // Separator before derived
-  lines.push({ text: "─".repeat(textWidth), fg: TEMPLE_NIGHT.ash });
+  lines.push({ text: "─".repeat(textWidth), fg: t.tertiary });
   lines.push({ text: "" });
 
   // Derived hexagrams
-  lines.push({ text: "Derived", fg: TEMPLE_NIGHT.accent, bold: true });
+  lines.push({ text: "Derived", fg: t.accent, bold: true });
   for (let i = 0; i < model.derivedLinks.length; i++) {
     const link = model.derivedLinks[i];
     const isSelected = model.focus === "derived" && model.derivedCursor === i;
     const marker = isSelected ? ">" : " ";
     lines.push({
       text: `${marker} ${link.labelCn} ${link.label.padEnd(10)} ${link.symbol} ${link.name}  ${link.ename}`,
-      fg: isSelected ? TEMPLE_NIGHT.primary : TEMPLE_NIGHT.stone,
+      fg: isSelected ? t.primary : t.secondary,
     });
   }
 
@@ -125,21 +126,21 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
     lines.push({ text: "" });
     lines.push({
       text: `🔒 Locked pair: ${model.detail.lockedPartner.gua.n}`,
-      fg: TEMPLE_NIGHT.ash,
+      fg: t.tertiary,
     });
   }
 
   lines.push({ text: "" });
 
   // Separator before history
-  lines.push({ text: "─".repeat(textWidth), fg: TEMPLE_NIGHT.ash });
+  lines.push({ text: "─".repeat(textWidth), fg: t.tertiary });
 
   // History
   const historyText =
     model.castCount > 0
       ? `Cast ${model.castCount} time${model.castCount !== 1 ? "s" : ""} (last: ${model.lastCastDate})`
       : "Never cast";
-  lines.push({ text: historyText, fg: TEMPLE_NIGHT.ash, dim: true });
+  lines.push({ text: historyText, fg: t.tertiary, dim: true });
 
   return lines;
 }
@@ -176,10 +177,11 @@ function renderFooter(
   model: DetailModel,
   ctx: SceneContext,
 ): void {
+  const t = getTheme();
   const sepRow = ctx.rows - 2;
   const footerRow = ctx.rows - 1;
 
-  frame.writeText(sepRow, 0, "─".repeat(ctx.cols), { fg: TEMPLE_NIGHT.ash });
+  frame.writeText(sepRow, 0, "─".repeat(ctx.cols), { fg: t.tertiary });
 
   const keys =
     model.focus === "derived"
@@ -191,10 +193,10 @@ function renderFooter(
       ? `${Math.floor(model.scrollOffset / model.viewportHeight) + 1}/${Math.ceil(model.contentHeight / model.viewportHeight)}`
       : "";
 
-  frame.writeText(footerRow, 1, keys, { fg: TEMPLE_NIGHT.stone });
+  frame.writeText(footerRow, 1, keys, { fg: t.secondary });
   if (indicator) {
     frame.writeText(footerRow, ctx.cols - indicator.length - 1, indicator, {
-      fg: TEMPLE_NIGHT.ash,
+      fg: t.tertiary,
     });
   }
 }

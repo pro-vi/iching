@@ -5,7 +5,7 @@ import type { StyledCell } from "../../render/cell.ts";
 import type { CastModel } from "./model.ts";
 import { renderLine } from "./line-renderer.ts";
 import { GLYPHS, LINE_WIDTH } from "../../glyphs.ts";
-import { TEMPLE_NIGHT } from "../../color/themes/temple-night.ts";
+import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { anchorRow, LINE_ROW_OFFSETS } from "./hexagram-renderer.ts";
 import { morphFrame } from "./morph-renderer.ts";
@@ -24,6 +24,7 @@ export function renderRightHexagram(
 ): void {
   if (model.layout === "centered" || model.splitProgress <= 0) return;
 
+  const t = getTheme();
   const anchor = anchorRow(buf.height);
   const changingPositions = model.cast.changingPositions;
 
@@ -52,15 +53,15 @@ export function renderRightHexagram(
       // Morph complete: render transformed line
       if (model.rightHexMorphComplete) {
         const transformedIsYang = !line.isYang;
-        renderLine(buf, row, transformedIsYang, 1, TEMPLE_NIGHT.bone, xOffset);
+        renderLine(buf, row, transformedIsYang, 1, t.primary, xOffset);
         continue;
       }
 
       // Not yet morphing: render original
-      renderLine(buf, row, line.isYang, 1, TEMPLE_NIGHT.bone, xOffset);
+      renderLine(buf, row, line.isYang, 1, t.primary, xOffset);
     } else {
       // Non-changing line: render same as primary
-      renderLine(buf, row, line.isYang, 1, TEMPLE_NIGHT.bone, xOffset);
+      renderLine(buf, row, line.isYang, 1, t.primary, xOffset);
     }
   }
 }
@@ -76,6 +77,7 @@ export function renderRightMorph(
 ): void {
   if (model.layout === "centered" || model.splitProgress <= 0) return;
 
+  const t = getTheme();
   const anchor = anchorRow(buf.height);
   const changingPositions = model.cast.changingPositions;
 
@@ -94,14 +96,14 @@ export function renderRightMorph(
     const isYangToYin = line.value === 9; // old yang morphs to yin
     const frameStr = morphFrame(isYangToYin, mp);
 
-    // Color ramp during morph: jade/cinnabar -> glow -> bone
+    // Color ramp during morph: changingYang/changingYin -> glow -> primary
     let fg: string;
     if (mp < 0.33) {
-      fg = isYangToYin ? TEMPLE_NIGHT.cinnabar : TEMPLE_NIGHT.jade;
+      fg = isYangToYin ? t.changingYang : t.changingYin;
     } else if (mp < 0.66) {
-      fg = TEMPLE_NIGHT.glow;
+      fg = t.glow;
     } else {
-      fg = TEMPLE_NIGHT.bone;
+      fg = t.primary;
     }
 
     const style: Partial<StyledCell> = { fg };

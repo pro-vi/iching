@@ -5,7 +5,7 @@ import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
 import type { HistoryEntry } from "@iching/core";
 import { GUA, buildStructure } from "@iching/core";
-import { TEMPLE_NIGHT } from "../../color/themes/temple-night.ts";
+import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { ScrollableRegion } from "../../widgets/scrollable.ts";
 
@@ -32,25 +32,26 @@ export class JournalScene implements Scene {
   }
 
   render(frame: CellBuffer, ctx: SceneContext): void {
+    const t = getTheme();
     const maxW = ctx.cols;
 
     // Header
     const title = "Journal";
     const titleCol = Math.max(0, Math.floor((maxW - stringWidth(title)) / 2));
-    frame.writeText(0, titleCol, title, { fg: TEMPLE_NIGHT.bone, bold: true });
+    frame.writeText(0, titleCol, title, { fg: t.primary, bold: true });
 
     const countText = `${this.entries.length} readings`;
-    frame.writeText(0, maxW - stringWidth(countText) - 1, countText, { fg: TEMPLE_NIGHT.ash });
+    frame.writeText(0, maxW - stringWidth(countText) - 1, countText, { fg: t.tertiary });
 
     // Separator
     const sep = "─".repeat(Math.min(maxW, 60));
     const sepCol = Math.max(0, Math.floor((maxW - stringWidth(sep)) / 2));
-    frame.writeText(1, sepCol, sep, { fg: TEMPLE_NIGHT.ash, dim: true });
+    frame.writeText(1, sepCol, sep, { fg: t.tertiary, dim: true });
 
     if (this.entries.length === 0) {
       const empty = "No readings yet";
       const emptyCol = Math.max(0, Math.floor((maxW - stringWidth(empty)) / 2));
-      frame.writeText(Math.floor(ctx.rows / 2), emptyCol, empty, { fg: TEMPLE_NIGHT.stone });
+      frame.writeText(Math.floor(ctx.rows / 2), emptyCol, empty, { fg: t.secondary });
       return;
     }
 
@@ -92,8 +93,8 @@ export class JournalScene implements Scene {
 
       const col = 3;
       const cursor = isSelected ? " > " : "   ";
-      const fg = isSelected ? TEMPLE_NIGHT.bone : TEMPLE_NIGHT.stone;
-      const cursorFg = isSelected ? TEMPLE_NIGHT.gold : TEMPLE_NIGHT.ash;
+      const fg = isSelected ? t.primary : t.secondary;
+      const cursorFg = isSelected ? t.accent : t.tertiary;
 
       frame.writeText(row, 0, cursor, { fg: cursorFg });
       frame.writeText(row, col, line, { fg, bold: isSelected });
@@ -103,13 +104,13 @@ export class JournalScene implements Scene {
     if (this.entries.length > viewportH) {
       const pct = Math.round((this.cursor / (this.entries.length - 1)) * 100);
       const indicator = `${this.cursor + 1}/${this.entries.length} (${pct}%)`;
-      frame.writeText(ctx.rows - 2, maxW - stringWidth(indicator) - 1, indicator, { fg: TEMPLE_NIGHT.ash });
+      frame.writeText(ctx.rows - 2, maxW - stringWidth(indicator) - 1, indicator, { fg: t.tertiary });
     }
 
     // Footer
     const footer = "↑↓ navigate   enter detail   d dictionary   esc/q back";
     const footerCol = Math.max(0, Math.floor((maxW - stringWidth(footer)) / 2));
-    frame.writeText(ctx.rows - 1, footerCol, footer, { fg: TEMPLE_NIGHT.ash });
+    frame.writeText(ctx.rows - 1, footerCol, footer, { fg: t.tertiary });
 
     // Detail preview of selected entry
     if (this.entries[this.cursor]) {
@@ -121,7 +122,7 @@ export class JournalScene implements Scene {
       const detailRow = ctx.rows - 2;
       const detail = gua.en;
       if (stringWidth(detail) <= maxW - 4) {
-        frame.writeText(detailRow, 2, detail, { fg: TEMPLE_NIGHT.ash, dim: true });
+        frame.writeText(detailRow, 2, detail, { fg: t.tertiary, dim: true });
       }
     }
   }

@@ -3,7 +3,7 @@
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { StyledCell } from "../../render/cell.ts";
 import { GLYPHS, LINE_WIDTH } from "../../glyphs.ts";
-import { TEMPLE_NIGHT } from "../../color/themes/temple-night.ts";
+import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 
 /**
@@ -25,6 +25,7 @@ export function renderLine(
 ): void {
   if (progress <= 0) return;
 
+  const t = getTheme();
   const frames = isYang ? GLYPHS.yangFrames : GLYPHS.yinFrames;
   const maxFrame = frames.length - 1;
 
@@ -33,16 +34,16 @@ export function renderLine(
   const frameIndex = Math.min(maxFrame, Math.floor(clamped * frames.length));
   const frameStr = frames[Math.min(frameIndex, maxFrame)];
 
-  // Color ramp: ash -> stone -> bone based on progress
+  // Color ramp: tertiary -> secondary -> primary based on progress
   let fg: string;
   if (color) {
     fg = color;
   } else if (clamped < 0.33) {
-    fg = TEMPLE_NIGHT.ash;
+    fg = t.tertiary;
   } else if (clamped < 0.66) {
-    fg = TEMPLE_NIGHT.stone;
+    fg = t.secondary;
   } else {
-    fg = TEMPLE_NIGHT.bone;
+    fg = t.primary;
   }
 
   const style: Partial<StyledCell> = { fg };

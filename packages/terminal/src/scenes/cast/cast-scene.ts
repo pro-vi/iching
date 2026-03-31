@@ -15,7 +15,7 @@ import { renderMorph } from "./morph-renderer.ts";
 import { renderRightHexagram, renderRightMorph } from "./right-hex-renderer.ts";
 import { buildCastTimeline } from "./timeline-builder.ts";
 import { hexColOffset } from "./layout-calc.ts";
-import { TEMPLE_NIGHT } from "../../color/themes/temple-night.ts";
+import { getTheme } from "../../color/theme.ts";
 import { SPLIT_ARROW } from "../../glyphs.ts";
 import { stringWidth } from "../../layout/measure.ts";
 
@@ -122,6 +122,7 @@ export class CastScene implements Scene {
 function renderSplitArrow(buf: CellBuffer, model: CastModel): void {
   if (model.splitProgress <= 0) return;
 
+  const t = getTheme();
   const anchor = anchorRow(buf.height);
   // Vertical midpoint between upper and lower trigrams
   // Line 3 is at anchor + LINE_ROW_OFFSETS[2] = anchor - 5
@@ -135,16 +136,17 @@ function renderSplitArrow(buf: CellBuffer, model: CastModel): void {
   const col = Math.max(0, Math.floor((buf.width - arrowW) / 2));
 
   // Fade in with split progress
-  const fg = model.splitProgress < 0.5 ? TEMPLE_NIGHT.ash : TEMPLE_NIGHT.stone;
+  const fg = model.splitProgress < 0.5 ? t.tertiary : t.secondary;
   buf.writeText(arrowRow, col, SPLIT_ARROW, { fg });
 }
 
 /** Render the prompt bar at the bottom of the hexagram area. */
 function renderPrompt(buf: CellBuffer): void {
+  const t = getTheme();
   const text = "[enter] reading   [j] journal   [d] dictionary   [q] quit";
   const row = buf.height - 2;
   if (row < 0) return;
   const w = stringWidth(text);
   const col = Math.max(0, Math.floor((buf.width - w) / 2));
-  buf.writeText(row, col, text, { fg: TEMPLE_NIGHT.ash });
+  buf.writeText(row, col, text, { fg: t.tertiary });
 }

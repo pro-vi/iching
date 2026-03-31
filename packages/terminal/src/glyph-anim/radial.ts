@@ -6,7 +6,7 @@
 import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
 import type { GlyphAnimator } from "./types.ts";
-import { TEMPLE_NIGHT } from "../color/themes/temple-night.ts";
+import { getTheme } from "../color/theme.ts";
 import { easeOut } from "../animation/easing.ts";
 
 const TOTAL_MS = 2400;
@@ -68,6 +68,7 @@ export class RadialAnimator implements GlyphAnimator {
   }
 
   render(buf: CellBuffer, offsetR: number, offsetC: number): void {
+    const t = getTheme();
     const progress = Math.min(1, this.localMs / TOTAL_MS);
     const easedProgress = easeOut(progress);
     // Expand radius slightly past max so the edge gradient fully clears
@@ -81,19 +82,19 @@ export class RadialAnimator implements GlyphAnimator {
 
         if (dist > currentRadius) {
           // Outside reveal circle: invisible
-          buf.writeText(offsetR + r, offsetC + c, " ", { fg: TEMPLE_NIGHT.ash });
+          buf.writeText(offsetR + r, offsetC + c, " ", { fg: t.tertiary });
         } else if (dist > currentRadius - EDGE_WIDTH) {
           // Edge zone: brightness gradient
           const edgeT = 1 - (dist - (currentRadius - EDGE_WIDTH)) / EDGE_WIDTH;
           if (isEmpty(ch)) {
-            buf.writeText(offsetR + r, offsetC + c, "\u2800", { fg: TEMPLE_NIGHT.ash, dim: true });
+            buf.writeText(offsetR + r, offsetC + c, "\u2800", { fg: t.tertiary, dim: true });
           } else {
-            const fg = lerpColor(TEMPLE_NIGHT.ash, TEMPLE_NIGHT.bone, edgeT);
+            const fg = lerpColor(t.tertiary, t.primary, edgeT);
             buf.writeText(offsetR + r, offsetC + c, ch, { fg });
           }
         } else {
           // Fully inside: show real glyph
-          const fg = isEmpty(ch) ? TEMPLE_NIGHT.ash : TEMPLE_NIGHT.bone;
+          const fg = isEmpty(ch) ? t.tertiary : t.primary;
           buf.writeText(offsetR + r, offsetC + c, ch, { fg });
         }
       }

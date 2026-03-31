@@ -5,7 +5,7 @@ import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
 import type { DailyCache } from "@iching/core";
 import { GUA } from "@iching/core";
-import { TEMPLE_NIGHT } from "../../color/themes/temple-night.ts";
+import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 
 export interface HomeState {
@@ -24,28 +24,29 @@ export class HomeScene implements Scene {
   update(_elapsed: number, _dt: number, _ctx: SceneContext): void {}
 
   render(frame: CellBuffer, _ctx: SceneContext): void {
+    const t = getTheme();
     const cx = Math.floor(frame.width / 2);
     let row = Math.floor(frame.height / 2) - 6;
 
     // Title
     const title = "☯  I Ching";
     const titleCol = cx - Math.floor(stringWidth(title) / 2);
-    frame.writeText(row, titleCol, title, { fg: TEMPLE_NIGHT.bone, bold: true });
+    frame.writeText(row, titleCol, title, { fg: t.primary, bold: true });
     row += 3;
 
     // Menu items
     const items = [
-      { key: "c", label: "Daily Cast", fg: TEMPLE_NIGHT.gold },
-      { key: "d", label: "Dictionary", fg: TEMPLE_NIGHT.bone },
-      { key: "j", label: "Journal", fg: TEMPLE_NIGHT.stone },
-      { key: "s", label: "Settings", fg: TEMPLE_NIGHT.stone },
-      { key: "q", label: "Quit", fg: TEMPLE_NIGHT.ash },
+      { key: "c", label: "Daily Cast", fg: t.accent },
+      { key: "d", label: "Dictionary", fg: t.primary },
+      { key: "j", label: "Journal", fg: t.secondary },
+      { key: "s", label: "Settings", fg: t.secondary },
+      { key: "q", label: "Quit", fg: t.tertiary },
     ];
 
     for (const item of items) {
       const text = `[${item.key}]  ${item.label}`;
       const col = cx - Math.floor(stringWidth(text) / 2);
-      frame.writeText(row, col, `[${item.key}]`, { fg: TEMPLE_NIGHT.ash });
+      frame.writeText(row, col, `[${item.key}]`, { fg: t.tertiary });
       frame.writeText(row, col + stringWidth(`[${item.key}]`) + 1, ` ${item.label}`, { fg: item.fg });
       row += 2;
     }
@@ -56,19 +57,19 @@ export class HomeScene implements Scene {
       const gua = GUA[this.state.todayCast.cast.primary - 1];
       const status = `Today: ${gua.u} ${gua.n} (${gua.p})`;
       const statusCol = cx - Math.floor(stringWidth(status) / 2);
-      frame.writeText(row, statusCol, status, { fg: TEMPLE_NIGHT.stone, dim: true });
+      frame.writeText(row, statusCol, status, { fg: t.secondary, dim: true });
 
       if (this.state.todayCast.cast.becoming !== null) {
         row += 1;
         const bg = GUA[this.state.todayCast.cast.becoming - 1];
         const becoming = `→ ${bg.u} ${bg.n}`;
         const bCol = cx - Math.floor(stringWidth(becoming) / 2);
-        frame.writeText(row, bCol, becoming, { fg: TEMPLE_NIGHT.ash, dim: true });
+        frame.writeText(row, bCol, becoming, { fg: t.tertiary, dim: true });
       }
     } else {
       const nocast = "No cast today";
       const ncCol = cx - Math.floor(stringWidth(nocast) / 2);
-      frame.writeText(row, ncCol, nocast, { fg: TEMPLE_NIGHT.ash, dim: true });
+      frame.writeText(row, ncCol, nocast, { fg: t.tertiary, dim: true });
     }
   }
 

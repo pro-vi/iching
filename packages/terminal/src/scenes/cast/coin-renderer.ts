@@ -4,7 +4,7 @@ import type { CellBuffer } from "../../render/buffer.ts";
 import type { StyledCell } from "../../render/cell.ts";
 import type { CastModel } from "./model.ts";
 import { GLYPHS, LINE_WIDTH } from "../../glyphs.ts";
-import { TEMPLE_NIGHT } from "../../color/themes/temple-night.ts";
+import { getTheme } from "../../color/theme.ts";
 
 /** Render the 3 coins at the given row, centered in the buffer. */
 export function renderCoins(
@@ -12,6 +12,7 @@ export function renderCoins(
   model: CastModel,
   row: number,
 ): void {
+  const t = getTheme();
   const { coinPhase, coinProgress, coinResults } = model;
   if (coinPhase === "done" || coinPhase === "idle") return;
 
@@ -35,8 +36,8 @@ export function renderCoins(
         // Spin through quarter-circle glyphs, each coin out of phase
         const frameIndex = Math.floor(p * (GLYPHS.coinSpin.length * 2)) % GLYPHS.coinSpin.length;
         char = GLYPHS.coinSpin[frameIndex];
-        // Color ramp: mist at start, stone at middle, gold at end
-        const fg = p < 0.5 ? TEMPLE_NIGHT.mist : TEMPLE_NIGHT.stone;
+        // Color ramp: tertiary at start, secondary at middle, accent at end
+        const fg = p < 0.5 ? t.tertiary : t.secondary;
         style = { fg };
         break;
       }
@@ -44,7 +45,7 @@ export function renderCoins(
         // Show the landed result
         const isHeads = coinResults[i];
         char = isHeads ? GLYPHS.coinHeads : GLYPHS.coinTails;
-        style = { fg: TEMPLE_NIGHT.gold };
+        style = { fg: t.accent };
         break;
       }
       case "collapse": {
@@ -53,12 +54,12 @@ export function renderCoins(
           // Still showing coins
           const isHeads = coinResults[i];
           char = isHeads ? GLYPHS.coinHeads : GLYPHS.coinTails;
-          style = { fg: TEMPLE_NIGHT.stone, dim: true };
+          style = { fg: t.secondary, dim: true };
         } else {
           // Collapsed — only center coin visible as dot
           if (i === 1) {
             char = "\u00B7"; // middle dot
-            style = { fg: TEMPLE_NIGHT.ash };
+            style = { fg: t.tertiary };
           } else {
             continue;
           }

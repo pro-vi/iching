@@ -3,7 +3,7 @@
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
-import { TEMPLE_NIGHT } from "../../color/themes/temple-night.ts";
+import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 
 /**
@@ -18,11 +18,12 @@ export class PromptScene implements Scene {
   }
 
   render(frame: CellBuffer, _ctx: SceneContext): void {
+    const t = getTheme();
     const text = "[enter] open reading   [j] journal   [q] quit";
     const row = Math.floor(frame.height / 2);
     const w = stringWidth(text);
     const col = Math.max(0, Math.floor((frame.width - w) / 2));
-    frame.writeText(row, col, text, { fg: TEMPLE_NIGHT.ash });
+    frame.writeText(row, col, text, { fg: t.tertiary });
   }
 
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {

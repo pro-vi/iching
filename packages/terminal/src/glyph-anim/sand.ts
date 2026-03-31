@@ -7,7 +7,7 @@
 import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
 import type { GlyphAnimator } from "./types.ts";
-import { TEMPLE_NIGHT } from "../color/themes/temple-night.ts";
+import { getTheme } from "../color/theme.ts";
 
 const TOTAL_MS = 3500;
 
@@ -112,12 +112,13 @@ export class SandAnimator implements GlyphAnimator {
   }
 
   render(buf: CellBuffer, offsetR: number, offsetC: number): void {
+    const th = getTheme();
     const t = this.localMs;
 
     // First, render empty braille for all positions (background)
     for (let r = 0; r < this.glyph.height; r++) {
       for (let c = 0; c < this.glyph.width; c++) {
-        buf.writeText(offsetR + r, offsetC + c, "\u2800", { fg: TEMPLE_NIGHT.ash });
+        buf.writeText(offsetR + r, offsetC + c, "\u2800", { fg: th.tertiary });
       }
     }
 
@@ -142,15 +143,15 @@ export class SandAnimator implements GlyphAnimator {
 
       if (fallProgress >= 0.95) {
         // Landed — show real character at target
-        const fg = lerpColor(TEMPLE_NIGHT.stone, TEMPLE_NIGHT.bone, (fallProgress - 0.95) / 0.05);
+        const fg = lerpColor(th.secondary, th.primary, (fallProgress - 0.95) / 0.05);
         buf.writeText(offsetR + p.targetR, offsetC + p.targetC, p.realChar, { fg });
       } else if (fallProgress >= 0.75) {
         // Near target — transition to real character
-        const fg = lerpColor(TEMPLE_NIGHT.ash, TEMPLE_NIGHT.stone, (fallProgress - 0.75) / 0.2);
+        const fg = lerpColor(th.tertiary, th.secondary, (fallProgress - 0.75) / 0.2);
         buf.writeText(offsetR + drawR, offsetC + drawC, p.realChar, { fg });
       } else {
         // In flight — random sparse braille
-        const fg = lerpColor(TEMPLE_NIGHT.ash, TEMPLE_NIGHT.stone, fallProgress);
+        const fg = lerpColor(th.tertiary, th.secondary, fallProgress);
         buf.writeText(offsetR + drawR, offsetC + drawC, randomBraille(), { fg });
       }
     }

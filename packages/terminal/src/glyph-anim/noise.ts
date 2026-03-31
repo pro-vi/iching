@@ -7,7 +7,7 @@
 import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
 import type { GlyphAnimator } from "./types.ts";
-import { TEMPLE_NIGHT } from "../color/themes/temple-night.ts";
+import { getTheme } from "../color/theme.ts";
 
 const TOTAL_MS = 2800;
 const SETTLE_MIN = 800;
@@ -116,6 +116,7 @@ export class NoiseAnimator implements GlyphAnimator {
   }
 
   render(buf: CellBuffer, offsetR: number, offsetC: number): void {
+    const th = getTheme();
     const t = this.localMs;
     for (let r = 0; r < this.glyph.height; r++) {
       for (let c = 0; c < this.glyph.width; c++) {
@@ -132,7 +133,7 @@ export class NoiseAnimator implements GlyphAnimator {
         if (settled) {
           if (meta.isContent) {
             ch = meta.realChar;
-            fg = TEMPLE_NIGHT.bone;
+            fg = th.primary;
           } else {
             continue; // near-content empty cells just disappear
           }
@@ -141,11 +142,11 @@ export class NoiseAnimator implements GlyphAnimator {
           const progress = t / Math.max(meta.settleAt, 1);
           if (progress > 0.5) continue;
           ch = randomBraille();
-          fg = lerpColor("#141418", TEMPLE_NIGHT.ash, progress * 0.5);
+          fg = lerpColor("#141418", th.tertiary, progress * 0.5);
         } else {
           const progress = t / meta.settleAt;
           ch = randomBraille();
-          fg = lerpColor(TEMPLE_NIGHT.ash, TEMPLE_NIGHT.stone, progress);
+          fg = lerpColor(th.tertiary, th.secondary, progress);
         }
 
         buf.writeText(offsetR + r, offsetC + c, ch, { fg });

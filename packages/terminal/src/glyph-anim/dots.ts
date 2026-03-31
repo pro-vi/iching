@@ -7,7 +7,7 @@
 import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
 import type { GlyphAnimator } from "./types.ts";
-import { TEMPLE_NIGHT } from "../color/themes/temple-night.ts";
+import { getTheme } from "../color/theme.ts";
 
 const TOTAL_MS = 3000;
 
@@ -123,6 +123,7 @@ export class DotsAnimator implements GlyphAnimator {
   }
 
   render(buf: CellBuffer, offsetR: number, offsetC: number): void {
+    const th = getTheme();
     const t = this.localMs;
 
     for (let r = 0; r < this.glyph.height; r++) {
@@ -131,14 +132,14 @@ export class DotsAnimator implements GlyphAnimator {
 
         if (!meta.isContent) {
           // Empty cells: just write empty braille
-          buf.writeText(offsetR + r, offsetC + c, "\u2800", { fg: TEMPLE_NIGHT.ash });
+          buf.writeText(offsetR + r, offsetC + c, "\u2800", { fg: th.tertiary });
           continue;
         }
 
         const cellT = t - meta.startAt;
         if (cellT <= 0) {
           // Not started yet
-          buf.writeText(offsetR + r, offsetC + c, "\u2800", { fg: TEMPLE_NIGHT.ash });
+          buf.writeText(offsetR + r, offsetC + c, "\u2800", { fg: th.tertiary });
           continue;
         }
 
@@ -155,7 +156,7 @@ export class DotsAnimator implements GlyphAnimator {
 
         const ch = toBraille(partial);
         const progress = dotsVisible / Math.max(meta.totalDots, 1);
-        const fg = lerpColor(TEMPLE_NIGHT.ash, TEMPLE_NIGHT.bone, progress);
+        const fg = lerpColor(th.tertiary, th.primary, progress);
 
         buf.writeText(offsetR + r, offsetC + c, ch, { fg });
       }

@@ -5,7 +5,7 @@ import type { SceneContext } from "../../scene/types.ts";
 import type { BrowseModel } from "./browse-model.ts";
 import type { TextInput } from "../../widgets/text-input.ts";
 import { GUA } from "@iching/core";
-import { TEMPLE_NIGHT } from "../../color/themes/temple-night.ts";
+import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 
 const HEADER_ROWS = 2; // header + separator
@@ -34,30 +34,31 @@ function renderHeader(
   textInput: TextInput,
   ctx: SceneContext,
 ): void {
+  const t = getTheme();
   if (model.searchActive) {
     // Search mode header
     const label = "Search: ";
-    frame.writeText(0, 1, label, { fg: TEMPLE_NIGHT.accent });
+    frame.writeText(0, 1, label, { fg: t.accent });
     textInput.render(
       frame,
       0,
       1 + label.length,
       ctx.cols - 2 - label.length,
-      { fg: TEMPLE_NIGHT.primary },
+      { fg: t.primary },
     );
   } else {
     // Normal header
     const title = "I Ching Dictionary";
     const hint = "[/] search";
-    frame.writeText(0, 1, title, { fg: TEMPLE_NIGHT.primary, bold: true });
+    frame.writeText(0, 1, title, { fg: t.primary, bold: true });
     frame.writeText(0, ctx.cols - hint.length - 1, hint, {
-      fg: TEMPLE_NIGHT.stone,
+      fg: t.secondary,
     });
   }
 
   // Separator line
   const sep = "─".repeat(ctx.cols);
-  frame.writeText(1, 0, sep, { fg: TEMPLE_NIGHT.ash });
+  frame.writeText(1, 0, sep, { fg: t.tertiary });
 }
 
 function renderList(
@@ -92,6 +93,7 @@ function renderRow(
   isSelected: boolean,
   width: number,
 ): void {
+  const t = getTheme();
   const marker = isSelected ? ">" : " ";
   const kwStr = String(kw).padStart(3, " ");
   const chinese = hex.n;
@@ -114,7 +116,7 @@ function renderRow(
       ? hex.ename.slice(0, enWidth - 1) + "…"
       : hex.ename;
 
-  const fg = isSelected ? TEMPLE_NIGHT.primary : TEMPLE_NIGHT.stone;
+  const fg = isSelected ? t.primary : t.secondary;
   const bgStyle = isSelected ? { bg: "#1A2030" } : {};
 
   // Write background for selected row
@@ -124,12 +126,12 @@ function renderRow(
     }
   }
 
-  frame.writeText(row, 0, ` ${marker}`, { fg: TEMPLE_NIGHT.accent, ...bgStyle });
+  frame.writeText(row, 0, ` ${marker}`, { fg: t.accent, ...bgStyle });
   frame.writeText(row, 3, kwStr, { fg, dim: !isSelected, ...bgStyle });
   frame.writeText(row, 8, hex.u, { fg, ...bgStyle });
   frame.writeText(row, 11, chinese, { fg, ...bgStyle });
   frame.writeText(row, chineseCol + chineseWidth + 1, pinyin.padEnd(pinyinPad), {
-    fg: isSelected ? TEMPLE_NIGHT.accent : TEMPLE_NIGHT.ash,
+    fg: isSelected ? t.accent : t.tertiary,
     ...bgStyle,
   });
   if (enWidth > 0) {
@@ -142,12 +144,13 @@ function renderFooter(
   model: BrowseModel,
   ctx: SceneContext,
 ): void {
+  const t = getTheme();
   const sepRow = ctx.rows - 2;
   const footerRow = ctx.rows - 1;
 
   // Separator
   const sep = "─".repeat(ctx.cols);
-  frame.writeText(sepRow, 0, sep, { fg: TEMPLE_NIGHT.ash });
+  frame.writeText(sepRow, 0, sep, { fg: t.tertiary });
 
   // Footer keybindings
   const count = `${model.filtered.length} hexagrams`;
@@ -155,8 +158,8 @@ function renderFooter(
     ? "↑↓ navigate  enter open  esc clear  q quit"
     : "↑↓ navigate  enter open  / search  q quit";
 
-  frame.writeText(footerRow, 1, keys, { fg: TEMPLE_NIGHT.stone });
+  frame.writeText(footerRow, 1, keys, { fg: t.secondary });
   frame.writeText(footerRow, ctx.cols - count.length - 1, count, {
-    fg: TEMPLE_NIGHT.ash,
+    fg: t.tertiary,
   });
 }

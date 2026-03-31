@@ -4,7 +4,7 @@ import type { CellBuffer } from "../../render/buffer.ts";
 import type { StyledCell } from "../../render/cell.ts";
 import type { CastModel } from "./model.ts";
 import { GLYPHS, LINE_WIDTH } from "../../glyphs.ts";
-import { TEMPLE_NIGHT } from "../../color/themes/temple-night.ts";
+import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { anchorRow, LINE_ROW_OFFSETS } from "./hexagram-renderer.ts";
 
@@ -35,6 +35,7 @@ export function renderMorph(
   model: CastModel,
   xOffset: number = 0,
 ): void {
+  const t = getTheme();
   const anchor = anchorRow(buf.height);
   const changingPositions = model.cast.changingPositions;
 
@@ -53,15 +54,15 @@ export function renderMorph(
     const isYangToYin = line.value === 9; // old yang morphs to yin
     const frameStr = morphFrame(isYangToYin, lineState.morphProgress);
 
-    // Color ramp during morph: jade/cinnabar -> glow -> bone
+    // Color ramp during morph: changingYang/changingYin -> glow -> primary
     const p = lineState.morphProgress;
     let fg: string;
     if (p < 0.33) {
-      fg = isYangToYin ? TEMPLE_NIGHT.cinnabar : TEMPLE_NIGHT.jade;
+      fg = isYangToYin ? t.changingYang : t.changingYin;
     } else if (p < 0.66) {
-      fg = TEMPLE_NIGHT.glow;
+      fg = t.glow;
     } else {
-      fg = TEMPLE_NIGHT.bone;
+      fg = t.primary;
     }
 
     const style: Partial<StyledCell> = { fg };
