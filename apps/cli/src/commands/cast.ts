@@ -13,6 +13,7 @@ import {
 } from "@iching/storage";
 import { formatCastPlain } from "../output/plain.js";
 import { outputJson, castToJson } from "../output/json.js";
+import { localToday } from "../util/today.js";
 
 export function registerCastCommand(program: Command): void {
   program
@@ -39,7 +40,7 @@ export function registerCastCommand(program: Command): void {
         const paths = resolvePaths(
           opts.dataDir ? { dataDir: opts.dataDir } : undefined,
         );
-        const today = new Date().toISOString().slice(0, 10);
+        const today = localToday();
         const cacheStore = new JsonDailyCacheStore(paths.cache);
         const existing = await cacheStore.read();
 

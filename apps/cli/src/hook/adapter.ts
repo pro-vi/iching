@@ -10,6 +10,7 @@ import {
   JsonDailyCacheStore,
   JsonlJournalStore,
 } from "@iching/storage";
+import { localToday } from "../util/today.js";
 
 /** Read all of stdin as a string */
 async function readStdin(): Promise<string> {
@@ -39,7 +40,7 @@ export async function runHookAdapter(): Promise<void> {
   const cacheStore = new JsonDailyCacheStore(paths.cache);
   const journal = new JsonlJournalStore(paths.state);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
 
   let cast: Cast;
   let structure: Structure;

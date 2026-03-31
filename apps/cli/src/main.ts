@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { program } from "./program.js";
+import { localToday } from "./util/today.js";
 
 async function main() {
   const hasArgs = process.argv.length > 2;
@@ -23,7 +24,7 @@ async function main() {
     const opts = program.opts();
     const paths = resolvePaths(opts.dataDir ? { dataDir: opts.dataDir } : undefined);
     const cacheStore = new JsonDailyCacheStore(paths.cache);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localToday();
     const todayCast = await cacheStore.read();
     const hasTodayCast = todayCast?.date === today;
 
