@@ -53,6 +53,7 @@ export {
   DERIVED_LABELS,
   DERIVED_LABELS_CN,
 } from "./data/trigrams.js";
+export { LARGE_GLYPHS, type GlyphFont, type GlyphSize, type GlyphEntry } from "./data/large-glyphs.js";
 
 // Format
 export { formatReading, getRandomQuoteStyle } from "./format/reading.js";
