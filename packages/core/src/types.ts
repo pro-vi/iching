@@ -6,6 +6,7 @@ export interface Hexagram {
   u: string; // Unicode symbol
   n: string; // Chinese name
   p: string; // Pinyin
+  ename: string; // English name
   l: number[]; // Lines (6 elements, 0=yin 1=yang, bottom to top)
   dx: string; // 大象傳
   tu: string; // 彖傳

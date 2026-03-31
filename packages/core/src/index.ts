@@ -58,6 +58,9 @@ export {
 export { formatReading, getRandomQuoteStyle } from "./format/reading.js";
 export { formatDerived } from "./format/derived.js";
 
+// Search
+export { searchHexagrams } from "./search.js";
+
 // Service
 export { selectDisplay } from "./service/display-select.js";
 export type { DisplayChoice } from "./service/display-select.js";

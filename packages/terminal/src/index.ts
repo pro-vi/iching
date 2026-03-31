@@ -108,3 +108,10 @@ export { PromptScene } from "./scenes/prompt/prompt-scene.ts";
 
 // Scenes: journal (placeholder)
 export { JournalScene } from "./scenes/journal/journal-scene.ts";
+
+// Widgets
+export { ScrollableRegion } from "./widgets/scrollable.ts";
+export { TextInput } from "./widgets/text-input.ts";
+
+// Scene router
+export { SceneRouter, type SceneFactory } from "./scene/router.ts";
