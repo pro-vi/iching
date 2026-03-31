@@ -2,6 +2,7 @@
 
 import type { CellBuffer } from "../render/buffer.ts";
 import type { StyledCell } from "../render/cell.ts";
+import { stringWidth } from "../layout/measure.ts";
 
 export class TextInput {
   value: string;
@@ -72,14 +73,26 @@ export class TextInput {
     width: number,
     style?: Partial<StyledCell>,
   ): void {
-    for (let i = 0; i < width; i++) {
-      const charIdx = i;
-      const ch = charIdx < this.value.length ? this.value[charIdx] : " ";
+    // Walk characters by display width, not string index
+    let c = 0; // current column offset
+    let charIdx = 0;
+    const chars = [...this.value]; // iterate graphemes
+    while (c < width) {
       const isCursor = charIdx === this.cursorPos;
       const cellStyle: Partial<StyledCell> = isCursor
         ? { ...style, bg: style?.fg ?? "#C8A96B", fg: style?.bg ?? "#0D1117" }
         : { ...style };
-      buf.writeText(row, col + i, ch, cellStyle);
+
+      if (charIdx < chars.length) {
+        const ch = chars[charIdx];
+        const w = stringWidth(ch);
+        buf.writeText(row, col + c, ch, cellStyle);
+        c += w;
+      } else {
+        buf.writeText(row, col + c, " ", cellStyle);
+        c += 1;
+      }
+      charIdx++;
     }
   }
 }
