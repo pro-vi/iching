@@ -90,8 +90,8 @@ export class JournalScene implements Scene {
         line = line.slice(0, maxW - 5) + "…";
       }
 
-      const col = 2;
-      const cursor = isSelected ? "▸" : " ";
+      const col = 3;
+      const cursor = isSelected ? " > " : "   ";
       const fg = isSelected ? TEMPLE_NIGHT.bone : TEMPLE_NIGHT.stone;
       const cursorFg = isSelected ? TEMPLE_NIGHT.gold : TEMPLE_NIGHT.ash;
 
