@@ -22,6 +22,9 @@ describe("JsonConfigStore", () => {
       theme: "temple-night",
       color: "auto",
       timezone: "system",
+      glyphAnim: "noise",
+      glyphFont: "kaiti",
+      glyphSize: 64,
     });
   });
 
@@ -31,6 +34,9 @@ describe("JsonConfigStore", () => {
       theme: "temple-night",
       color: "never",
       timezone: "America/New_York",
+      glyphAnim: "dots",
+      glyphFont: "heiti",
+      glyphSize: 48,
     };
 
     await store.save(custom);
@@ -49,6 +55,9 @@ describe("JsonConfigStore", () => {
       theme: "temple-night",
       color: "auto",
       timezone: "system",
+      glyphAnim: "noise",
+      glyphFont: "kaiti",
+      glyphSize: 64,
     });
   });
 });

@@ -14,9 +14,9 @@ async function main() {
   // Interactive mode: no args + TTY → home menu
   if (!hasArgs && process.stdin.isTTY) {
     const { castHexagram, buildStructure, CryptoRandomSource, SeededRandomSource, GUA } = await import("@iching/core");
-    const { resolvePaths, JsonDailyCacheStore, JsonlJournalStore, getHexagramHistory } = await import("@iching/storage");
+    const { resolvePaths, JsonDailyCacheStore, JsonlJournalStore, JsonConfigStore, getHexagramHistory } = await import("@iching/storage");
     const {
-      HomeScene, CastScene, BrowseScene, DetailScene, JournalScene,
+      HomeScene, CastScene, BrowseScene, DetailScene, JournalScene, SettingsScene,
       SceneRouter, TerminalSession, RealClock, runScene, detectColorSupport,
     } = await import("@iching/terminal");
     const { formatCastPlain } = await import("./output/plain.js");
@@ -171,6 +171,27 @@ async function main() {
             };
             const router = new SceneRouter(journalScene, factory);
             await router.run(session, clock, colorSupport);
+            break;
+          }
+
+          case "settings": {
+            const configStore = new JsonConfigStore(paths.config);
+            const config = await configStore.load();
+            const settingsScene = new SettingsScene({
+              glyphAnim: config.glyphAnim,
+              glyphFont: config.glyphFont,
+              glyphSize: config.glyphSize,
+              motion: config.motion,
+            });
+            await runScene(settingsScene, session, clock, colorSupport);
+            // Save settings on exit
+            const updated = settingsScene.getValues();
+            const newConfig = await configStore.load();
+            newConfig.glyphAnim = updated.glyphAnim;
+            newConfig.glyphFont = updated.glyphFont;
+            newConfig.glyphSize = updated.glyphSize;
+            newConfig.motion = updated.motion;
+            await configStore.save(newConfig);
             break;
           }
 

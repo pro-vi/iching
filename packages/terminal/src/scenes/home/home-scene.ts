@@ -38,6 +38,7 @@ export class HomeScene implements Scene {
       { key: "c", label: "Daily Cast", fg: TEMPLE_NIGHT.gold },
       { key: "d", label: "Dictionary", fg: TEMPLE_NIGHT.bone },
       { key: "j", label: "Journal", fg: TEMPLE_NIGHT.stone },
+      { key: "s", label: "Settings", fg: TEMPLE_NIGHT.stone },
       { key: "q", label: "Quit", fg: TEMPLE_NIGHT.ash },
     ];
 
@@ -77,6 +78,7 @@ export class HomeScene implements Scene {
         case "c": return { goto: "cast" };
         case "d": return { goto: "dictionary" };
         case "j": return { goto: "journal" };
+        case "s": return { goto: "settings" };
         case "q": return "exit";
       }
     }

@@ -8,6 +8,9 @@ const DEFAULT_CONFIG: UserConfig = {
   theme: "temple-night",
   color: "auto",
   timezone: "system",
+  glyphAnim: "noise",
+  glyphFont: "kaiti",
+  glyphSize: 64,
 };
 
 export class JsonConfigStore implements ConfigStore {
