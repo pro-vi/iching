@@ -79,6 +79,31 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
     lines.push({ text: "" });
   }
 
+  // Line interpretations (爻辭)
+  if (gua.yao && gua.yao.length === 6) {
+    lines.push({ text: "─".repeat(textWidth), fg: TEMPLE_NIGHT.ash });
+    lines.push({ text: "" });
+    lines.push({ text: "爻辭 Line Texts", fg: TEMPLE_NIGHT.accent, bold: true });
+    lines.push({ text: "" });
+
+    // Display top-to-bottom (line 6 down to line 1) to match visual diagram
+    for (let i = 5; i >= 0; i--) {
+      // Chinese line text
+      const wrapped = wordWrap(gua.yao[i], textWidth);
+      for (const wl of wrapped) {
+        lines.push({ text: wl, fg: TEMPLE_NIGHT.stone });
+      }
+      // English translation
+      if (gua.yaoEn && gua.yaoEn[i]) {
+        const wrappedEn = wordWrap(gua.yaoEn[i], textWidth);
+        for (const wl of wrappedEn) {
+          lines.push({ text: wl, fg: TEMPLE_NIGHT.ash });
+        }
+      }
+      lines.push({ text: "" });
+    }
+  }
+
   // Separator before derived
   lines.push({ text: "─".repeat(textWidth), fg: TEMPLE_NIGHT.ash });
   lines.push({ text: "" });

@@ -13,6 +13,8 @@ export interface Hexagram {
   en: string; // English image
   te: string; // English judgment
   w: string; // Inspired by Wilhelm — experimental, not direct quotes
+  yao: string[]; // 爻辭 — 6 classical Chinese line texts (line 1 through 6)
+  yaoEn: string[]; // 6 English line interpretations (line 1 through 6)
 }
 
 /** Line value from 3-coin toss: 6=old yin, 7=young yang, 8=young yin, 9=old yang */
