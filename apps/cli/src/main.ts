@@ -15,7 +15,7 @@ async function main() {
     const { castHexagram, buildStructure, CryptoRandomSource, SeededRandomSource, GUA } = await import("@iching/core");
     const { resolvePaths, JsonDailyCacheStore, JsonlJournalStore, getHexagramHistory } = await import("@iching/storage");
     const {
-      HomeScene, CastScene, BrowseScene, DetailScene,
+      HomeScene, CastScene, BrowseScene, DetailScene, JournalScene,
       SceneRouter, TerminalSession, RealClock, runScene, detectColorSupport,
     } = await import("@iching/terminal");
     const { formatCastPlain } = await import("./output/plain.js");
@@ -148,23 +148,28 @@ async function main() {
 
           case "journal": {
             const journal = new JsonlJournalStore(paths.state);
-            const latest = await journal.latest();
-            if (latest) {
-              const g = GUA[latest.cast.primary - 1];
-              const s = buildStructure(latest.cast);
-              console.log(`Latest reading (${latest.date}):\n`);
-              console.log(formatCastPlain(latest.cast, g, s));
-            } else {
-              console.log("No journal entries found.");
+            const entries: import("@iching/core").HistoryEntry[] = [];
+            for await (const entry of journal.stream()) {
+              entries.push(entry);
             }
-            console.log("\nPress any key to return to menu...");
-            await new Promise<void>(resolve => {
-              process.stdin.setRawMode(true);
-              process.stdin.once("data", () => {
-                process.stdin.setRawMode(false);
-                resolve();
-              });
-            });
+            const journalScene = new JournalScene(entries);
+            const factory = (id: string) => {
+              if (id.startsWith("detail:")) {
+                const kw = Number(id.slice(7));
+                if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new JournalScene(entries);
+                const scene = new DetailScene(kw);
+                getHexagramHistory(journal, kw).then((h) =>
+                  scene.setHistory(h.castCount, h.lastCastDate),
+                );
+                return scene;
+              }
+              if (id === "dictionary") {
+                return new BrowseScene();
+              }
+              return new JournalScene(entries);
+            };
+            const router = new SceneRouter(journalScene, factory);
+            await router.run(session, clock, colorSupport);
             break;
           }
 
