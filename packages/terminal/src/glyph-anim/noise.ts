@@ -50,6 +50,7 @@ function lerpColor(a: string, b: string, t: number): string {
 interface CellMeta {
   settleAt: number;
   isContent: boolean;
+  nearContent: boolean; // within 1 cell of a content cell
   realChar: string;
 }
 
@@ -65,18 +66,42 @@ export class NoiseAnimator implements GlyphAnimator {
   }
 
   private initCells(): void {
+    // First pass: identify content cells
+    const contentMap: boolean[][] = [];
+    for (let r = 0; r < this.glyph.height; r++) {
+      const chars = [...(this.glyph.rows[r] ?? "")];
+      contentMap.push([]);
+      for (let c = 0; c < this.glyph.width; c++) {
+        contentMap[r][c] = !isEmpty(chars[c] ?? " ");
+      }
+    }
+
+    // Second pass: mark cells near content (within 1 cell distance)
     this.cells = [];
     for (let r = 0; r < this.glyph.height; r++) {
       const row: CellMeta[] = [];
       const chars = [...(this.glyph.rows[r] ?? "")];
       for (let c = 0; c < this.glyph.width; c++) {
         const ch = chars[c] ?? " ";
-        const isContent = !isEmpty(ch);
+        const isContent = contentMap[r][c];
+        let nearContent = isContent;
+        if (!isContent) {
+          outer: for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+              const nr = r + dr, nc = c + dc;
+              if (nr >= 0 && nr < this.glyph.height && nc >= 0 && nc < this.glyph.width && contentMap[nr][nc]) {
+                nearContent = true;
+                break outer;
+              }
+            }
+          }
+        }
         row.push({
           settleAt: isContent
             ? settleTime(r, c, this.glyph.height, this.glyph.width)
             : EMPTY_CLEAR_MS * Math.random(),
           isContent,
+          nearContent,
           realChar: ch,
         });
       }
@@ -95,23 +120,28 @@ export class NoiseAnimator implements GlyphAnimator {
     for (let r = 0; r < this.glyph.height; r++) {
       for (let c = 0; c < this.glyph.width; c++) {
         const meta = this.cells[r][c];
+
+        // Skip cells that aren't content and aren't near content
+        if (!meta.isContent && !meta.nearContent) continue;
+
         const settled = t >= meta.settleAt;
 
         let ch: string;
         let fg: string;
 
         if (settled) {
-          ch = meta.realChar;
-          fg = meta.isContent ? TEMPLE_NIGHT.bone : TEMPLE_NIGHT.ash;
-        } else if (!meta.isContent) {
-          const progress = t / Math.max(meta.settleAt, 1);
-          if (progress > 0.7) {
-            ch = " ";
-            fg = TEMPLE_NIGHT.ash;
+          if (meta.isContent) {
+            ch = meta.realChar;
+            fg = TEMPLE_NIGHT.bone;
           } else {
-            ch = randomBraille();
-            fg = lerpColor(TEMPLE_NIGHT.ash, TEMPLE_NIGHT.stone, progress);
+            continue; // near-content empty cells just disappear
           }
+        } else if (!meta.isContent) {
+          // Near-content empty: brief noise halo then clear
+          const progress = t / Math.max(meta.settleAt, 1);
+          if (progress > 0.5) continue;
+          ch = randomBraille();
+          fg = lerpColor("#141418", TEMPLE_NIGHT.ash, progress * 0.5);
         } else {
           const progress = t / meta.settleAt;
           ch = randomBraille();

@@ -197,16 +197,13 @@ export class SettingsScene implements Scene {
         case "left": {
           const row = this.rows[this.focusedRow];
           row.selected = (row.selected - 1 + row.options.length) % row.options.length;
-          // Stop any running preview when options change
-          this.previewActive = false;
-          this.previewAnimator = null;
+          this.startPreview();
           break;
         }
         case "right": {
           const row = this.rows[this.focusedRow];
           row.selected = (row.selected + 1) % row.options.length;
-          this.previewActive = false;
-          this.previewAnimator = null;
+          this.startPreview();
           break;
         }
       }
