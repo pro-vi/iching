@@ -10,72 +10,135 @@ async function main() {
     return runHookAdapter();
   }
 
-  // Interactive mode: no args + TTY → animated casting ritual
+  // Interactive mode: no args + TTY → home menu
   if (!hasArgs && process.stdin.isTTY) {
-    const { castHexagram, buildStructure, CryptoRandomSource, SeededRandomSource } = await import("@iching/core");
+    const { castHexagram, buildStructure, CryptoRandomSource, SeededRandomSource, GUA } = await import("@iching/core");
     const { resolvePaths, JsonDailyCacheStore, JsonlJournalStore } = await import("@iching/storage");
-    const { CastScene, TerminalSession, RealClock, runScene, detectColorSupport } = await import("@iching/terminal");
+    const {
+      HomeScene, CastScene, BrowseScene, DetailScene,
+      SceneRouter, TerminalSession, RealClock, runScene, detectColorSupport,
+    } = await import("@iching/terminal");
+    const { formatCastPlain } = await import("./output/plain.js");
 
     const opts = program.opts();
-    const seed = opts.seed ? Number(opts.seed) : undefined;
-    const source = seed !== undefined ? new SeededRandomSource(seed) : new CryptoRandomSource();
-    const preset = (opts.motion ?? "default") as "default" | "brisk" | "deep" | "reduced";
-
-    const cast = castHexagram(source);
-    const structure = buildStructure(cast);
-
-    // Only record to journal for genuine daily casts
     const paths = resolvePaths(opts.dataDir ? { dataDir: opts.dataDir } : undefined);
-    const today = new Date().toISOString().slice(0, 10);
     const cacheStore = new JsonDailyCacheStore(paths.cache);
+    const today = new Date().toISOString().slice(0, 10);
+    const todayCast = await cacheStore.read();
+    const hasTodayCast = todayCast?.date === today;
 
-    if (seed === undefined) {
-      const existing = await cacheStore.read();
-      if (!existing || existing.date !== today) {
-        const journal = new JsonlJournalStore(paths.state);
-        await journal.append({ date: today, cast });
-      }
-    }
-
-    await cacheStore.write({ date: today, cast, shown: true, structure });
-
-    // Run animated ritual
     const session = new TerminalSession();
-    const scene = new CastScene(cast, preset, session.cols);
-    const signal = await runScene(scene, session, new RealClock(), detectColorSupport());
+    const colorSupport = detectColorSupport();
+    const clock = new RealClock();
 
-    // Handle post-ritual action
-    if (typeof signal === "object" && signal !== null && "goto" in signal) {
-      const { formatCastPlain } = await import("./output/plain.js");
-      const { GUA } = await import("@iching/core");
-      const primary = GUA[cast.primary - 1];
+    // Home menu loop — keeps returning to home until exit
+    let running = true;
+    while (running) {
+      const currentCache = await cacheStore.read();
+      const homeScene = new HomeScene({
+        todayCast: currentCache?.date === today ? currentCache : null,
+      });
 
-      if (signal.goto === "reading") {
-        console.log(formatCastPlain(cast, primary, structure));
-      } else if (signal.goto === "journal") {
-        const journalStore = new JsonlJournalStore(paths.state);
-        const latest = await journalStore.latest();
-        if (latest) {
-          const g = GUA[latest.cast.primary - 1];
-          const s = buildStructure(latest.cast);
-          console.log(`Latest reading (${latest.date}):\n`);
-          console.log(formatCastPlain(latest.cast, g, s));
-        } else {
-          console.log("No journal entries found.");
-        }
-      } else if (signal.goto === "dictionary") {
-        const { BrowseScene, DetailScene, SceneRouter } = await import("@iching/terminal");
-        const browseScene = new BrowseScene();
-        const factory = (id: string) => {
-          if (id.startsWith("detail:")) {
-            return new DetailScene(Number(id.slice(7)));
+      const signal = await runScene(homeScene, session, clock, colorSupport);
+
+      if (signal === "exit" || !signal) {
+        running = false;
+        break;
+      }
+
+      if (typeof signal === "object" && "goto" in signal) {
+        switch (signal.goto) {
+          case "cast": {
+            const seed = opts.seed ? Number(opts.seed) : undefined;
+            const source = seed !== undefined
+              ? new SeededRandomSource(seed)
+              : new CryptoRandomSource();
+            const preset = (opts.motion ?? "default") as "default" | "brisk" | "deep" | "reduced";
+
+            const cast = castHexagram(source);
+            const structure = buildStructure(cast);
+
+            // Only record genuine daily casts (first of the day, not seeded)
+            if (seed === undefined) {
+              const existing = await cacheStore.read();
+              if (!existing || existing.date !== today) {
+                const journal = new JsonlJournalStore(paths.state);
+                await journal.append({ date: today, cast });
+              }
+            }
+            await cacheStore.write({ date: today, cast, shown: true, structure });
+
+            // Run animated ritual
+            const castScene = new CastScene(cast, preset, session.cols);
+            const castSignal = await runScene(castScene, session, clock, colorSupport);
+
+            // Handle post-cast action
+            if (typeof castSignal === "object" && castSignal !== null && "goto" in castSignal) {
+              if (castSignal.goto === "reading") {
+                // Exit alt screen momentarily to show reading, wait for key
+                const primary = GUA[cast.primary - 1];
+                console.log(formatCastPlain(cast, primary, structure));
+                console.log("\nPress any key to return to menu...");
+                await new Promise<void>(resolve => {
+                  process.stdin.setRawMode(true);
+                  process.stdin.once("data", () => {
+                    process.stdin.setRawMode(false);
+                    resolve();
+                  });
+                });
+              } else if (castSignal.goto === "dictionary") {
+                const browseScene = new BrowseScene();
+                const factory = (id: string) => {
+                  if (id.startsWith("detail:")) return new DetailScene(Number(id.slice(7)));
+                  return new BrowseScene();
+                };
+                const router = new SceneRouter(browseScene, factory);
+                await router.run(session, clock, colorSupport);
+              }
+            }
+            // Return to home menu
+            break;
           }
-          return new BrowseScene();
-        };
-        const router = new SceneRouter(browseScene, factory);
-        await router.run(session, new RealClock(), detectColorSupport());
+
+          case "dictionary": {
+            const browseScene = new BrowseScene();
+            const factory = (id: string) => {
+              if (id.startsWith("detail:")) return new DetailScene(Number(id.slice(7)));
+              return new BrowseScene();
+            };
+            const router = new SceneRouter(browseScene, factory);
+            await router.run(session, clock, colorSupport);
+            break;
+          }
+
+          case "journal": {
+            const journal = new JsonlJournalStore(paths.state);
+            const latest = await journal.latest();
+            if (latest) {
+              const g = GUA[latest.cast.primary - 1];
+              const s = buildStructure(latest.cast);
+              console.log(`Latest reading (${latest.date}):\n`);
+              console.log(formatCastPlain(latest.cast, g, s));
+            } else {
+              console.log("No journal entries found.");
+            }
+            console.log("\nPress any key to return to menu...");
+            await new Promise<void>(resolve => {
+              process.stdin.setRawMode(true);
+              process.stdin.once("data", () => {
+                process.stdin.setRawMode(false);
+                resolve();
+              });
+            });
+            break;
+          }
+
+          default:
+            break;
+        }
       }
     }
+
     process.exit(0);
   }
 

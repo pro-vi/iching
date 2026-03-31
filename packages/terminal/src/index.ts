@@ -103,6 +103,9 @@ export { renderRightHexagram, renderRightMorph } from "./scenes/cast/right-hex-r
 export { buildCastTimeline } from "./scenes/cast/timeline-builder.ts";
 export { canSplit, hexColOffset, MIN_SPLIT_WIDTH, SPLIT_OFFSET, ARROW_GAP } from "./scenes/cast/layout-calc.ts";
 
+// Scenes: home menu
+export { HomeScene, type HomeState } from "./scenes/home/home-scene.ts";
+
 // Scenes: prompt
 export { PromptScene } from "./scenes/prompt/prompt-scene.ts";
 
