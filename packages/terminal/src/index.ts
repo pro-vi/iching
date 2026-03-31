@@ -115,3 +115,7 @@ export { TextInput } from "./widgets/text-input.ts";
 
 // Scene router
 export { SceneRouter, type SceneFactory } from "./scene/router.ts";
+
+// Scenes: dictionary
+export { BrowseScene } from "./scenes/dict/browse-scene.ts";
+export { BrowseModel } from "./scenes/dict/browse-model.ts";
