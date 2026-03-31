@@ -72,7 +72,7 @@ export function buildCastTimeline(
       : [
           wait(1200),
           call(() => {
-            model.subtitleText = "unchanging";
+            model.subtitleText = "";
           }),
         ]),
 

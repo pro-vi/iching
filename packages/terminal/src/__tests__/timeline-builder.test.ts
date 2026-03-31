@@ -147,7 +147,7 @@ describe("buildCastTimeline", () => {
     const runner = new TimelineRunner(step);
     runner.advance(runner.duration + 100, model);
 
-    expect(model.subtitleText).toBe("unchanging");
+    expect(model.subtitleText).toBe("");
   });
 
   test("changing cast does not set unchanging subtitle", () => {

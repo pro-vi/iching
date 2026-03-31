@@ -82,7 +82,7 @@ export class JournalScene implements Scene {
           line += ` [${entry.cast.changingPositions.join(",")}]`;
         }
       } else {
-        line += "  unchanging";
+        // No suffix for unchanging — silence is the message
       }
 
       // Truncate to width
