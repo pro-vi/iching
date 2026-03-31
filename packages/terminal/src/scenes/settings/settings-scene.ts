@@ -5,7 +5,6 @@ import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
 import type { GlyphAnimator, GlyphAnimStyle } from "../../glyph-anim/types.ts";
 import type { GlyphFont, GlyphSize } from "@iching/core";
-import type { MotionPreset } from "../../animation/presets.ts";
 import { LARGE_GLYPHS } from "@iching/core";
 import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
 import { TEMPLE_NIGHT } from "../../color/themes/temple-night.ts";
@@ -16,7 +15,7 @@ import { stringWidth } from "../../layout/measure.ts";
 const ANIM_OPTIONS: GlyphAnimStyle[] = ["noise", "dots", "radial", "sand"];
 const FONT_OPTIONS: GlyphFont[] = ["kaiti", "libian", "heiti"];
 const SIZE_OPTIONS: GlyphSize[] = [64, 48, 32];
-const MOTION_OPTIONS: MotionPreset[] = ["default", "brisk", "deep", "reduced"];
+// Motion preset removed from settings — it controls the casting ritual, not glyph display
 
 interface SettingRow<T> {
   label: string;
@@ -28,7 +27,6 @@ export interface SettingsValues {
   glyphAnim: GlyphAnimStyle;
   glyphFont: GlyphFont;
   glyphSize: GlyphSize;
-  motion: MotionPreset;
 }
 
 // ── Preview glyph (乾 "qian" — the first hexagram) ────────────────
@@ -50,7 +48,6 @@ export class SettingsScene implements Scene {
       { label: "Glyph Animation", options: [...ANIM_OPTIONS], selected: ANIM_OPTIONS.indexOf(initial.glyphAnim) },
       { label: "Font",            options: [...FONT_OPTIONS],  selected: FONT_OPTIONS.indexOf(initial.glyphFont) },
       { label: "Glyph Size",      options: SIZE_OPTIONS.map(String), selected: SIZE_OPTIONS.indexOf(initial.glyphSize) },
-      { label: "Motion Preset",   options: [...MOTION_OPTIONS], selected: MOTION_OPTIONS.indexOf(initial.motion) },
     ];
     // Fix any -1 indices from missing defaults
     for (const row of this.rows) {
@@ -64,7 +61,6 @@ export class SettingsScene implements Scene {
       glyphAnim: ANIM_OPTIONS[this.rows[0].selected],
       glyphFont: FONT_OPTIONS[this.rows[1].selected],
       glyphSize: SIZE_OPTIONS[this.rows[2].selected],
-      motion: MOTION_OPTIONS[this.rows[3].selected],
     };
   }
 
@@ -154,13 +150,13 @@ export class SettingsScene implements Scene {
       if (this.previewActive && this.previewAnimator) {
         this.previewAnimator.render(frame, row, previewCol);
       } else {
-        // Static glyph display
+        // Static glyph display — match animation settled color
         for (let r = 0; r < glyphData.height; r++) {
           const chars = [...(glyphData.rows[r] ?? "")];
           for (let c = 0; c < chars.length; c++) {
             const ch = chars[c];
-            const fg = ch === "\u2800" || ch === " " ? TEMPLE_NIGHT.ash : TEMPLE_NIGHT.stone;
-            frame.writeText(row + r, previewCol + c, ch, { fg });
+            if (ch === "\u2800" || ch === " ") continue;
+            frame.writeText(row + r, previewCol + c, ch, { fg: TEMPLE_NIGHT.bone });
           }
         }
       }

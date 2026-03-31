@@ -181,7 +181,6 @@ async function main() {
               glyphAnim: config.glyphAnim,
               glyphFont: config.glyphFont,
               glyphSize: config.glyphSize,
-              motion: config.motion,
             });
             await runScene(settingsScene, session, clock, colorSupport);
             // Save settings on exit
@@ -190,7 +189,6 @@ async function main() {
             newConfig.glyphAnim = updated.glyphAnim;
             newConfig.glyphFont = updated.glyphFont;
             newConfig.glyphSize = updated.glyphSize;
-            newConfig.motion = updated.motion;
             await configStore.save(newConfig);
             break;
           }
