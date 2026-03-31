@@ -6,10 +6,10 @@ import type { DetailModel, DerivedLink } from "./detail-model.ts";
 import { TEMPLE_NIGHT } from "../../color/themes/temple-night.ts";
 import { stringWidth, centerPad } from "../../layout/measure.ts";
 import { wordWrap } from "./word-wrap.ts";
+import { GLYPHS } from "../../glyphs.ts";
 
 const FOOTER_ROWS = 2;
 const PADDING = 2;
-const LINE_CHARS = { yang: "━━━━━━━━━━━━━━━", yin: "━━━━━━ ━━━━━━━" };
 
 /** Build the full content as an array of {text, style} lines */
 export interface ContentLine {
@@ -39,7 +39,7 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
 
   // Line diagram (top to bottom: line 6 down to line 1)
   for (let i = 5; i >= 0; i--) {
-    const lineChar = gua.l[i] === 1 ? LINE_CHARS.yang : LINE_CHARS.yin;
+    const lineChar = gua.l[i] === 1 ? GLYPHS.yangFinal : GLYPHS.yinFinal;
     lines.push({ text: centerPad(lineChar, textWidth), fg: TEMPLE_NIGHT.primary });
     // Add gap between upper and lower trigrams (after line 4, before line 3)
     if (i === 3) {
