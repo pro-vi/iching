@@ -98,8 +98,10 @@ function renderRow(
   const pinyin = hex.p;
 
   // Build row: " > KW  ䷀  乾  Qián       The Creative"
+  // Chinese name starts after: marker(1) + space(1) + kw(3) + 2spaces(2) + symbol(2) + 2spaces(2) = col 11
+  // But CJK hex symbol is width 2, so use stringWidth for accurate column
   const prefix = `${marker} ${kwStr}  ${hex.u}  `;
-  const chineseCol = prefix.length;
+  const chineseCol = stringWidth(prefix);
 
   // Calculate remaining space for English name
   const chineseWidth = stringWidth(chinese);

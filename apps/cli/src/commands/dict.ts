@@ -25,11 +25,17 @@ export function registerDictCommand(program: Command): void {
       );
       const journal = new JsonlJournalStore(paths.state);
 
-      // Scene factory for router
+      // Scene factory for router — loads history async after scene creation
       const factory = (id: string) => {
         if (id.startsWith("detail:")) {
           const kw = Number(id.slice(7));
-          return new DetailScene(kw);
+          if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new BrowseScene();
+          const scene = new DetailScene(kw);
+          // Load history in background — will be available after first render
+          getHexagramHistory(journal, kw).then((h) =>
+            scene.setHistory(h.castCount, h.lastCastDate),
+          );
+          return scene;
         }
         return new BrowseScene();
       };

@@ -13,7 +13,7 @@ async function main() {
   // Interactive mode: no args + TTY → home menu
   if (!hasArgs && process.stdin.isTTY) {
     const { castHexagram, buildStructure, CryptoRandomSource, SeededRandomSource, GUA } = await import("@iching/core");
-    const { resolvePaths, JsonDailyCacheStore, JsonlJournalStore } = await import("@iching/storage");
+    const { resolvePaths, JsonDailyCacheStore, JsonlJournalStore, getHexagramHistory } = await import("@iching/storage");
     const {
       HomeScene, CastScene, BrowseScene, DetailScene,
       SceneRouter, TerminalSession, RealClock, runScene, detectColorSupport,
@@ -87,9 +87,18 @@ async function main() {
                   });
                 });
               } else if (castSignal.goto === "dictionary") {
+                const journal = new JsonlJournalStore(paths.state);
                 const browseScene = new BrowseScene();
                 const factory = (id: string) => {
-                  if (id.startsWith("detail:")) return new DetailScene(Number(id.slice(7)));
+                  if (id.startsWith("detail:")) {
+                    const kw = Number(id.slice(7));
+                    if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new BrowseScene();
+                    const scene = new DetailScene(kw);
+                    getHexagramHistory(journal, kw).then((h) =>
+                      scene.setHistory(h.castCount, h.lastCastDate),
+                    );
+                    return scene;
+                  }
                   return new BrowseScene();
                 };
                 const router = new SceneRouter(browseScene, factory);
@@ -101,9 +110,18 @@ async function main() {
           }
 
           case "dictionary": {
+            const journal = new JsonlJournalStore(paths.state);
             const browseScene = new BrowseScene();
             const factory = (id: string) => {
-              if (id.startsWith("detail:")) return new DetailScene(Number(id.slice(7)));
+              if (id.startsWith("detail:")) {
+                const kw = Number(id.slice(7));
+                if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new BrowseScene();
+                const scene = new DetailScene(kw);
+                getHexagramHistory(journal, kw).then((h) =>
+                  scene.setHistory(h.castCount, h.lastCastDate),
+                );
+                return scene;
+              }
               return new BrowseScene();
             };
             const router = new SceneRouter(browseScene, factory);

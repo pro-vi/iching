@@ -104,6 +104,12 @@ export class TerminalSession {
     this.resizeCallbacks.push(cb);
   }
 
+  /** Remove a resize callback */
+  offResize(cb: ResizeCallback): void {
+    const idx = this.resizeCallbacks.indexOf(cb);
+    if (idx !== -1) this.resizeCallbacks.splice(idx, 1);
+  }
+
   /** Run a function within the terminal session, ensuring cleanup on exit or error */
   async run<T>(fn: () => T | Promise<T>): Promise<T> {
     this.enter();

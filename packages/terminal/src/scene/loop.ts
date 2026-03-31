@@ -41,12 +41,13 @@ export async function runScene(
       colorSupport,
     };
 
-    // Wire up resize
-    session.onResize((cols, rows) => {
+    // Wire up resize (and track for cleanup)
+    const onResize = (cols: number, rows: number) => {
       ctx.cols = cols;
       ctx.rows = rows;
       scene.resize?.(cols, rows);
-    });
+    };
+    session.onResize(onResize);
 
     // Wire up stdin → KeyParser → input queue
     const inputQueue: KeyEvent[] = [];
@@ -100,6 +101,7 @@ export async function runScene(
 
     await scene.exit?.(ctx);
     process.stdin.off("data", onData);
+    session.offResize(onResize);
   } finally {
     // Always restore terminal, even on error
     session.exit();

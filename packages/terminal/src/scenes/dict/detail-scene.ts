@@ -4,7 +4,7 @@ import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
 import { DetailModel } from "./detail-model.ts";
-import { renderDetail } from "./detail-renderer.ts";
+import { renderDetail, buildContentLines } from "./detail-renderer.ts";
 
 const FOOTER_ROWS = 2;
 
@@ -17,6 +17,8 @@ export class DetailScene implements Scene {
 
   enter(ctx: SceneContext): void {
     this.model.viewportHeight = ctx.rows - FOOTER_ROWS;
+    // Pre-compute content height so scroll bounds work before first render
+    this.model.contentHeight = buildContentLines(this.model, ctx.cols).length;
   }
 
   update(_elapsed: number, _dt: number, _ctx: SceneContext): void {
