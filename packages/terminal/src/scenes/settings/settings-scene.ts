@@ -1,4 +1,4 @@
-// SettingsScene — configure glyph animation, font, size, and motion preset
+// SettingsScene — configure theme, glyph animation, font, size
 
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
@@ -7,7 +7,7 @@ import type { GlyphAnimator, GlyphAnimStyle } from "../../glyph-anim/types.ts";
 import type { GlyphFont, GlyphSize } from "@iching/core";
 import { LARGE_GLYPHS } from "@iching/core";
 import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
-import { TEMPLE_NIGHT } from "../../color/themes/temple-night.ts";
+import { getTheme, setTheme, THEME_NAMES, type ThemeName } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 
 // ── Setting definitions ──────────────────────────────────────────────
@@ -15,21 +15,21 @@ import { stringWidth } from "../../layout/measure.ts";
 const ANIM_OPTIONS: GlyphAnimStyle[] = ["noise", "dots", "radial", "sand"];
 const FONT_OPTIONS: GlyphFont[] = ["kaiti", "libian", "heiti"];
 const SIZE_OPTIONS: GlyphSize[] = [64, 48, 32];
-// Motion preset removed from settings — it controls the casting ritual, not glyph display
 
-interface SettingRow<T> {
+interface SettingRow {
   label: string;
-  options: T[];
+  options: string[];
   selected: number;
 }
 
 export interface SettingsValues {
+  theme: ThemeName;
   glyphAnim: GlyphAnimStyle;
   glyphFont: GlyphFont;
   glyphSize: GlyphSize;
 }
 
-// ── Preview glyph (乾 "qian" — the first hexagram) ────────────────
+// ── Preview glyph ────────────────────────────────────────────────────
 
 const PREVIEW_CHAR = "乾";
 
@@ -37,7 +37,7 @@ const PREVIEW_CHAR = "乾";
 
 export class SettingsScene implements Scene {
   private focusedRow = 0;
-  private rows: SettingRow<string>[];
+  private rows: SettingRow[];
   private previewAnimator: GlyphAnimator | null = null;
   private previewActive = false;
   private values: SettingsValues;
@@ -45,22 +45,19 @@ export class SettingsScene implements Scene {
   constructor(initial: SettingsValues) {
     this.values = { ...initial };
     this.rows = [
-      { label: "Glyph Animation", options: [...ANIM_OPTIONS], selected: ANIM_OPTIONS.indexOf(initial.glyphAnim) },
-      { label: "Font",            options: [...FONT_OPTIONS],  selected: FONT_OPTIONS.indexOf(initial.glyphFont) },
-      { label: "Glyph Size",      options: SIZE_OPTIONS.map(String), selected: SIZE_OPTIONS.indexOf(initial.glyphSize) },
+      { label: "Theme",           options: [...THEME_NAMES],             selected: Math.max(0, THEME_NAMES.indexOf(initial.theme)) },
+      { label: "Glyph Animation", options: [...ANIM_OPTIONS],            selected: Math.max(0, ANIM_OPTIONS.indexOf(initial.glyphAnim)) },
+      { label: "Font",            options: [...FONT_OPTIONS],            selected: Math.max(0, FONT_OPTIONS.indexOf(initial.glyphFont)) },
+      { label: "Glyph Size",      options: SIZE_OPTIONS.map(String),     selected: Math.max(0, SIZE_OPTIONS.indexOf(initial.glyphSize)) },
     ];
-    // Fix any -1 indices from missing defaults
-    for (const row of this.rows) {
-      if (row.selected < 0) row.selected = 0;
-    }
   }
 
-  /** Get current settings values. */
   getValues(): SettingsValues {
     return {
-      glyphAnim: ANIM_OPTIONS[this.rows[0].selected],
-      glyphFont: FONT_OPTIONS[this.rows[1].selected],
-      glyphSize: SIZE_OPTIONS[this.rows[2].selected],
+      theme: THEME_NAMES[this.rows[0].selected] ?? "temple-night",
+      glyphAnim: ANIM_OPTIONS[this.rows[1].selected] ?? "noise",
+      glyphFont: FONT_OPTIONS[this.rows[2].selected] ?? "kaiti",
+      glyphSize: SIZE_OPTIONS[this.rows[3].selected] ?? 64,
     };
   }
 
@@ -68,64 +65,64 @@ export class SettingsScene implements Scene {
 
   update(elapsed: number, _dt: number, _ctx: SceneContext): void {
     if (this.previewActive && this.previewAnimator) {
-      const done = this.previewAnimator.update(elapsed);
-      if (done) {
+      if (this.previewAnimator.update(elapsed)) {
         this.previewActive = false;
       }
     }
   }
 
   render(frame: CellBuffer, _ctx: SceneContext): void {
+    const t = getTheme();
     const cx = Math.floor(frame.width / 2);
     let row = 2;
 
-    // ── Title ──
+    // Title
     const title = "Settings";
-    const titleCol = cx - Math.floor(stringWidth(title) / 2);
-    frame.writeText(row, titleCol, title, { fg: TEMPLE_NIGHT.bone, bold: true });
+    frame.writeText(row, cx - Math.floor(stringWidth(title) / 2), title, { fg: t.primary, bold: true });
     row += 1;
 
     // Separator
-    const sep = "\u2500".repeat(Math.min(48, frame.width - 4));
+    const sep = "─".repeat(Math.min(48, frame.width - 4));
     const sepCol = cx - Math.floor(stringWidth(sep) / 2);
-    frame.writeText(row, sepCol, sep, { fg: TEMPLE_NIGHT.ash, dim: true });
+    frame.writeText(row, sepCol, sep, { fg: t.border });
     row += 2;
 
-    // ── Setting rows ──
-    const leftMargin = Math.max(2, cx - 24);
+    // Setting rows
+    const left = Math.max(2, cx - 24);
 
     for (let i = 0; i < this.rows.length; i++) {
       const setting = this.rows[i];
-      const isFocused = i === this.focusedRow;
+      const focused = i === this.focusedRow;
 
       // Label
-      const labelFg = isFocused ? TEMPLE_NIGHT.bone : TEMPLE_NIGHT.stone;
-      frame.writeText(row, leftMargin, setting.label, { fg: labelFg, bold: isFocused });
+      frame.writeText(row, left, setting.label, {
+        fg: focused ? t.primary : t.secondary,
+        bold: focused,
+      });
       row += 1;
 
-      // Options line
-      const prefix = isFocused ? "> " : "  ";
-      frame.writeText(row, leftMargin, prefix, { fg: TEMPLE_NIGHT.ash });
+      // Options
+      const prefix = focused ? "> " : "  ";
+      frame.writeText(row, left, prefix, { fg: t.tertiary });
 
-      let col = leftMargin + stringWidth(prefix);
+      let col = left + stringWidth(prefix);
       for (let j = 0; j < setting.options.length; j++) {
         const opt = setting.options[j];
-        const isSelected = j === setting.selected;
+        const sel = j === setting.selected;
 
-        if (isSelected) {
-          const bracketedOpt = `[${opt}]`;
-          const fg = isFocused ? TEMPLE_NIGHT.bone : TEMPLE_NIGHT.stone;
-          frame.writeText(row, col, bracketedOpt, { fg, bold: isFocused });
-          col += stringWidth(bracketedOpt);
+        if (sel) {
+          const text = `[${opt}]`;
+          frame.writeText(row, col, text, {
+            fg: focused ? t.accent : t.primary,
+            bold: focused,
+          });
+          col += stringWidth(text);
         } else {
-          const fg = TEMPLE_NIGHT.ash;
-          frame.writeText(row, col, opt, { fg });
+          frame.writeText(row, col, opt, { fg: t.tertiary });
           col += stringWidth(opt);
         }
 
-        // Space between options
         if (j < setting.options.length - 1) {
-          frame.writeText(row, col, "  ", { fg: TEMPLE_NIGHT.ash });
           col += 2;
         }
       }
@@ -133,15 +130,14 @@ export class SettingsScene implements Scene {
       row += 2;
     }
 
-    // ── Separator before preview ──
-    frame.writeText(row, sepCol, sep, { fg: TEMPLE_NIGHT.ash, dim: true });
+    // Separator
+    frame.writeText(row, sepCol, sep, { fg: t.border });
     row += 2;
 
-    // ── Preview label ──
-    frame.writeText(row, leftMargin, "Preview:", { fg: TEMPLE_NIGHT.stone });
+    // Preview
+    frame.writeText(row, left, "Preview:", { fg: t.secondary });
     row += 1;
 
-    // ── Preview area ──
     const vals = this.getValues();
     const glyphData = LARGE_GLYPHS[PREVIEW_CHAR]?.[vals.glyphFont]?.[vals.glyphSize];
 
@@ -150,29 +146,22 @@ export class SettingsScene implements Scene {
       if (this.previewActive && this.previewAnimator) {
         this.previewAnimator.render(frame, row, previewCol);
       } else {
-        // Static glyph display — match animation settled color
         for (let r = 0; r < glyphData.height; r++) {
           const chars = [...(glyphData.rows[r] ?? "")];
           for (let c = 0; c < chars.length; c++) {
             const ch = chars[c];
             if (ch === "\u2800" || ch === " ") continue;
-            frame.writeText(row + r, previewCol + c, ch, { fg: TEMPLE_NIGHT.bone });
+            frame.writeText(row + r, previewCol + c, ch, { fg: t.primary });
           }
         }
       }
-      row += glyphData.height + 1;
-    } else {
-      frame.writeText(row, leftMargin, "(no glyph data)", { fg: TEMPLE_NIGHT.ash, dim: true });
-      row += 2;
     }
 
-    // ── Footer ──
+    // Footer
     const footerRow = frame.height - 2;
-    const footer = "\u2191\u2193 setting  \u2190\u2192 option  enter preview  esc back";
-    const footerCol = cx - Math.floor(stringWidth(footer) / 2);
-    // Separator above footer
-    frame.writeText(footerRow - 1, sepCol, sep, { fg: TEMPLE_NIGHT.ash, dim: true });
-    frame.writeText(footerRow, footerCol, footer, { fg: TEMPLE_NIGHT.ash, dim: true });
+    const footer = "↑↓ setting  ←→ option  esc save & back";
+    frame.writeText(footerRow - 1, sepCol, sep, { fg: t.border });
+    frame.writeText(footerRow, cx - Math.floor(stringWidth(footer) / 2), footer, { fg: t.tertiary });
   }
 
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
@@ -191,15 +180,15 @@ export class SettingsScene implements Scene {
           this.focusedRow = (this.focusedRow + 1) % this.rows.length;
           break;
         case "left": {
-          const row = this.rows[this.focusedRow];
-          row.selected = (row.selected - 1 + row.options.length) % row.options.length;
-          this.startPreview();
+          const r = this.rows[this.focusedRow];
+          r.selected = (r.selected - 1 + r.options.length) % r.options.length;
+          this.onOptionChanged();
           break;
         }
         case "right": {
-          const row = this.rows[this.focusedRow];
-          row.selected = (row.selected + 1) % row.options.length;
-          this.startPreview();
+          const r = this.rows[this.focusedRow];
+          r.selected = (r.selected + 1) % r.options.length;
+          this.onOptionChanged();
           break;
         }
       }
@@ -210,11 +199,17 @@ export class SettingsScene implements Scene {
     }
   }
 
+  private onOptionChanged(): void {
+    // Apply theme change immediately so the settings screen itself updates
+    const vals = this.getValues();
+    setTheme(vals.theme);
+    this.startPreview();
+  }
+
   private startPreview(): void {
     const vals = this.getValues();
     const glyphData = LARGE_GLYPHS[PREVIEW_CHAR]?.[vals.glyphFont]?.[vals.glyphSize];
     if (!glyphData) return;
-
     this.previewAnimator = createGlyphAnimator(vals.glyphAnim, glyphData);
     this.previewActive = true;
   }

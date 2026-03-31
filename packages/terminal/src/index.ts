@@ -29,12 +29,22 @@ export {
 // Color detection
 export { detectColorSupport, type ColorSupport } from "./color/detect.ts";
 
-// Temple Night palette
+// Temple Night palette (legacy direct access)
 export {
   TEMPLE_NIGHT,
   TEMPLE_NIGHT_256,
   type TempleNightColor,
 } from "./color/themes/temple-night.ts";
+
+// Theme system
+export {
+  getTheme,
+  setTheme,
+  THEMES,
+  THEME_NAMES,
+  type Theme,
+  type ThemeName,
+} from "./color/theme.ts";
 
 // Render: cell, buffer, diff
 export { type StyledCell, EMPTY_CELL, cellsEqual } from "./render/cell.ts";

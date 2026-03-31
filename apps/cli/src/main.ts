@@ -18,6 +18,7 @@ async function main() {
     const {
       HomeScene, CastScene, BrowseScene, DetailScene, JournalScene, SettingsScene,
       SceneRouter, TerminalSession, RealClock, runScene, detectColorSupport,
+      setTheme,
     } = await import("@iching/terminal");
     const { formatCastPlain } = await import("./output/plain.js");
 
@@ -25,6 +26,11 @@ async function main() {
     const paths = resolvePaths(opts.dataDir ? { dataDir: opts.dataDir } : undefined);
     const cacheStore = new JsonDailyCacheStore(paths.cache);
     const today = localToday();
+
+    // Load and apply saved theme
+    const configStore = new JsonConfigStore(paths.config);
+    const savedConfig = await configStore.load();
+    setTheme(savedConfig.theme as any);
     const todayCast = await cacheStore.read();
     const hasTodayCast = todayCast?.date === today;
 
@@ -175,21 +181,23 @@ async function main() {
           }
 
           case "settings": {
-            const configStore = new JsonConfigStore(paths.config);
             const config = await configStore.load();
             const settingsScene = new SettingsScene({
+              theme: config.theme as any,
               glyphAnim: config.glyphAnim,
               glyphFont: config.glyphFont,
               glyphSize: config.glyphSize,
             });
             await runScene(settingsScene, session, clock, colorSupport);
-            // Save settings on exit
+            // Save and apply settings on exit
             const updated = settingsScene.getValues();
             const newConfig = await configStore.load();
+            newConfig.theme = updated.theme;
             newConfig.glyphAnim = updated.glyphAnim;
             newConfig.glyphFont = updated.glyphFont;
             newConfig.glyphSize = updated.glyphSize;
             await configStore.save(newConfig);
+            setTheme(updated.theme);
             break;
           }
 
