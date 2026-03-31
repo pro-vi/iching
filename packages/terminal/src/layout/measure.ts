@@ -2,20 +2,17 @@
 
 /**
  * Measure the display width of a string.
- * Uses Bun.stringWidth for accurate CJK/emoji width when available.
+ * Uses Bun.stringWidth for accurate CJK/emoji width when available,
+ * with corrections for characters Bun misreports (I Ching hexagram symbols).
  */
 export function stringWidth(str: string): number {
-  // Bun provides a native stringWidth that handles CJK, emoji, etc.
-  if (typeof Bun !== "undefined" && typeof Bun.stringWidth === "function") {
-    return Bun.stringWidth(str);
-  }
-
-  // Fallback: count characters, estimating CJK as width 2
   let width = 0;
   for (const ch of str) {
     const code = ch.codePointAt(0) ?? 0;
     if (isWideChar(code)) {
       width += 2;
+    } else if (typeof Bun !== "undefined" && typeof Bun.stringWidth === "function") {
+      width += Bun.stringWidth(ch);
     } else {
       width += 1;
     }
@@ -28,6 +25,8 @@ export function stringWidth(str: string): number {
  */
 function isWideChar(code: number): boolean {
   return (
+    // I Ching Hexagram Symbols (Bun.stringWidth misreports as 1, terminals render as 2)
+    (code >= 0x4dc0 && code <= 0x4dff) ||
     // CJK Unified Ideographs
     (code >= 0x4e00 && code <= 0x9fff) ||
     // CJK Extension A
