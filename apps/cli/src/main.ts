@@ -24,13 +24,20 @@ async function main() {
     const cast = castHexagram(source);
     const structure = buildStructure(cast);
 
-    // Save to storage
+    // Only record to journal for genuine daily casts
     const paths = resolvePaths(opts.dataDir ? { dataDir: opts.dataDir } : undefined);
     const today = new Date().toISOString().slice(0, 10);
     const cacheStore = new JsonDailyCacheStore(paths.cache);
+
+    if (seed === undefined) {
+      const existing = await cacheStore.read();
+      if (!existing || existing.date !== today) {
+        const journal = new JsonlJournalStore(paths.state);
+        await journal.append({ date: today, cast });
+      }
+    }
+
     await cacheStore.write({ date: today, cast, shown: true, structure });
-    const journal = new JsonlJournalStore(paths.state);
-    await journal.append({ date: today, cast });
 
     // Run animated ritual
     const session = new TerminalSession();

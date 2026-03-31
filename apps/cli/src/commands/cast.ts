@@ -32,22 +32,31 @@ export function registerCastCommand(program: Command): void {
       const becoming = cast.becoming !== null ? GUA[cast.becoming - 1] : null;
       const structure = buildStructure(cast);
 
-      // Save to storage
-      const paths = resolvePaths(
-        opts.dataDir ? { dataDir: opts.dataDir } : undefined,
-      );
-      const today = new Date().toISOString().slice(0, 10);
+      // Only record to journal for genuine daily casts:
+      // - Not a seeded/test cast
+      // - No existing cast for today in the cache
+      if (seed === undefined) {
+        const paths = resolvePaths(
+          opts.dataDir ? { dataDir: opts.dataDir } : undefined,
+        );
+        const today = new Date().toISOString().slice(0, 10);
+        const cacheStore = new JsonDailyCacheStore(paths.cache);
+        const existing = await cacheStore.read();
 
-      const cacheStore = new JsonDailyCacheStore(paths.cache);
-      await cacheStore.write({
-        date: today,
-        cast,
-        shown: true,
-        structure,
-      });
+        if (!existing || existing.date !== today) {
+          // First cast of the day — record it
+          const journal = new JsonlJournalStore(paths.state);
+          await journal.append({ date: today, cast });
+        }
 
-      const journal = new JsonlJournalStore(paths.state);
-      await journal.append({ date: today, cast });
+        // Always update cache (so we know today's cast exists)
+        await cacheStore.write({
+          date: today,
+          cast,
+          shown: true,
+          structure,
+        });
+      }
 
       // Output
       if (opts.json) {
