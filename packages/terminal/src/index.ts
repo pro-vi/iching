@@ -119,3 +119,6 @@ export { SceneRouter, type SceneFactory } from "./scene/router.ts";
 // Scenes: dictionary
 export { BrowseScene } from "./scenes/dict/browse-scene.ts";
 export { BrowseModel } from "./scenes/dict/browse-model.ts";
+export { DetailScene } from "./scenes/dict/detail-scene.ts";
+export { DetailModel } from "./scenes/dict/detail-model.ts";
+export { wordWrap } from "./scenes/dict/word-wrap.ts";

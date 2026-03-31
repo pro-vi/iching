@@ -61,6 +61,9 @@ export { formatDerived } from "./format/derived.js";
 // Search
 export { searchHexagrams } from "./search.js";
 
+// Detail
+export { type HexagramDetail, buildHexagramDetail } from "./detail.js";
+
 // Service
 export { selectDisplay } from "./service/display-select.js";
 export type { DisplayChoice } from "./service/display-select.js";
