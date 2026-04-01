@@ -5,8 +5,8 @@ import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
 import type { GlyphAnimator, GlyphAnimStyle } from "../../glyph-anim/types.ts";
 import type { GlyphFont, GlyphSize } from "@iching/core";
-import { LARGE_GLYPHS } from "@iching/core";
 import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
+import { composeGlyph } from "../../glyph-anim/compose.ts";
 import { getTheme, setTheme, THEME_NAMES, type ThemeName } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 
@@ -139,7 +139,7 @@ export class SettingsScene implements Scene {
     row += 1;
 
     const vals = this.getValues();
-    const glyphData = LARGE_GLYPHS[PREVIEW_CHAR]?.[vals.glyphFont]?.[vals.glyphSize];
+    const glyphData = composeGlyph(PREVIEW_CHAR, vals.glyphFont, vals.glyphSize);
 
     if (glyphData) {
       const previewCol = cx - Math.floor(glyphData.width / 2);
@@ -208,7 +208,7 @@ export class SettingsScene implements Scene {
 
   private startPreview(): void {
     const vals = this.getValues();
-    const glyphData = LARGE_GLYPHS[PREVIEW_CHAR]?.[vals.glyphFont]?.[vals.glyphSize];
+    const glyphData = composeGlyph(PREVIEW_CHAR, vals.glyphFont, vals.glyphSize);
     if (!glyphData) return;
     this.previewAnimator = createGlyphAnimator(vals.glyphAnim, glyphData);
     this.previewActive = true;

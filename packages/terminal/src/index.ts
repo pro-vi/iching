@@ -132,6 +132,7 @@ export { SceneRouter, type SceneFactory } from "./scene/router.ts";
 // Glyph animations
 export type { GlyphAnimator, GlyphAnimStyle } from "./glyph-anim/types.ts";
 export { createGlyphAnimator } from "./glyph-anim/factory.ts";
+export { composeGlyph } from "./glyph-anim/compose.ts";
 export { NoiseAnimator } from "./glyph-anim/noise.ts";
 export { DotsAnimator } from "./glyph-anim/dots.ts";
 export { RadialAnimator } from "./glyph-anim/radial.ts";
