@@ -1,6 +1,7 @@
 // CastModel — mutable animation state for the casting ritual
 
-import type { Cast } from "@iching/core";
+import type { Cast, GlyphEntry } from "@iching/core";
+import type { GlyphAnimator } from "../../glyph-anim/types.ts";
 
 export interface LineAnimState {
   progress: number; // 0-1, line drawing progress
@@ -47,6 +48,17 @@ export class CastModel {
   showPrompt: boolean;
   promptChoice: string | null;
 
+  // Large glyph reveal
+  glyphAnimator: GlyphAnimator | null;
+  glyphAnimDone: boolean;
+  primaryGlyphEntry: GlyphEntry | null;
+  becomingGlyphEntry: GlyphEntry | null;
+
+  // Interactive exploration (after becoming reveal)
+  explorationMode: boolean;
+  focusedHex: "primary" | "becoming";
+  commentaryScrollOffset: number;
+
   // Reference to the cast data
   readonly cast: Cast;
 
@@ -84,5 +96,14 @@ export class CastModel {
 
     this.showPrompt = false;
     this.promptChoice = null;
+
+    this.glyphAnimator = null;
+    this.glyphAnimDone = false;
+    this.primaryGlyphEntry = null;
+    this.becomingGlyphEntry = null;
+
+    this.explorationMode = false;
+    this.focusedHex = "primary";
+    this.commentaryScrollOffset = 0;
   }
 }

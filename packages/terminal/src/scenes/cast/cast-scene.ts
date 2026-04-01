@@ -1,6 +1,6 @@
 // CastScene — main scene orchestrating the full casting ritual
 
-import type { Cast } from "@iching/core";
+import type { Cast, GlyphSize } from "@iching/core";
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
@@ -13,21 +13,37 @@ import { renderHexagram, anchorRow, LINE_ROW_OFFSETS, COIN_ROW_OFFSET } from "./
 import { renderTitle, renderBecomingTitle } from "./reveal-renderer.ts";
 import { renderMorph } from "./morph-renderer.ts";
 import { renderRightHexagram, renderRightMorph } from "./right-hex-renderer.ts";
-import { buildCastTimeline } from "./timeline-builder.ts";
+import { buildCastTimeline, type CastGlyphConfig } from "./timeline-builder.ts";
+import { renderLargeGlyph } from "./glyph-renderer.ts";
 import { hexColOffset } from "./layout-calc.ts";
 import { getTheme } from "../../color/theme.ts";
 import { SPLIT_ARROW } from "../../glyphs.ts";
 import { stringWidth } from "../../layout/measure.ts";
+import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
 
 export class CastScene implements Scene {
   private model: CastModel;
   private timeline: TimelineRunner;
   private complete = false;
+  private glyphConfig?: CastGlyphConfig;
 
-  constructor(cast: Cast, preset: MotionPreset = "default", termWidth: number = 80) {
+  constructor(
+    cast: Cast,
+    preset: MotionPreset = "default",
+    termWidth: number = 80,
+    glyphConfig?: CastGlyphConfig,
+    termRows: number = 24,
+  ) {
     this.model = new CastModel(cast);
+    // Auto-size glyph to fit terminal height
+    if (glyphConfig) {
+      this.glyphConfig = {
+        ...glyphConfig,
+        glyphSize: autoGlyphSize(termRows, glyphConfig.glyphSize),
+      };
+    }
     const timing = getPreset(preset);
-    const step = buildCastTimeline(cast, this.model, timing, termWidth);
+    const step = buildCastTimeline(cast, this.model, timing, termWidth, this.glyphConfig);
     this.timeline = new TimelineRunner(step);
   }
 
@@ -37,6 +53,9 @@ export class CastScene implements Scene {
 
   update(elapsed: number, _dt: number, _ctx: SceneContext): void {
     this.complete = this.timeline.advance(elapsed, this.model);
+    if (this.model.glyphAnimator && !this.model.glyphAnimDone) {
+      this.model.glyphAnimator.update(elapsed);
+    }
   }
 
   render(frame: CellBuffer, _ctx: SceneContext): void {
@@ -70,6 +89,9 @@ export class CastScene implements Scene {
       renderMorph(frame, model);
     }
 
+    // Render large glyph
+    renderLargeGlyph(frame, model);
+
     // Render primary title (left offset when split)
     renderTitle(frame, model, leftOffset);
 
@@ -86,6 +108,51 @@ export class CastScene implements Scene {
     // During animation, q always exits
     if (key.type === "char" && key.char === "q") {
       return "exit";
+    }
+
+    // Exploration mode: arrow keys switch focus, scroll commentary
+    if (this.model.explorationMode && key.type === "arrow") {
+      if (key.direction === "left" && this.model.focusedHex === "becoming") {
+        this.model.focusedHex = "primary";
+        this.model.commentaryScrollOffset = 0;
+        if (this.model.primaryGlyphEntry && this.glyphConfig) {
+          this.model.glyphAnimator = createGlyphAnimator(
+            this.glyphConfig.glyphAnim,
+            this.model.primaryGlyphEntry,
+          );
+          this.model.glyphAnimDone = false;
+        }
+        return;
+      }
+      if (key.direction === "right" && this.model.focusedHex === "primary" && this.model.cast.becoming !== null) {
+        this.model.focusedHex = "becoming";
+        this.model.commentaryScrollOffset = 0;
+        if (this.model.becomingGlyphEntry && this.glyphConfig) {
+          this.model.glyphAnimator = createGlyphAnimator(
+            this.glyphConfig.glyphAnim,
+            this.model.becomingGlyphEntry,
+          );
+          this.model.glyphAnimDone = false;
+        }
+        return;
+      }
+      if (key.direction === "up") {
+        this.model.commentaryScrollOffset = Math.max(0, this.model.commentaryScrollOffset - 1);
+        return;
+      }
+      if (key.direction === "down") {
+        this.model.commentaryScrollOffset++;
+        return;
+      }
+    }
+
+    // Enter in exploration mode opens dictionary for focused hex
+    if (this.model.explorationMode && key.type === "enter") {
+      const kw =
+        this.model.focusedHex === "primary"
+          ? this.model.cast.primary
+          : this.model.cast.becoming;
+      if (kw) return { goto: `detail:${kw}` };
     }
 
     // Only handle prompt keys after prompt is shown
@@ -149,4 +216,15 @@ function renderPrompt(buf: CellBuffer): void {
   const w = stringWidth(text);
   const col = Math.max(0, Math.floor((buf.width - w) / 2));
   buf.writeText(row, col, text, { fg: t.tertiary });
+}
+
+/**
+ * Auto-select glyph size based on terminal height.
+ * 64 for tall (>=40 rows), 48 for medium (>=30), 32 for short (<30).
+ * Returns the smaller of userSize and the terminal-appropriate maximum.
+ */
+function autoGlyphSize(termRows: number, userSize: GlyphSize): GlyphSize {
+  if (termRows >= 40) return userSize;
+  if (termRows >= 30) return Math.min(userSize, 48) as GlyphSize;
+  return 32;
 }

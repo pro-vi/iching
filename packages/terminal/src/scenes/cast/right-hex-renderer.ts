@@ -28,6 +28,11 @@ export function renderRightHexagram(
   const anchor = anchorRow(buf.height);
   const changingPositions = model.cast.changingPositions;
 
+  // Exploration dim: right hex dimmed when primary is focused
+  const explDim =
+    model.explorationMode && model.focusedHex === "primary";
+  const lineColor = explDim ? t.tertiary : t.primary;
+
   // Build a set of changing line indices (0-indexed) for quick lookup
   const changingSet = new Set(changingPositions.map((p) => p - 1));
 
@@ -53,15 +58,15 @@ export function renderRightHexagram(
       // Morph complete: render transformed line
       if (model.rightHexMorphComplete) {
         const transformedIsYang = !line.isYang;
-        renderLine(buf, row, transformedIsYang, 1, t.primary, xOffset);
+        renderLine(buf, row, transformedIsYang, 1, lineColor, xOffset);
         continue;
       }
 
       // Not yet morphing: render original
-      renderLine(buf, row, line.isYang, 1, t.primary, xOffset);
+      renderLine(buf, row, line.isYang, 1, lineColor, xOffset);
     } else {
       // Non-changing line: render same as primary
-      renderLine(buf, row, line.isYang, 1, t.primary, xOffset);
+      renderLine(buf, row, line.isYang, 1, lineColor, xOffset);
     }
   }
 }

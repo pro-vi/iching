@@ -49,6 +49,10 @@ export function renderHexagram(
   const t = getTheme();
   const anchor = anchorRow(buf.height);
 
+  // Exploration dim: left hex dimmed when becoming is focused
+  const explDim =
+    model.explorationMode && model.focusedHex === "becoming";
+
   for (let i = 0; i < 6; i++) {
     const lineState = model.lines[i];
     const line = model.cast.lines[i];
@@ -58,7 +62,9 @@ export function renderHexagram(
 
     // Determine color override for glow effects
     let color: string | undefined;
-    if (model.glowProgress > 0 && model.hexagramComplete) {
+    if (explDim) {
+      color = t.tertiary;
+    } else if (model.glowProgress > 0 && model.hexagramComplete) {
       // Whole-figure glow
       const g = model.glowProgress;
       if (g < 0.5) {

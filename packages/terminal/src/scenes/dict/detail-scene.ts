@@ -3,26 +3,62 @@
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
+import type { GlyphFont, GlyphSize } from "@iching/core";
+import type { GlyphAnimStyle } from "../../glyph-anim/types.ts";
+import { composeGlyph } from "../../glyph-anim/compose.ts";
+import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
 import { DetailModel } from "./detail-model.ts";
 import { renderDetail, buildContentLines } from "./detail-renderer.ts";
+
+export interface DetailGlyphConfig {
+  glyphAnim: GlyphAnimStyle;
+  glyphFont: GlyphFont;
+  glyphSize: GlyphSize;
+}
 
 const FOOTER_ROWS = 2;
 
 export class DetailScene implements Scene {
   private model: DetailModel;
+  private glyphConfig?: DetailGlyphConfig;
 
-  constructor(kw: number) {
+  constructor(kw: number, glyphConfig?: DetailGlyphConfig) {
     this.model = new DetailModel(kw);
+    this.glyphConfig = glyphConfig;
   }
 
   enter(ctx: SceneContext): void {
     this.model.viewportHeight = ctx.rows - FOOTER_ROWS;
+
+    // Create glyph animator on entry
+    if (this.glyphConfig) {
+      const glyph = composeGlyph(
+        this.model.detail.gua.n,
+        this.glyphConfig.glyphFont,
+        this.glyphConfig.glyphSize,
+      );
+      if (glyph) {
+        this.model.glyphEntry = glyph;
+        this.model.glyphAnimator = createGlyphAnimator(
+          this.glyphConfig.glyphAnim,
+          glyph,
+        );
+        this.model.glyphAnimDone = false;
+      }
+    }
+
     // Pre-compute content height so scroll bounds work before first render
     this.model.contentHeight = buildContentLines(this.model, ctx.cols).length;
   }
 
-  update(_elapsed: number, _dt: number, _ctx: SceneContext): void {
-    // Static scene
+  update(elapsed: number, _dt: number, _ctx: SceneContext): void {
+    // Drive glyph animator
+    if (this.model.glyphAnimator && !this.model.glyphAnimDone) {
+      const done = this.model.glyphAnimator.update(elapsed);
+      if (done) {
+        this.model.glyphAnimDone = true;
+      }
+    }
   }
 
   render(frame: CellBuffer, ctx: SceneContext): void {

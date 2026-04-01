@@ -20,13 +20,16 @@ export function renderTitle(
 
   const t = getTheme();
   const anchor = anchorRow(buf.height);
-  const baseRow = anchor + TITLE_ROW_OFFSET;
+  const glyphEntry = model.primaryGlyphEntry ?? model.becomingGlyphEntry;
+  const glyphHeight = glyphEntry?.height ?? 0;
+  const hasGlyph = glyphHeight > 0 && (model.glyphAnimator !== null || model.glyphAnimDone);
+  const baseRow = anchor + TITLE_ROW_OFFSET + (hasGlyph ? glyphHeight + 1 : 0);
   const hexNum = model.cast.primary;
   const gua = GUA[hexNum - 1];
   const structure = getStructure(hexNum);
 
-  // Line 1: Unicode symbol + Chinese name
-  const line1 = `${gua.u} ${gua.n}`;
+  // Line 1: Omit Unicode symbol when large glyph is present (redundant)
+  const line1 = hasGlyph ? gua.n : `${gua.u} ${gua.n}`;
   // Line 2: Pinyin
   const line2 = gua.p;
 
@@ -94,8 +97,12 @@ export function renderBecomingTitle(
   const t = getTheme();
   const anchor = anchorRow(buf.height);
   const isSplit = model.layout !== "centered";
+  const glyphEntry = model.primaryGlyphEntry ?? model.becomingGlyphEntry;
+  const glyphHeight = glyphEntry?.height ?? 0;
+  const hasGlyph = glyphHeight > 0 && (model.glyphAnimator !== null || model.glyphAnimDone);
+  const glyphOffset = hasGlyph ? glyphHeight + 1 : 0;
   // In split mode, becoming title renders at same row as primary title (not +6)
-  const baseRow = anchor + TITLE_ROW_OFFSET + (isSplit ? 0 : 6);
+  const baseRow = anchor + TITLE_ROW_OFFSET + glyphOffset + (isSplit ? 0 : 6);
   const hexNum = model.cast.becoming;
   const gua = GUA[hexNum - 1];
 

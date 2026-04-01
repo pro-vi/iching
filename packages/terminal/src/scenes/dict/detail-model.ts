@@ -1,6 +1,7 @@
 // DetailModel — scroll position, focused section, selected derived link
 
-import { type HexagramDetail, buildHexagramDetail } from "@iching/core";
+import { type HexagramDetail, type GlyphEntry, buildHexagramDetail } from "@iching/core";
+import type { GlyphAnimator } from "../../glyph-anim/types.ts";
 
 export type DetailFocus = "content" | "derived";
 
@@ -36,6 +37,11 @@ export class DetailModel {
   castCount: number;
   lastCastDate: string | null;
 
+  /** Large glyph animation */
+  glyphAnimator: GlyphAnimator | null;
+  glyphEntry: GlyphEntry | null;
+  glyphAnimDone: boolean;
+
   constructor(kw: number) {
     this.detail = buildHexagramDetail(kw);
     this.scrollOffset = 0;
@@ -45,6 +51,10 @@ export class DetailModel {
     this.viewportHeight = 20;
     this.castCount = 0;
     this.lastCastDate = null;
+
+    this.glyphAnimator = null;
+    this.glyphEntry = null;
+    this.glyphAnimDone = false;
 
     const d = this.detail;
     this.derivedLinks = [

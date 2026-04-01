@@ -1,12 +1,21 @@
 // timeline-builder.ts — compose the full ritual timeline from DSL primitives
 
-import type { Cast } from "@iching/core";
+import { type Cast, type GlyphFont, type GlyphSize, GUA } from "@iching/core";
 import type { RitualTiming } from "../../animation/presets.ts";
 import type { Step } from "../../animation/timeline.ts";
 import { seq, par, wait, call, tween } from "../../animation/timeline.ts";
 import { easeOut, easeInOut } from "../../animation/easing.ts";
 import type { CastModel } from "./model.ts";
 import { canSplit } from "./layout-calc.ts";
+import type { GlyphAnimStyle } from "../../glyph-anim/types.ts";
+import { composeGlyph } from "../../glyph-anim/compose.ts";
+import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
+
+export interface CastGlyphConfig {
+  glyphAnim: GlyphAnimStyle;
+  glyphFont: GlyphFont;
+  glyphSize: GlyphSize;
+}
 
 /**
  * Build the full ritual timeline for a casting sequence.
@@ -28,6 +37,7 @@ export function buildCastTimeline(
   model: CastModel,
   timing: RitualTiming,
   termWidth: number = 80,
+  glyphConfig?: CastGlyphConfig,
 ): Step {
   return seq(
     // 1. Opening breath
@@ -59,6 +69,25 @@ export function buildCastTimeline(
       model.glowProgress = 0;
     }),
 
+    // 6b. Primary glyph reveal (if config provided)
+    ...(glyphConfig
+      ? [
+          call(() => {
+            const glyph = composeGlyph(GUA[cast.primary - 1].n, glyphConfig.glyphFont, glyphConfig.glyphSize);
+            if (glyph) {
+              model.primaryGlyphEntry = glyph;
+              model.glyphAnimator = createGlyphAnimator(glyphConfig.glyphAnim, glyph);
+              model.glyphAnimDone = false;
+            }
+          }),
+          wait(200), // pause before glyph
+          wait(3000), // glyph animation runs in real-time via animator
+          call(() => {
+            model.glyphAnimDone = true;
+          }),
+        ]
+      : []),
+
     // 7. Title reveal
     tween(timing.titleStaggerMs > 0 ? 400 : 1, (p) => {
       model.titleProgress = p;
@@ -67,8 +96,8 @@ export function buildCastTimeline(
     // 8/9. Becoming or unchanging
     ...(cast.becoming !== null
       ? canSplit(termWidth)
-        ? buildWideBecoming(cast, model, timing)
-        : buildNarrowBecoming(cast, model, timing)
+        ? buildWideBecoming(cast, model, timing, glyphConfig)
+        : buildNarrowBecoming(cast, model, timing, glyphConfig)
       : [
           wait(1200),
           call(() => {
@@ -238,6 +267,7 @@ function buildWideBecoming(
   cast: Cast,
   model: CastModel,
   timing: RitualTiming,
+  glyphConfig?: CastGlyphConfig,
 ): Step[] {
   return [
     wait(680),
@@ -280,6 +310,30 @@ function buildWideBecoming(
     tween(timing.compareRevealMs > 0 ? timing.compareRevealMs : 1, (p) => {
       model.becomingTitleProgress = p;
     }, easeOut),
+    // Becoming glyph reveal
+    ...(glyphConfig && cast.becoming !== null
+      ? [
+          call(() => {
+            const glyph = composeGlyph(GUA[cast.becoming! - 1].n, glyphConfig.glyphFont, glyphConfig.glyphSize);
+            if (glyph) {
+              model.becomingGlyphEntry = glyph;
+              model.glyphAnimator = createGlyphAnimator(glyphConfig.glyphAnim, glyph);
+              model.glyphAnimDone = false;
+            }
+          }),
+          wait(3000),
+          call(() => {
+            model.glyphAnimDone = true;
+            model.explorationMode = true;
+          }),
+        ]
+      : cast.becoming !== null
+        ? [
+            call(() => {
+              model.explorationMode = true;
+            }),
+          ]
+        : []),
   ];
 }
 
@@ -290,6 +344,7 @@ function buildNarrowBecoming(
   cast: Cast,
   model: CastModel,
   timing: RitualTiming,
+  glyphConfig?: CastGlyphConfig,
 ): Step[] {
   return [
     wait(680),
@@ -317,6 +372,30 @@ function buildNarrowBecoming(
     tween(timing.compareRevealMs > 0 ? timing.compareRevealMs : 1, (p) => {
       model.becomingTitleProgress = p;
     }, easeOut),
+    // Becoming glyph reveal
+    ...(glyphConfig && cast.becoming !== null
+      ? [
+          call(() => {
+            const glyph = composeGlyph(GUA[cast.becoming! - 1].n, glyphConfig.glyphFont, glyphConfig.glyphSize);
+            if (glyph) {
+              model.becomingGlyphEntry = glyph;
+              model.glyphAnimator = createGlyphAnimator(glyphConfig.glyphAnim, glyph);
+              model.glyphAnimDone = false;
+            }
+          }),
+          wait(3000),
+          call(() => {
+            model.glyphAnimDone = true;
+            model.explorationMode = true;
+          }),
+        ]
+      : cast.becoming !== null
+        ? [
+            call(() => {
+              model.explorationMode = true;
+            }),
+          ]
+        : []),
   ];
 }
 

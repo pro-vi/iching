@@ -31,6 +31,11 @@ async function main() {
     const configStore = new JsonConfigStore(paths.config);
     const savedConfig = await configStore.load();
     setTheme(savedConfig.theme as any);
+    const glyphConfig = {
+      glyphAnim: savedConfig.glyphAnim as any,
+      glyphFont: savedConfig.glyphFont as any,
+      glyphSize: savedConfig.glyphSize as any,
+    };
     const todayCast = await cacheStore.read();
     const hasTodayCast = todayCast?.date === today;
 
@@ -93,7 +98,7 @@ async function main() {
               await cacheStore.write({ date: today, cast, shown: true, structure });
 
               // Run animated ritual
-              const castScene = new CastScene(cast, preset, session.cols);
+              const castScene = new CastScene(cast, preset, session.cols, glyphConfig, session.rows);
               const castSignal = await runScene(castScene, session, clock, colorSupport);
 
               // Handle post-cast action
@@ -109,14 +114,24 @@ async function main() {
                       resolve();
                     });
                   });
-                } else if (castSignal.goto === "dictionary") {
+                } else if (castSignal.goto === "dictionary" || castSignal.goto.startsWith("detail:")) {
                   const journal = new JsonlJournalStore(paths.state);
-                  const browseScene = new BrowseScene();
+                  const startScene = castSignal.goto.startsWith("detail:")
+                    ? (() => {
+                        const kw = Number(castSignal.goto.slice(7));
+                        if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new BrowseScene();
+                        const scene = new DetailScene(kw, glyphConfig);
+                        getHexagramHistory(journal, kw).then((h) =>
+                          scene.setHistory(h.castCount, h.lastCastDate),
+                        );
+                        return scene;
+                      })()
+                    : new BrowseScene();
                   const factory = (id: string) => {
                     if (id.startsWith("detail:")) {
                       const kw = Number(id.slice(7));
                       if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new BrowseScene();
-                      const scene = new DetailScene(kw);
+                      const scene = new DetailScene(kw, glyphConfig);
                       getHexagramHistory(journal, kw).then((h) =>
                         scene.setHistory(h.castCount, h.lastCastDate),
                       );
@@ -124,7 +139,7 @@ async function main() {
                     }
                     return new BrowseScene();
                   };
-                  const router = new SceneRouter(browseScene, factory);
+                  const router = new SceneRouter(startScene, factory);
                   await router.run(session, clock, colorSupport);
                 }
               }
@@ -140,7 +155,7 @@ async function main() {
               if (id.startsWith("detail:")) {
                 const kw = Number(id.slice(7));
                 if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new BrowseScene();
-                const scene = new DetailScene(kw);
+                const scene = new DetailScene(kw, glyphConfig);
                 getHexagramHistory(journal, kw).then((h) =>
                   scene.setHistory(h.castCount, h.lastCastDate),
                 );
@@ -164,7 +179,7 @@ async function main() {
               if (id.startsWith("detail:")) {
                 const kw = Number(id.slice(7));
                 if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new JournalScene(entries);
-                const scene = new DetailScene(kw);
+                const scene = new DetailScene(kw, glyphConfig);
                 getHexagramHistory(journal, kw).then((h) =>
                   scene.setHistory(h.castCount, h.lastCastDate),
                 );

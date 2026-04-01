@@ -26,9 +26,21 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
   const gua = model.detail.gua;
   const textWidth = width - PADDING * 2;
 
-  // Header — centered name
+  // Large glyph placeholder rows (scrolls with content)
+  if (model.glyphEntry) {
+    // Reserve rows for the glyph - render pass fills them in
+    for (let r = 0; r < model.glyphEntry.height; r++) {
+      lines.push({ text: "", _glyphRow: r } as ContentLine & { _glyphRow: number });
+    }
+    lines.push({ text: "" }); // spacer after glyph
+  }
+
+  // Header — centered name (omit Unicode symbol when glyph present)
+  const headerText = model.glyphEntry
+    ? `${gua.n} ${gua.p}`
+    : `${gua.u} ${gua.n} ${gua.p}`;
   lines.push({
-    text: centerPad(`${gua.u} ${gua.n} ${gua.p}`, textWidth),
+    text: centerPad(headerText, textWidth),
     fg: t.primary,
     bold: true,
   });
@@ -157,15 +169,56 @@ export function renderDetail(
   const visibleRows = ctx.rows - FOOTER_ROWS;
   const visibleEnd = Math.min(contentLines.length, model.scrollOffset + visibleRows);
 
+  // Glyph rendering state
+  const glyphEntry = model.glyphEntry;
+  const glyphCol = glyphEntry
+    ? Math.max(0, Math.floor((ctx.cols - glyphEntry.width) / 2))
+    : 0;
+
   for (let i = model.scrollOffset; i < visibleEnd; i++) {
     const row = i - model.scrollOffset;
     if (row >= visibleRows) break;
-    const line = contentLines[i];
+    const line = contentLines[i] as ContentLine & { _glyphRow?: number };
+
+    // Render glyph row via animator or static
+    if (line._glyphRow !== undefined && glyphEntry) {
+      const gr = line._glyphRow;
+      if (model.glyphAnimator && !model.glyphAnimDone) {
+        // Let the animator render just this row by rendering full glyph
+        // but we only need to call render once for the visible portion.
+        // We'll handle this below after the loop.
+      } else {
+        // Static glyph row
+        const t = getTheme();
+        const chars = [...(glyphEntry.rows[gr] ?? "")];
+        for (let c = 0; c < chars.length; c++) {
+          if (chars[c] === "\u2800" || chars[c] === " ") continue;
+          frame.writeText(row, glyphCol + c, chars[c], { fg: t.primary });
+        }
+      }
+      continue;
+    }
+
     frame.writeText(row, PADDING, line.text, {
       fg: line.fg,
       bold: line.bold,
       dim: line.dim,
     });
+  }
+
+  // Animated glyph: render in one pass over the visible area
+  if (model.glyphAnimator && !model.glyphAnimDone && glyphEntry) {
+    // Calculate which glyph rows are visible
+    const glyphStartLine = 0; // glyph rows start at content line 0
+    const glyphEndLine = glyphEntry.height;
+    const visStart = model.scrollOffset;
+    const visEnd = model.scrollOffset + visibleRows;
+
+    // Only render if any glyph rows are in view
+    if (glyphStartLine < visEnd && glyphEndLine > visStart) {
+      const screenRow = glyphStartLine - model.scrollOffset;
+      model.glyphAnimator.render(frame, screenRow, glyphCol);
+    }
   }
 
   // Footer

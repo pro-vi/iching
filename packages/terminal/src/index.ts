@@ -110,7 +110,8 @@ export { renderHexagram, anchorRow, LINE_ROW_OFFSETS } from "./scenes/cast/hexag
 export { renderTitle, renderBecomingTitle } from "./scenes/cast/reveal-renderer.ts";
 export { renderMorph, morphFrame } from "./scenes/cast/morph-renderer.ts";
 export { renderRightHexagram, renderRightMorph } from "./scenes/cast/right-hex-renderer.ts";
-export { buildCastTimeline } from "./scenes/cast/timeline-builder.ts";
+export { buildCastTimeline, type CastGlyphConfig } from "./scenes/cast/timeline-builder.ts";
+export { renderLargeGlyph } from "./scenes/cast/glyph-renderer.ts";
 export { canSplit, hexColOffset, MIN_SPLIT_WIDTH, SPLIT_OFFSET, ARROW_GAP } from "./scenes/cast/layout-calc.ts";
 
 // Scenes: home menu
@@ -144,6 +145,6 @@ export { SettingsScene, type SettingsValues } from "./scenes/settings/settings-s
 // Scenes: dictionary
 export { BrowseScene } from "./scenes/dict/browse-scene.ts";
 export { BrowseModel } from "./scenes/dict/browse-model.ts";
-export { DetailScene } from "./scenes/dict/detail-scene.ts";
+export { DetailScene, type DetailGlyphConfig } from "./scenes/dict/detail-scene.ts";
 export { DetailModel } from "./scenes/dict/detail-model.ts";
 export { wordWrap } from "./scenes/dict/word-wrap.ts";
