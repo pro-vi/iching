@@ -20,8 +20,8 @@ export function renderTitle(
 
   const t = getTheme();
   const anchor = anchorRow(buf.height);
-  // Use focused hexagram in exploration mode, primary otherwise
-  const focusedKw = model.explorationMode && model.focusedHex === "becoming" && model.cast.becoming
+  // Use focused hexagram — focusedHex is authoritative regardless of explorationMode
+  const focusedKw = model.focusedHex === "becoming" && model.cast.becoming
     ? model.cast.becoming
     : model.cast.primary;
 

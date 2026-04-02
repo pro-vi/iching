@@ -220,10 +220,11 @@ export class CastScene implements Scene {
       }
     }
 
-    // Becoming
+    // Becoming — land on the becoming hexagram (matches timeline end state)
     if (cast.becoming !== null) {
       model.becomingTitleProgress = 1;
       model.explorationMode = true;
+      model.focusedHex = "becoming";
 
       if (this.glyphConfig) {
         const glyph = composeGlyph(GUA[cast.becoming - 1].n, this.glyphConfig.glyphFont, this.glyphConfig.glyphSize);

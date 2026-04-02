@@ -98,17 +98,17 @@ export function buildCastTimeline(
         ? buildWideBecoming(cast, model, timing, glyphConfig)
         : buildNarrowBecoming(cast, model, timing, glyphConfig)
       : [
+          // No becoming: hold, then show prompt
           wait(1200),
           call(() => {
             model.subtitleText = "";
           }),
+          wait(timing.restMs),
+          call(() => {
+            model.showPrompt = true;
+          }),
         ]),
-
-    // 10. Show prompt
-    wait(timing.restMs),
-    call(() => {
-      model.showPrompt = true;
-    }),
+    // Becoming paths set showPrompt themselves
   );
 }
 
