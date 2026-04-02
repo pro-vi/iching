@@ -92,14 +92,19 @@ export class CastScene implements Scene {
       renderMorph(frame, model);
     }
 
-    // Render large glyph
-    renderLargeGlyph(frame, model);
+    // When large glyph is active: single centered glyph + title area
+    // replaces the split left/right title layout
+    const hasGlyph = model.primaryGlyphEntry && (model.glyphAnimator || model.glyphAnimDone);
 
-    // Render primary title (left offset when split)
-    renderTitle(frame, model, leftOffset);
-
-    // Render becoming title (right offset when split, centered otherwise)
-    renderBecomingTitle(frame, model, isSplit ? rightOffset : 0);
+    if (hasGlyph) {
+      renderLargeGlyph(frame, model);
+      // Single centered title for the focused hexagram (no split offset)
+      renderTitle(frame, model, 0);
+    } else {
+      // No glyph: use split title layout as before
+      renderTitle(frame, model, leftOffset);
+      renderBecomingTitle(frame, model, isSplit ? rightOffset : 0);
+    }
 
     // Render prompt
     if (model.showPrompt) {
