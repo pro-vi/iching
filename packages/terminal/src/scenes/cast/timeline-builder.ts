@@ -85,6 +85,7 @@ export function buildCastTimeline(
           call(() => {
             model.glyphAnimDone = true;
           }),
+          wait(1200), // breath — let the glyph exist before anything else moves
         ]
       : []),
 
@@ -324,6 +325,9 @@ function buildWideBecoming(
           wait(3000),
           call(() => {
             model.glyphAnimDone = true;
+          }),
+          wait(1200), // breath after becoming glyph
+          call(() => {
             model.explorationMode = true;
           }),
         ]
@@ -386,6 +390,9 @@ function buildNarrowBecoming(
           wait(3000),
           call(() => {
             model.glyphAnimDone = true;
+          }),
+          wait(1200), // breath after becoming glyph
+          call(() => {
             model.explorationMode = true;
           }),
         ]

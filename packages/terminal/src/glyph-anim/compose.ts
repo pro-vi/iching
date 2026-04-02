@@ -39,19 +39,22 @@ export function composeGlyph(
   const maxHeight = Math.max(...entries.map(e => e.height));
 
   const EMPTY_BRAILLE = "\u2800";
+
+  // Compute vertical offset for each entry to center-align within maxHeight
+  const offsets = entries.map(e => Math.floor((maxHeight - e.height) / 2));
+
   const composedRows: string[] = [];
 
   for (let r = 0; r < maxHeight; r++) {
     let row = "";
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i];
-      if (r < entry.height) {
-        row += entry.rows[r];
+      const localRow = r - offsets[i]; // row within this entry's content
+      if (localRow >= 0 && localRow < entry.height) {
+        row += entry.rows[localRow];
       } else {
-        // Pad with empty braille
         row += EMPTY_BRAILLE.repeat(entry.width);
       }
-      // Gap between characters (not after the last one)
       if (i < entries.length - 1) {
         row += EMPTY_BRAILLE.repeat(CHAR_GAP);
       }

@@ -20,30 +20,44 @@ export function renderTitle(
 
   const t = getTheme();
   const anchor = anchorRow(buf.height);
-  const glyphEntry = model.primaryGlyphEntry ?? model.becomingGlyphEntry;
+  // Use focused hexagram in exploration mode, primary otherwise
+  const focusedKw = model.explorationMode && model.focusedHex === "becoming" && model.cast.becoming
+    ? model.cast.becoming
+    : model.cast.primary;
+
+  const glyphEntry = model.focusedHex === "primary"
+    ? model.primaryGlyphEntry
+    : (model.becomingGlyphEntry ?? model.primaryGlyphEntry);
   const glyphHeight = glyphEntry?.height ?? 0;
   const hasGlyph = glyphHeight > 0 && (model.glyphAnimator !== null || model.glyphAnimDone);
   const baseRow = anchor + TITLE_ROW_OFFSET + (hasGlyph ? glyphHeight + 1 : 0);
-  const hexNum = model.cast.primary;
-  const gua = GUA[hexNum - 1];
-  const structure = getStructure(hexNum);
-
-  // Line 1: Omit Unicode symbol when large glyph is present (redundant)
-  const line1 = hasGlyph ? gua.n : `${gua.u} ${gua.n}`;
-  // Line 2: Pinyin
-  const line2 = gua.p;
+  const gua = GUA[focusedKw - 1];
+  const structure = getStructure(focusedKw);
 
   const isSplit = model.layout !== "centered";
 
-  // In split mode: compact (just name + pinyin). Centered mode: full commentary.
+  // When glyph is present: skip Chinese name (the glyph IS the name)
+  // Show only pinyin, English, trigram
   let lines: string[];
-  if (isSplit) {
-    lines = [line1, line2];
+  if (hasGlyph) {
+    if (isSplit) {
+      lines = [gua.p];
+    } else {
+      const maxWidth = Math.max(20, buf.width - 8);
+      const enLine = stringWidth(gua.en) > maxWidth ? gua.en.slice(0, maxWidth - 1) + "…" : gua.en;
+      lines = [gua.p, gua.ename ?? "", enLine, `${structure.upper.sym} above ${structure.lower.sym}`];
+    }
   } else {
-    const maxWidth = Math.max(20, buf.width - 8);
-    const line3 = stringWidth(gua.en) > maxWidth ? gua.en.slice(0, maxWidth - 1) + "…" : gua.en;
-    const line4 = `${structure.upper.sym} above ${structure.lower.sym}`;
-    lines = [line1, line2, line3, line4];
+    const line1 = `${gua.u} ${gua.n}`;
+    const line2 = gua.p;
+    if (isSplit) {
+      lines = [line1, line2];
+    } else {
+      const maxWidth = Math.max(20, buf.width - 8);
+      const line3 = stringWidth(gua.en) > maxWidth ? gua.en.slice(0, maxWidth - 1) + "…" : gua.en;
+      const line4 = `${structure.upper.sym} above ${structure.lower.sym}`;
+      lines = [line1, line2, line3, line4];
+    }
   }
   const progress = model.titleProgress;
 
