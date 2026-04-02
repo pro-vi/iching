@@ -39,6 +39,46 @@ export class TimelineRunner {
     this.state = createState(this.root);
     this.lastElapsed = 0;
   }
+
+  /**
+   * Fast-forward to the end: execute all call/tween steps instantly,
+   * skip all waits. Single source of truth — no hand-written end-state.
+   *
+   * - wait: skipped
+   * - tween: apply(1.0) with easing
+   * - call: executed immediately
+   * - sequence: children in order
+   * - parallel: all children executed
+   */
+  fastForward(ctx: any): void {
+    fastForwardStep(this.root, ctx);
+    this.lastElapsed = this.totalDuration;
+  }
+}
+
+// --- Fast-forward: recursive instant evaluation ---
+
+function fastForwardStep(step: Step, ctx: any): void {
+  switch (step.kind) {
+    case "wait":
+      break; // skip
+
+    case "call":
+      step.run(ctx);
+      break;
+
+    case "tween":
+      step.apply(step.easing(1), ctx);
+      break;
+
+    case "parallel":
+      for (const child of step.steps) fastForwardStep(child, ctx);
+      break;
+
+    case "sequence":
+      for (const child of step.steps) fastForwardStep(child, ctx);
+      break;
+  }
 }
 
 // --- Internal state tracking ---

@@ -15,12 +15,11 @@ import { renderMorph } from "./morph-renderer.ts";
 import { renderRightHexagram, renderRightMorph } from "./right-hex-renderer.ts";
 import { buildCastTimeline, type CastGlyphConfig } from "./timeline-builder.ts";
 import { renderLargeGlyph } from "./glyph-renderer.ts";
-import { hexColOffset, canSplit } from "./layout-calc.ts";
+import { hexColOffset } from "./layout-calc.ts";
 import { getTheme } from "../../color/theme.ts";
 import { SPLIT_ARROW } from "../../glyphs.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
-import { composeGlyph } from "../../glyph-anim/compose.ts";
 
 export class CastScene implements Scene {
   private model: CastModel;
@@ -189,78 +188,11 @@ export class CastScene implements Scene {
 
   /**
    * Skip all animation and show the fully revealed state.
-   * Used when re-entering today's cast from the home menu.
+   * Uses TimelineRunner.fastForward() — single source of truth.
+   * The timeline's call/tween steps execute instantly, waits are skipped.
    */
   skipToComplete(): void {
-    const model = this.model;
-    const cast = model.cast;
-
-    // All lines settled
-    for (let i = 0; i < 6; i++) {
-      model.lines[i].progress = 1;
-      model.lines[i].settled = true;
-      if (cast.lines[i].isChanging) {
-        model.lines[i].markerVisible = true;
-      }
-    }
-
-    model.coinPhase = "done";
-    model.hexagramComplete = true;
-    model.glowProgress = 0;
-    model.titleProgress = 1;
-    model.showPrompt = true;
-
-    // Compose both glyph entries
-    if (this.glyphConfig) {
-      const primaryGlyph = composeGlyph(GUA[cast.primary - 1].n, this.glyphConfig.glyphFont, this.glyphConfig.glyphSize);
-      if (primaryGlyph) model.primaryGlyphEntry = primaryGlyph;
-
-      if (cast.becoming !== null) {
-        const becomingGlyph = composeGlyph(GUA[cast.becoming - 1].n, this.glyphConfig.glyphFont, this.glyphConfig.glyphSize);
-        if (becomingGlyph) model.becomingGlyphEntry = becomingGlyph;
-      }
-    }
-
-    // Becoming — land on the becoming hexagram (matches timeline end state)
-    if (cast.becoming !== null) {
-      model.becomingTitleProgress = 1;
-      model.explorationMode = true;
-      model.focusedHex = "becoming";
-
-      // Animate the BECOMING glyph (what the user sees on re-entry)
-      if (this.glyphConfig && model.becomingGlyphEntry) {
-        model.glyphAnimator = createGlyphAnimator(this.glyphConfig.glyphAnim, model.becomingGlyphEntry);
-        model.glyphAnimDone = false;
-      } else {
-        model.glyphAnimDone = true;
-      }
-
-      // Wide layout: set split state
-      if (canSplit(this.termWidth)) {
-        model.layout = "side-by-side";
-        model.splitProgress = 1;
-        model.rightHexMorphComplete = true;
-        for (let i = 0; i < model.rightHexMorphProgress.length; i++) {
-          model.rightHexMorphProgress[i] = 1;
-        }
-      } else {
-        // Narrow: in-place morph complete
-        for (const pos of cast.changingPositions) {
-          model.lines[pos - 1].morphComplete = true;
-          model.lines[pos - 1].morphProgress = 1;
-        }
-      }
-    } else {
-      // No becoming — animate the primary glyph on re-entry
-      if (this.glyphConfig && model.primaryGlyphEntry) {
-        model.glyphAnimator = createGlyphAnimator(this.glyphConfig.glyphAnim, model.primaryGlyphEntry);
-        model.glyphAnimDone = false;
-      } else {
-        model.glyphAnimDone = true;
-      }
-    }
-
-    // Mark timeline complete
+    this.timeline.fastForward(this.model);
     this.complete = true;
   }
 
