@@ -67,7 +67,7 @@ async function main() {
 
             if (alreadyCastToday) {
               // Show today's existing reading — fully revealed, interactive
-              const castScene = new CastScene(existing.cast, preset, session.cols, glyphConfig, session.rows);
+              const castScene = new CastScene(existing.cast, "reduced", session.cols, glyphConfig, session.rows);
               castScene.skipToComplete();
               const castSignal = await runScene(castScene, session, clock, colorSupport);
 
