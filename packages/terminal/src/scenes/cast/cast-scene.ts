@@ -210,12 +210,13 @@ export class CastScene implements Scene {
     model.titleProgress = 1;
     model.showPrompt = true;
 
-    // Primary glyph
+    // Primary glyph — animate fresh on re-entry
     if (this.glyphConfig) {
       const glyph = composeGlyph(GUA[cast.primary - 1].n, this.glyphConfig.glyphFont, this.glyphConfig.glyphSize);
       if (glyph) {
         model.primaryGlyphEntry = glyph;
-        model.glyphAnimDone = true;
+        model.glyphAnimator = createGlyphAnimator(this.glyphConfig.glyphAnim, glyph);
+        model.glyphAnimDone = false;
       }
     }
 
