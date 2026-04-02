@@ -99,13 +99,9 @@ for row in range(h):
     brailleRows.push(line);
   }
 
-  // Trim empty rows from top and bottom
-  let start = 0;
-  while (start < brailleRows.length && brailleRows[start].replace(/⠀/g, "").length === 0) start++;
-  let end = brailleRows.length - 1;
-  while (end > start && brailleRows[end].replace(/⠀/g, "").length === 0) end--;
-
-  return brailleRows.slice(start, end + 1);
+  // No trimming — keep full bounding box so all glyphs at same size
+  // have identical dimensions. Content is centered by the font renderer.
+  return brailleRows;
 }
 
 // ── Generate ──
