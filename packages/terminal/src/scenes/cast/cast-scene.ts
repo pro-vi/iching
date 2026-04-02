@@ -196,6 +196,14 @@ export class CastScene implements Scene {
     this.complete = true;
     // Re-entry lands on primary (your hexagram), not becoming
     this.model.focusedHex = "primary";
+    // Swap animator to primary glyph to match focus
+    if (this.glyphConfig && this.model.primaryGlyphEntry) {
+      this.model.glyphAnimator = createGlyphAnimator(
+        this.glyphConfig.glyphAnim,
+        this.model.primaryGlyphEntry,
+      );
+      this.model.glyphAnimDone = false;
+    }
   }
 
   /** Expose model for testing. */
