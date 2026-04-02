@@ -57,7 +57,10 @@ export class CastScene implements Scene {
   update(elapsed: number, _dt: number, _ctx: SceneContext): void {
     this.complete = this.timeline.advance(elapsed, this.model);
     if (this.model.glyphAnimator && !this.model.glyphAnimDone) {
-      this.model.glyphAnimator.update(elapsed);
+      const done = this.model.glyphAnimator.update(elapsed);
+      if (done) {
+        this.model.glyphAnimDone = true;
+      }
     }
   }
 

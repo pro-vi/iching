@@ -70,6 +70,7 @@ export function buildCastTimeline(
     }),
 
     // 6b. Primary glyph reveal (if config provided)
+    // Animator completion is detected in CastScene.update(), not here.
     ...(glyphConfig
       ? [
           call(() => {
@@ -80,12 +81,9 @@ export function buildCastTimeline(
               model.glyphAnimDone = false;
             }
           }),
-          wait(200), // pause before glyph
-          wait(3000), // glyph animation runs in real-time via animator
-          call(() => {
-            model.glyphAnimDone = true;
-          }),
-          wait(1200), // breath — let the glyph exist before anything else moves
+          wait(200),  // pause before glyph starts
+          wait(4000), // generous wait — covers all animation styles (sand=3500ms)
+          wait(1200), // breath — let the settled glyph exist
         ]
       : []),
 
@@ -322,10 +320,7 @@ function buildWideBecoming(
               model.glyphAnimDone = false;
             }
           }),
-          wait(3000),
-          call(() => {
-            model.glyphAnimDone = true;
-          }),
+          wait(4000), // covers all animation styles
           wait(1200), // breath after becoming glyph
           call(() => {
             model.explorationMode = true;
@@ -387,10 +382,7 @@ function buildNarrowBecoming(
               model.glyphAnimDone = false;
             }
           }),
-          wait(3000),
-          call(() => {
-            model.glyphAnimDone = true;
-          }),
+          wait(4000),
           wait(1200), // breath after becoming glyph
           call(() => {
             model.explorationMode = true;
