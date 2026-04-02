@@ -194,6 +194,8 @@ export class CastScene implements Scene {
   skipToComplete(): void {
     this.timeline.fastForward(this.model);
     this.complete = true;
+    // Re-entry lands on primary (your hexagram), not becoming
+    this.model.focusedHex = "primary";
   }
 
   /** Expose model for testing. */

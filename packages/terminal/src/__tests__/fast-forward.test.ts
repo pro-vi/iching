@@ -261,14 +261,16 @@ describe("CastScene fastForward equivalence", () => {
     sceneB.skipToComplete();
     const modelB = sceneB.getModel();
 
-    // Compare key fields
+    // Compare key fields — all should match except focusedHex
     expect(modelB.hexagramComplete).toBe(modelA.hexagramComplete);
     expect(modelB.showPrompt).toBe(modelA.showPrompt);
     expect(modelB.titleProgress).toBe(modelA.titleProgress);
-    expect(modelB.focusedHex).toBe(modelA.focusedHex);
     expect(modelB.explorationMode).toBe(modelA.explorationMode);
     expect(modelB.layout).toBe(modelA.layout);
     expect(modelB.splitProgress).toBe(modelA.splitProgress);
     expect(modelB.becomingTitleProgress).toBe(modelA.becomingTitleProgress);
+    // Re-entry lands on primary (intentional divergence from timeline end state)
+    expect(modelA.focusedHex).toBe("becoming"); // timeline ends here
+    expect(modelB.focusedHex).toBe("primary");  // re-entry overrides to primary
   });
 });
