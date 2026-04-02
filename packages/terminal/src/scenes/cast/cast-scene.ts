@@ -210,13 +210,14 @@ export class CastScene implements Scene {
     model.titleProgress = 1;
     model.showPrompt = true;
 
-    // Primary glyph — animate fresh on re-entry
+    // Compose both glyph entries
     if (this.glyphConfig) {
-      const glyph = composeGlyph(GUA[cast.primary - 1].n, this.glyphConfig.glyphFont, this.glyphConfig.glyphSize);
-      if (glyph) {
-        model.primaryGlyphEntry = glyph;
-        model.glyphAnimator = createGlyphAnimator(this.glyphConfig.glyphAnim, glyph);
-        model.glyphAnimDone = false;
+      const primaryGlyph = composeGlyph(GUA[cast.primary - 1].n, this.glyphConfig.glyphFont, this.glyphConfig.glyphSize);
+      if (primaryGlyph) model.primaryGlyphEntry = primaryGlyph;
+
+      if (cast.becoming !== null) {
+        const becomingGlyph = composeGlyph(GUA[cast.becoming - 1].n, this.glyphConfig.glyphFont, this.glyphConfig.glyphSize);
+        if (becomingGlyph) model.becomingGlyphEntry = becomingGlyph;
       }
     }
 
@@ -226,11 +227,12 @@ export class CastScene implements Scene {
       model.explorationMode = true;
       model.focusedHex = "becoming";
 
-      if (this.glyphConfig) {
-        const glyph = composeGlyph(GUA[cast.becoming - 1].n, this.glyphConfig.glyphFont, this.glyphConfig.glyphSize);
-        if (glyph) {
-          model.becomingGlyphEntry = glyph;
-        }
+      // Animate the BECOMING glyph (what the user sees on re-entry)
+      if (this.glyphConfig && model.becomingGlyphEntry) {
+        model.glyphAnimator = createGlyphAnimator(this.glyphConfig.glyphAnim, model.becomingGlyphEntry);
+        model.glyphAnimDone = false;
+      } else {
+        model.glyphAnimDone = true;
       }
 
       // Wide layout: set split state
@@ -247,6 +249,14 @@ export class CastScene implements Scene {
           model.lines[pos - 1].morphComplete = true;
           model.lines[pos - 1].morphProgress = 1;
         }
+      }
+    } else {
+      // No becoming — animate the primary glyph on re-entry
+      if (this.glyphConfig && model.primaryGlyphEntry) {
+        model.glyphAnimator = createGlyphAnimator(this.glyphConfig.glyphAnim, model.primaryGlyphEntry);
+        model.glyphAnimDone = false;
+      } else {
+        model.glyphAnimDone = true;
       }
     }
 
