@@ -70,20 +70,10 @@ export function buildCastTimeline(
     }),
 
     // 6b. Primary glyph reveal (if config provided)
-    // Animator completion is detected in CastScene.update(), not here.
     ...(glyphConfig
       ? [
-          call(() => {
-            const glyph = composeGlyph(GUA[cast.primary - 1].n, glyphConfig.glyphFont, glyphConfig.glyphSize);
-            if (glyph) {
-              model.primaryGlyphEntry = glyph;
-              model.glyphAnimator = createGlyphAnimator(glyphConfig.glyphAnim, glyph);
-              model.glyphAnimDone = false;
-            }
-          }),
-          wait(200),  // pause before glyph starts
-          wait(4000), // generous wait — covers all animation styles (sand=3500ms)
-          wait(1200), // breath — let the settled glyph exist
+          wait(200),
+          ...buildGlyphReveal(GUA[cast.primary - 1].n, "primary", model, glyphConfig),
         ]
       : []),
 
@@ -270,25 +260,7 @@ function buildWideBecoming(
 ): Step[] {
   return [
     wait(680),
-    // Marker pulse on all changing lines
-    call(() => {
-      for (const pos of cast.changingPositions) {
-        model.lines[pos - 1].glowing = true;
-        model.lines[pos - 1].markerVisible = true;
-      }
-    }),
-    tween(320, (p) => {
-      for (const pos of cast.changingPositions) {
-        model.lines[pos - 1].glowProgress = p;
-      }
-    }, easeInOut),
-    call(() => {
-      for (const pos of cast.changingPositions) {
-        model.lines[pos - 1].glowing = false;
-        model.lines[pos - 1].glowProgress = 0;
-      }
-    }),
-    // Wait before split
+    ...buildMarkerPulse(cast, model),
     wait(200),
     // Split slide: primary slides left, right copy appears
     call(() => {
@@ -312,30 +284,13 @@ function buildWideBecoming(
     // Becoming glyph reveal
     ...(glyphConfig && cast.becoming !== null
       ? [
-          // Switch focus to becoming BEFORE the glyph animates
-          call(() => {
-            model.focusedHex = "becoming";
-            const glyph = composeGlyph(GUA[cast.becoming! - 1].n, glyphConfig.glyphFont, glyphConfig.glyphSize);
-            if (glyph) {
-              model.becomingGlyphEntry = glyph;
-              model.glyphAnimator = createGlyphAnimator(glyphConfig.glyphAnim, glyph);
-              model.glyphAnimDone = false;
-            }
-          }),
-          wait(4000), // covers all animation styles
-          wait(1200), // breath after becoming glyph
-          call(() => {
-            model.explorationMode = true;
-            model.showPrompt = true;
-          }),
+          ...buildGlyphReveal(GUA[cast.becoming! - 1].n, "becoming", model, glyphConfig),
+          ...buildEnterExploration(model),
         ]
       : cast.becoming !== null
         ? [
-            call(() => {
-              model.focusedHex = "becoming";
-              model.explorationMode = true;
-              model.showPrompt = true;
-            }),
+            call(() => { model.focusedHex = "becoming"; }),
+            ...buildEnterExploration(model),
           ]
         : []),
   ];
@@ -352,7 +307,30 @@ function buildNarrowBecoming(
 ): Step[] {
   return [
     wait(680),
-    // Marker pulse
+    ...buildMarkerPulse(cast, model),
+    ...buildMorphWave(cast, model, timing),
+    tween(timing.compareRevealMs > 0 ? timing.compareRevealMs : 1, (p) => {
+      model.becomingTitleProgress = p;
+    }, easeOut),
+    ...(glyphConfig && cast.becoming !== null
+      ? [
+          ...buildGlyphReveal(GUA[cast.becoming! - 1].n, "becoming", model, glyphConfig),
+          ...buildEnterExploration(model),
+        ]
+      : cast.becoming !== null
+        ? [
+            call(() => { model.focusedHex = "becoming"; }),
+            ...buildEnterExploration(model),
+          ]
+        : []),
+  ];
+}
+
+// ── Extracted helpers: state groups that are always set together ──
+
+/** Marker pulse: glow all changing lines, then settle with markers visible. */
+function buildMarkerPulse(cast: Cast, model: CastModel): Step[] {
+  return [
     call(() => {
       for (const pos of cast.changingPositions) {
         model.lines[pos - 1].glowing = true;
@@ -370,40 +348,42 @@ function buildNarrowBecoming(
         model.lines[pos - 1].glowProgress = 0;
       }
     }),
-    // In-place morph wave
-    ...buildMorphWave(cast, model, timing),
-    // Becoming title
-    tween(timing.compareRevealMs > 0 ? timing.compareRevealMs : 1, (p) => {
-      model.becomingTitleProgress = p;
-    }, easeOut),
-    // Becoming glyph reveal
-    ...(glyphConfig && cast.becoming !== null
-      ? [
-          call(() => {
-            model.focusedHex = "becoming";
-            const glyph = composeGlyph(GUA[cast.becoming! - 1].n, glyphConfig.glyphFont, glyphConfig.glyphSize);
-            if (glyph) {
-              model.becomingGlyphEntry = glyph;
-              model.glyphAnimator = createGlyphAnimator(glyphConfig.glyphAnim, glyph);
-              model.glyphAnimDone = false;
-            }
-          }),
-          wait(4000),
-          wait(1200), // breath after becoming glyph
-          call(() => {
-            model.explorationMode = true;
-            model.showPrompt = true;
-          }),
-        ]
-      : cast.becoming !== null
-        ? [
-            call(() => {
-              model.focusedHex = "becoming";
-              model.explorationMode = true;
-              model.showPrompt = true;
-            }),
-          ]
-        : []),
+  ];
+}
+
+/** Start a glyph reveal: compose + create animator. */
+function buildGlyphReveal(
+  hexName: string,
+  target: "primary" | "becoming",
+  model: CastModel,
+  glyphConfig: CastGlyphConfig,
+): Step[] {
+  return [
+    call(() => {
+      const glyph = composeGlyph(hexName, glyphConfig.glyphFont, glyphConfig.glyphSize);
+      if (glyph) {
+        if (target === "primary") {
+          model.primaryGlyphEntry = glyph;
+        } else {
+          model.becomingGlyphEntry = glyph;
+          model.focusedHex = "becoming";
+        }
+        model.glyphAnimator = createGlyphAnimator(glyphConfig.glyphAnim, glyph);
+        model.glyphAnimDone = false;
+      }
+    }),
+    wait(4000), // covers all animation styles
+    wait(1200), // breath
+  ];
+}
+
+/** Enter exploration mode: user can now ← → switch. */
+function buildEnterExploration(model: CastModel): Step[] {
+  return [
+    call(() => {
+      model.explorationMode = true;
+      model.showPrompt = true;
+    }),
   ];
 }
 
