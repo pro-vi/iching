@@ -125,27 +125,11 @@ export class CastScene implements Scene {
     // Exploration mode: arrow keys switch focus, scroll commentary
     if (this.model.explorationMode && key.type === "arrow") {
       if (key.direction === "left" && this.model.focusedHex === "becoming") {
-        this.model.focusedHex = "primary";
-        this.model.commentaryScrollOffset = 0;
-        if (this.model.primaryGlyphEntry && this.glyphConfig) {
-          this.model.glyphAnimator = createGlyphAnimator(
-            this.glyphConfig.glyphAnim,
-            this.model.primaryGlyphEntry,
-          );
-          this.model.glyphAnimDone = false;
-        }
+        this.setFocusedHex("primary");
         return;
       }
       if (key.direction === "right" && this.model.focusedHex === "primary" && this.model.cast.becoming !== null) {
-        this.model.focusedHex = "becoming";
-        this.model.commentaryScrollOffset = 0;
-        if (this.model.becomingGlyphEntry && this.glyphConfig) {
-          this.model.glyphAnimator = createGlyphAnimator(
-            this.glyphConfig.glyphAnim,
-            this.model.becomingGlyphEntry,
-          );
-          this.model.glyphAnimDone = false;
-        }
+        this.setFocusedHex("becoming");
         return;
       }
       if (key.direction === "up") {
@@ -187,6 +171,22 @@ export class CastScene implements Scene {
   }
 
   /**
+   * Switch focus to a hexagram — updates focusedHex, creates matching
+   * glyph animator, resets scroll. Single method for all focus changes.
+   */
+  private setFocusedHex(hex: "primary" | "becoming"): void {
+    this.model.focusedHex = hex;
+    this.model.commentaryScrollOffset = 0;
+    const entry = hex === "primary"
+      ? this.model.primaryGlyphEntry
+      : this.model.becomingGlyphEntry;
+    if (entry && this.glyphConfig) {
+      this.model.glyphAnimator = createGlyphAnimator(this.glyphConfig.glyphAnim, entry);
+      this.model.glyphAnimDone = false;
+    }
+  }
+
+  /**
    * Skip all animation and show the fully revealed state.
    * Uses TimelineRunner.fastForward() — single source of truth.
    * The timeline's call/tween steps execute instantly, waits are skipped.
@@ -195,15 +195,7 @@ export class CastScene implements Scene {
     this.timeline.fastForward(this.model);
     this.complete = true;
     // Re-entry lands on primary (your hexagram), not becoming
-    this.model.focusedHex = "primary";
-    // Swap animator to primary glyph to match focus
-    if (this.glyphConfig && this.model.primaryGlyphEntry) {
-      this.model.glyphAnimator = createGlyphAnimator(
-        this.glyphConfig.glyphAnim,
-        this.model.primaryGlyphEntry,
-      );
-      this.model.glyphAnimDone = false;
-    }
+    this.setFocusedHex("primary");
   }
 
   /** Expose model for testing. */
