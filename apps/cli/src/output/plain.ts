@@ -22,7 +22,8 @@ export function formatCastPlain(
   }
 
   // Primary hexagram
-  lines.push(`${primary.u}  ${primary.n} (${primary.p}) — Hexagram ${cast.primary}`);
+  const ename = (primary as any).ename ? ` — ${(primary as any).ename}` : "";
+  lines.push(`${primary.u}  ${primary.n} (${primary.p})${ename} — Hexagram ${cast.primary}`);
   lines.push("");
 
   // Line values
@@ -78,7 +79,8 @@ export function formatHexagramPlain(
   const lines: string[] = [];
   const s = getStructure(kw);
 
-  lines.push(`${hex.u}  ${hex.n} (${hex.p}) — Hexagram ${kw}`);
+  const ename = (hex as any).ename ? ` — ${(hex as any).ename}` : "";
+  lines.push(`${hex.u}  ${hex.n} (${hex.p})${ename} — Hexagram ${kw}`);
   lines.push("");
   lines.push(
     `Upper: ${s.upper.sym} ${s.upper.n} (${s.upper.img})`,
@@ -127,8 +129,9 @@ export function formatJournalShowPlain(entry: HistoryEntry): string {
   const structure = getStructure(entry.cast.primary);
   const lines: string[] = [];
 
+  const ename = (g as any).ename ? ` — ${(g as any).ename}` : "";
   lines.push(`Date: ${entry.date}`);
-  lines.push(`${g.u}  ${g.n} (${g.p}) — Hexagram ${entry.cast.primary}`);
+  lines.push(`${g.u}  ${g.n} (${g.p})${ename} — Hexagram ${entry.cast.primary}`);
   lines.push("");
   lines.push(
     `Upper: ${structure.upper.sym} ${structure.upper.n} (${structure.upper.img})`,

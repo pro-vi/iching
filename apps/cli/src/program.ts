@@ -7,16 +7,16 @@ import { registerPathsCommand } from "./commands/paths.js";
 import { registerDoctorCommand } from "./commands/doctor.js";
 import { registerDictCommand } from "./commands/dict.js";
 
-const pkg = { name: "iching", version: "0.1.0" };
+import { readFileSync } from "fs";
+import { join } from "path";
+
+const pkg = JSON.parse(readFileSync(join(import.meta.dir, "../package.json"), "utf-8"));
 
 export const program = new Command()
-  .name(pkg.name)
-  .version(pkg.version)
+  .name(pkg.name ?? "iching")
+  .version(pkg.version ?? "0.1.0")
   .option("--json", "structured JSON output")
-  .option("--theme <name>", "color theme", "temple-night")
-  .option("--motion <preset>", "animation preset", "default")
-  .option("--ansi <mode>", "color mode: auto|always|never", "auto")
-  .option("--seed <n>", "deterministic RNG seed")
+  .option("--seed <n>", "deterministic RNG seed (cast command)")
   .option("--data-dir <path>", "override data directory");
 
 registerCastCommand(program);
