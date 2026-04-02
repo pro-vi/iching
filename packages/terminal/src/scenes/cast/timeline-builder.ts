@@ -312,7 +312,9 @@ function buildWideBecoming(
     // Becoming glyph reveal
     ...(glyphConfig && cast.becoming !== null
       ? [
+          // Switch focus to becoming BEFORE the glyph animates
           call(() => {
+            model.focusedHex = "becoming";
             const glyph = composeGlyph(GUA[cast.becoming! - 1].n, glyphConfig.glyphFont, glyphConfig.glyphSize);
             if (glyph) {
               model.becomingGlyphEntry = glyph;
@@ -324,12 +326,15 @@ function buildWideBecoming(
           wait(1200), // breath after becoming glyph
           call(() => {
             model.explorationMode = true;
+            model.showPrompt = true;
           }),
         ]
       : cast.becoming !== null
         ? [
             call(() => {
+              model.focusedHex = "becoming";
               model.explorationMode = true;
+              model.showPrompt = true;
             }),
           ]
         : []),
@@ -375,6 +380,7 @@ function buildNarrowBecoming(
     ...(glyphConfig && cast.becoming !== null
       ? [
           call(() => {
+            model.focusedHex = "becoming";
             const glyph = composeGlyph(GUA[cast.becoming! - 1].n, glyphConfig.glyphFont, glyphConfig.glyphSize);
             if (glyph) {
               model.becomingGlyphEntry = glyph;
@@ -386,12 +392,15 @@ function buildNarrowBecoming(
           wait(1200), // breath after becoming glyph
           call(() => {
             model.explorationMode = true;
+            model.showPrompt = true;
           }),
         ]
       : cast.becoming !== null
         ? [
             call(() => {
+              model.focusedHex = "becoming";
               model.explorationMode = true;
+              model.showPrompt = true;
             }),
           ]
         : []),

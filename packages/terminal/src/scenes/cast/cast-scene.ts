@@ -113,7 +113,7 @@ export class CastScene implements Scene {
 
     // Render prompt
     if (model.showPrompt) {
-      renderPrompt(frame);
+      renderPrompt(frame, model);
     }
   }
 
@@ -287,9 +287,11 @@ function renderSplitArrow(buf: CellBuffer, model: CastModel): void {
 }
 
 /** Render the prompt bar at the bottom of the hexagram area. */
-function renderPrompt(buf: CellBuffer): void {
+function renderPrompt(buf: CellBuffer, model: CastModel): void {
   const t = getTheme();
-  const text = "[enter] reading   [j] journal   [d] dictionary   [q] quit";
+  const text = model.explorationMode
+    ? "←→ switch   enter detail   [j] journal   [d] dictionary   [q] quit"
+    : "[enter] reading   [j] journal   [d] dictionary   [q] quit";
   const row = buf.height - 2;
   if (row < 0) return;
   const w = stringWidth(text);

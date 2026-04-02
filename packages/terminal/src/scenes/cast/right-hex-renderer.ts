@@ -28,9 +28,8 @@ export function renderRightHexagram(
   const anchor = anchorRow(buf.height);
   const changingPositions = model.cast.changingPositions;
 
-  // Exploration dim: right hex dimmed when primary is focused
-  const explDim =
-    model.explorationMode && model.focusedHex === "primary";
+  // Dim becoming hex when primary is focused
+  const explDim = model.focusedHex === "primary";
   const lineColor = explDim ? t.tertiary : t.primary;
 
   // Build a set of changing line indices (0-indexed) for quick lookup

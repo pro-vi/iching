@@ -49,9 +49,8 @@ export function renderHexagram(
   const t = getTheme();
   const anchor = anchorRow(buf.height);
 
-  // Exploration dim: left hex dimmed when becoming is focused
-  const explDim =
-    model.explorationMode && model.focusedHex === "becoming";
+  // Dim primary hex when becoming is focused (during reveal or exploration)
+  const explDim = model.focusedHex === "becoming";
 
   for (let i = 0; i < 6; i++) {
     const lineState = model.lines[i];
