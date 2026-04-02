@@ -1,6 +1,6 @@
 // CastScene — main scene orchestrating the full casting ritual
 
-import type { Cast, GlyphSize } from "@iching/core";
+import { type Cast, type GlyphSize, GUA } from "@iching/core";
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
@@ -15,17 +15,19 @@ import { renderMorph } from "./morph-renderer.ts";
 import { renderRightHexagram, renderRightMorph } from "./right-hex-renderer.ts";
 import { buildCastTimeline, type CastGlyphConfig } from "./timeline-builder.ts";
 import { renderLargeGlyph } from "./glyph-renderer.ts";
-import { hexColOffset } from "./layout-calc.ts";
+import { hexColOffset, canSplit } from "./layout-calc.ts";
 import { getTheme } from "../../color/theme.ts";
 import { SPLIT_ARROW } from "../../glyphs.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
+import { composeGlyph } from "../../glyph-anim/compose.ts";
 
 export class CastScene implements Scene {
   private model: CastModel;
   private timeline: TimelineRunner;
   private complete = false;
   private glyphConfig?: CastGlyphConfig;
+  private termWidth: number;
 
   constructor(
     cast: Cast,
@@ -35,6 +37,7 @@ export class CastScene implements Scene {
     termRows: number = 24,
   ) {
     this.model = new CastModel(cast);
+    this.termWidth = termWidth;
     // Auto-size glyph to fit terminal height
     if (glyphConfig) {
       this.glyphConfig = {
@@ -172,6 +175,71 @@ export class CastScene implements Scene {
     if (key.type === "ctrl" && key.char === "c") {
       return "exit";
     }
+  }
+
+  /**
+   * Skip all animation and show the fully revealed state.
+   * Used when re-entering today's cast from the home menu.
+   */
+  skipToComplete(): void {
+    const model = this.model;
+    const cast = model.cast;
+
+    // All lines settled
+    for (let i = 0; i < 6; i++) {
+      model.lines[i].progress = 1;
+      model.lines[i].settled = true;
+      if (cast.lines[i].isChanging) {
+        model.lines[i].markerVisible = true;
+      }
+    }
+
+    model.coinPhase = "done";
+    model.hexagramComplete = true;
+    model.glowProgress = 0;
+    model.titleProgress = 1;
+    model.showPrompt = true;
+
+    // Primary glyph
+    if (this.glyphConfig) {
+      const glyph = composeGlyph(GUA[cast.primary - 1].n, this.glyphConfig.glyphFont, this.glyphConfig.glyphSize);
+      if (glyph) {
+        model.primaryGlyphEntry = glyph;
+        model.glyphAnimDone = true;
+      }
+    }
+
+    // Becoming
+    if (cast.becoming !== null) {
+      model.becomingTitleProgress = 1;
+      model.explorationMode = true;
+
+      if (this.glyphConfig) {
+        const glyph = composeGlyph(GUA[cast.becoming - 1].n, this.glyphConfig.glyphFont, this.glyphConfig.glyphSize);
+        if (glyph) {
+          model.becomingGlyphEntry = glyph;
+        }
+      }
+
+      // Wide layout: set split state
+      if (canSplit(this.termWidth)) {
+        model.layout = "side-by-side";
+        model.splitProgress = 1;
+        model.rightHexMorphComplete = true;
+        for (let i = 0; i < model.rightHexMorphProgress.length; i++) {
+          model.rightHexMorphProgress[i] = 1;
+        }
+      } else {
+        // Narrow: in-place morph complete
+        for (const pos of cast.changingPositions) {
+          model.lines[pos - 1].morphComplete = true;
+          model.lines[pos - 1].morphProgress = 1;
+        }
+      }
+    }
+
+    // Mark timeline complete
+    this.complete = true;
   }
 
   /** Expose model for testing. */

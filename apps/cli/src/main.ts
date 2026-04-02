@@ -66,19 +66,53 @@ async function main() {
             const alreadyCastToday = existing?.date === today;
 
             if (alreadyCastToday) {
-              // Show today's existing reading — no new cast
-              const primary = GUA[existing.cast.primary - 1];
-              const structure = buildStructure(existing.cast);
-              console.log("Today's reading:\n");
-              console.log(formatCastPlain(existing.cast, primary, structure));
-              console.log("\nPress any key to return to menu...");
-              await new Promise<void>(resolve => {
-                process.stdin.setRawMode(true);
-                process.stdin.once("data", () => {
-                  process.stdin.setRawMode(false);
-                  resolve();
-                });
-              });
+              // Show today's existing reading — fully revealed, interactive
+              const castScene = new CastScene(existing.cast, preset, session.cols, glyphConfig, session.rows);
+              castScene.skipToComplete();
+              const castSignal = await runScene(castScene, session, clock, colorSupport);
+
+              if (typeof castSignal === "object" && castSignal !== null && "goto" in castSignal) {
+                if (castSignal.goto === "reading") {
+                  const primary = GUA[existing.cast.primary - 1];
+                  const structure = buildStructure(existing.cast);
+                  console.log(formatCastPlain(existing.cast, primary, structure));
+                  console.log("\nPress any key to return to menu...");
+                  await new Promise<void>(resolve => {
+                    process.stdin.setRawMode(true);
+                    process.stdin.once("data", () => {
+                      process.stdin.setRawMode(false);
+                      resolve();
+                    });
+                  });
+                } else if (castSignal.goto === "dictionary" || castSignal.goto.startsWith("detail:")) {
+                  const journal = new JsonlJournalStore(paths.state);
+                  const startScene = castSignal.goto.startsWith("detail:")
+                    ? (() => {
+                        const kw = Number(castSignal.goto.slice(7));
+                        if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new BrowseScene();
+                        const scene = new DetailScene(kw, glyphConfig);
+                        getHexagramHistory(journal, kw).then((h) =>
+                          scene.setHistory(h.castCount, h.lastCastDate),
+                        );
+                        return scene;
+                      })()
+                    : new BrowseScene();
+                  const factory = (id: string) => {
+                    if (id.startsWith("detail:")) {
+                      const kw = Number(id.slice(7));
+                      if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new BrowseScene();
+                      const scene = new DetailScene(kw, glyphConfig);
+                      getHexagramHistory(journal, kw).then((h) =>
+                        scene.setHistory(h.castCount, h.lastCastDate),
+                      );
+                      return scene;
+                    }
+                    return new BrowseScene();
+                  };
+                  const router = new SceneRouter(startScene, factory);
+                  await router.run(session, clock, colorSupport);
+                }
+              }
             } else {
               // First cast of the day — animated ritual
               const seed = opts.seed ? Number(opts.seed) : undefined;
