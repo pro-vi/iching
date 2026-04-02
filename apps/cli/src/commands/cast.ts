@@ -33,31 +33,9 @@ export function registerCastCommand(program: Command): void {
       const becoming = cast.becoming !== null ? GUA[cast.becoming - 1] : null;
       const structure = buildStructure(cast);
 
-      // Only record to journal for genuine daily casts:
-      // - Not a seeded/test cast
-      // - No existing cast for today in the cache
-      if (seed === undefined) {
-        const paths = resolvePaths(
-          opts.dataDir ? { dataDir: opts.dataDir } : undefined,
-        );
-        const today = localToday();
-        const cacheStore = new JsonDailyCacheStore(paths.cache);
-        const existing = await cacheStore.read();
-
-        if (!existing || existing.date !== today) {
-          // First cast of the day — record it
-          const journal = new JsonlJournalStore(paths.state);
-          await journal.append({ date: today, cast });
-        }
-
-        // Always update cache (so we know today's cast exists)
-        await cacheStore.write({
-          date: today,
-          cast,
-          shown: true,
-          structure,
-        });
-      }
+      // CLI cast is ephemeral — it never writes to cache or journal.
+      // Only the interactive daily cast (home menu → [c]) records to storage.
+      // This keeps `iching cast` safe to run anytime without side effects.
 
       // Output
       if (opts.json) {
