@@ -315,21 +315,26 @@ async function main() {
               glyphFont: config.glyphFont,
               glyphSize: config.glyphSize,
             });
-            await runScene(settingsScene, session, clock, colorSupport);
-            // Save and apply settings on exit
-            const updated = settingsScene.getValues();
-            const newConfig = await configStore.load();
-            newConfig.theme = updated.theme;
-            newConfig.glyphAnim = updated.glyphAnim;
-            newConfig.glyphFont = updated.glyphFont;
-            newConfig.glyphSize = updated.glyphSize;
-            await configStore.save(newConfig);
-            setTheme(updated.theme);
-            glyphConfig = {
-              glyphAnim: updated.glyphAnim as any,
-              glyphFont: updated.glyphFont as any,
-              glyphSize: updated.glyphSize as any,
-            };
+            const settingsSignal = await runScene(settingsScene, session, clock, colorSupport);
+            // Only save on escape (goto: "home"), not on Ctrl+C ("exit")
+            if (settingsSignal !== "exit") {
+              const updated = settingsScene.getValues();
+              const newConfig = await configStore.load();
+              newConfig.theme = updated.theme;
+              newConfig.glyphAnim = updated.glyphAnim;
+              newConfig.glyphFont = updated.glyphFont;
+              newConfig.glyphSize = updated.glyphSize;
+              await configStore.save(newConfig);
+              setTheme(updated.theme);
+              glyphConfig = {
+                glyphAnim: updated.glyphAnim as any,
+                glyphFont: updated.glyphFont as any,
+                glyphSize: updated.glyphSize as any,
+              };
+            } else {
+              // Ctrl+C: revert theme to saved state
+              setTheme(config.theme as any);
+            }
             break;
           }
 

@@ -80,7 +80,9 @@ export class DiffRenderer {
   }
 
   private rowsEqual(a: CellBuffer, b: CellBuffer, row: number): boolean {
-    for (let col = 0; col < a.width; col++) {
+    // Use max width so new content in wider buffer is detected after resize
+    const maxW = Math.max(a.width, b.width);
+    for (let col = 0; col < maxW; col++) {
       if (!cellsEqual(a.getCell(row, col), b.getCell(row, col))) return false;
     }
     return true;

@@ -12,13 +12,22 @@ import {
 } from "@iching/storage";
 import { localToday } from "../util/today.js";
 
-/** Read all of stdin as a string */
-async function readStdin(): Promise<string> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of process.stdin) {
-    chunks.push(Buffer.from(chunk));
-  }
-  return Buffer.concat(chunks).toString("utf-8");
+/** Read all of stdin with a timeout (5s default) */
+async function readStdin(timeoutMs = 5000): Promise<string> {
+  return new Promise<string>((resolve) => {
+    const chunks: Buffer[] = [];
+    const timer = setTimeout(() => {
+      process.stdin.removeAllListeners("data");
+      process.stdin.removeAllListeners("end");
+      resolve(Buffer.concat(chunks).toString("utf-8"));
+    }, timeoutMs);
+
+    process.stdin.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    process.stdin.on("end", () => {
+      clearTimeout(timer);
+      resolve(Buffer.concat(chunks).toString("utf-8"));
+    });
+  });
 }
 
 /**
@@ -62,18 +71,19 @@ export async function runHookAdapter(): Promise<void> {
   // Select display
   const display = selectDisplay(cast, structure, shown, source);
 
-  // Update cache
+  // Journal first — if interrupted, failure is a recoverable duplicate
+  // (vs cache-first where journal entry is permanently lost)
+  if (!shown) {
+    await journal.append({ date: today, cast });
+  }
+
+  // Then update cache
   await cacheStore.write({
     date: today,
     cast,
     shown: true,
     structure,
   });
-
-  // Append to journal only on first cast of the day
-  if (!shown) {
-    await journal.append({ date: today, cast });
-  }
 
   // Output
   if (display) {
