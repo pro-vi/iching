@@ -108,7 +108,7 @@ export class JournalScene implements Scene {
     }
 
     // Footer
-    const footer = "↑↓ navigate   enter detail   d dictionary   esc/q back";
+    const footer = "↑↓ navigate   enter view   d dictionary   esc/q back";
     const footerCol = Math.max(0, Math.floor((maxW - stringWidth(footer)) / 2));
     frame.writeText(ctx.rows - 1, footerCol, footer, { fg: t.tertiary });
 
@@ -156,10 +156,10 @@ export class JournalScene implements Scene {
     }
 
     if (key.type === "enter") {
-      // Open detail view for selected hexagram
+      // Open reading view for selected entry
       const entry = this.entries[this.cursor];
       if (entry) {
-        return { goto: `detail:${entry.cast.primary}` };
+        return { goto: `reading:${this.cursor}` };
       }
     }
 

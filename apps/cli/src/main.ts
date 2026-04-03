@@ -208,8 +208,19 @@ async function main() {
             for await (const entry of journal.stream()) {
               entries.push(entry);
             }
+            // Journal is most-recent-first in the scene
+            const reversedEntries = [...entries].reverse();
             const journalScene = new JournalScene(entries);
             const factory = (id: string) => {
+              if (id.startsWith("reading:")) {
+                // Open cast exploration view for a journal entry
+                const idx = Number(id.slice(8));
+                const entry = reversedEntries[idx];
+                if (!entry) return new JournalScene(entries);
+                const castScene = new CastScene(entry.cast, "reduced", session.cols, glyphConfig, session.rows);
+                castScene.skipToComplete();
+                return castScene;
+              }
               if (id.startsWith("detail:")) {
                 const kw = Number(id.slice(7));
                 if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new JournalScene(entries);
