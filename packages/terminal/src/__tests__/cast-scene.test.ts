@@ -101,7 +101,7 @@ describe("CastScene", () => {
     expect(result).toBe("exit");
   });
 
-  test("handleKey(enter) after prompt shown returns goto reading", () => {
+  test("handleKey(enter) after prompt shown enters exploration mode", () => {
     const cast = makeCast();
     const scene = new CastScene(cast, "reduced");
     const ctx = makeCtx();
@@ -116,7 +116,8 @@ describe("CastScene", () => {
     expect(scene.getModel().showPrompt).toBe(true);
 
     const result = scene.handleKey({ type: "enter" }, ctx);
-    expect(result).toEqual({ goto: "reading" });
+    expect(result).toBeUndefined();
+    expect(scene.getModel().explorationMode).toBe(true);
   });
 
   test("handleKey(j) after prompt shown returns goto journal", () => {

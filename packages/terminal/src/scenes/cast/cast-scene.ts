@@ -154,7 +154,9 @@ export class CastScene implements Scene {
     // Only handle prompt keys after prompt is shown
     if (this.model.showPrompt) {
       if (key.type === "enter") {
-        return { goto: "reading" };
+        // No-becoming casts skip exploration in the timeline — enter it now
+        this.model.explorationMode = true;
+        return;
       }
       if (key.type === "char" && key.char === "j") {
         return { goto: "journal" };
@@ -243,8 +245,10 @@ function renderSplitArrow(buf: CellBuffer, model: CastModel): void {
 function renderPrompt(buf: CellBuffer, model: CastModel): void {
   const t = getTheme();
   const text = model.explorationMode
-    ? "←→ switch   enter detail   [j] journal   [d] dictionary   [q] quit"
-    : "[enter] reading   [j] journal   [d] dictionary   [q] quit";
+    ? (model.cast.becoming !== null
+        ? "←→ switch   enter detail   [j] journal   [d] dictionary   [q] quit"
+        : "enter detail   [j] journal   [d] dictionary   [q] quit")
+    : "[enter] explore   [j] journal   [d] dictionary   [q] quit";
   const row = buf.height - 2;
   if (row < 0) return;
   const w = stringWidth(text);

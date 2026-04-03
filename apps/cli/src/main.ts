@@ -13,14 +13,13 @@ async function main() {
 
   // Interactive mode: no args + TTY → home menu
   if (!hasArgs && process.stdin.isTTY) {
-    const { castHexagram, buildStructure, CryptoRandomSource, SeededRandomSource, GUA } = await import("@iching/core");
+    const { castHexagram, buildStructure, CryptoRandomSource, SeededRandomSource } = await import("@iching/core");
     const { resolvePaths, JsonDailyCacheStore, JsonlJournalStore, JsonConfigStore, getHexagramHistory } = await import("@iching/storage");
     const {
       HomeScene, CastScene, BrowseScene, DetailScene, JournalScene, SettingsScene,
       SceneRouter, TerminalSession, RealClock, runScene, detectColorSupport,
       setTheme,
     } = await import("@iching/terminal");
-    const { formatCastPlain } = await import("./output/plain.js");
 
     const opts = program.opts();
     const paths = resolvePaths(opts.dataDir ? { dataDir: opts.dataDir } : undefined);
@@ -72,19 +71,7 @@ async function main() {
               const castSignal = await runScene(castScene, session, clock, colorSupport);
 
               if (typeof castSignal === "object" && castSignal !== null && "goto" in castSignal) {
-                if (castSignal.goto === "reading") {
-                  const primary = GUA[existing.cast.primary - 1];
-                  const structure = buildStructure(existing.cast);
-                  console.log(formatCastPlain(existing.cast, primary, structure));
-                  console.log("\nPress any key to return to menu...");
-                  await new Promise<void>(resolve => {
-                    process.stdin.setRawMode(true);
-                    process.stdin.once("data", () => {
-                      process.stdin.setRawMode(false);
-                      resolve();
-                    });
-                  });
-                } else if (castSignal.goto === "journal") {
+                if (castSignal.goto === "journal") {
                   const journal = new JsonlJournalStore(paths.state);
                   const entries: import("@iching/core").HistoryEntry[] = [];
                   for await (const entry of journal.stream()) {
@@ -169,18 +156,7 @@ async function main() {
 
               // Handle post-cast action
               if (typeof castSignal === "object" && castSignal !== null && "goto" in castSignal) {
-                if (castSignal.goto === "reading") {
-                  const primary = GUA[cast.primary - 1];
-                  console.log(formatCastPlain(cast, primary, structure));
-                  console.log("\nPress any key to return to menu...");
-                  await new Promise<void>(resolve => {
-                    process.stdin.setRawMode(true);
-                    process.stdin.once("data", () => {
-                      process.stdin.setRawMode(false);
-                      resolve();
-                    });
-                  });
-                } else if (castSignal.goto === "journal") {
+                if (castSignal.goto === "journal") {
                   const journal = new JsonlJournalStore(paths.state);
                   const entries: import("@iching/core").HistoryEntry[] = [];
                   for await (const entry of journal.stream()) {
@@ -295,9 +271,7 @@ async function main() {
               if (id === "dictionary") {
                 return new BrowseScene();
               }
-              if (id === "reading" || id === "journal") {
-                // CastScene signals: "reading" (plain text, N/A in alt screen)
-                // and "journal" (already here) — return to journal list
+              if (id === "journal") {
                 return new JournalScene(entries);
               }
               return new JournalScene(entries);
