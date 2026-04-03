@@ -33,30 +33,30 @@ export async function runScene(
 
   let exitSignal: SceneSignal | void;
 
+  const ctx: SceneContext = {
+    cols: session.cols,
+    rows: session.rows,
+    done: false,
+    colorSupport,
+  };
+
+  // Wire up resize (and track for cleanup)
+  const onResize = (cols: number, rows: number) => {
+    ctx.cols = cols;
+    ctx.rows = rows;
+    scene.resize?.(cols, rows);
+  };
+  session.onResize(onResize);
+
+  // Wire up stdin → KeyParser → input queue
+  const inputQueue: KeyEvent[] = [];
+  const keyParser = new KeyParser((event) => inputQueue.push(event));
+  const onData = (chunk: Buffer) => {
+    keyParser.feed(new Uint8Array(chunk));
+  };
+  process.stdin.on("data", onData);
+
   try {
-    const ctx: SceneContext = {
-      cols: session.cols,
-      rows: session.rows,
-      done: false,
-      colorSupport,
-    };
-
-    // Wire up resize (and track for cleanup)
-    const onResize = (cols: number, rows: number) => {
-      ctx.cols = cols;
-      ctx.rows = rows;
-      scene.resize?.(cols, rows);
-    };
-    session.onResize(onResize);
-
-    // Wire up stdin → KeyParser → input queue
-    const inputQueue: KeyEvent[] = [];
-    const keyParser = new KeyParser((event) => inputQueue.push(event));
-    const onData = (chunk: Buffer) => {
-      keyParser.feed(new Uint8Array(chunk));
-    };
-    process.stdin.on("data", onData);
-
     // Create diff renderer
     const renderer = new DiffRenderer(undefined, colorSupport);
 
@@ -100,10 +100,11 @@ export async function runScene(
     }
 
     await scene.exit?.(ctx);
+  } finally {
+    // Always restore terminal + cleanup listeners, even on error
     process.stdin.off("data", onData);
     session.offResize(onResize);
-  } finally {
-    // Always restore terminal, even on error
+    keyParser.dispose();
     session.exit();
   }
 

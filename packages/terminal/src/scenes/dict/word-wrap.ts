@@ -14,7 +14,7 @@ export function wordWrap(text: string, maxWidth: number): string[] {
       continue;
     }
 
-    const words = para.split(/\s+/);
+    const words = para.split(/\s+/).filter(w => w.length > 0);
     let currentLine = "";
     let currentWidth = 0;
 

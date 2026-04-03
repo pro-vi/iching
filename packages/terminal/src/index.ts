@@ -53,7 +53,7 @@ export { DiffRenderer } from "./render/diff-render.ts";
 export { centerBlock, writeBlockCentered } from "./render/rasterize.ts";
 
 // Input
-export { type KeyEvent, parseKey, KeyParser } from "./input/key-parser.ts";
+export { type KeyEvent, type ParseResult, parseKey, parseKeyWithLength, KeyParser } from "./input/key-parser.ts";
 export { enableRawMode, readKeys } from "./input/raw-input.ts";
 
 // Layout

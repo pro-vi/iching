@@ -5,38 +5,43 @@ import type { StyledCell } from "../render/cell.ts";
 import { stringWidth } from "../layout/measure.ts";
 
 export class TextInput {
-  value: string;
+  /** Internal storage as array of code points (handles surrogate pairs correctly) */
+  private _chars: string[];
   cursorPos: number;
 
   constructor() {
-    this.value = "";
+    this._chars = [];
     this.cursorPos = 0;
   }
 
-  /** Insert a character at cursor position */
+  /** Get the string value (joined from internal code-point array) */
+  get value(): string {
+    return this._chars.join("");
+  }
+
+  /** Set the string value (splits into code points) */
+  set value(str: string) {
+    this._chars = [...str];
+  }
+
+  /** Insert a character (or grapheme cluster) at cursor position */
   insert(char: string): void {
-    this.value =
-      this.value.slice(0, this.cursorPos) +
-      char +
-      this.value.slice(this.cursorPos);
-    this.cursorPos += char.length;
+    const chars = [...char];
+    this._chars.splice(this.cursorPos, 0, ...chars);
+    this.cursorPos += chars.length;
   }
 
   /** Delete character before cursor */
   backspace(): void {
     if (this.cursorPos <= 0) return;
-    this.value =
-      this.value.slice(0, this.cursorPos - 1) +
-      this.value.slice(this.cursorPos);
+    this._chars.splice(this.cursorPos - 1, 1);
     this.cursorPos--;
   }
 
   /** Delete character at cursor */
   delete(): void {
-    if (this.cursorPos >= this.value.length) return;
-    this.value =
-      this.value.slice(0, this.cursorPos) +
-      this.value.slice(this.cursorPos + 1);
+    if (this.cursorPos >= this._chars.length) return;
+    this._chars.splice(this.cursorPos, 1);
   }
 
   /** Move cursor left one position */
@@ -46,7 +51,7 @@ export class TextInput {
 
   /** Move cursor right one position */
   moveCursorRight(): void {
-    if (this.cursorPos < this.value.length) this.cursorPos++;
+    if (this.cursorPos < this._chars.length) this.cursorPos++;
   }
 
   /** Move cursor to start */
@@ -56,12 +61,12 @@ export class TextInput {
 
   /** Move cursor to end */
   moveToEnd(): void {
-    this.cursorPos = this.value.length;
+    this.cursorPos = this._chars.length;
   }
 
   /** Clear all text */
   clear(): void {
-    this.value = "";
+    this._chars = [];
     this.cursorPos = 0;
   }
 
@@ -76,7 +81,7 @@ export class TextInput {
     // Walk characters by display width, not string index
     let c = 0; // current column offset
     let charIdx = 0;
-    const chars = [...this.value]; // iterate graphemes
+    const chars = this._chars;
     while (c < width) {
       const isCursor = charIdx === this.cursorPos;
       const cellStyle: Partial<StyledCell> = isCursor

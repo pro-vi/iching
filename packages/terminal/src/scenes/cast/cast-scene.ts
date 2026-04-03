@@ -196,6 +196,8 @@ export class CastScene implements Scene {
     this.complete = true;
     // Re-entry lands on primary (your hexagram), not becoming
     this.setFocusedHex("primary");
+    // Mark glyph done AFTER setFocusedHex (which resets it) — settled state for journal replay
+    this.model.glyphAnimDone = true;
   }
 
   /** Expose model for testing. */

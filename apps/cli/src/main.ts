@@ -31,7 +31,7 @@ async function main() {
     const configStore = new JsonConfigStore(paths.config);
     const savedConfig = await configStore.load();
     setTheme(savedConfig.theme as any);
-    const glyphConfig = {
+    let glyphConfig = {
       glyphAnim: savedConfig.glyphAnim as any,
       glyphFont: savedConfig.glyphFont as any,
       glyphSize: savedConfig.glyphSize as any,
@@ -84,6 +84,38 @@ async function main() {
                       resolve();
                     });
                   });
+                } else if (castSignal.goto === "journal") {
+                  const journal = new JsonlJournalStore(paths.state);
+                  const entries: import("@iching/core").HistoryEntry[] = [];
+                  for await (const entry of journal.stream()) {
+                    entries.push(entry);
+                  }
+                  const journalScene = new JournalScene(entries);
+                  const factory = (id: string) => {
+                    if (id.startsWith("reading:")) {
+                      const date = id.slice(8);
+                      const entry = entries.find(e => e.date === date);
+                      if (!entry) return new JournalScene(entries);
+                      const castScene2 = new CastScene(entry.cast, "reduced", session.cols, glyphConfig, session.rows);
+                      castScene2.skipToComplete();
+                      return castScene2;
+                    }
+                    if (id.startsWith("detail:")) {
+                      const kw = Number(id.slice(7));
+                      if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new JournalScene(entries);
+                      const scene = new DetailScene(kw, glyphConfig);
+                      getHexagramHistory(journal, kw).then((h) =>
+                        scene.setHistory(h.castCount, h.lastCastDate),
+                      );
+                      return scene;
+                    }
+                    if (id === "dictionary") {
+                      return new BrowseScene();
+                    }
+                    return new JournalScene(entries);
+                  };
+                  const router = new SceneRouter(journalScene, factory);
+                  await router.run(session, clock, colorSupport);
                 } else if (castSignal.goto === "dictionary" || castSignal.goto.startsWith("detail:")) {
                   const journal = new JsonlJournalStore(paths.state);
                   const startScene = castSignal.goto.startsWith("detail:")
@@ -148,6 +180,38 @@ async function main() {
                       resolve();
                     });
                   });
+                } else if (castSignal.goto === "journal") {
+                  const journal = new JsonlJournalStore(paths.state);
+                  const entries: import("@iching/core").HistoryEntry[] = [];
+                  for await (const entry of journal.stream()) {
+                    entries.push(entry);
+                  }
+                  const journalScene = new JournalScene(entries);
+                  const factory = (id: string) => {
+                    if (id.startsWith("reading:")) {
+                      const date = id.slice(8);
+                      const entry = entries.find(e => e.date === date);
+                      if (!entry) return new JournalScene(entries);
+                      const castScene2 = new CastScene(entry.cast, "reduced", session.cols, glyphConfig, session.rows);
+                      castScene2.skipToComplete();
+                      return castScene2;
+                    }
+                    if (id.startsWith("detail:")) {
+                      const kw = Number(id.slice(7));
+                      if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new JournalScene(entries);
+                      const scene = new DetailScene(kw, glyphConfig);
+                      getHexagramHistory(journal, kw).then((h) =>
+                        scene.setHistory(h.castCount, h.lastCastDate),
+                      );
+                      return scene;
+                    }
+                    if (id === "dictionary") {
+                      return new BrowseScene();
+                    }
+                    return new JournalScene(entries);
+                  };
+                  const router = new SceneRouter(journalScene, factory);
+                  await router.run(session, clock, colorSupport);
                 } else if (castSignal.goto === "dictionary" || castSignal.goto.startsWith("detail:")) {
                   const journal = new JsonlJournalStore(paths.state);
                   const startScene = castSignal.goto.startsWith("detail:")
@@ -231,6 +295,11 @@ async function main() {
               if (id === "dictionary") {
                 return new BrowseScene();
               }
+              if (id === "reading" || id === "journal") {
+                // CastScene signals: "reading" (plain text, N/A in alt screen)
+                // and "journal" (already here) — return to journal list
+                return new JournalScene(entries);
+              }
               return new JournalScene(entries);
             };
             const router = new SceneRouter(journalScene, factory);
@@ -256,6 +325,11 @@ async function main() {
             newConfig.glyphSize = updated.glyphSize;
             await configStore.save(newConfig);
             setTheme(updated.theme);
+            glyphConfig = {
+              glyphAnim: updated.glyphAnim as any,
+              glyphFont: updated.glyphFont as any,
+              glyphSize: updated.glyphSize as any,
+            };
             break;
           }
 

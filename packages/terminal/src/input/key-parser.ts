@@ -13,83 +13,101 @@ export type KeyEvent =
   | { type: "tab" }
   | { type: "backspace" };
 
+export interface ParseResult {
+  event: KeyEvent;
+  consumed: number;
+}
+
 /**
- * Parse a raw byte buffer from stdin into a KeyEvent.
- * Returns null for unrecognized sequences.
+ * Determine the byte length of a single UTF-8 character from its leading byte.
  */
-export function parseKey(buf: Uint8Array): KeyEvent | null {
-  // Empty buffer
+function utf8CharLen(leadByte: number): number {
+  if (leadByte < 0x80) return 1;
+  if ((leadByte & 0xe0) === 0xc0) return 2;
+  if ((leadByte & 0xf0) === 0xe0) return 3;
+  if ((leadByte & 0xf8) === 0xf0) return 4;
+  return 1; // invalid leading byte — consume 1 to avoid infinite loop
+}
+
+/**
+ * Parse a single key event from the front of a byte buffer.
+ * Returns the event and the number of bytes consumed, or null if unparseable.
+ */
+export function parseKeyWithLength(buf: Uint8Array): ParseResult | null {
   if (buf.length === 0) return null;
 
-  // Single byte
-  if (buf.length === 1) {
-    const byte = buf[0];
+  const byte = buf[0];
 
-    // Enter (CR or LF)
-    if (byte === 0x0d || byte === 0x0a) return { type: "enter" };
+  // Escape sequences
+  if (byte === 0x1b) {
+    // Lone ESC
+    if (buf.length === 1) return { event: { type: "escape" }, consumed: 1 };
 
-    // Escape (standalone)
-    if (byte === 0x1b) return { type: "escape" };
-
-    // Tab
-    if (byte === 0x09) return { type: "tab" };
-
-    // Backspace (DEL key)
-    if (byte === 0x7f) return { type: "backspace" };
-
-    // Ctrl characters (0x01-0x1a map to Ctrl-A through Ctrl-Z)
-    if (byte >= 0x01 && byte <= 0x1a) {
-      return { type: "ctrl", char: String.fromCharCode(byte + 0x60) };
-    }
-
-    // Printable ASCII
-    if (byte >= 0x20 && byte <= 0x7e) {
-      return { type: "char", char: String.fromCharCode(byte) };
-    }
-
-    return null;
-  }
-
-  // Multi-byte: check for escape sequences
-  if (buf[0] === 0x1b) {
     // CSI sequences: ESC [ ...
-    if (buf.length >= 3 && buf[1] === 0x5b) {
-      const third = buf[2];
-      // Arrow keys
-      if (third === 0x41) return { type: "arrow", direction: "up" };
-      if (third === 0x42) return { type: "arrow", direction: "down" };
-      if (third === 0x43) return { type: "arrow", direction: "right" };
-      if (third === 0x44) return { type: "arrow", direction: "left" };
-
-      // Home (ESC [ H)
-      if (third === 0x48) return { type: "home" };
-      // End (ESC [ F)
-      if (third === 0x46) return { type: "end" };
-
-      // Extended sequences: ESC [ <n> ~
-      if (buf.length >= 4 && buf[3] === 0x7e) {
-        // PageUp (ESC [ 5 ~)
-        if (third === 0x35) return { type: "page", direction: "up" };
-        // PageDown (ESC [ 6 ~)
-        if (third === 0x36) return { type: "page", direction: "down" };
-        // Home (ESC [ 1 ~)
-        if (third === 0x31) return { type: "home" };
-        // End (ESC [ 4 ~)
-        if (third === 0x34) return { type: "end" };
+    if (buf[1] === 0x5b) {
+      if (buf.length < 3) {
+        // Incomplete CSI — treat as escape (2 bytes consumed)
+        return { event: { type: "escape" }, consumed: 2 };
       }
+
+      const third = buf[2];
+
+      // Arrow keys (3 bytes)
+      if (third === 0x41) return { event: { type: "arrow", direction: "up" }, consumed: 3 };
+      if (third === 0x42) return { event: { type: "arrow", direction: "down" }, consumed: 3 };
+      if (third === 0x43) return { event: { type: "arrow", direction: "right" }, consumed: 3 };
+      if (third === 0x44) return { event: { type: "arrow", direction: "left" }, consumed: 3 };
+
+      // Home (ESC [ H) / End (ESC [ F)
+      if (third === 0x48) return { event: { type: "home" }, consumed: 3 };
+      if (third === 0x46) return { event: { type: "end" }, consumed: 3 };
+
+      // Extended sequences: ESC [ <n> ~ (4 bytes)
+      if (buf.length >= 4 && buf[3] === 0x7e) {
+        if (third === 0x35) return { event: { type: "page", direction: "up" }, consumed: 4 };
+        if (third === 0x36) return { event: { type: "page", direction: "down" }, consumed: 4 };
+        if (third === 0x31) return { event: { type: "home" }, consumed: 4 };
+        if (third === 0x34) return { event: { type: "end" }, consumed: 4 };
+      }
+
+      // Unrecognized CSI — consume ESC [ and the third byte
+      return { event: { type: "escape" }, consumed: 3 };
     }
 
-    // Two-byte ESC sequences that aren't CSI — treat as escape
-    if (buf.length === 2) return { type: "escape" };
+    // Two-byte ESC + something that isn't CSI
+    return { event: { type: "escape" }, consumed: 2 };
   }
+
+  // Single-byte keys
+  if (byte === 0x0d || byte === 0x0a) return { event: { type: "enter" }, consumed: 1 };
+  if (byte === 0x09) return { event: { type: "tab" }, consumed: 1 };
+  if (byte === 0x7f) return { event: { type: "backspace" }, consumed: 1 };
+  if (byte >= 0x01 && byte <= 0x1a) return { event: { type: "ctrl", char: String.fromCharCode(byte + 0x60) }, consumed: 1 };
+  if (byte >= 0x20 && byte <= 0x7e) return { event: { type: "char", char: String.fromCharCode(byte) }, consumed: 1 };
 
   // Multi-byte UTF-8 character
-  const decoded = new TextDecoder().decode(buf);
-  if (decoded.length > 0 && buf[0] !== 0x1b) {
-    return { type: "char", char: decoded };
+  if (byte >= 0x80) {
+    const charLen = utf8CharLen(byte);
+    if (buf.length < charLen) return null; // incomplete UTF-8 — need more bytes
+    const charBuf = buf.subarray(0, charLen);
+    const decoded = new TextDecoder().decode(charBuf);
+    if (decoded.length > 0) {
+      return { event: { type: "char", char: decoded }, consumed: charLen };
+    }
   }
 
   return null;
+}
+
+/**
+ * Parse a raw byte buffer from stdin into a KeyEvent.
+ * Returns null for unrecognized sequences.
+ *
+ * Legacy single-event API — preserved for backward compatibility.
+ */
+export function parseKey(buf: Uint8Array): KeyEvent | null {
+  const result = parseKeyWithLength(buf);
+  return result ? result.event : null;
 }
 
 /**
@@ -115,67 +133,78 @@ export class KeyParser {
     let buf: Uint8Array;
     if (this.pending) {
       // Concatenate pending + new data
-      buf = new Uint8Array(this.pending.length + data.length);
-      buf.set(this.pending);
-      buf.set(data, this.pending.length);
+      const merged = new Uint8Array(this.pending.length + data.length);
+      merged.set(this.pending);
+      merged.set(data, this.pending.length);
       this.pending = null;
+      buf = merged;
     } else {
       buf = data;
     }
 
-    // If we have a lone ESC, wait briefly for more bytes (escape sequence)
-    if (buf.length === 1 && buf[0] === 0x1b) {
-      this.pending = buf;
-      this.timer = setTimeout(() => {
-        if (this.pending) {
-          const event = parseKey(this.pending);
-          this.pending = null;
-          if (event) this.callback(event);
+    while (buf.length > 0) {
+      // Check for incomplete escape sequences at the tail — buffer them
+      if (buf[0] === 0x1b) {
+        // Lone ESC — wait for possible CSI follow-up
+        if (buf.length === 1) {
+          this.pending = buf;
+          this.timer = setTimeout(() => {
+            if (this.pending) {
+              this.pending = null;
+              this.callback({ type: "escape" });
+            }
+          }, 50);
+          return;
         }
-      }, 50);
-      return;
-    }
 
-    // If we have ESC + [ but no third byte, wait for it
-    if (buf.length === 2 && buf[0] === 0x1b && buf[1] === 0x5b) {
-      this.pending = buf;
-      this.timer = setTimeout(() => {
-        if (this.pending) {
-          const event = parseKey(this.pending);
-          this.pending = null;
-          if (event) this.callback(event);
+        // ESC [ without third byte — wait for it
+        if (buf.length === 2 && buf[1] === 0x5b) {
+          this.pending = buf;
+          this.timer = setTimeout(() => {
+            if (this.pending) {
+              const result = parseKeyWithLength(this.pending);
+              this.pending = null;
+              if (result) this.callback(result.event);
+            }
+          }, 50);
+          return;
         }
-      }, 50);
-      return;
-    }
 
-    // If we have ESC [ <digit> but no ~ yet, wait for it (PageUp/Down/Home/End)
-    if (
-      buf.length === 3 &&
-      buf[0] === 0x1b &&
-      buf[1] === 0x5b &&
-      buf[2] >= 0x31 && buf[2] <= 0x36
-    ) {
-      // Could be a 4-byte sequence like ESC [ 5 ~
-      // Check if parseKey already handles it as a 3-byte sequence
-      const immediate = parseKey(buf);
-      if (immediate) {
-        this.callback(immediate);
-        return;
+        // ESC [ <digit> without ~ — could be a 4-byte sequence
+        if (
+          buf.length === 3 &&
+          buf[1] === 0x5b &&
+          buf[2] >= 0x31 && buf[2] <= 0x36
+        ) {
+          // Check if parseKeyWithLength already handles it as a 3-byte sequence
+          const immediate = parseKeyWithLength(buf);
+          if (immediate && immediate.consumed === 3) {
+            this.callback(immediate.event);
+            buf = buf.subarray(3);
+            continue;
+          }
+          // Otherwise buffer for the 4th byte
+          this.pending = buf;
+          this.timer = setTimeout(() => {
+            if (this.pending) {
+              const result = parseKeyWithLength(this.pending);
+              this.pending = null;
+              if (result) this.callback(result.event);
+            }
+          }, 50);
+          return;
+        }
       }
-      this.pending = buf;
-      this.timer = setTimeout(() => {
-        if (this.pending) {
-          const event = parseKey(this.pending);
-          this.pending = null;
-          if (event) this.callback(event);
-        }
-      }, 50);
-      return;
-    }
 
-    const event = parseKey(buf);
-    if (event) this.callback(event);
+      const result = parseKeyWithLength(buf);
+      if (!result) {
+        // Unparseable byte — skip it to avoid infinite loop
+        buf = buf.subarray(1);
+        continue;
+      }
+      this.callback(result.event);
+      buf = buf.subarray(result.consumed);
+    }
   }
 
   /** Clean up timers */

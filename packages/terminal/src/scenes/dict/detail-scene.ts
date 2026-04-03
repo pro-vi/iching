@@ -30,8 +30,8 @@ export class DetailScene implements Scene {
   enter(ctx: SceneContext): void {
     this.model.viewportHeight = ctx.rows - FOOTER_ROWS;
 
-    // Create glyph animator on entry
-    if (this.glyphConfig) {
+    // Create glyph animator on entry (skip if already completed from prior visit)
+    if (this.glyphConfig && !this.model.glyphAnimDone) {
       const glyph = composeGlyph(
         this.model.detail.gua.n,
         this.glyphConfig.glyphFont,
@@ -43,7 +43,6 @@ export class DetailScene implements Scene {
           this.glyphConfig.glyphAnim,
           glyph,
         );
-        this.model.glyphAnimDone = false;
       }
     }
 
