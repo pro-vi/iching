@@ -208,14 +208,12 @@ async function main() {
             for await (const entry of journal.stream()) {
               entries.push(entry);
             }
-            // Journal is most-recent-first in the scene
-            const reversedEntries = [...entries].reverse();
             const journalScene = new JournalScene(entries);
             const factory = (id: string) => {
               if (id.startsWith("reading:")) {
-                // Open cast exploration view for a journal entry
-                const idx = Number(id.slice(8));
-                const entry = reversedEntries[idx];
+                // Open cast exploration view for a journal entry by date
+                const date = id.slice(8);
+                const entry = entries.find(e => e.date === date);
                 if (!entry) return new JournalScene(entries);
                 const castScene = new CastScene(entry.cast, "reduced", session.cols, glyphConfig, session.rows);
                 castScene.skipToComplete();

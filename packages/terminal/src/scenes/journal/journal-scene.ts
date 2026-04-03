@@ -156,10 +156,10 @@ export class JournalScene implements Scene {
     }
 
     if (key.type === "enter") {
-      // Open reading view for selected entry
+      // Open reading view — encode the date so the factory can find it
       const entry = this.entries[this.cursor];
       if (entry) {
-        return { goto: `reading:${this.cursor}` };
+        return { goto: `reading:${entry.date}` };
       }
     }
 
