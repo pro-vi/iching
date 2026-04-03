@@ -97,7 +97,7 @@ async function main() {
                       const entry = entries.find(e => e.date === date);
                       if (!entry) return new JournalScene(entries);
                       const castScene2 = new CastScene(entry.cast, "reduced", session.cols, glyphConfig, session.rows);
-                      castScene2.skipToComplete();
+                      castScene2.skipToComplete(false);
                       return castScene2;
                     }
                     if (id.startsWith("detail:")) {
@@ -193,7 +193,7 @@ async function main() {
                       const entry = entries.find(e => e.date === date);
                       if (!entry) return new JournalScene(entries);
                       const castScene2 = new CastScene(entry.cast, "reduced", session.cols, glyphConfig, session.rows);
-                      castScene2.skipToComplete();
+                      castScene2.skipToComplete(false);
                       return castScene2;
                     }
                     if (id.startsWith("detail:")) {
@@ -280,7 +280,7 @@ async function main() {
                 const entry = entries.find(e => e.date === date);
                 if (!entry) return new JournalScene(entries);
                 const castScene = new CastScene(entry.cast, "reduced", session.cols, glyphConfig, session.rows);
-                castScene.skipToComplete();
+                castScene.skipToComplete(false);
                 return castScene;
               }
               if (id.startsWith("detail:")) {

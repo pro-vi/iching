@@ -191,13 +191,19 @@ export class CastScene implements Scene {
    * Uses TimelineRunner.fastForward() — single source of truth.
    * The timeline's call/tween steps execute instantly, waits are skipped.
    */
-  skipToComplete(): void {
+  /**
+   * Skip to fully revealed state.
+   * @param animate — if true, the focused glyph animates fresh (daily cast re-entry).
+   *                  if false, everything is static (journal replay).
+   */
+  skipToComplete(animate = true): void {
     this.timeline.fastForward(this.model);
     this.complete = true;
-    // Re-entry lands on primary (your hexagram), not becoming
     this.setFocusedHex("primary");
-    // Mark glyph done AFTER setFocusedHex (which resets it) — settled state for journal replay
-    this.model.glyphAnimDone = true;
+    if (!animate) {
+      this.model.glyphAnimator = null;
+      this.model.glyphAnimDone = true;
+    }
   }
 
   /** Expose model for testing. */
