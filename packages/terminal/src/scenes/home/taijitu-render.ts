@@ -4,7 +4,7 @@
 
 import type { CellBuffer } from "../../render/buffer.ts";
 
-export type TaijituStyle = "yangDots" | "yinDots" | "yangDense" | "yinDense";
+export type TaijituStyle = "dots" | "dense";
 
 type Region = 0 | 1 | 2;
 const YANG: Region = 0;
@@ -73,21 +73,9 @@ export function renderTaijitu(
         }
       }
 
-      let bits = 0;
-      switch (style) {
-        case "yangDots":
-          bits = yangBits;
-          break;
-        case "yinDots":
-          bits = yinBits;
-          break;
-        case "yangDense":
-          bits = yangBits | (yinBits & SPARSE_MASK);
-          break;
-        case "yinDense":
-          bits = yinBits | (yangBits & SPARSE_MASK);
-          break;
-      }
+      const bits = style === "dense"
+        ? yangBits | (yinBits & SPARSE_MASK)
+        : yangBits;
 
       if (bits === 0) continue;
 

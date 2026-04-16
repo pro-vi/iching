@@ -17,7 +17,7 @@ import { stringWidth } from "../../layout/measure.ts";
 const ANIM_OPTIONS: GlyphAnimStyle[] = ["noise", "dots", "radial", "sand"];
 const FONT_OPTIONS: GlyphFont[] = ["kaiti", "libian", "heiti"];
 const SIZE_OPTIONS: GlyphSize[] = [64, 48, 32];
-const TAIJITU_OPTIONS: TaijituStyle[] = ["yangDots", "yinDots", "yangDense", "yinDense"];
+const TAIJITU_OPTIONS: TaijituStyle[] = ["dots", "dense"];
 
 interface SettingRow {
   label: string;
@@ -61,7 +61,7 @@ export class SettingsScene implements Scene {
   getValues(): SettingsValues {
     return {
       theme: THEME_NAMES[this.rows[0].selected] ?? "temple-night",
-      taijituStyle: TAIJITU_OPTIONS[this.rows[1].selected] ?? "yangDots",
+      taijituStyle: TAIJITU_OPTIONS[this.rows[1].selected] ?? "dots",
       glyphAnim: ANIM_OPTIONS[this.rows[2].selected] ?? "noise",
       glyphFont: FONT_OPTIONS[this.rows[3].selected] ?? "kaiti",
       glyphSize: SIZE_OPTIONS[this.rows[4].selected] ?? 64,

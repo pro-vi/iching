@@ -25,7 +25,7 @@ describe("JsonConfigStore", () => {
       glyphAnim: "noise",
       glyphFont: "kaiti",
       glyphSize: 64,
-      taijituStyle: "yangDots",
+      taijituStyle: "dots",
     });
   });
 
@@ -38,7 +38,7 @@ describe("JsonConfigStore", () => {
       glyphAnim: "dots",
       glyphFont: "heiti",
       glyphSize: 48,
-      taijituStyle: "yinDense",
+      taijituStyle: "dense",
     };
 
     await store.save(custom);
@@ -60,7 +60,17 @@ describe("JsonConfigStore", () => {
       glyphAnim: "noise",
       glyphFont: "kaiti",
       glyphSize: 64,
-      taijituStyle: "yangDots",
+      taijituStyle: "dots",
     });
+  });
+
+  test("load migrates legacy taijituStyle values", async () => {
+    await writeFile(join(dir, "config.json"), JSON.stringify({ taijituStyle: "yinDots" }), "utf-8");
+    const a = await store.load();
+    expect(a.taijituStyle).toBe("dots");
+
+    await writeFile(join(dir, "config.json"), JSON.stringify({ taijituStyle: "yangDense" }), "utf-8");
+    const b = await store.load();
+    expect(b.taijituStyle).toBe("dense");
   });
 });

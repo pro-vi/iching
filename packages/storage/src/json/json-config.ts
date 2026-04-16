@@ -11,8 +11,10 @@ const DEFAULT_CONFIG: UserConfig = {
   glyphAnim: "noise",
   glyphFont: "kaiti",
   glyphSize: 64,
-  taijituStyle: "yangDots",
+  taijituStyle: "dots",
 };
+
+const VALID_TAIJITU_STYLES = new Set(["dots", "dense"]);
 
 export class JsonConfigStore implements ConfigStore {
   constructor(private readonly path: string) {}
@@ -21,7 +23,13 @@ export class JsonConfigStore implements ConfigStore {
     try {
       const raw = await readFile(this.path, "utf-8");
       const partial = JSON.parse(raw) as Partial<UserConfig>;
-      return { ...DEFAULT_CONFIG, ...partial };
+      const merged = { ...DEFAULT_CONFIG, ...partial };
+      // Migrate legacy taijituStyle values (yangDots/yinDots → dots, yangDense/yinDense → dense).
+      const style = merged.taijituStyle as string;
+      if (!VALID_TAIJITU_STYLES.has(style)) {
+        merged.taijituStyle = style.toLowerCase().includes("dense") ? "dense" : "dots";
+      }
+      return merged;
     } catch (err: unknown) {
       if ((err as NodeJS.ErrnoException).code === "ENOENT")
         return { ...DEFAULT_CONFIG };
