@@ -35,6 +35,7 @@ async function main() {
       glyphFont: savedConfig.glyphFont as any,
       glyphSize: savedConfig.glyphSize as any,
     };
+    let taijituStyle = savedConfig.taijituStyle as any;
     const todayCast = await cacheStore.read();
     const hasTodayCast = todayCast?.date === today;
 
@@ -48,6 +49,7 @@ async function main() {
       const currentCache = await cacheStore.read();
       const homeScene = new HomeScene({
         todayCast: currentCache?.date === today ? currentCache : null,
+        taijituStyle,
       });
 
       const signal = await runScene(homeScene, session, clock, colorSupport);
@@ -285,6 +287,7 @@ async function main() {
             const config = await configStore.load();
             const settingsScene = new SettingsScene({
               theme: config.theme as any,
+              taijituStyle: config.taijituStyle as any,
               glyphAnim: config.glyphAnim,
               glyphFont: config.glyphFont,
               glyphSize: config.glyphSize,
@@ -295,11 +298,13 @@ async function main() {
               const updated = settingsScene.getValues();
               const newConfig = await configStore.load();
               newConfig.theme = updated.theme;
+              newConfig.taijituStyle = updated.taijituStyle;
               newConfig.glyphAnim = updated.glyphAnim;
               newConfig.glyphFont = updated.glyphFont;
               newConfig.glyphSize = updated.glyphSize;
               await configStore.save(newConfig);
               setTheme(updated.theme);
+              taijituStyle = updated.taijituStyle as any;
               glyphConfig = {
                 glyphAnim: updated.glyphAnim as any,
                 glyphFont: updated.glyphFont as any,

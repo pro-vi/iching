@@ -12,6 +12,7 @@ export interface UserConfig {
   glyphAnim: "noise" | "dots" | "radial" | "sand";
   glyphFont: "kaiti" | "libian" | "heiti";
   glyphSize: 32 | 48 | 64;
+  taijituStyle: "yangDots" | "yinDots" | "yangDense" | "yinDense";
 }
 
 /** Query options for journal streaming */

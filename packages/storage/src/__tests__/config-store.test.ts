@@ -25,6 +25,7 @@ describe("JsonConfigStore", () => {
       glyphAnim: "noise",
       glyphFont: "kaiti",
       glyphSize: 64,
+      taijituStyle: "yangDots",
     });
   });
 
@@ -37,6 +38,7 @@ describe("JsonConfigStore", () => {
       glyphAnim: "dots",
       glyphFont: "heiti",
       glyphSize: 48,
+      taijituStyle: "yinDense",
     };
 
     await store.save(custom);
@@ -58,6 +60,7 @@ describe("JsonConfigStore", () => {
       glyphAnim: "noise",
       glyphFont: "kaiti",
       glyphSize: 64,
+      taijituStyle: "yangDots",
     });
   });
 });

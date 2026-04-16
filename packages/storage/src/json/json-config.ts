@@ -11,6 +11,7 @@ const DEFAULT_CONFIG: UserConfig = {
   glyphAnim: "noise",
   glyphFont: "kaiti",
   glyphSize: 64,
+  taijituStyle: "yangDots",
 };
 
 export class JsonConfigStore implements ConfigStore {

@@ -5,6 +5,8 @@ import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
 import type { GlyphAnimator, GlyphAnimStyle } from "../../glyph-anim/types.ts";
 import type { GlyphFont, GlyphSize } from "@iching/core";
+import type { TaijituStyle } from "../home/taijitu-render.ts";
+import { renderTaijitu } from "../home/taijitu-render.ts";
 import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
 import { composeGlyph } from "../../glyph-anim/compose.ts";
 import { getTheme, setTheme, THEME_NAMES, type ThemeName } from "../../color/theme.ts";
@@ -15,6 +17,7 @@ import { stringWidth } from "../../layout/measure.ts";
 const ANIM_OPTIONS: GlyphAnimStyle[] = ["noise", "dots", "radial", "sand"];
 const FONT_OPTIONS: GlyphFont[] = ["kaiti", "libian", "heiti"];
 const SIZE_OPTIONS: GlyphSize[] = [64, 48, 32];
+const TAIJITU_OPTIONS: TaijituStyle[] = ["yangDots", "yinDots", "yangDense", "yinDense"];
 
 interface SettingRow {
   label: string;
@@ -27,6 +30,7 @@ export interface SettingsValues {
   glyphAnim: GlyphAnimStyle;
   glyphFont: GlyphFont;
   glyphSize: GlyphSize;
+  taijituStyle: TaijituStyle;
 }
 
 // ── Preview glyph ────────────────────────────────────────────────────
@@ -41,11 +45,13 @@ export class SettingsScene implements Scene {
   private previewAnimator: GlyphAnimator | null = null;
   private previewActive = false;
   private values: SettingsValues;
+  private elapsed = 0;
 
   constructor(initial: SettingsValues) {
     this.values = { ...initial };
     this.rows = [
       { label: "Theme",           options: [...THEME_NAMES],             selected: Math.max(0, THEME_NAMES.indexOf(initial.theme)) },
+      { label: "Taijitu",         options: [...TAIJITU_OPTIONS],         selected: Math.max(0, TAIJITU_OPTIONS.indexOf(initial.taijituStyle)) },
       { label: "Glyph Animation", options: [...ANIM_OPTIONS],            selected: Math.max(0, ANIM_OPTIONS.indexOf(initial.glyphAnim)) },
       { label: "Font",            options: [...FONT_OPTIONS],            selected: Math.max(0, FONT_OPTIONS.indexOf(initial.glyphFont)) },
       { label: "Glyph Size",      options: SIZE_OPTIONS.map(String),     selected: Math.max(0, SIZE_OPTIONS.indexOf(initial.glyphSize)) },
@@ -55,15 +61,17 @@ export class SettingsScene implements Scene {
   getValues(): SettingsValues {
     return {
       theme: THEME_NAMES[this.rows[0].selected] ?? "temple-night",
-      glyphAnim: ANIM_OPTIONS[this.rows[1].selected] ?? "noise",
-      glyphFont: FONT_OPTIONS[this.rows[2].selected] ?? "kaiti",
-      glyphSize: SIZE_OPTIONS[this.rows[3].selected] ?? 64,
+      taijituStyle: TAIJITU_OPTIONS[this.rows[1].selected] ?? "yangDots",
+      glyphAnim: ANIM_OPTIONS[this.rows[2].selected] ?? "noise",
+      glyphFont: FONT_OPTIONS[this.rows[3].selected] ?? "kaiti",
+      glyphSize: SIZE_OPTIONS[this.rows[4].selected] ?? 64,
     };
   }
 
   enter(_ctx: SceneContext): void {}
 
   update(elapsed: number, _dt: number, _ctx: SceneContext): void {
+    this.elapsed = elapsed;
     if (this.previewActive && this.previewAnimator) {
       if (this.previewAnimator.update(elapsed)) {
         this.previewActive = false;
@@ -162,12 +170,23 @@ export class SettingsScene implements Scene {
     const footer = "↑↓ setting  ←→ option  esc save & back";
     frame.writeText(footerRow - 1, sepCol, sep, { fg: t.border });
     frame.writeText(footerRow, cx - Math.floor(stringWidth(footer) / 2), footer, { fg: t.tertiary });
+
+    // Static taijitu preview on the right side (if there's room).
+    // Kept unrotated so the four variants are distinguishable — in motion
+    // yangDots/yinDots render identical half-moons 180° out of phase.
+    const vals2 = this.getValues();
+    const taijituR = 6;
+    const taijituCx = frame.width - 2 - taijituR;
+    const taijituCy = Math.max(6, Math.floor(frame.height / 2) - 2);
+    if (taijituCx - taijituR > left + 32) {
+      renderTaijitu(frame, taijituCx, taijituCy, taijituR, 0, vals2.taijituStyle);
+    }
   }
 
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
     if (key.type === "escape") {
       this.values = this.getValues();
-      return "exit";
+      return { goto: "home" };
     }
     if (key.type === "ctrl" && key.char === "c") return "exit";
 
@@ -203,7 +222,12 @@ export class SettingsScene implements Scene {
     // Apply theme change immediately so the settings screen itself updates
     const vals = this.getValues();
     setTheme(vals.theme);
-    this.startPreview();
+    // Only restart the glyph preview when a glyph-affecting row changed,
+    // so cycling Theme or Taijitu doesn't interrupt an in-flight animation.
+    const label = this.rows[this.focusedRow]?.label;
+    if (label === "Glyph Animation" || label === "Font" || label === "Glyph Size") {
+      this.startPreview();
+    }
   }
 
   private startPreview(): void {

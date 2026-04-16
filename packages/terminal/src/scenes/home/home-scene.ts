@@ -7,26 +7,45 @@ import type { DailyCache } from "@iching/core";
 import { GUA } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
+import { renderTaijitu, type TaijituStyle } from "./taijitu-render.ts";
 
 export interface HomeState {
   todayCast: DailyCache | null;
+  taijituStyle: TaijituStyle;
 }
 
 export class HomeScene implements Scene {
   private state: HomeState;
+  private elapsed = 0;
 
   constructor(state: HomeState) {
     this.state = state;
   }
 
+  setTaijituStyle(style: TaijituStyle): void {
+    this.state.taijituStyle = style;
+  }
+
   enter(_ctx: SceneContext): void {}
 
-  update(_elapsed: number, _dt: number, _ctx: SceneContext): void {}
+  update(elapsed: number, _dt: number, _ctx: SceneContext): void {
+    this.elapsed = elapsed;
+  }
 
   render(frame: CellBuffer, _ctx: SceneContext): void {
     const t = getTheme();
     const cx = Math.floor(frame.width / 2);
-    let row = Math.floor(frame.height / 2) - 6;
+    const titleRow = Math.floor(frame.height / 2) - 6;
+    let row = titleRow;
+
+    // Rotating taijitu fills the space above the title (1 row top margin, 1 row gap before title)
+    const maxRfromHeight = titleRow - 3;
+    const maxRfromWidth = Math.floor(frame.width / 2) - 2;
+    const radius = Math.min(maxRfromHeight, maxRfromWidth);
+    if (radius >= 4) {
+      const centerRow = (titleRow - 1) / 2;
+      renderTaijitu(frame, cx, centerRow, radius, this.elapsed * 0.0004, this.state.taijituStyle);
+    }
 
     // Title
     const title = "☯  I Ching";
