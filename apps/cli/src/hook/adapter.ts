@@ -54,6 +54,7 @@ export async function runHookAdapter(): Promise<void> {
   let cast: Cast;
   let structure: Structure;
   let shown: boolean;
+  let intention: string | undefined;
 
   // Check cache
   const cached = await cacheStore.read();
@@ -61,6 +62,7 @@ export async function runHookAdapter(): Promise<void> {
     cast = cached.cast;
     structure = cached.structure;
     shown = cached.shown;
+    intention = cached.intention;
   } else {
     // Fresh cast
     cast = castHexagram(source);
@@ -74,15 +76,17 @@ export async function runHookAdapter(): Promise<void> {
   // Journal first — if interrupted, failure is a recoverable duplicate
   // (vs cache-first where journal entry is permanently lost)
   if (!shown) {
-    await journal.append({ date: today, cast });
+    const timestamp = new Date().toISOString();
+    await journal.append({ date: today, cast, timestamp });
   }
 
-  // Then update cache
+  // Then update cache (preserve intention from TUI if present)
   await cacheStore.write({
     date: today,
     cast,
     shown: true,
     structure,
+    intention,
   });
 
   // Output

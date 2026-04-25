@@ -34,8 +34,10 @@ export class CastScene implements Scene {
     termWidth: number = 80,
     glyphConfig?: CastGlyphConfig,
     termRows: number = 24,
+    intention?: string,
   ) {
     this.model = new CastModel(cast);
+    this.model.intention = intention;
     this.termWidth = termWidth;
     // Auto-size glyph to fit terminal height
     if (glyphConfig) {
@@ -108,6 +110,11 @@ export class CastScene implements Scene {
       // No glyph: use split title layout as before
       renderTitle(frame, model, leftOffset);
       renderBecomingTitle(frame, model, isSplit ? rightOffset : 0);
+    }
+
+    // Render intention (after reveal)
+    if (model.intention && model.showPrompt) {
+      renderIntention(frame, model.intention);
     }
 
     // Render prompt
@@ -254,6 +261,18 @@ function renderPrompt(buf: CellBuffer, model: CastModel): void {
   const w = stringWidth(text);
   const col = Math.max(0, Math.floor((buf.width - w) / 2));
   buf.writeText(row, col, text, { fg: t.tertiary });
+}
+
+/** Render the user's intention at the top of the frame. */
+function renderIntention(buf: CellBuffer, intention: string): void {
+  const t = getTheme();
+  const maxW = buf.width - 4;
+  let text = intention;
+  if (stringWidth(text) > maxW) {
+    text = text.slice(0, maxW - 1) + "\u2026";
+  }
+  const col = Math.max(0, Math.floor((buf.width - stringWidth(text)) / 2));
+  buf.writeText(0, col, text, { fg: t.tertiary, dim: true });
 }
 
 /**

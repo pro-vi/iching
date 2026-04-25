@@ -118,7 +118,9 @@ export function formatJournalListPlain(
       entry.cast.becoming !== null
         ? ` → ${GUA[entry.cast.becoming - 1].u} ${GUA[entry.cast.becoming - 1].n}`
         : "";
-    lines.push(`${entry.date}  ${g.u} ${g.n} (${g.p})${becoming}`);
+    const time = entry.timestamp ? `  ${formatTime(entry.timestamp)}` : "";
+    const intention = entry.intention ? `  "${entry.intention}"` : "";
+    lines.push(`${entry.date}${time}  ${g.u} ${g.n} (${g.p})${becoming}${intention}`);
   }
   return lines.join("\n");
 }
@@ -130,7 +132,10 @@ export function formatJournalShowPlain(entry: HistoryEntry): string {
   const lines: string[] = [];
 
   const ename = (g as any).ename ? ` — ${(g as any).ename}` : "";
-  lines.push(`Date: ${entry.date}`);
+  lines.push(`Date: ${entry.date}${entry.timestamp ? `  ${formatTime(entry.timestamp)}` : ""}`);
+  if (entry.intention) {
+    lines.push(`Intention: ${entry.intention}`);
+  }
   lines.push(`${g.u}  ${g.n} (${g.p})${ename} — Hexagram ${entry.cast.primary}`);
   lines.push("");
   lines.push(
@@ -153,4 +158,12 @@ export function formatJournalShowPlain(entry: HistoryEntry): string {
   lines.push(`Image (en): ${g.en}`);
 
   return lines.join("\n");
+}
+
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const h = String(d.getHours()).padStart(2, "0");
+  const m = String(d.getMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
 }

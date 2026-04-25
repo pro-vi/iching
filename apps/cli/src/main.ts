@@ -17,6 +17,7 @@ async function main() {
     const { resolvePaths, JsonDailyCacheStore, JsonlJournalStore, JsonConfigStore, getHexagramHistory } = await import("@iching/storage");
     const {
       HomeScene, CastScene, BrowseScene, DetailScene, JournalScene, SettingsScene,
+      IntentionScene,
       SceneRouter, TerminalSession, RealClock, runScene, detectColorSupport,
       setTheme,
     } = await import("@iching/terminal");
@@ -36,12 +37,72 @@ async function main() {
       glyphSize: savedConfig.glyphSize as any,
     };
     let taijituStyle = savedConfig.taijituStyle as any;
-    const todayCast = await cacheStore.read();
-    const hasTodayCast = todayCast?.date === today;
 
     const session = new TerminalSession();
     const colorSupport = detectColorSupport();
     const clock = new RealClock();
+
+    // Post-cast navigation (journal, dictionary, detail)
+    async function handlePostCast(goto: string) {
+      if (goto === "journal") {
+        const journal = new JsonlJournalStore(paths.state);
+        const entries: import("@iching/core").HistoryEntry[] = [];
+        for await (const entry of journal.stream()) {
+          entries.push(entry);
+        }
+        const journalScene = new JournalScene(entries);
+        const factory = (id: string) => {
+          if (id.startsWith("reading:")) {
+            const key = id.slice(8);
+            const entry = entries.find(e => e.timestamp === key || e.date === key);
+            if (!entry) return new JournalScene(entries);
+            const cs = new CastScene(entry.cast, "reduced", session.cols, glyphConfig, session.rows, entry.intention);
+            cs.skipToComplete(false);
+            return cs;
+          }
+          if (id.startsWith("detail:")) {
+            const kw = Number(id.slice(7));
+            if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new JournalScene(entries);
+            const scene = new DetailScene(kw, glyphConfig);
+            getHexagramHistory(journal, kw).then((h) =>
+              scene.setHistory(h.castCount, h.lastCastDate),
+            );
+            return scene;
+          }
+          if (id === "dictionary") return new BrowseScene();
+          return new JournalScene(entries);
+        };
+        const router = new SceneRouter(journalScene, factory);
+        await router.run(session, clock, colorSupport);
+      } else if (goto === "dictionary" || goto.startsWith("detail:")) {
+        const journal = new JsonlJournalStore(paths.state);
+        const startScene = goto.startsWith("detail:")
+          ? (() => {
+              const kw = Number(goto.slice(7));
+              if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new BrowseScene();
+              const scene = new DetailScene(kw, glyphConfig);
+              getHexagramHistory(journal, kw).then((h) =>
+                scene.setHistory(h.castCount, h.lastCastDate),
+              );
+              return scene;
+            })()
+          : new BrowseScene();
+        const factory = (id: string) => {
+          if (id.startsWith("detail:")) {
+            const kw = Number(id.slice(7));
+            if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new BrowseScene();
+            const scene = new DetailScene(kw, glyphConfig);
+            getHexagramHistory(journal, kw).then((h) =>
+              scene.setHistory(h.castCount, h.lastCastDate),
+            );
+            return scene;
+          }
+          return new BrowseScene();
+        };
+        const router = new SceneRouter(startScene, factory);
+        await router.run(session, clock, colorSupport);
+      }
+    }
 
     // Home menu loop — keeps returning to home until exit
     let running = true;
@@ -62,165 +123,39 @@ async function main() {
       if (typeof signal === "object" && "goto" in signal) {
         switch (signal.goto) {
           case "cast": {
-            // Check if already cast today
-            const existing = await cacheStore.read();
-            const alreadyCastToday = existing?.date === today;
+            // Intention prompt (optional — Enter/Esc skips)
+            const intentionScene = new IntentionScene();
+            const intentionSignal = await runScene(intentionScene, session, clock, colorSupport);
+            if (intentionSignal === "exit") break;
 
-            if (alreadyCastToday) {
-              // Show today's existing reading — fully revealed, interactive
-              const castScene = new CastScene(existing.cast, "reduced", session.cols, glyphConfig, session.rows);
-              castScene.skipToComplete();
-              const castSignal = await runScene(castScene, session, clock, colorSupport);
+            const intention = intentionScene.getIntention();
 
-              if (typeof castSignal === "object" && castSignal !== null && "goto" in castSignal) {
-                if (castSignal.goto === "journal") {
-                  const journal = new JsonlJournalStore(paths.state);
-                  const entries: import("@iching/core").HistoryEntry[] = [];
-                  for await (const entry of journal.stream()) {
-                    entries.push(entry);
-                  }
-                  const journalScene = new JournalScene(entries);
-                  const factory = (id: string) => {
-                    if (id.startsWith("reading:")) {
-                      const date = id.slice(8);
-                      const entry = entries.find(e => e.date === date);
-                      if (!entry) return new JournalScene(entries);
-                      const castScene2 = new CastScene(entry.cast, "reduced", session.cols, glyphConfig, session.rows);
-                      castScene2.skipToComplete(false);
-                      return castScene2;
-                    }
-                    if (id.startsWith("detail:")) {
-                      const kw = Number(id.slice(7));
-                      if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new JournalScene(entries);
-                      const scene = new DetailScene(kw, glyphConfig);
-                      getHexagramHistory(journal, kw).then((h) =>
-                        scene.setHistory(h.castCount, h.lastCastDate),
-                      );
-                      return scene;
-                    }
-                    if (id === "dictionary") {
-                      return new BrowseScene();
-                    }
-                    return new JournalScene(entries);
-                  };
-                  const router = new SceneRouter(journalScene, factory);
-                  await router.run(session, clock, colorSupport);
-                } else if (castSignal.goto === "dictionary" || castSignal.goto.startsWith("detail:")) {
-                  const journal = new JsonlJournalStore(paths.state);
-                  const startScene = castSignal.goto.startsWith("detail:")
-                    ? (() => {
-                        const kw = Number(castSignal.goto.slice(7));
-                        if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new BrowseScene();
-                        const scene = new DetailScene(kw, glyphConfig);
-                        getHexagramHistory(journal, kw).then((h) =>
-                          scene.setHistory(h.castCount, h.lastCastDate),
-                        );
-                        return scene;
-                      })()
-                    : new BrowseScene();
-                  const factory = (id: string) => {
-                    if (id.startsWith("detail:")) {
-                      const kw = Number(id.slice(7));
-                      if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new BrowseScene();
-                      const scene = new DetailScene(kw, glyphConfig);
-                      getHexagramHistory(journal, kw).then((h) =>
-                        scene.setHistory(h.castCount, h.lastCastDate),
-                      );
-                      return scene;
-                    }
-                    return new BrowseScene();
-                  };
-                  const router = new SceneRouter(startScene, factory);
-                  await router.run(session, clock, colorSupport);
-                }
-              }
-            } else {
-              // First cast of the day — animated ritual
-              const seed = opts.seed ? Number(opts.seed) : undefined;
-              const source = seed !== undefined
-                ? new SeededRandomSource(seed)
-                : new CryptoRandomSource();
-              const preset = (opts.motion ?? "default") as "default" | "brisk" | "deep" | "reduced";
+            // Cast
+            const seed = opts.seed ? Number(opts.seed) : undefined;
+            const source = seed !== undefined
+              ? new SeededRandomSource(seed)
+              : new CryptoRandomSource();
+            const preset = (savedConfig.motion ?? "default") as "default" | "brisk" | "deep" | "reduced";
 
-              const cast = castHexagram(source);
-              const structure = buildStructure(cast);
+            const cast = castHexagram(source);
+            const structure = buildStructure(cast);
+            const timestamp = new Date().toISOString();
 
-              // Record to journal
-              if (seed === undefined) {
-                const journal = new JsonlJournalStore(paths.state);
-                await journal.append({ date: today, cast });
-              }
-              await cacheStore.write({ date: today, cast, shown: true, structure });
-
-              // Run animated ritual
-              const castScene = new CastScene(cast, preset, session.cols, glyphConfig, session.rows);
-              const castSignal = await runScene(castScene, session, clock, colorSupport);
-
-              // Handle post-cast action
-              if (typeof castSignal === "object" && castSignal !== null && "goto" in castSignal) {
-                if (castSignal.goto === "journal") {
-                  const journal = new JsonlJournalStore(paths.state);
-                  const entries: import("@iching/core").HistoryEntry[] = [];
-                  for await (const entry of journal.stream()) {
-                    entries.push(entry);
-                  }
-                  const journalScene = new JournalScene(entries);
-                  const factory = (id: string) => {
-                    if (id.startsWith("reading:")) {
-                      const date = id.slice(8);
-                      const entry = entries.find(e => e.date === date);
-                      if (!entry) return new JournalScene(entries);
-                      const castScene2 = new CastScene(entry.cast, "reduced", session.cols, glyphConfig, session.rows);
-                      castScene2.skipToComplete(false);
-                      return castScene2;
-                    }
-                    if (id.startsWith("detail:")) {
-                      const kw = Number(id.slice(7));
-                      if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new JournalScene(entries);
-                      const scene = new DetailScene(kw, glyphConfig);
-                      getHexagramHistory(journal, kw).then((h) =>
-                        scene.setHistory(h.castCount, h.lastCastDate),
-                      );
-                      return scene;
-                    }
-                    if (id === "dictionary") {
-                      return new BrowseScene();
-                    }
-                    return new JournalScene(entries);
-                  };
-                  const router = new SceneRouter(journalScene, factory);
-                  await router.run(session, clock, colorSupport);
-                } else if (castSignal.goto === "dictionary" || castSignal.goto.startsWith("detail:")) {
-                  const journal = new JsonlJournalStore(paths.state);
-                  const startScene = castSignal.goto.startsWith("detail:")
-                    ? (() => {
-                        const kw = Number(castSignal.goto.slice(7));
-                        if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new BrowseScene();
-                        const scene = new DetailScene(kw, glyphConfig);
-                        getHexagramHistory(journal, kw).then((h) =>
-                          scene.setHistory(h.castCount, h.lastCastDate),
-                        );
-                        return scene;
-                      })()
-                    : new BrowseScene();
-                  const factory = (id: string) => {
-                    if (id.startsWith("detail:")) {
-                      const kw = Number(id.slice(7));
-                      if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new BrowseScene();
-                      const scene = new DetailScene(kw, glyphConfig);
-                      getHexagramHistory(journal, kw).then((h) =>
-                        scene.setHistory(h.castCount, h.lastCastDate),
-                      );
-                      return scene;
-                    }
-                    return new BrowseScene();
-                  };
-                  const router = new SceneRouter(startScene, factory);
-                  await router.run(session, clock, colorSupport);
-                }
-              }
+            // Record to journal + cache
+            if (seed === undefined) {
+              const journal = new JsonlJournalStore(paths.state);
+              await journal.append({ date: today, cast, intention, timestamp });
             }
-            // Return to home menu
+            await cacheStore.write({ date: today, cast, shown: true, structure, intention });
+
+            // Animated ritual
+            const castScene = new CastScene(cast, preset, session.cols, glyphConfig, session.rows, intention);
+            const castSignal = await runScene(castScene, session, clock, colorSupport);
+
+            // Post-cast navigation
+            if (typeof castSignal === "object" && castSignal !== null && "goto" in castSignal) {
+              await handlePostCast(castSignal.goto);
+            }
             break;
           }
 
@@ -253,11 +188,10 @@ async function main() {
             const journalScene = new JournalScene(entries);
             const factory = (id: string) => {
               if (id.startsWith("reading:")) {
-                // Open cast exploration view for a journal entry by date
-                const date = id.slice(8);
-                const entry = entries.find(e => e.date === date);
+                const key = id.slice(8);
+                const entry = entries.find(e => e.timestamp === key || e.date === key);
                 if (!entry) return new JournalScene(entries);
-                const castScene = new CastScene(entry.cast, "reduced", session.cols, glyphConfig, session.rows);
+                const castScene = new CastScene(entry.cast, "reduced", session.cols, glyphConfig, session.rows, entry.intention);
                 castScene.skipToComplete(false);
                 return castScene;
               }
@@ -270,12 +204,7 @@ async function main() {
                 );
                 return scene;
               }
-              if (id === "dictionary") {
-                return new BrowseScene();
-              }
-              if (id === "journal") {
-                return new JournalScene(entries);
-              }
+              if (id === "dictionary") return new BrowseScene();
               return new JournalScene(entries);
             };
             const router = new SceneRouter(journalScene, factory);

@@ -118,6 +118,9 @@ export { canSplit, hexColOffset, MIN_SPLIT_WIDTH, SPLIT_OFFSET, ARROW_GAP } from
 export { HomeScene, type HomeState } from "./scenes/home/home-scene.ts";
 export { type TaijituStyle } from "./scenes/home/taijitu-render.ts";
 
+// Scenes: intention
+export { IntentionScene } from "./scenes/intention/intention-scene.ts";
+
 // Scenes: prompt
 export { PromptScene } from "./scenes/prompt/prompt-scene.ts";
 

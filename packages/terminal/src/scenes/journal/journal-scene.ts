@@ -69,11 +69,13 @@ export class JournalScene implements Scene {
       const gua = GUA[entry.cast.primary - 1];
       const isSelected = i === this.cursor;
 
-      // Date
+      // Date + optional time
       const date = entry.date;
+      const time = entry.timestamp ? formatTime(entry.timestamp) : "";
+      const dateCol = time ? `${date}  ${time}` : date;
 
       // Hexagram info
-      let line = `${date}   ${gua.u} ${gua.n} (${gua.p})`;
+      let line = `${dateCol}   ${gua.u} ${gua.n} (${gua.p})`;
 
       // Becoming
       if (entry.cast.becoming !== null) {
@@ -82,13 +84,20 @@ export class JournalScene implements Scene {
         if (entry.cast.changingPositions?.length) {
           line += ` [${entry.cast.changingPositions.join(",")}]`;
         }
-      } else {
-        // No suffix for unchanging — silence is the message
+      }
+
+      // Intention
+      if (entry.intention) {
+        const maxLen = 30;
+        const truncated = entry.intention.length > maxLen
+          ? entry.intention.slice(0, maxLen - 1) + "\u2026"
+          : entry.intention;
+        line += `  \u201c${truncated}\u201d`;
       }
 
       // Truncate to width
       if (stringWidth(line) > maxW - 4) {
-        line = line.slice(0, maxW - 5) + "…";
+        line = line.slice(0, maxW - 5) + "\u2026";
       }
 
       const col = 3;
@@ -156,10 +165,10 @@ export class JournalScene implements Scene {
     }
 
     if (key.type === "enter") {
-      // Open reading view — encode the date so the factory can find it
       const entry = this.entries[this.cursor];
       if (entry) {
-        return { goto: `reading:${entry.date}` };
+        const key = entry.timestamp || entry.date;
+        return { goto: `reading:${key}` };
       }
     }
 
@@ -180,4 +189,13 @@ export class JournalScene implements Scene {
       this.scroll.scrollOffset = this.cursor - viewportH + 1;
     }
   }
+}
+
+/** Extract HH:MM from an ISO timestamp */
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const h = String(d.getHours()).padStart(2, "0");
+  const m = String(d.getMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
 }

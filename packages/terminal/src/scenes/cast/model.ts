@@ -59,6 +59,9 @@ export class CastModel {
   focusedHex: "primary" | "becoming";
   commentaryScrollOffset: number;
 
+  // Intention text for this cast
+  intention?: string;
+
   // Reference to the cast data
   readonly cast: Cast;
 

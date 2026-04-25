@@ -55,7 +55,7 @@ export class HomeScene implements Scene {
 
     // Menu items
     const items = [
-      { key: "c", label: "Daily Cast", fg: t.accent },
+      { key: "c", label: "Cast", fg: t.accent },
       { key: "d", label: "Dictionary", fg: t.primary },
       { key: "j", label: "Journal", fg: t.secondary },
       { key: "s", label: "Settings", fg: t.secondary },

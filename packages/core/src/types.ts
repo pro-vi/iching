@@ -74,10 +74,13 @@ export interface DailyCache {
   cast: Cast;
   shown: boolean;
   structure: Structure;
+  intention?: string;
 }
 
 /** History entry (one per line in JSONL) */
 export interface HistoryEntry {
   date: string;
   cast: Cast;
+  intention?: string;
+  timestamp?: string;
 }
