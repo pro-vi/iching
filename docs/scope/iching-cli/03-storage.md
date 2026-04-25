@@ -72,7 +72,7 @@ For `history.jsonl`: append mode, one JSON line + `\n` per entry. No atomic repl
 ```typescript
 interface UserConfig {
   motion: "default" | "brisk" | "deep" | "reduced";
-  theme: "lantern";
+  theme: "ink" | "bone" | "cinnabar" | "jade" | "river";
   color: "auto" | "always" | "never";
   timezone: "system" | string;
 }

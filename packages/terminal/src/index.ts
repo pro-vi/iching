@@ -29,12 +29,12 @@ export {
 // Color detection
 export { detectColorSupport, type ColorSupport } from "./color/detect.ts";
 
-// Lantern palette (legacy direct access)
+// Cinnabar palette (legacy direct access)
 export {
-  LANTERN,
-  LANTERN_256,
-  type LanternColor,
-} from "./color/themes/lantern.ts";
+  CINNABAR,
+  CINNABAR_256,
+  type CinnabarColor,
+} from "./color/themes/cinnabar.ts";
 
 // Theme system
 export {

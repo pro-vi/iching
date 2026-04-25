@@ -60,7 +60,7 @@ export class SettingsScene implements Scene {
 
   getValues(): SettingsValues {
     return {
-      theme: THEME_NAMES[this.rows[0].selected] ?? "lantern",
+      theme: THEME_NAMES[this.rows[0].selected] ?? "bone",
       taijituStyle: TAIJITU_OPTIONS[this.rows[1].selected] ?? "dots",
       glyphAnim: ANIM_OPTIONS[this.rows[2].selected] ?? "noise",
       glyphFont: FONT_OPTIONS[this.rows[3].selected] ?? "kaiti",

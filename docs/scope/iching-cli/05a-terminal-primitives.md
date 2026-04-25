@@ -17,7 +17,7 @@ packages/terminal/src/
 ├─ color/
 │  ├─ detect.ts                 # detect terminal color support (COLORTERM, TERM, NO_COLOR)
 │  └─ themes/
-│     └─ lantern.ts             # bone/ash/gold/moon/vermilion + jade/cinnabar palette
+│     └─ cinnabar.ts            # bone/ash/gold/moon/vermilion + jade/cinnabar palette
 ├─ input/
 │  ├─ raw-input.ts              # enable raw mode, read stdin bytes
 │  └─ key-parser.ts             # decode escape sequences → KeyEvent
@@ -87,14 +87,14 @@ type KeyEvent =
   | { type: "resize"; cols: number; rows: number };
 ```
 
-### Lantern palette (truecolor)
+### Cinnabar palette (truecolor)
 
 ```typescript
-const LANTERN = {
-  ash:        "#6E5840",    // scaffolding, breath, dim prompts
-  stone:      "#A89072",    // forming lines
-  bone:       "#EBD9B2",    // settled lines, main text
-  gold:       "#D88A3C",    // active/reveal accent (flame)
+const CINNABAR = {
+  ash:        "#6A5A40",    // scaffolding, breath, dim prompts
+  stone:      "#A89070",    // forming lines
+  bone:       "#ECDDBC",    // settled lines, main text (paper)
+  gold:       "#B83020",    // active/reveal accent (cinnabar/seal red)
   brightGold: "#F0AC54",    // peak pulse
   moon:       "#9CA8A0",    // old yin accent
   vermilion:  "#B05540",    // rare title accent

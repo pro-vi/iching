@@ -6,7 +6,7 @@ export type DailyCacheRecord = DailyCache;
 /** User-facing configuration */
 export interface UserConfig {
   motion: "default" | "brisk" | "deep" | "reduced";
-  theme: "ink" | "lantern" | "dawn" | "jade";
+  theme: "ink" | "bone" | "cinnabar" | "jade" | "river";
   color: "auto" | "always" | "never";
   timezone: "system" | string;
   glyphAnim: "noise" | "dots" | "radial" | "sand";

@@ -24,26 +24,6 @@ export interface Theme {
   border:    string;  // separators, borders
 }
 
-// ── Lantern ──────────────────────────────────────────────
-// Warm flame and paper. Amber glow on warm-dark night.
-
-export const THEME_LANTERN: Theme = {
-  name: "lantern",
-  bg:          "#15110B",
-  primary:     "#EBD9B2",
-  secondary:   "#A89072",
-  tertiary:    "#6E5840",
-  accent:      "#D88A3C",
-  yangLine:    "#EBD9B2",
-  yinLine:     "#EBD9B2",
-  changingYang: "#E89344",
-  changingYin:  "#9CA8A0",
-  glow:        "#FFE5B0",
-  selected:    "#F0AC54",
-  dimmed:      "#3A2E1F",
-  border:      "#4E4030",
-};
-
 // ── Ink ───────────────────────────────────────────────────
 // Pure monochrome. Yin and yang. Black and white.
 
@@ -64,28 +44,48 @@ export const THEME_INK: Theme = {
   border:      "#404040",
 };
 
-// ── Dawn ──────────────────────────────────────────────────
-// Warm paper. Like reading by morning light.
+// ── Bone ──────────────────────────────────────────────────
+// Aged ivory. Oracle bone, archaeological calm.
 
-export const THEME_DAWN: Theme = {
-  name: "dawn",
-  bg:          "#1A1612",
-  primary:     "#D4C4A8",
-  secondary:   "#A09080",
-  tertiary:    "#6E6050",
-  accent:      "#C8A060",
-  yangLine:    "#D4C4A8",
-  yinLine:     "#D4C4A8",
-  changingYang: "#D4A850",
-  changingYin:  "#90A0A8",
-  glow:        "#EDE0C8",
-  selected:    "#E0C080",
-  dimmed:      "#302820",
-  border:      "#483E30",
+export const THEME_BONE: Theme = {
+  name: "bone",
+  bg:          "#161310",
+  primary:     "#DCCFB5",
+  secondary:   "#A0907C",
+  tertiary:    "#6C6050",
+  accent:      "#C0A078",
+  yangLine:    "#DCCFB5",
+  yinLine:     "#DCCFB5",
+  changingYang: "#D4B488",
+  changingYin:  "#98A8A8",
+  glow:        "#E8DBC0",
+  selected:    "#D4B488",
+  dimmed:      "#2C2418",
+  border:      "#443A2E",
+};
+
+// ── Cinnabar ──────────────────────────────────────────────
+// Seal-ink red on rice paper. Ritual, vivid.
+
+export const THEME_CINNABAR: Theme = {
+  name: "cinnabar",
+  bg:          "#14100C",
+  primary:     "#ECDDBC",
+  secondary:   "#A89070",
+  tertiary:    "#6A5A40",
+  accent:      "#B83020",
+  yangLine:    "#ECDDBC",
+  yinLine:     "#ECDDBC",
+  changingYang: "#D44A30",
+  changingYin:  "#9CA8A0",
+  glow:        "#F8E5B0",
+  selected:    "#C84028",
+  dimmed:      "#3A2418",
+  border:      "#4E3424",
 };
 
 // ── Jade ──────────────────────────────────────────────────
-// Cool, contemplative. Stone and water.
+// Cool stone. Contemplative green.
 
 export const THEME_JADE: Theme = {
   name: "jade",
@@ -104,28 +104,49 @@ export const THEME_JADE: Theme = {
   border:      "#304840",
 };
 
+// ── River ─────────────────────────────────────────────────
+// Cool water. Slow, deep blue.
+
+export const THEME_RIVER: Theme = {
+  name: "river",
+  bg:          "#0A1218",
+  primary:     "#C8D4DC",
+  secondary:   "#7898A8",
+  tertiary:    "#4E6878",
+  accent:      "#5A98B8",
+  yangLine:    "#C8D4DC",
+  yinLine:     "#C8D4DC",
+  changingYang: "#7AB0C8",
+  changingYin:  "#A0B8C0",
+  glow:        "#D8E8F0",
+  selected:    "#7AB0C8",
+  dimmed:      "#1A2228",
+  border:      "#2C3A48",
+};
+
 // ── Registry ─────────────────────────────────────────────
 
-export type ThemeName = "ink" | "lantern" | "dawn" | "jade";
+export type ThemeName = "ink" | "bone" | "cinnabar" | "jade" | "river";
 
 export const THEMES: Record<ThemeName, Theme> = {
   "ink": THEME_INK,
-  "lantern": THEME_LANTERN,
-  "dawn": THEME_DAWN,
+  "bone": THEME_BONE,
+  "cinnabar": THEME_CINNABAR,
   "jade": THEME_JADE,
+  "river": THEME_RIVER,
 };
 
-export const THEME_NAMES: ThemeName[] = ["ink", "lantern", "dawn", "jade"];
+export const THEME_NAMES: ThemeName[] = ["ink", "bone", "cinnabar", "jade", "river"];
 
 // ── Active theme ─────────────────────────────────────────
-// Runtime-switchable. Defaults to lantern.
+// Runtime-switchable. Defaults to bone.
 
-let activeTheme: Theme = THEME_LANTERN;
+let activeTheme: Theme = THEME_BONE;
 
 export function getTheme(): Theme {
   return activeTheme;
 }
 
 export function setTheme(name: ThemeName): void {
-  activeTheme = THEMES[name] ?? THEME_LANTERN;
+  activeTheme = THEMES[name] ?? THEME_BONE;
 }
