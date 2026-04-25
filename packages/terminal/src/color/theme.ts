@@ -24,24 +24,24 @@ export interface Theme {
   border:    string;  // separators, borders
 }
 
-// ── Temple Night ──────────────────────────────────────────
-// Warm, earthy. Bone and gold on dark ink.
+// ── Lantern ──────────────────────────────────────────────
+// Warm flame and paper. Amber glow on warm-dark night.
 
-export const THEME_TEMPLE_NIGHT: Theme = {
-  name: "temple-night",
-  bg:          "#111318",
-  primary:     "#E8DECE",
-  secondary:   "#9E9489",
-  tertiary:    "#6E665E",
-  accent:      "#C89D4B",
-  yangLine:    "#E8DECE",
-  yinLine:     "#E8DECE",
-  changingYang: "#C89D4B",
-  changingYin:  "#A6B3BC",
-  glow:        "#F6EFD8",
-  selected:    "#E1B866",
-  dimmed:      "#3A3630",
-  border:      "#4A453E",
+export const THEME_LANTERN: Theme = {
+  name: "lantern",
+  bg:          "#15110B",
+  primary:     "#EBD9B2",
+  secondary:   "#A89072",
+  tertiary:    "#6E5840",
+  accent:      "#D88A3C",
+  yangLine:    "#EBD9B2",
+  yinLine:     "#EBD9B2",
+  changingYang: "#E89344",
+  changingYin:  "#9CA8A0",
+  glow:        "#FFE5B0",
+  selected:    "#F0AC54",
+  dimmed:      "#3A2E1F",
+  border:      "#4E4030",
 };
 
 // ── Ink ───────────────────────────────────────────────────
@@ -106,26 +106,26 @@ export const THEME_JADE: Theme = {
 
 // ── Registry ─────────────────────────────────────────────
 
-export type ThemeName = "temple-night" | "ink" | "dawn" | "jade";
+export type ThemeName = "ink" | "lantern" | "dawn" | "jade";
 
 export const THEMES: Record<ThemeName, Theme> = {
-  "temple-night": THEME_TEMPLE_NIGHT,
   "ink": THEME_INK,
+  "lantern": THEME_LANTERN,
   "dawn": THEME_DAWN,
   "jade": THEME_JADE,
 };
 
-export const THEME_NAMES: ThemeName[] = ["temple-night", "ink", "dawn", "jade"];
+export const THEME_NAMES: ThemeName[] = ["ink", "lantern", "dawn", "jade"];
 
 // ── Active theme ─────────────────────────────────────────
-// Runtime-switchable. Defaults to temple-night.
+// Runtime-switchable. Defaults to lantern.
 
-let activeTheme: Theme = THEME_TEMPLE_NIGHT;
+let activeTheme: Theme = THEME_LANTERN;
 
 export function getTheme(): Theme {
   return activeTheme;
 }
 
 export function setTheme(name: ThemeName): void {
-  activeTheme = THEMES[name] ?? THEME_TEMPLE_NIGHT;
+  activeTheme = THEMES[name] ?? THEME_LANTERN;
 }

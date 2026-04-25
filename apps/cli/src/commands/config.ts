@@ -4,7 +4,7 @@ import type { UserConfig } from "@iching/storage";
 import { outputJson, configToJson } from "../output/json.js";
 
 const CONFIG_SCHEMA: Record<string, { values?: string[]; description: string }> = {
-  theme:     { values: ["temple-night", "ink", "dawn", "jade"], description: "Color theme" },
+  theme:     { values: ["ink", "lantern", "dawn", "jade"], description: "Color theme" },
   motion:    { values: ["default", "brisk", "deep", "reduced"], description: "Casting animation speed" },
   color:     { values: ["auto", "always", "never"], description: "ANSI color mode" },
   timezone:  { description: "Timezone (\"system\" or IANA name)" },

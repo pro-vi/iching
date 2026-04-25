@@ -29,12 +29,12 @@ export {
 // Color detection
 export { detectColorSupport, type ColorSupport } from "./color/detect.ts";
 
-// Temple Night palette (legacy direct access)
+// Lantern palette (legacy direct access)
 export {
-  TEMPLE_NIGHT,
-  TEMPLE_NIGHT_256,
-  type TempleNightColor,
-} from "./color/themes/temple-night.ts";
+  LANTERN,
+  LANTERN_256,
+  type LanternColor,
+} from "./color/themes/lantern.ts";
 
 // Theme system
 export {

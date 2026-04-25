@@ -17,7 +17,7 @@ packages/terminal/src/
 ├─ color/
 │  ├─ detect.ts                 # detect terminal color support (COLORTERM, TERM, NO_COLOR)
 │  └─ themes/
-│     └─ temple-night.ts        # bone/ash/gold/moon/vermilion + jade/cinnabar palette
+│     └─ lantern.ts             # bone/ash/gold/moon/vermilion + jade/cinnabar palette
 ├─ input/
 │  ├─ raw-input.ts              # enable raw mode, read stdin bytes
 │  └─ key-parser.ts             # decode escape sequences → KeyEvent
@@ -87,22 +87,22 @@ type KeyEvent =
   | { type: "resize"; cols: number; rows: number };
 ```
 
-### Temple Night palette (truecolor)
+### Lantern palette (truecolor)
 
 ```typescript
-const TEMPLE_NIGHT = {
-  ash:        "#6E665E",    // scaffolding, breath, dim prompts
-  stone:      "#9E9489",    // forming lines
-  bone:       "#E8DECE",    // settled lines, main text
-  gold:       "#C89D4B",    // active/reveal accent
-  brightGold: "#E1B866",    // peak pulse
-  moon:       "#A6B3BC",    // old yin accent
-  vermilion:  "#A65A4D",    // rare title accent
+const LANTERN = {
+  ash:        "#6E5840",    // scaffolding, breath, dim prompts
+  stone:      "#A89072",    // forming lines
+  bone:       "#EBD9B2",    // settled lines, main text
+  gold:       "#D88A3C",    // active/reveal accent (flame)
+  brightGold: "#F0AC54",    // peak pulse
+  moon:       "#9CA8A0",    // old yin accent
+  vermilion:  "#B05540",    // rare title accent
   jade:       "#7FA08A",    // old yin (brief 2)
-  cinnabar:   "#B96A4A",    // old yang (brief 2)
-  mist:       "#6B6F76",    // forming coins
-  glow:       "#F6EFD8",    // peak brightness
-  ink:        "#111318",    // background (alt screen only)
+  cinnabar:   "#C66838",    // old yang (brief 2)
+  mist:       "#6B6052",    // forming coins
+  glow:       "#FFE5B0",    // peak brightness
+  ink:        "#15110B",    // background (warm dark)
 };
 ```
 

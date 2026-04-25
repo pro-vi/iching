@@ -19,7 +19,7 @@ describe("JsonConfigStore", () => {
 
     expect(config).toEqual({
       motion: "default",
-      theme: "temple-night",
+      theme: "lantern",
       color: "auto",
       timezone: "system",
       glyphAnim: "noise",
@@ -32,7 +32,7 @@ describe("JsonConfigStore", () => {
   test("save then load round-trip", async () => {
     const custom: UserConfig = {
       motion: "brisk",
-      theme: "temple-night",
+      theme: "lantern",
       color: "never",
       timezone: "America/New_York",
       glyphAnim: "dots",
@@ -54,7 +54,7 @@ describe("JsonConfigStore", () => {
     const config = await store.load();
     expect(config).toEqual({
       motion: "deep",
-      theme: "temple-night",
+      theme: "lantern",
       color: "auto",
       timezone: "system",
       glyphAnim: "noise",

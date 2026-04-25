@@ -70,7 +70,7 @@ iching doctor                   # verify glyphs, data integrity, color support, 
 
 ```
 --json              structured JSON output (suppresses all decoration)
---theme <name>      color theme (default: temple-night)
+--theme <name>      color theme (default: lantern)
 --motion <preset>   animation preset: default | brisk | deep | reduced
 --ansi <mode>       color mode: auto | always | never
 --seed <n>          deterministic RNG seed (debug/test)

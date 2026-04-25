@@ -5,7 +5,7 @@ import { atomicWriteJson } from "./atomic-write.js";
 
 const DEFAULT_CONFIG: UserConfig = {
   motion: "default",
-  theme: "temple-night",
+  theme: "lantern",
   color: "auto",
   timezone: "system",
   glyphAnim: "noise",
@@ -28,6 +28,10 @@ export class JsonConfigStore implements ConfigStore {
       const style = merged.taijituStyle as string;
       if (!VALID_TAIJITU_STYLES.has(style)) {
         merged.taijituStyle = style.toLowerCase().includes("dense") ? "dense" : "dots";
+      }
+      // Migrate legacy theme name (temple-night → lantern).
+      if ((merged.theme as string) === "temple-night") {
+        merged.theme = "lantern";
       }
       return merged;
     } catch (err: unknown) {
