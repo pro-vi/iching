@@ -58,3 +58,50 @@ jobs:
         with:
           files: dist/*
           generate_release_notes: true
+
+  publish-npm:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # for npm trusted publishing (OIDC)
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+
+      - name: Bundle and prepare publish manifest
+        run: |
+          set -euo pipefail
+          mkdir -p publish
+          bun build --target=bun --minify --outfile=publish/iching.js apps/cli/src/main.ts
+          chmod +x publish/iching.js
+          cp README.md LICENSE publish/
+          VERSION=$(node -p "require('./package.json').version")
+          cat > publish/package.json <<EOF
+          {
+            "name": "@pro-vi/iching",
+            "version": "$VERSION",
+            "description": "A contemplative I Ching TUI for the terminal.",
+            "bin": "./iching.js",
+            "files": ["iching.js", "README.md", "LICENSE"],
+            "type": "module",
+            "engines": { "bun": ">=1.0.0" },
+            "keywords": ["iching", "i-ching", "yijing", "tui", "terminal", "divination", "bun"],
+            "repository": { "type": "git", "url": "git+https://github.com/pro-vi/iching.git" },
+            "homepage": "https://github.com/pro-vi/iching#readme",
+            "bugs": { "url": "https://github.com/pro-vi/iching/issues" },
+            "license": "MIT",
+            "author": "provi",
+            "publishConfig": { "access": "public" }
+          }
+          EOF
+
+      - name: Publish to npm with provenance
+        run: cd publish && npm publish --provenance --access public
