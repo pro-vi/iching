@@ -7,10 +7,7 @@ import { registerPathsCommand } from "./commands/paths.js";
 import { registerDoctorCommand } from "./commands/doctor.js";
 import { registerDictCommand } from "./commands/dict.js";
 
-import { readFileSync } from "fs";
-import { join } from "path";
-
-const pkg = JSON.parse(readFileSync(join(import.meta.dir, "../package.json"), "utf-8"));
+import pkg from "../package.json" with { type: "json" };
 
 export const program = new Command()
   .name(pkg.name ?? "iching")

@@ -29,16 +29,16 @@
 需要 [Bun](https://bun.sh) >= 1.0。
 
 ```bash
+bunx @pro-vi/iching          # 一键运行，无需安装
+```
+
+或克隆构建：
+
+```bash
 git clone https://github.com/pro-vi/iching.git
 cd iching
 bun install
-bun run build         # 为当前平台构建 dist/iching
-```
-
-亦可不构建直接运行：
-
-```bash
-bun apps/cli/src/main.ts
+bun run build                # 为当前平台构建 dist/iching
 ```
 
 ## 用法

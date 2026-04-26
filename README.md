@@ -30,16 +30,16 @@ No web technologies, no frameworks.
 Requires [Bun](https://bun.sh) >= 1.0.
 
 ```bash
+bunx @pro-vi/iching          # one-shot, no install
+```
+
+Or clone and build:
+
+```bash
 git clone https://github.com/pro-vi/iching.git
 cd iching
 bun install
-bun run build         # builds dist/iching for your platform
-```
-
-Or run directly without building:
-
-```bash
-bun apps/cli/src/main.ts
+bun run build                # builds dist/iching for your platform
 ```
 
 ## Usage
