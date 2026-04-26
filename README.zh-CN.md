@@ -29,7 +29,8 @@
 需要 [Bun](https://bun.sh) >= 1.0。
 
 ```bash
-bunx @pro-vi/iching          # 一键运行，无需安装
+bunx @pro-vi/iching                    # 进入 TUI
+bunx @pro-vi/iching cast "该不该上线？" # 一次性起卦
 ```
 
 或克隆构建：
