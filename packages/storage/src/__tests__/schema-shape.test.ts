@@ -1,0 +1,151 @@
+import { describe, test, expect, beforeEach } from "bun:test";
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { Cast, Structure, HistoryEntry } from "@iching/core";
+import type { DailyCacheRecord, UserConfig } from "../types.js";
+import { JsonConfigStore } from "../json/json-config.js";
+import { JsonDailyCacheStore } from "../json/json-daily-cache.js";
+import { JsonlJournalStore } from "../json/jsonl-journal.js";
+import { SCHEMA_KEYS } from "../schema-keys.js";
+
+// Schemas only expand. These tests pin the shape so renames/removes fail CI.
+// Adding a key requires editing schema-keys.ts (visible in PR review).
+
+const FIXTURE_CAST: Cast = {
+  primary: 1,
+  becoming: null,
+  changingPositions: [],
+  lines: [
+    { value: 7, isYang: true, isChanging: false },
+    { value: 7, isYang: true, isChanging: false },
+    { value: 7, isYang: true, isChanging: false },
+    { value: 7, isYang: true, isChanging: false },
+    { value: 7, isYang: true, isChanging: false },
+    { value: 7, isYang: true, isChanging: false },
+  ],
+  nuclear: null,
+  polarity: null,
+  mirror: null,
+  diagonal: null,
+};
+
+const FIXTURE_STRUCTURE: Structure = {
+  upper: { sym: "☰", n: "乾", img: "heaven" },
+  lower: { sym: "☰", n: "乾", img: "heaven" },
+};
+
+function assertShape(
+  actualKeys: string[],
+  shape: { required: readonly string[]; optional: readonly string[] },
+) {
+  for (const k of shape.required) {
+    expect(actualKeys).toContain(k);
+  }
+  const allowed = new Set([...shape.required, ...shape.optional]);
+  const extras = actualKeys.filter((k) => !allowed.has(k));
+  expect(extras).toEqual([]);
+}
+
+describe("schema shape — config", () => {
+  let dir: string;
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "schema-config-"));
+  });
+
+  test("default config keys match SCHEMA_KEYS.config", async () => {
+    const store = new JsonConfigStore(join(dir, "config.json"));
+    const cfg = await store.load();
+    assertShape(Object.keys(cfg), SCHEMA_KEYS.config);
+    expect(SCHEMA_KEYS.config.required.length).toBe(Object.keys(cfg).length);
+  });
+
+  test("round-tripped config keys match SCHEMA_KEYS.config", async () => {
+    const store = new JsonConfigStore(join(dir, "config.json"));
+    const written: UserConfig = {
+      motion: "brisk",
+      theme: "cinnabar",
+      color: "always",
+      timezone: "America/Los_Angeles",
+      glyphAnim: "dots",
+      glyphFont: "kaiti",
+      glyphSize: 64,
+      taijituStyle: "dense",
+    };
+    await store.save(written);
+    const onDisk = JSON.parse(await readFile(join(dir, "config.json"), "utf-8"));
+    assertShape(Object.keys(onDisk), SCHEMA_KEYS.config);
+  });
+});
+
+describe("schema shape — cache", () => {
+  let dir: string;
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "schema-cache-"));
+  });
+
+  test("required-only record keys match SCHEMA_KEYS.cache", async () => {
+    const store = new JsonDailyCacheStore(join(dir, "cache.json"));
+    const record: DailyCacheRecord = {
+      date: "2026-04-26",
+      cast: FIXTURE_CAST,
+      shown: true,
+      structure: FIXTURE_STRUCTURE,
+    };
+    await store.write(record);
+    const onDisk = JSON.parse(await readFile(join(dir, "cache.json"), "utf-8"));
+    assertShape(Object.keys(onDisk), SCHEMA_KEYS.cache);
+    expect(Object.keys(onDisk).sort()).toEqual([...SCHEMA_KEYS.cache.required].sort());
+  });
+
+  test("with-optional record keys match SCHEMA_KEYS.cache", async () => {
+    const store = new JsonDailyCacheStore(join(dir, "cache.json"));
+    const record: DailyCacheRecord = {
+      date: "2026-04-26",
+      cast: FIXTURE_CAST,
+      shown: true,
+      structure: FIXTURE_STRUCTURE,
+      intention: "ship it?",
+    };
+    await store.write(record);
+    const onDisk = JSON.parse(await readFile(join(dir, "cache.json"), "utf-8"));
+    assertShape(Object.keys(onDisk), SCHEMA_KEYS.cache);
+    expect(Object.keys(onDisk).sort()).toEqual(
+      [...SCHEMA_KEYS.cache.required, ...SCHEMA_KEYS.cache.optional].sort(),
+    );
+  });
+});
+
+describe("schema shape — history", () => {
+  let dir: string;
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "schema-history-"));
+  });
+
+  test("required-only entry keys match SCHEMA_KEYS.history", async () => {
+    const store = new JsonlJournalStore(join(dir, "history.jsonl"));
+    const entry: HistoryEntry = { date: "2026-04-26", cast: FIXTURE_CAST };
+    await store.append(entry);
+    const text = await readFile(join(dir, "history.jsonl"), "utf-8");
+    const onDisk = JSON.parse(text.trim());
+    assertShape(Object.keys(onDisk), SCHEMA_KEYS.history);
+    expect(Object.keys(onDisk).sort()).toEqual([...SCHEMA_KEYS.history.required].sort());
+  });
+
+  test("with-all-optional entry keys match SCHEMA_KEYS.history", async () => {
+    const store = new JsonlJournalStore(join(dir, "history.jsonl"));
+    const entry: HistoryEntry = {
+      date: "2026-04-26",
+      cast: FIXTURE_CAST,
+      intention: "ship it?",
+      timestamp: "2026-04-26T09:30:00.000Z",
+    };
+    await store.append(entry);
+    const text = await readFile(join(dir, "history.jsonl"), "utf-8");
+    const onDisk = JSON.parse(text.trim());
+    assertShape(Object.keys(onDisk), SCHEMA_KEYS.history);
+    expect(Object.keys(onDisk).sort()).toEqual(
+      [...SCHEMA_KEYS.history.required, ...SCHEMA_KEYS.history.optional].sort(),
+    );
+  });
+});

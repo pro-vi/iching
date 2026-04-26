@@ -24,3 +24,6 @@ export { type HexagramHistory, getHexagramHistory } from "./journal-query.js";
 // Legacy discovery
 export { discoverLegacyPaths } from "./legacy/discovery.js";
 export type { LegacyPaths } from "./legacy/discovery.js";
+
+// Schema shape (source of truth for persisted keys)
+export { SCHEMA_KEYS } from "./schema-keys.js";
