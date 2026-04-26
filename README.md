@@ -1,5 +1,7 @@
 # iching
 
+**English** · [简体中文](README.zh-CN.md)
+
 A contemplative I Ching TUI for the terminal.
 
 <p align="center">
