@@ -100,6 +100,62 @@ describe("TextInput", () => {
     expect(input.cursorPos).toBe(2);
   });
 
+  test("renderWrapped fits short text on one row", () => {
+    const input = new TextInput();
+    input.insert("abc");
+    const buf = CellBuffer.create(10, 5);
+    const used = input.renderWrapped(buf, 0, 0, 5, 5, { fg: "#FFFFFF" });
+    expect(used).toBe(1);
+    expect(buf.getCell(0, 0).char).toBe("a");
+    expect(buf.getCell(0, 1).char).toBe("b");
+    expect(buf.getCell(0, 2).char).toBe("c");
+    expect(buf.getCell(0, 3).bg).toBe("#FFFFFF"); // cursor at end
+  });
+
+  test("renderWrapped wraps overflow onto next row", () => {
+    const input = new TextInput();
+    input.insert("abcdefgh"); // 8 chars
+    const buf = CellBuffer.create(10, 5);
+    const used = input.renderWrapped(buf, 0, 0, 5, 5, { fg: "#FFFFFF" });
+    expect(used).toBe(2);
+    expect(buf.getCell(0, 0).char).toBe("a");
+    expect(buf.getCell(0, 4).char).toBe("e");
+    expect(buf.getCell(1, 0).char).toBe("f");
+    expect(buf.getCell(1, 1).char).toBe("g");
+    expect(buf.getCell(1, 2).char).toBe("h");
+    expect(buf.getCell(1, 3).bg).toBe("#FFFFFF"); // cursor after 'h'
+  });
+
+  test("renderWrapped: cursor at end of full line wraps to next row", () => {
+    const input = new TextInput();
+    input.insert("abcde"); // exactly width
+    const buf = CellBuffer.create(10, 5);
+    const used = input.renderWrapped(buf, 0, 0, 5, 5, { fg: "#FFFFFF" });
+    expect(used).toBe(2);
+    expect(buf.getCell(0, 0).char).toBe("a");
+    expect(buf.getCell(0, 4).char).toBe("e");
+    expect(buf.getCell(1, 0).bg).toBe("#FFFFFF"); // cursor wrapped to row 1 col 0
+  });
+
+  test("renderWrapped: empty input shows 1 row with cursor", () => {
+    const input = new TextInput();
+    const buf = CellBuffer.create(10, 5);
+    const used = input.renderWrapped(buf, 0, 0, 5, 5, { fg: "#FFFFFF" });
+    expect(used).toBe(1);
+    expect(buf.getCell(0, 0).bg).toBe("#FFFFFF");
+  });
+
+  test("wrappedHeight matches renderWrapped output", () => {
+    const cases = ["", "abc", "abcde", "abcdef", "abcdefghijk"];
+    for (const v of cases) {
+      const input = new TextInput();
+      input.insert(v);
+      const buf = CellBuffer.create(10, 10);
+      const used = input.renderWrapped(buf, 0, 0, 5, 10);
+      expect(input.wrappedHeight(5)).toBe(used);
+    }
+  });
+
   test("render writes to buffer with cursor highlight", () => {
     const input = new TextInput();
     input.insert("ab");

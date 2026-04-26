@@ -26,25 +26,39 @@ export class IntentionScene implements Scene {
   render(frame: CellBuffer, _ctx: SceneContext): void {
     const t = getTheme();
     const cx = Math.floor(frame.width / 2);
-    const cy = Math.floor(frame.height / 2) - 2;
+
+    const fieldWidth = Math.min(frame.width - 8, 60);
+    const fieldCol = cx - Math.floor(fieldWidth / 2);
+
+    // Allow input to grow vertically up to most of the screen
+    const maxInputRows = Math.max(1, frame.height - 8);
+    const inputRows = Math.min(maxInputRows, this.textInput.wrappedHeight(fieldWidth));
+
+    // Vertical layout: prompt | gap | input(inputRows) | gap | hint
+    const totalHeight = 1 + 1 + inputRows + 1 + 1;
+    const top = Math.max(1, Math.floor((frame.height - totalHeight) / 2));
+
+    const promptRow = top;
+    const inputRow = promptRow + 2;
+    const hintRow = inputRow + inputRows + 1;
 
     // Prompt
     const prompt = "問";
     const promptCol = cx - Math.floor(stringWidth(prompt) / 2);
-    frame.writeText(cy, promptCol, prompt, { fg: t.primary });
+    frame.writeText(promptRow, promptCol, prompt, { fg: t.primary });
 
-    // Input field
-    const fieldWidth = Math.min(frame.width - 8, 60);
-    const fieldCol = cx - Math.floor(fieldWidth / 2);
-    this.textInput.render(frame, cy + 2, fieldCol, fieldWidth, {
+    // Input field (wraps onto multiple rows)
+    this.textInput.renderWrapped(frame, inputRow, fieldCol, fieldWidth, maxInputRows, {
       fg: t.primary,
       bg: t.bg,
     });
 
-    // Hint
-    const hint = "enter cast · esc back";
-    const hintCol = cx - Math.floor(stringWidth(hint) / 2);
-    frame.writeText(cy + 4, hintCol, hint, { fg: t.tertiary, dim: true });
+    // Hint (only render if it fits)
+    if (hintRow < frame.height) {
+      const hint = "enter cast · esc back";
+      const hintCol = cx - Math.floor(stringWidth(hint) / 2);
+      frame.writeText(hintRow, hintCol, hint, { fg: t.tertiary, dim: true });
+    }
   }
 
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
