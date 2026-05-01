@@ -34,7 +34,6 @@ async function main() {
     let glyphConfig = {
       glyphAnim: savedConfig.glyphAnim as any,
       glyphFont: savedConfig.glyphFont as any,
-      glyphSize: savedConfig.glyphSize as any,
     };
     let taijituStyle = savedConfig.taijituStyle as any;
 
@@ -219,7 +218,6 @@ async function main() {
               taijituStyle: config.taijituStyle as any,
               glyphAnim: config.glyphAnim,
               glyphFont: config.glyphFont,
-              glyphSize: config.glyphSize,
             });
             const settingsSignal = await runScene(settingsScene, session, clock, colorSupport);
             // Only save on escape (goto: "home"), not on Ctrl+C ("exit")
@@ -230,14 +228,12 @@ async function main() {
               newConfig.taijituStyle = updated.taijituStyle;
               newConfig.glyphAnim = updated.glyphAnim;
               newConfig.glyphFont = updated.glyphFont;
-              newConfig.glyphSize = updated.glyphSize;
               await configStore.save(newConfig);
               setTheme(updated.theme);
               taijituStyle = updated.taijituStyle as any;
               glyphConfig = {
                 glyphAnim: updated.glyphAnim as any,
                 glyphFont: updated.glyphFont as any,
-                glyphSize: updated.glyphSize as any,
               };
             } else {
               // Ctrl+C: revert theme to saved state

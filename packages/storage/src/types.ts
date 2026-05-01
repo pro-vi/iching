@@ -11,7 +11,6 @@ export interface UserConfig {
   timezone: "system" | string;
   glyphAnim: "noise" | "dots" | "radial" | "sand";
   glyphFont: "kaiti" | "libian" | "heiti";
-  glyphSize: 32 | 48 | 64;
   taijituStyle: "dots" | "dense";
 }
 

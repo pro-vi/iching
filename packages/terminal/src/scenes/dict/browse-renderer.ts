@@ -99,17 +99,19 @@ function renderRow(
   const chinese = hex.n;
   const pinyin = hex.p;
 
-  // Build row: " > KW  ䷀  乾  Qián       The Creative"
-  // Chinese name starts after: marker(1) + space(1) + kw(3) + 2spaces(2) + symbol(2) + 2spaces(2) = col 11
-  // But CJK hex symbol is width 2, so use stringWidth for accurate column
-  const prefix = `${marker} ${kwStr}  ${hex.u}  `;
-  const chineseCol = stringWidth(prefix);
-
-  // Calculate remaining space for English name
-  const chineseWidth = stringWidth(chinese);
-  const pinyinPad = 11; // fixed column for pinyin
-  const enStart = chineseCol + chineseWidth + 1 + pinyinPad;
+  // Fixed column layout:
+  //   col 0: marker, col 3: kw, col 8: hex symbol, col 11: chinese name
+  //   chinese pads to width 4 (2 CJK chars), pinyin starts at col 16, english at col 27
+  const chineseCol = 11;
+  const chineseFixedWidth = 4;
+  const pinyinCol = chineseCol + chineseFixedWidth + 1;
+  const pinyinFixedWidth = 9;
+  const enStart = pinyinCol + pinyinFixedWidth + 2;
   const enWidth = width - enStart - 1;
+
+  const chineseWidth = stringWidth(chinese);
+  const chinesePadded =
+    chinese + " ".repeat(Math.max(0, chineseFixedWidth - chineseWidth));
 
   const ename =
     enWidth > 0 && hex.ename.length > enWidth
@@ -129,8 +131,8 @@ function renderRow(
   frame.writeText(row, 0, ` ${marker}`, { fg: t.accent, ...bgStyle });
   frame.writeText(row, 3, kwStr, { fg, dim: !isSelected, ...bgStyle });
   frame.writeText(row, 8, hex.u, { fg, ...bgStyle });
-  frame.writeText(row, 11, chinese, { fg, ...bgStyle });
-  frame.writeText(row, chineseCol + chineseWidth + 1, pinyin.padEnd(pinyinPad), {
+  frame.writeText(row, chineseCol, chinesePadded, { fg, ...bgStyle });
+  frame.writeText(row, pinyinCol, pinyin.padEnd(pinyinFixedWidth), {
     fg: isSelected ? t.accent : t.tertiary,
     ...bgStyle,
   });

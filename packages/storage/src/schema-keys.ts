@@ -20,7 +20,6 @@ export const SCHEMA_KEYS = {
       "timezone",
       "glyphAnim",
       "glyphFont",
-      "glyphSize",
       "taijituStyle",
     ],
     optional: [],

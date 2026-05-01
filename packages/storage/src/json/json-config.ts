@@ -10,7 +10,6 @@ const DEFAULT_CONFIG: UserConfig = {
   timezone: "system",
   glyphAnim: "noise",
   glyphFont: "kaiti",
-  glyphSize: 64,
   taijituStyle: "dots",
 };
 
@@ -29,8 +28,10 @@ export class JsonConfigStore implements ConfigStore {
   async load(): Promise<UserConfig> {
     try {
       const raw = await readFile(this.path, "utf-8");
-      const partial = JSON.parse(raw) as Partial<UserConfig>;
+      const partial = JSON.parse(raw) as Partial<UserConfig> & { glyphSize?: unknown };
       const merged = { ...DEFAULT_CONFIG, ...partial };
+      // Drop removed glyphSize key from older configs.
+      delete (merged as { glyphSize?: unknown }).glyphSize;
       // Migrate legacy taijituStyle values (yangDots/yinDots → dots, yangDense/yinDense → dense).
       const style = merged.taijituStyle as string;
       if (!VALID_TAIJITU_STYLES.has(style)) {

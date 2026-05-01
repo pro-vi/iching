@@ -69,7 +69,6 @@ describe("schema shape — config", () => {
       timezone: "America/Los_Angeles",
       glyphAnim: "dots",
       glyphFont: "kaiti",
-      glyphSize: 64,
       taijituStyle: "dense",
     };
     await store.save(written);

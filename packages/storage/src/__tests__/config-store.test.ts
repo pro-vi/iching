@@ -24,7 +24,6 @@ describe("JsonConfigStore", () => {
       timezone: "system",
       glyphAnim: "noise",
       glyphFont: "kaiti",
-      glyphSize: 64,
       taijituStyle: "dots",
     });
   });
@@ -37,7 +36,6 @@ describe("JsonConfigStore", () => {
       timezone: "America/New_York",
       glyphAnim: "dots",
       glyphFont: "heiti",
-      glyphSize: 48,
       taijituStyle: "dense",
     };
 
@@ -59,7 +57,6 @@ describe("JsonConfigStore", () => {
       timezone: "system",
       glyphAnim: "noise",
       glyphFont: "kaiti",
-      glyphSize: 64,
       taijituStyle: "dots",
     });
   });

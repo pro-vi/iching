@@ -151,7 +151,7 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
   const historyText =
     model.castCount > 0
       ? `Cast ${model.castCount} time${model.castCount !== 1 ? "s" : ""} (last: ${model.lastCastDate})`
-      : "Never cast";
+      : "No history";
   lines.push({ text: historyText, fg: t.tertiary, dim: true });
 
   return lines;

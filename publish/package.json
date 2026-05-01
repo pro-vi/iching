@@ -1,0 +1,16 @@
+{
+  "name": "@pro-vi/iching",
+  "version": "0.1.4",
+  "description": "A contemplative I Ching TUI for the terminal.",
+  "bin": "./iching.js",
+  "files": ["iching.js", "README.md", "LICENSE"],
+  "type": "module",
+  "engines": { "bun": ">=1.0.0" },
+  "keywords": ["iching", "i-ching", "yijing", "tui", "terminal", "divination", "bun"],
+  "repository": { "type": "git", "url": "git+https://github.com/pro-vi/iching.git" },
+  "homepage": "https://github.com/pro-vi/iching#readme",
+  "bugs": { "url": "https://github.com/pro-vi/iching/issues" },
+  "license": "MIT",
+  "author": "provi",
+  "publishConfig": { "access": "public" }
+}

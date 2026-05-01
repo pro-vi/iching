@@ -1,6 +1,6 @@
 // CastScene — main scene orchestrating the full casting ritual
 
-import { type Cast, type GlyphSize, GUA } from "@iching/core";
+import { type Cast, GUA } from "@iching/core";
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
@@ -20,6 +20,9 @@ import { getTheme } from "../../color/theme.ts";
 import { SPLIT_ARROW } from "../../glyphs.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
+import { autoGlyphSize } from "../../glyph-anim/auto-size.ts";
+
+export type CastGlyphInput = Omit<CastGlyphConfig, "glyphSize">;
 
 export class CastScene implements Scene {
   private model: CastModel;
@@ -32,18 +35,28 @@ export class CastScene implements Scene {
     cast: Cast,
     preset: MotionPreset = "default",
     termWidth: number = 80,
-    glyphConfig?: CastGlyphConfig,
+    glyphConfig?: CastGlyphInput,
     termRows: number = 24,
     intention?: string,
   ) {
     this.model = new CastModel(cast);
     this.model.intention = intention;
     this.termWidth = termWidth;
-    // Auto-size glyph to fit terminal height
+    // Auto-size glyph to fit the area below the hexagram. Glyph is rendered at
+    // anchor+1 (anchor = floor(rows/2)+3), so vertical room is rows - anchor - 1.
     if (glyphConfig) {
+      const primaryName = GUA[cast.primary - 1]?.n ?? "";
+      const becomingName = cast.becoming ? GUA[cast.becoming - 1]?.n ?? "" : "";
+      const maxChars = Math.max(
+        1,
+        [...primaryName].length,
+        [...becomingName].length,
+      );
+      const anchor = Math.floor(termRows / 2) + 3;
+      const availRows = Math.max(4, termRows - anchor - 1);
       this.glyphConfig = {
         ...glyphConfig,
-        glyphSize: autoGlyphSize(termRows, glyphConfig.glyphSize),
+        glyphSize: autoGlyphSize(availRows, termWidth, maxChars),
       };
     }
     const timing = getPreset(preset);
@@ -273,15 +286,4 @@ function renderIntention(buf: CellBuffer, intention: string): void {
   }
   const col = Math.max(0, Math.floor((buf.width - stringWidth(text)) / 2));
   buf.writeText(0, col, text, { fg: t.tertiary, dim: true });
-}
-
-/**
- * Auto-select glyph size based on terminal height.
- * 64 for tall (>=40 rows), 48 for medium (>=30), 32 for short (<30).
- * Returns the smaller of userSize and the terminal-appropriate maximum.
- */
-function autoGlyphSize(termRows: number, userSize: GlyphSize): GlyphSize {
-  if (termRows >= 40) return userSize;
-  if (termRows >= 30) return Math.min(userSize, 48) as GlyphSize;
-  return 32;
 }

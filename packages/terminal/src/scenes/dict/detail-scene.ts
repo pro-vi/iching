@@ -3,17 +3,17 @@
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
-import type { GlyphFont, GlyphSize } from "@iching/core";
+import type { GlyphFont } from "@iching/core";
 import type { GlyphAnimStyle } from "../../glyph-anim/types.ts";
 import { composeGlyph } from "../../glyph-anim/compose.ts";
 import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
+import { autoGlyphSize } from "../../glyph-anim/auto-size.ts";
 import { DetailModel } from "./detail-model.ts";
 import { renderDetail, buildContentLines } from "./detail-renderer.ts";
 
 export interface DetailGlyphConfig {
   glyphAnim: GlyphAnimStyle;
   glyphFont: GlyphFont;
-  glyphSize: GlyphSize;
 }
 
 const FOOTER_ROWS = 2;
@@ -32,10 +32,13 @@ export class DetailScene implements Scene {
 
     // Create glyph animator on entry (skip if already completed from prior visit)
     if (this.glyphConfig && !this.model.glyphAnimDone) {
+      const name = this.model.detail.gua.n;
+      const charCount = Math.max(1, [...name].length);
+      const size = autoGlyphSize(ctx.rows - FOOTER_ROWS, ctx.cols, charCount);
       const glyph = composeGlyph(
-        this.model.detail.gua.n,
+        name,
         this.glyphConfig.glyphFont,
-        this.glyphConfig.glyphSize,
+        size,
       );
       if (glyph) {
         this.model.glyphEntry = glyph;

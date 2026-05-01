@@ -10,7 +10,6 @@ const CONFIG_SCHEMA: Record<string, { values?: string[]; description: string }> 
   timezone:  { description: "Timezone (\"system\" or IANA name)" },
   glyphAnim: { values: ["noise", "dots", "radial", "sand"], description: "Glyph reveal animation" },
   glyphFont: { values: ["kaiti", "libian", "heiti"], description: "Glyph font" },
-  glyphSize: { values: ["32", "48", "64"], description: "Glyph render size" },
 };
 
 const VALID_KEYS = Object.keys(CONFIG_SCHEMA);
@@ -93,13 +92,11 @@ export function registerConfigCommand(program: Command): void {
         process.exit(1);
       }
 
-      // Coerce glyphSize to number
-      const coerced = key === "glyphSize" ? Number(value) : value;
-      (cfg as Record<string, unknown>)[key] = coerced;
+      (cfg as Record<string, unknown>)[key] = value;
       await store.save(cfg);
 
       if (globalOpts.json) {
-        outputJson(configToJson(key, coerced));
+        outputJson(configToJson(key, value));
       } else {
         console.log(`${key} = ${value}`);
       }
