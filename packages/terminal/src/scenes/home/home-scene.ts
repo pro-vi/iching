@@ -12,6 +12,7 @@ import { renderTaijitu, type TaijituStyle } from "./taijitu-render.ts";
 export interface HomeState {
   todayCast: DailyCache | null;
   taijituStyle: TaijituStyle;
+  devMode?: boolean;
 }
 
 export class HomeScene implements Scene {
@@ -56,6 +57,7 @@ export class HomeScene implements Scene {
     // Menu items
     const items = [
       { key: "c", label: "Cast", fg: t.accent },
+      ...(this.state.devMode ? [{ key: "p", label: "Play", fg: t.secondary }] : []),
       { key: "d", label: "Dictionary", fg: t.primary },
       { key: "j", label: "Journal", fg: t.secondary },
       { key: "s", label: "Settings", fg: t.secondary },
@@ -96,6 +98,7 @@ export class HomeScene implements Scene {
     if (key.type === "char") {
       switch (key.char) {
         case "c": return { goto: "cast" };
+        case "p": if (this.state.devMode) return { goto: "play" }; break;
         case "d": return { goto: "dictionary" };
         case "j": return { goto: "journal" };
         case "s": return { goto: "settings" };

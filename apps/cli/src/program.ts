@@ -14,7 +14,8 @@ export const program = new Command()
   .version(pkg.version ?? "0.1.0")
   .option("--json", "structured JSON output")
   .option("--seed <n>", "deterministic RNG seed (cast command)")
-  .option("--data-dir <path>", "override data directory");
+  .option("--data-dir <path>", "override data directory")
+  .option("--dev", "enable dev mode (coin toss playground, etc.)");
 
 registerCastCommand(program);
 registerJournalCommand(program);

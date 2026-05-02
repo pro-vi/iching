@@ -3,16 +3,19 @@ import { program } from "./program.js";
 import { localToday } from "./util/today.js";
 
 async function main() {
-  const hasArgs = process.argv.length > 2;
+  // Operands are non-option args — i.e. actual subcommand names.
+  // Global flags like --dev don't count as "args" for mode detection.
+  const { operands } = program.parseOptions(process.argv.slice(2));
+  const hasSubcommand = operands.length > 0;
 
-  // Hook mode: no args + stdin is piped (not a TTY) → Claude Code hook
-  if (!hasArgs && !process.stdin.isTTY) {
+  // Hook mode: no subcommand + stdin is piped (not a TTY) → Claude Code hook
+  if (!hasSubcommand && !process.stdin.isTTY) {
     const { runHookAdapter } = await import("./hook/adapter.js");
     return runHookAdapter();
   }
 
-  // Interactive mode: no args + TTY → home menu
-  if (!hasArgs && process.stdin.isTTY) {
+  // Interactive mode: no subcommand + TTY → home menu
+  if (!hasSubcommand && process.stdin.isTTY) {
     const { castHexagram, buildStructure, CryptoRandomSource, SeededRandomSource } = await import("@iching/core");
     const { resolvePaths, JsonDailyCacheStore, JsonlJournalStore, JsonConfigStore, getHexagramHistory } = await import("@iching/storage");
     const {
@@ -110,6 +113,7 @@ async function main() {
       const homeScene = new HomeScene({
         todayCast: currentCache?.date === today ? currentCache : null,
         taijituStyle,
+        devMode: !!opts.dev,
       });
 
       const signal = await runScene(homeScene, session, clock, colorSupport);
@@ -238,6 +242,27 @@ async function main() {
             } else {
               // Ctrl+C: revert theme to saved state
               setTheme(config.theme as any);
+            }
+            break;
+          }
+
+          case "play": {
+            let playing = true;
+            while (playing) {
+              const source = new CryptoRandomSource();
+              const cast = castHexagram(source);
+              const preset = (savedConfig.motion ?? "default") as any;
+              const castScene = new CastScene(cast, preset, session.cols, glyphConfig, session.rows);
+              const playSignal = await runScene(castScene, session, clock, colorSupport);
+              if (!playSignal || playSignal === "exit") {
+                playing = false;
+              } else if (typeof playSignal === "object" && "goto" in playSignal) {
+                if (playSignal.goto === "home") {
+                  playing = false;
+                } else {
+                  await handlePostCast(playSignal.goto);
+                }
+              }
             }
             break;
           }
