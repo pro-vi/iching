@@ -9,5 +9,5 @@
     "build": "bun scripts/build.ts",
     "build:all": "bun scripts/build.ts --all",
     "smoke": "bun scripts/smoke-test.ts"
-  }
+  },
 }

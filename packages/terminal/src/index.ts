@@ -121,8 +121,6 @@ export { type TaijituStyle } from "./scenes/home/taijitu-render.ts";
 // Scenes: intention
 export { IntentionScene } from "./scenes/intention/intention-scene.ts";
 
-// Scenes: prompt
-export { PromptScene } from "./scenes/prompt/prompt-scene.ts";
 
 // Scenes: journal (placeholder)
 export { JournalScene } from "./scenes/journal/journal-scene.ts";
@@ -142,7 +140,6 @@ export { NoiseAnimator } from "./glyph-anim/noise.ts";
 export { DotsAnimator } from "./glyph-anim/dots.ts";
 export { RadialAnimator } from "./glyph-anim/radial.ts";
 export { SandAnimator } from "./glyph-anim/sand.ts";
-
 // Scenes: settings
 export { SettingsScene, type SettingsValues } from "./scenes/settings/settings-scene.ts";
 

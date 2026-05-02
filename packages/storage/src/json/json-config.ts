@@ -8,7 +8,7 @@ const DEFAULT_CONFIG: UserConfig = {
   theme: "bone",
   color: "auto",
   timezone: "system",
-  glyphAnim: "noise",
+  glyphAnim: "dots",
   glyphFont: "kaiti",
   taijituStyle: "dots",
 };

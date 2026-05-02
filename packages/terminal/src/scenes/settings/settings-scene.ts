@@ -15,7 +15,7 @@ import { stringWidth } from "../../layout/measure.ts";
 
 // ── Setting definitions ──────────────────────────────────────────────
 
-const ANIM_OPTIONS: GlyphAnimStyle[] = ["noise", "dots", "radial", "sand"];
+const ANIM_OPTIONS: GlyphAnimStyle[] = ["dots", "noise", "radial", "sand"];
 const FONT_OPTIONS: GlyphFont[] = ["kaiti", "libian", "heiti"];
 const TAIJITU_OPTIONS: TaijituStyle[] = ["dots", "dense"];
 
@@ -61,7 +61,7 @@ export class SettingsScene implements Scene {
     return {
       theme: THEME_NAMES[this.rows[0].selected] ?? "bone",
       taijituStyle: TAIJITU_OPTIONS[this.rows[1].selected] ?? "dots",
-      glyphAnim: ANIM_OPTIONS[this.rows[2].selected] ?? "noise",
+      glyphAnim: ANIM_OPTIONS[this.rows[2].selected] ?? "dots",
       glyphFont: FONT_OPTIONS[this.rows[3].selected] ?? "kaiti",
     };
   }

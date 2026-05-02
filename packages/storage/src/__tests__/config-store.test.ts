@@ -22,7 +22,7 @@ describe("JsonConfigStore", () => {
       theme: "bone",
       color: "auto",
       timezone: "system",
-      glyphAnim: "noise",
+      glyphAnim: "dots",
       glyphFont: "kaiti",
       taijituStyle: "dots",
     });
@@ -55,7 +55,7 @@ describe("JsonConfigStore", () => {
       theme: "bone",
       color: "auto",
       timezone: "system",
-      glyphAnim: "noise",
+      glyphAnim: "dots",
       glyphFont: "kaiti",
       taijituStyle: "dots",
     });
