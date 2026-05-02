@@ -125,6 +125,9 @@ export { IntentionScene } from "./scenes/intention/intention-scene.ts";
 // Scenes: journal (placeholder)
 export { JournalScene } from "./scenes/journal/journal-scene.ts";
 
+// Scenes: toss playground
+export { TossScene } from "./scenes/toss/toss-scene.ts";
+
 // Widgets
 export { ScrollableRegion } from "./widgets/scrollable.ts";
 export { TextInput } from "./widgets/text-input.ts";

@@ -18,6 +18,7 @@ import { stringWidth } from "../../layout/measure.ts";
 const ANIM_OPTIONS: GlyphAnimStyle[] = ["dots", "noise", "radial", "sand"];
 const FONT_OPTIONS: GlyphFont[] = ["kaiti", "libian", "heiti"];
 const TAIJITU_OPTIONS: TaijituStyle[] = ["dots", "dense"];
+const CAST_MODE_OPTIONS = ["auto", "manual"] as const;
 
 interface SettingRow {
   label: string;
@@ -30,6 +31,7 @@ export interface SettingsValues {
   glyphAnim: GlyphAnimStyle;
   glyphFont: GlyphFont;
   taijituStyle: TaijituStyle;
+  castMode: "auto" | "manual";
 }
 
 // ── Preview glyph ────────────────────────────────────────────────────
@@ -54,6 +56,7 @@ export class SettingsScene implements Scene {
       { label: "Taijitu",         options: [...TAIJITU_OPTIONS],         selected: Math.max(0, TAIJITU_OPTIONS.indexOf(initial.taijituStyle)) },
       { label: "Glyph Animation", options: [...ANIM_OPTIONS],            selected: Math.max(0, ANIM_OPTIONS.indexOf(initial.glyphAnim)) },
       { label: "Font",            options: [...FONT_OPTIONS],            selected: Math.max(0, FONT_OPTIONS.indexOf(initial.glyphFont)) },
+      { label: "Cast",            options: [...CAST_MODE_OPTIONS],       selected: Math.max(0, CAST_MODE_OPTIONS.indexOf(initial.castMode as any)) },
     ];
   }
 
@@ -63,6 +66,7 @@ export class SettingsScene implements Scene {
       taijituStyle: TAIJITU_OPTIONS[this.rows[1].selected] ?? "dots",
       glyphAnim: ANIM_OPTIONS[this.rows[2].selected] ?? "dots",
       glyphFont: FONT_OPTIONS[this.rows[3].selected] ?? "kaiti",
+      castMode: CAST_MODE_OPTIONS[this.rows[4].selected] ?? "auto",
     };
   }
 

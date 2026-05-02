@@ -11,6 +11,7 @@ const DEFAULT_CONFIG: UserConfig = {
   glyphAnim: "dots",
   glyphFont: "kaiti",
   taijituStyle: "dots",
+  castMode: "auto",
 };
 
 // Legacy theme names → current canonical names.

@@ -20,7 +20,7 @@ async function main() {
     const { resolvePaths, JsonDailyCacheStore, JsonlJournalStore, JsonConfigStore, getHexagramHistory } = await import("@iching/storage");
     const {
       HomeScene, CastScene, BrowseScene, DetailScene, JournalScene, SettingsScene,
-      IntentionScene,
+      IntentionScene, TossScene,
       SceneRouter, TerminalSession, RealClock, runScene, detectColorSupport,
       setTheme,
     } = await import("@iching/terminal");
@@ -39,6 +39,7 @@ async function main() {
       glyphFont: savedConfig.glyphFont as any,
     };
     let taijituStyle = savedConfig.taijituStyle as any;
+    let castMode = (savedConfig.castMode ?? "auto") as "auto" | "manual";
 
     const session = new TerminalSession();
     const colorSupport = detectColorSupport();
@@ -126,6 +127,13 @@ async function main() {
       if (typeof signal === "object" && "goto" in signal) {
         switch (signal.goto) {
           case "cast": {
+            if (castMode === "manual") {
+              const tossScene = new TossScene();
+              const tossSignal = await runScene(tossScene, session, clock, colorSupport);
+              if (tossSignal === "exit") running = false;
+              break;
+            }
+
             // Intention prompt (optional — Enter/Esc skips)
             const intentionScene = new IntentionScene();
             const intentionSignal = await runScene(intentionScene, session, clock, colorSupport);
@@ -222,6 +230,7 @@ async function main() {
               taijituStyle: config.taijituStyle as any,
               glyphAnim: config.glyphAnim,
               glyphFont: config.glyphFont,
+              castMode: (config.castMode ?? "auto") as "auto" | "manual",
             });
             const settingsSignal = await runScene(settingsScene, session, clock, colorSupport);
             // Only save on escape (goto: "home"), not on Ctrl+C ("exit")
@@ -232,9 +241,11 @@ async function main() {
               newConfig.taijituStyle = updated.taijituStyle;
               newConfig.glyphAnim = updated.glyphAnim;
               newConfig.glyphFont = updated.glyphFont;
+              newConfig.castMode = updated.castMode;
               await configStore.save(newConfig);
               setTheme(updated.theme);
               taijituStyle = updated.taijituStyle as any;
+              castMode = updated.castMode;
               glyphConfig = {
                 glyphAnim: updated.glyphAnim as any,
                 glyphFont: updated.glyphFont as any,
@@ -247,23 +258,9 @@ async function main() {
           }
 
           case "play": {
-            let playing = true;
-            while (playing) {
-              const source = new CryptoRandomSource();
-              const cast = castHexagram(source);
-              const preset = (savedConfig.motion ?? "default") as any;
-              const castScene = new CastScene(cast, preset, session.cols, glyphConfig, session.rows);
-              const playSignal = await runScene(castScene, session, clock, colorSupport);
-              if (!playSignal || playSignal === "exit") {
-                playing = false;
-              } else if (typeof playSignal === "object" && "goto" in playSignal) {
-                if (playSignal.goto === "home") {
-                  playing = false;
-                } else {
-                  await handlePostCast(playSignal.goto);
-                }
-              }
-            }
+            const tossScene = new TossScene();
+            const tossSignal = await runScene(tossScene, session, clock, colorSupport);
+            if (tossSignal === "exit") running = false;
             break;
           }
 
