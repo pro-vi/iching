@@ -9,19 +9,15 @@ import type { Line } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { GLYPHS } from "../../glyphs.ts";
+import {
+  type CoinState,
+  INITIAL_VY,
+  stepCoin,
+  coinFrame,
+} from "./coin-physics.ts";
 
-// Physics constants (rows/cols per second)
-const GRAVITY = 55;
-const INITIAL_VY = -22;
-const BOUNCE_DECAY = 0.42;
-const MAX_BOUNCES = 1;
-const FLIP_RATE = 9;
 const POST_LAND_DELAY = 0.55;
 const LINE_DRAW_DURATION = 0.3;
-
-const FLIP_FRAMES = ["◉", "◑", "│", "◐", "○", "◐", "│", "◑"];
-const SPIN_FRAMES = ["◉", "◑", "◐", "○", "◐", "◑"];
-const COIN_HALF = 0;
 
 // Final static line strings (━, 15 cols)
 const FINAL_YANG     = "━━━━━━━━━━━━━━━";
@@ -29,20 +25,6 @@ const FINAL_YIN      = "━━━━━━   ━━━━━━";
 const FINAL_CHG_YANG = "━━━━━━ ● ━━━━━━";
 const FINAL_CHG_YIN  = "━━━━━━ ○ ━━━━━━";
 const LINE_HALF = 7;
-
-interface CoinState {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  flipAngle: number;
-  result: boolean;
-  phase: "flying" | "bouncing" | "spinning" | "settled";
-  bounces: number;
-  landY: number;
-  spinRate: number;
-  spinDecay: number;
-}
 
 type ScenePhase = "waiting" | "tossing" | "complete";
 
@@ -90,44 +72,8 @@ export class TossScene implements Scene {
     let anyFlying = false;
 
     for (const coin of this.coins) {
-      if (coin.phase === "settled") continue;
-
-      if (coin.phase === "spinning") {
-        coin.flipAngle += coin.spinRate * dtSec * Math.PI * 2;
-        coin.spinRate *= Math.pow(coin.spinDecay, dt / 16.67);
-        if (coin.spinRate < 0.5) {
-          coin.phase = "settled";
-        } else {
-          anyFlying = true;
-        }
-        continue;
-      }
-
-      coin.vy += GRAVITY * dtSec;
-      coin.x += coin.vx * dtSec;
-      coin.y += coin.vy * dtSec;
-      coin.flipAngle += FLIP_RATE * dtSec * Math.PI * 2;
-
-      if (coin.y >= coin.landY) {
-        coin.y = coin.landY;
-        if (coin.bounces < MAX_BOUNCES && Math.abs(coin.vy) > 3) {
-          coin.phase = "bouncing";
-          coin.vy *= -BOUNCE_DECAY;
-          coin.vx *= 0.6;
-          coin.bounces++;
-          anyFlying = true;
-        } else {
-          const longSpin = Math.random() < 0.35;
-          coin.phase = "spinning";
-          coin.spinRate = FLIP_RATE * (0.45 + Math.random() * 0.2);
-          coin.spinDecay = longSpin ? 0.97 : 0.85;
-          coin.vy = 0;
-          coin.vx = 0;
-          anyFlying = true;
-        }
-      } else {
-        anyFlying = true;
-      }
+      stepCoin(coin, dt);
+      if (coin.phase !== "settled") anyFlying = true;
     }
 
     // Only resolve once all 3 coins are launched and settled
@@ -161,16 +107,10 @@ export class TossScene implements Scene {
       const col = Math.round(coin.x) - COIN_HALF;
       if (row < 0 || row >= h) continue;
 
-      if (coin.phase === "settled") {
-        const char = coin.result ? "◉" : "○";
-        frame.writeText(row, col, char, { fg: t.primary, bold: true });
-      } else {
-        const frames = coin.phase === "spinning" ? SPIN_FRAMES : FLIP_FRAMES;
-        const frameIdx = Math.floor(
-          ((coin.flipAngle % (Math.PI * 2)) / (Math.PI * 2)) * frames.length
-        ) % frames.length;
-        frame.writeText(row, col, frames[frameIdx], { fg: t.primary });
-      }
+      frame.writeText(row, col, coinFrame(coin), {
+        fg: t.primary,
+        bold: coin.phase === "settled",
+      });
     }
 
     // Hexagram lines — animated draw-in
