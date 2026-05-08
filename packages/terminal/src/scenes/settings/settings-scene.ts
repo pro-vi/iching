@@ -274,9 +274,9 @@ export class SettingsScene implements Scene {
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
     if (key.type === "escape") {
       this.values = this.getValues();
-      return { goto: "home" };
+      return { type: "home" };
     }
-    if (key.type === "ctrl" && key.char === "c") return "exit";
+    if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
 
     if (key.type === "arrow") {
       switch (key.direction) {

@@ -26,19 +26,19 @@ describe("DetailScene", () => {
   test("escape returns back", () => {
     const scene = new DetailScene(1);
     const signal = scene.handleKey({ type: "escape" }, makeCtx());
-    expect(signal).toEqual({ goto: "back" });
+    expect(signal).toEqual({ type: "back" });
   });
 
   test("backspace returns back", () => {
     const scene = new DetailScene(1);
     const signal = scene.handleKey({ type: "backspace" }, makeCtx());
-    expect(signal).toEqual({ goto: "back" });
+    expect(signal).toEqual({ type: "back" });
   });
 
   test("q exits", () => {
     const scene = new DetailScene(1);
     const signal = scene.handleKey({ type: "char", char: "q" }, makeCtx());
-    expect(signal).toBe("exit");
+    expect(signal).toEqual({ type: "exit" });
   });
 
   test("tab toggles focus", () => {
@@ -72,8 +72,11 @@ describe("DetailScene", () => {
     const signal = scene.handleKey({ type: "enter" }, makeCtx());
     expect(signal).toBeDefined();
     expect(typeof signal).toBe("object");
-    const goto = signal as { goto: string };
-    expect(goto.goto).toMatch(/^detail:\d+$/);
+    const result = signal as { type: string; kw?: number };
+    expect(result.type).toBe("openDetail");
+    expect(typeof result.kw).toBe("number");
+    expect(result.kw).toBeGreaterThanOrEqual(1);
+    expect(result.kw).toBeLessThanOrEqual(64);
   });
 
   test("setHistory updates model", () => {

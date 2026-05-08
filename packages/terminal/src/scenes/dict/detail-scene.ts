@@ -74,15 +74,15 @@ export class DetailScene implements Scene {
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
     // Exit
     if (key.type === "char" && key.char === "q") {
-      return "exit";
+      return { type: "exit" };
     }
     if (key.type === "ctrl" && key.char === "c") {
-      return "exit";
+      return { type: "exit" };
     }
 
     // Back
     if (key.type === "escape" || key.type === "backspace") {
-      return { goto: "back" };
+      return { type: "back" };
     }
 
     // Tab — toggle focus
@@ -135,7 +135,7 @@ export class DetailScene implements Scene {
     // Enter — navigate to derived hexagram
     if (key.type === "enter" && this.model.focus === "derived") {
       const kw = this.model.selectedDerivedKW();
-      return { goto: `detail:${kw}` };
+      return { type: "openDetail", kw };
     }
   }
 

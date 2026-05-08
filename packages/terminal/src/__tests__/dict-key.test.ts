@@ -29,7 +29,7 @@ describe("CastScene dictionary key", () => {
     scene.getModel().showPrompt = true;
 
     const signal = scene.handleKey({ type: "char", char: "d" }, makeCtx());
-    expect(signal).toEqual({ goto: "dictionary" });
+    expect(signal).toEqual({ type: "openDictionary" });
   });
 
   test("[d] does nothing before prompt shown", () => {

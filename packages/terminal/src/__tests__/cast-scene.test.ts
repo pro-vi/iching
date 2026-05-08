@@ -98,7 +98,7 @@ describe("CastScene", () => {
     const ctx = makeCtx();
 
     const result = scene.handleKey({ type: "char", char: "q" }, ctx);
-    expect(result).toBe("exit");
+    expect(result).toEqual({ type: "exit" });
   });
 
   test("handleKey(enter) after prompt shown enters exploration mode", () => {
@@ -133,7 +133,7 @@ describe("CastScene", () => {
     expect(scene.getModel().showPrompt).toBe(true);
 
     const result = scene.handleKey({ type: "char", char: "j" }, ctx);
-    expect(result).toEqual({ goto: "journal" });
+    expect(result).toEqual({ type: "openJournal" });
   });
 
   test("with ManualClock-style advance, reaches completion", () => {
@@ -161,7 +161,7 @@ describe("CastScene", () => {
     const ctx = makeCtx();
 
     const result = scene.handleKey({ type: "ctrl", char: "c" }, ctx);
-    expect(result).toBe("exit");
+    expect(result).toEqual({ type: "exit" });
   });
 
   test("all presets create valid scenes", () => {

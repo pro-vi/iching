@@ -139,7 +139,7 @@ export class CastScene implements Scene {
   handleKey(key: KeyEvent, ctx: SceneContext): SceneSignal | void {
     // During animation, q always exits
     if (key.type === "char" && key.char === "q") {
-      return "exit";
+      return { type: "exit" };
     }
 
     // Exploration mode: arrow keys switch focus, scroll commentary
@@ -168,7 +168,7 @@ export class CastScene implements Scene {
         this.model.focusedHex === "primary"
           ? this.model.cast.primary
           : this.model.cast.becoming;
-      if (kw) return { goto: `detail:${kw}` };
+      if (kw) return { type: "openDetail", kw };
     }
 
     // Only handle prompt keys after prompt is shown
@@ -179,16 +179,16 @@ export class CastScene implements Scene {
         return;
       }
       if (key.type === "char" && key.char === "j") {
-        return { goto: "journal" };
+        return { type: "openJournal" };
       }
       if (key.type === "char" && key.char === "d") {
-        return { goto: "dictionary" };
+        return { type: "openDictionary" };
       }
     }
 
     // Ctrl-C
     if (key.type === "ctrl" && key.char === "c") {
-      return "exit";
+      return { type: "exit" };
     }
   }
 

@@ -138,9 +138,9 @@ export class JournalScene implements Scene {
 
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
     if (this.entries.length === 0) {
-      if (key.type === "char" && (key.char === "q" || key.char === "d")) return "exit";
-      if (key.type === "escape") return "exit";
-      if (key.type === "ctrl" && key.char === "c") return "exit";
+      if (key.type === "char" && (key.char === "q" || key.char === "d")) return { type: "exit" };
+      if (key.type === "escape") return { type: "exit" };
+      if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
       return;
     }
 
@@ -167,18 +167,18 @@ export class JournalScene implements Scene {
     if (key.type === "enter") {
       const entry = this.entries[this.cursor];
       if (entry) {
-        const key = entry.timestamp || entry.date;
-        return { goto: `reading:${key}` };
+        const entryKey = entry.timestamp || entry.date;
+        return { type: "openJournalReading", key: entryKey };
       }
     }
 
     if (key.type === "char" && key.char === "d") {
-      return { goto: "dictionary" };
+      return { type: "openDictionary" };
     }
 
-    if (key.type === "char" && key.char === "q") return "exit";
-    if (key.type === "escape") return "exit";
-    if (key.type === "ctrl" && key.char === "c") return "exit";
+    if (key.type === "char" && key.char === "q") return { type: "exit" };
+    if (key.type === "escape") return { type: "exit" };
+    if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
   }
 
   private ensureCursorVisible(): void {

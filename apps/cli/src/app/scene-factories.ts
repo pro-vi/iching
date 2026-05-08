@@ -39,25 +39,20 @@ export function makeDetailScene(kw: number, deps: DetailDeps): DetailScene {
   return scene;
 }
 
-/** SceneRouter factory for the dictionary path: handles `detail:N`, falls back to BrowseScene. */
+/** SceneRouter factory for the dictionary path: handles openDetail, falls back through. */
 export function makeBrowseFactory(deps: DetailDeps): SceneFactory {
-  return (id: string): Scene => {
-    if (id.startsWith("detail:")) {
-      const kw = Number(id.slice(7));
-      if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new BrowseScene();
-      return makeDetailScene(kw, deps);
-    }
-    return new BrowseScene();
+  return (signal): Scene | null => {
+    if (signal.type === "openDetail") return makeDetailScene(signal.kw, deps);
+    return null;
   };
 }
 
-/** SceneRouter factory for the journal path: handles `reading:KEY`, `detail:N`, `dictionary`. */
+/** SceneRouter factory for the journal path: handles openJournalReading, openDetail, openDictionary. */
 export function makeJournalFactory(deps: JournalDeps): SceneFactory {
-  return (id: string): Scene => {
-    if (id.startsWith("reading:")) {
-      const key = id.slice(8);
+  return (signal): Scene | null => {
+    if (signal.type === "openJournalReading") {
       const entry = deps.entries.find(
-        (e) => e.timestamp === key || e.date === key,
+        (e) => e.timestamp === signal.key || e.date === signal.key,
       );
       if (!entry) return new JournalScene(deps.entries);
       const cs = new CastScene(
@@ -71,13 +66,9 @@ export function makeJournalFactory(deps: JournalDeps): SceneFactory {
       cs.skipToComplete(false);
       return cs;
     }
-    if (id.startsWith("detail:")) {
-      const kw = Number(id.slice(7));
-      if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new JournalScene(deps.entries);
-      return makeDetailScene(kw, deps);
-    }
-    if (id === "dictionary") return new BrowseScene();
-    return new JournalScene(deps.entries);
+    if (signal.type === "openDetail") return makeDetailScene(signal.kw, deps);
+    if (signal.type === "openDictionary") return new BrowseScene();
+    return null;
   };
 }
 

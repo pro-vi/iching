@@ -35,10 +35,10 @@ export class BrowseScene implements Scene {
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
     // Exit keys
     if (key.type === "char" && key.char === "q" && !this.model.searchActive) {
-      return "exit";
+      return { type: "exit" };
     }
     if (key.type === "ctrl" && key.char === "c") {
-      return "exit";
+      return { type: "exit" };
     }
 
     // Escape
@@ -49,14 +49,14 @@ export class BrowseScene implements Scene {
         this.model.setQuery("");
         return;
       }
-      return { goto: "back" };
+      return { type: "back" };
     }
 
     // Enter — open detail for selected hexagram
     if (key.type === "enter") {
       const kw = this.model.selectedKW();
       if (kw !== undefined) {
-        return { goto: `detail:${kw}` };
+        return { type: "openDetail", kw };
       }
       return;
     }

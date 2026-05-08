@@ -40,11 +40,6 @@ export class TossScene implements Scene {
   private pendingResults: [boolean, boolean, boolean] | null = null;
   private completedCast: Cast | null = null;
 
-  /** Returns the completed Cast after all 6 lines are cast, for handoff to CastScene. */
-  getCast(): Cast | null {
-    return this.completedCast;
-  }
-
   private get round() { return this.lines.length; }
 
   private landRow(): number {
@@ -127,14 +122,14 @@ export class TossScene implements Scene {
   }
 
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
-    if (key.type === "ctrl" && key.char === "c") return "exit";
-    if (key.type === "escape") return { goto: "home" };
+    if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
+    if (key.type === "escape") return { type: "home" };
 
     if (key.type === "char") {
-      if (key.char === "q") return { goto: "home" };
+      if (key.char === "q") return { type: "home" };
       if (key.char === " ") {
-        if (this.phase === "complete") {
-          return { goto: "cast-reveal" };
+        if (this.phase === "complete" && this.completedCast) {
+          return { type: "tossCompleted", cast: this.completedCast };
         } else if (this.coinsLaunched < 3) {
           this.launchCoin();
         }

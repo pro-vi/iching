@@ -37,8 +37,8 @@ export async function runScene(
   const ctx: SceneContext = {
     cols: session.cols,
     rows: session.rows,
-    done: false,
     colorSupport,
+    done: false,
   };
 
   // Wire up resize (and track for cleanup)
@@ -77,7 +77,7 @@ export async function runScene(
       while (inputQueue.length > 0) {
         const key = inputQueue.shift()!;
         const signal = scene.handleKey?.(key, ctx);
-        if (signal === "exit" || (typeof signal === "object" && signal !== null)) {
+        if (signal) {
           exitSignal = signal;
           ctx.done = true;
           break;

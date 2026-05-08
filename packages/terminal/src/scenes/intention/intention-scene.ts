@@ -65,15 +65,15 @@ export class IntentionScene implements Scene {
     if (key.type === "enter") {
       const trimmed = this.textInput.value.trim();
       this.intention = trimmed || undefined;
-      return { goto: "cast" };
+      return { type: "intentionConfirmed" };
     }
 
     if (key.type === "escape") {
-      return "exit";
+      return { type: "exit" };
     }
 
     if (key.type === "ctrl" && key.char === "c") {
-      return "exit";
+      return { type: "exit" };
     }
 
     if (key.type === "arrow") {

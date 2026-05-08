@@ -1,4 +1,11 @@
-// SceneRouter — push/pop scene navigation with goto signal handling
+// SceneRouter — push/pop scene navigation driven by typed scene signals.
+//
+// The router intrinsically handles the universal lifecycle signals (`exit`,
+// `back`). Anything else is delegated to the user-supplied factory which
+// inspects the typed signal and returns a Scene to push, or null/undefined to
+// abandon the router (the unhandled signal causes the router to exit
+// gracefully — typically because the signal is meant for an outer dispatcher
+// like the home loop).
 
 import type { Scene, SceneSignal } from "./types.ts";
 import type { TerminalSession } from "../session/terminal-session.ts";
@@ -6,7 +13,7 @@ import type { Clock } from "../clock.ts";
 import type { ColorSupport } from "../color/detect.ts";
 import { runScene } from "./loop.ts";
 
-export type SceneFactory = (id: string) => Scene;
+export type SceneFactory = (signal: SceneSignal) => Scene | null;
 
 export class SceneRouter {
   private stack: Scene[];
@@ -44,7 +51,7 @@ export class SceneRouter {
     return this.stack[this.stack.length - 1];
   }
 
-  /** Run the router loop — handles goto signals from scenes */
+  /** Run the router loop. Handles signals from scenes via push/pop or factory dispatch. */
   async run(
     session: TerminalSession,
     clock: Clock,
@@ -55,33 +62,23 @@ export class SceneRouter {
       const scene = this.current();
       const signal = await runScene(scene, session, clock, colorSupport, devMode);
 
-      if (signal === "exit") {
-        break;
-      }
+      if (!signal) break; // scene exited normally
 
-      if (typeof signal === "object" && signal !== null && "goto" in signal) {
-        const target = signal.goto;
+      if (signal.type === "exit") break;
 
-        if (target === "back") {
-          if (this.stack.length <= 1) {
-            break; // Nothing to go back to — exit
-          }
-          this.pop();
-          continue;
-        }
-
-        if (target === "exit") {
-          break;
-        }
-
-        // Push a new scene via factory (e.g. "detail:42")
-        const newScene = this.factory(target);
-        this.push(newScene);
+      if (signal.type === "back") {
+        if (this.stack.length <= 1) break; // nothing to go back to → exit router
+        this.pop();
         continue;
       }
 
-      // "continue" or void — scene exited normally, exit router
-      break;
+      // Anything else is delegated to the factory.
+      const next = this.factory(signal);
+      if (next) {
+        this.push(next);
+        continue;
+      }
+      break; // factory didn't handle this signal — bail out so the caller can dispatch
     }
   }
 }

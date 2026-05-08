@@ -34,25 +34,25 @@ describe("BrowseScene", () => {
     expect(scene.getModel().cursor).toBe(1);
   });
 
-  test("enter returns goto detail", () => {
+  test("enter returns openDetail", () => {
     const scene = new BrowseScene();
     scene.enter(makeCtx());
     const signal = scene.handleKey({ type: "enter" }, makeCtx());
-    expect(signal).toEqual({ goto: "detail:1" });
+    expect(signal).toEqual({ type: "openDetail", kw: 1 });
   });
 
-  test("enter on second hexagram returns detail:2", () => {
+  test("enter on second hexagram returns openDetail kw=2", () => {
     const scene = new BrowseScene();
     scene.enter(makeCtx());
     scene.handleKey({ type: "arrow", direction: "down" }, makeCtx());
     const signal = scene.handleKey({ type: "enter" }, makeCtx());
-    expect(signal).toEqual({ goto: "detail:2" });
+    expect(signal).toEqual({ type: "openDetail", kw: 2 });
   });
 
   test("q exits when not in search mode", () => {
     const scene = new BrowseScene();
     const signal = scene.handleKey({ type: "char", char: "q" }, makeCtx());
-    expect(signal).toBe("exit");
+    expect(signal).toEqual({ type: "exit" });
   });
 
   test("/ activates search mode", () => {
@@ -86,7 +86,7 @@ describe("BrowseScene", () => {
   test("escape without search returns back", () => {
     const scene = new BrowseScene();
     const signal = scene.handleKey({ type: "escape" }, makeCtx());
-    expect(signal).toEqual({ goto: "back" });
+    expect(signal).toEqual({ type: "back" });
   });
 
   test("backspace in search removes character", () => {

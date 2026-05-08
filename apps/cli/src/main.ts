@@ -64,105 +64,104 @@ async function main() {
 
       const signal = await run(homeScene);
 
-      if (signal === "exit" || !signal) {
+      if (!signal || signal.type === "exit") {
         running = false;
         break;
       }
 
-      if (typeof signal === "object" && "goto" in signal) {
-        // Build per-iteration deps so any settings updates from prior iterations are picked up.
-        const flowDeps = {
-          run, runRouter,
-          paths, cacheStore, today,
-          session: { cols: session.cols, rows: session.rows },
-          glyphConfig,
-          motion: savedConfig.motion ?? "default",
-        };
+      // Build per-iteration deps so any settings updates from prior iterations are picked up.
+      const flowDeps = {
+        run, runRouter,
+        paths, cacheStore, today,
+        session: { cols: session.cols, rows: session.rows },
+        glyphConfig,
+        motion: savedConfig.motion ?? "default",
+      };
 
-        switch (signal.goto) {
-          case "play": {
-            const result = await runReadingFlow(flowDeps, {
-              purpose: "play",
-              source: { type: "manual" },
-            });
-            if (result.shouldExit) running = false;
-            break;
-          }
-
-          case "cast": {
-            const result = await runReadingFlow(flowDeps, {
-              purpose: "cast",
-              source: castMode === "manual"
-                ? { type: "manual" }
-                : { type: "auto", seed: opts.seed ? Number(opts.seed) : undefined },
-            });
-            if (result.shouldExit) running = false;
-            break;
-          }
-
-          case "dictionary": {
-            const journal = new JsonlJournalStore(paths.state);
-            const router = new SceneRouter(
-              new BrowseScene(),
-              makeBrowseFactory({ glyphConfig, journal }),
-            );
-            await runRouter(router);
-            break;
-          }
-
-          case "journal": {
-            const journal = new JsonlJournalStore(paths.state);
-            const entries = await loadJournalEntries(journal);
-            const router = new SceneRouter(
-              new JournalScene(entries),
-              makeJournalFactory({
-                glyphConfig,
-                journal,
-                entries,
-                session: { cols: session.cols, rows: session.rows },
-              }),
-            );
-            await runRouter(router);
-            break;
-          }
-
-          case "settings": {
-            const config = await configStore.load();
-            const settingsScene = new SettingsScene({
-              theme: config.theme,
-              taijituStyle: config.taijituStyle,
-              glyphAnim: config.glyphAnim,
-              glyphFont: config.glyphFont,
-              castMode: config.castMode ?? "auto",
-            });
-            const settingsSignal = await run(settingsScene);
-            // Only save on escape (goto: "home"), not on Ctrl+C ("exit")
-            if (settingsSignal !== "exit") {
-              const updated = settingsScene.getValues();
-              const newConfig = await configStore.load();
-              newConfig.theme = updated.theme;
-              newConfig.taijituStyle = updated.taijituStyle;
-              newConfig.glyphAnim = updated.glyphAnim;
-              newConfig.glyphFont = updated.glyphFont;
-              newConfig.castMode = updated.castMode;
-              await configStore.save(newConfig);
-              setTheme(updated.theme);
-              taijituStyle = updated.taijituStyle;
-              castMode = updated.castMode;
-              glyphConfig = {
-                glyphAnim: updated.glyphAnim,
-                glyphFont: updated.glyphFont,
-              };
-            } else {
-              // Ctrl+C: revert theme to saved state
-              setTheme(config.theme);
-            }
-            break;
-          }
-
-          default:
-            break;
+      switch (signal.type) {
+        case "startPlay": {
+          const result = await runReadingFlow(flowDeps, {
+            purpose: "play",
+            source: { type: "manual" },
+          });
+          if (result.shouldExit) running = false;
+          break;
         }
+
+        case "startCast": {
+          const result = await runReadingFlow(flowDeps, {
+            purpose: "cast",
+            source: castMode === "manual"
+              ? { type: "manual" }
+              : { type: "auto", seed: opts.seed ? Number(opts.seed) : undefined },
+          });
+          if (result.shouldExit) running = false;
+          break;
+        }
+
+        case "openDictionary": {
+          const journal = new JsonlJournalStore(paths.state);
+          const router = new SceneRouter(
+            new BrowseScene(),
+            makeBrowseFactory({ glyphConfig, journal }),
+          );
+          await runRouter(router);
+          break;
+        }
+
+        case "openJournal": {
+          const journal = new JsonlJournalStore(paths.state);
+          const entries = await loadJournalEntries(journal);
+          const router = new SceneRouter(
+            new JournalScene(entries),
+            makeJournalFactory({
+              glyphConfig,
+              journal,
+              entries,
+              session: { cols: session.cols, rows: session.rows },
+            }),
+          );
+          await runRouter(router);
+          break;
+        }
+
+        case "openSettings": {
+          const config = await configStore.load();
+          const settingsScene = new SettingsScene({
+            theme: config.theme,
+            taijituStyle: config.taijituStyle,
+            glyphAnim: config.glyphAnim,
+            glyphFont: config.glyphFont,
+            castMode: config.castMode ?? "auto",
+          });
+          const settingsSignal = await run(settingsScene);
+          // Save on escape (signal "home"); revert on Ctrl+C ("exit")
+          if (settingsSignal?.type === "home") {
+            const updated = settingsScene.getValues();
+            const newConfig = await configStore.load();
+            newConfig.theme = updated.theme;
+            newConfig.taijituStyle = updated.taijituStyle;
+            newConfig.glyphAnim = updated.glyphAnim;
+            newConfig.glyphFont = updated.glyphFont;
+            newConfig.castMode = updated.castMode;
+            await configStore.save(newConfig);
+            setTheme(updated.theme);
+            taijituStyle = updated.taijituStyle;
+            castMode = updated.castMode;
+            glyphConfig = {
+              glyphAnim: updated.glyphAnim,
+              glyphFont: updated.glyphFont,
+            };
+          } else if (settingsSignal?.type === "exit") {
+            // Ctrl+C: revert theme to saved state and exit
+            setTheme(config.theme);
+            running = false;
+          }
+          break;
+        }
+
+        default:
+          break;
       }
     }
 

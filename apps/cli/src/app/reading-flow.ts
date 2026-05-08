@@ -77,7 +77,8 @@ export async function runReadingFlow(
   } else if (!isPlay) {
     const intentionScene = new IntentionScene();
     const intentionSignal = await deps.run(intentionScene);
-    if (intentionSignal === "exit") return { shouldExit: true };
+    if (intentionSignal?.type === "exit") return { shouldExit: true };
+    if (intentionSignal?.type !== "intentionConfirmed") return { shouldExit: false };
     intention = intentionScene.getIntention();
   }
 
@@ -87,13 +88,9 @@ export async function runReadingFlow(
   if (opts.source.type === "manual") {
     const tossScene = new TossScene();
     const tossSignal = await deps.run(tossScene);
-    if (tossSignal === "exit") return { shouldExit: true };
-    const tossed = tossScene.getCast();
-    const completed = tossed && typeof tossSignal === "object"
-      && tossSignal !== null && "goto" in tossSignal
-      && tossSignal.goto === "cast-reveal";
-    if (!completed) return { shouldExit: false }; // user quit before completing 6 lines
-    cast = tossed!;
+    if (tossSignal?.type === "exit") return { shouldExit: true };
+    if (tossSignal?.type !== "tossCompleted") return { shouldExit: false }; // user quit before 6 lines
+    cast = tossSignal.cast;
   } else if (opts.source.type === "auto") {
     usedSeed = opts.source.seed !== undefined;
     const source = usedSeed
@@ -135,28 +132,23 @@ export async function runReadingFlow(
   const castSignal = await deps.run(castScene);
 
   // 5. Post-cast navigation — skipped for play
-  if (
-    !isPlay
-    && typeof castSignal === "object"
-    && castSignal !== null
-    && "goto" in castSignal
-  ) {
-    await runPostCastNavigation(deps, castSignal.goto);
+  if (!isPlay && castSignal && castSignal.type !== "exit") {
+    await runPostCastNavigation(deps, castSignal);
   }
 
-  return { shouldExit: false };
+  return { shouldExit: castSignal?.type === "exit" };
 }
 
 /**
  * Branch the post-cast navigation into the journal or dictionary explorer.
- * The cast scene emits `journal`, `dictionary`, or `detail:N` after the user
- * presses j/d or hits enter on the focused hexagram.
+ * The cast scene emits openJournal / openDictionary / openDetail after the
+ * user presses j/d or hits enter on the focused hexagram.
  */
 async function runPostCastNavigation(
   deps: ReadingFlowDeps,
-  goto: string,
+  signal: SceneSignal,
 ): Promise<void> {
-  if (goto === "journal") {
+  if (signal.type === "openJournal") {
     const journal = new JsonlJournalStore(deps.paths.state);
     const entries = await loadJournalEntries(journal);
     const factoryDeps = {
@@ -170,15 +162,11 @@ async function runPostCastNavigation(
       makeJournalFactory(factoryDeps),
     );
     await deps.runRouter(router);
-  } else if (goto === "dictionary" || goto.startsWith("detail:")) {
+  } else if (signal.type === "openDictionary" || signal.type === "openDetail") {
     const journal = new JsonlJournalStore(deps.paths.state);
     const factoryDeps = { glyphConfig: deps.glyphConfig, journal };
-    const startScene: Scene = goto.startsWith("detail:")
-      ? (() => {
-          const kw = Number(goto.slice(7));
-          if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new BrowseScene();
-          return makeDetailScene(kw, factoryDeps);
-        })()
+    const startScene: Scene = signal.type === "openDetail"
+      ? makeDetailScene(signal.kw, factoryDeps)
       : new BrowseScene();
     const router = new SceneRouter(startScene, makeBrowseFactory(factoryDeps));
     await deps.runRouter(router);

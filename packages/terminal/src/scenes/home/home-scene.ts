@@ -97,15 +97,15 @@ export class HomeScene implements Scene {
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
     if (key.type === "char") {
       switch (key.char) {
-        case "c": return { goto: "cast" };
-        case "p": if (this.state.devMode) return { goto: "play" }; break;
-        case "d": return { goto: "dictionary" };
-        case "j": return { goto: "journal" };
-        case "s": return { goto: "settings" };
-        case "q": return "exit";
+        case "c": return { type: "startCast" };
+        case "p": if (this.state.devMode) return { type: "startPlay" }; break;
+        case "d": return { type: "openDictionary" };
+        case "j": return { type: "openJournal" };
+        case "s": return { type: "openSettings" };
+        case "q": return { type: "exit" };
       }
     }
-    if (key.type === "ctrl" && key.char === "c") return "exit";
-    if (key.type === "escape") return "exit";
+    if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
+    if (key.type === "escape") return { type: "exit" };
   }
 }
