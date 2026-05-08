@@ -35,13 +35,13 @@ async function main() {
     // Load and apply saved theme
     const configStore = new JsonConfigStore(paths.config);
     const savedConfig = await configStore.load();
-    setTheme(savedConfig.theme as any);
+    setTheme(savedConfig.theme);
     let glyphConfig = {
-      glyphAnim: savedConfig.glyphAnim as any,
-      glyphFont: savedConfig.glyphFont as any,
+      glyphAnim: savedConfig.glyphAnim,
+      glyphFont: savedConfig.glyphFont,
     };
-    let taijituStyle = savedConfig.taijituStyle as any;
-    let castMode = (savedConfig.castMode ?? "auto") as "auto" | "manual";
+    let taijituStyle = savedConfig.taijituStyle;
+    let castMode = savedConfig.castMode ?? "auto";
 
     const session = new TerminalSession();
     const colorSupport = detectColorSupport();
@@ -252,11 +252,11 @@ async function main() {
           case "settings": {
             const config = await configStore.load();
             const settingsScene = new SettingsScene({
-              theme: config.theme as any,
-              taijituStyle: config.taijituStyle as any,
+              theme: config.theme,
+              taijituStyle: config.taijituStyle,
               glyphAnim: config.glyphAnim,
               glyphFont: config.glyphFont,
-              castMode: (config.castMode ?? "auto") as "auto" | "manual",
+              castMode: config.castMode ?? "auto",
             });
             const settingsSignal = await run(settingsScene);
             // Only save on escape (goto: "home"), not on Ctrl+C ("exit")
@@ -270,15 +270,15 @@ async function main() {
               newConfig.castMode = updated.castMode;
               await configStore.save(newConfig);
               setTheme(updated.theme);
-              taijituStyle = updated.taijituStyle as any;
+              taijituStyle = updated.taijituStyle;
               castMode = updated.castMode;
               glyphConfig = {
-                glyphAnim: updated.glyphAnim as any,
-                glyphFont: updated.glyphFont as any,
+                glyphAnim: updated.glyphAnim,
+                glyphFont: updated.glyphFont,
               };
             } else {
               // Ctrl+C: revert theme to saved state
-              setTheme(config.theme as any);
+              setTheme(config.theme);
             }
             break;
           }
