@@ -102,7 +102,7 @@ export { runScene } from "./scene/loop.ts";
 export { GLYPHS, LINE_WIDTH, SPLIT_ARROW } from "./glyphs.ts";
 
 // Scenes: casting ritual
-export { CastScene } from "./scenes/cast/cast-scene.ts";
+export { CastScene, type CastGlyphInput } from "./scenes/cast/cast-scene.ts";
 export { CastModel } from "./scenes/cast/model.ts";
 export { renderCoins, coinSpinGlyph, coinLandGlyph } from "./scenes/cast/coin-renderer.ts";
 export { renderLine, lineFrame } from "./scenes/cast/line-renderer.ts";
