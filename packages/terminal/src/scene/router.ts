@@ -49,10 +49,11 @@ export class SceneRouter {
     session: TerminalSession,
     clock: Clock,
     colorSupport: ColorSupport,
+    devMode = false,
   ): Promise<void> {
     while (this.stack.length > 0) {
       const scene = this.current();
-      const signal = await runScene(scene, session, clock, colorSupport);
+      const signal = await runScene(scene, session, clock, colorSupport, devMode);
 
       if (signal === "exit") {
         break;

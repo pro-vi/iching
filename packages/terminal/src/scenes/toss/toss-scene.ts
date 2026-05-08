@@ -1,30 +1,28 @@
-// TossScene — interactive physics coin toss playground (dev mode)
-// Space tosses one coin at a time. 3 coins resolve a line. 6 lines build a hexagram.
+// TossScene — interactive physics coin toss. Space tosses one coin at a time.
+// 3 coins per line, 6 lines per hexagram. On complete, hands off to CastScene.
 
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
-import { castLine, linesToBinary, BINARY_TO_KW, GUA, CryptoRandomSource } from "@iching/core";
-import type { Line } from "@iching/core";
+import {
+  castLine, linesToBinary, BINARY_TO_KW, CryptoRandomSource,
+  nuclear, polarity, mirror, diagonal,
+} from "@iching/core";
+import type { Line, Cast } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
-import { GLYPHS } from "../../glyphs.ts";
+import { renderLine } from "../cast/line-renderer.ts";
+import { anchorRow, LINE_ROW_OFFSETS } from "../cast/hexagram-renderer.ts";
 import {
   type CoinState,
   INITIAL_VY,
+  COIN_OFFSETS,
   stepCoin,
   coinFrame,
 } from "./coin-physics.ts";
 
 const POST_LAND_DELAY = 0.55;
 const LINE_DRAW_DURATION = 0.3;
-
-// Final static line strings (━, 15 cols)
-const FINAL_YANG     = "━━━━━━━━━━━━━━━";
-const FINAL_YIN      = "━━━━━━   ━━━━━━";
-const FINAL_CHG_YANG = "━━━━━━ ● ━━━━━━";
-const FINAL_CHG_YIN  = "━━━━━━ ○ ━━━━━━";
-const LINE_HALF = 7;
 
 type ScenePhase = "waiting" | "tossing" | "complete";
 
@@ -40,11 +38,17 @@ export class TossScene implements Scene {
   private _pendingLine: Line | null = null;
   private coinsLaunched = 0;
   private pendingResults: [boolean, boolean, boolean] | null = null;
+  private completedCast: Cast | null = null;
+
+  /** Returns the completed Cast after all 6 lines are cast, for handoff to CastScene. */
+  getCast(): Cast | null {
+    return this.completedCast;
+  }
 
   private get round() { return this.lines.length; }
 
   private landRow(): number {
-    return Math.max(5, this.rows - 19);
+    return Math.min(this.rows - 2, anchorRow(this.rows) + 12);
   }
 
   enter(ctx: SceneContext): void {
@@ -60,7 +64,6 @@ export class TossScene implements Scene {
   update(_elapsed: number, dt: number, _ctx: SceneContext): void {
     const dtSec = dt / 1000;
 
-    // Advance line draw animations (all phases)
     for (let i = 0; i < this.lineProgresses.length; i++) {
       if (this.lineProgresses[i] < 1) {
         this.lineProgresses[i] = Math.min(1, this.lineProgresses[i] + dtSec / LINE_DRAW_DURATION);
@@ -70,13 +73,11 @@ export class TossScene implements Scene {
     if (this.phase !== "tossing") return;
 
     let anyFlying = false;
-
     for (const coin of this.coins) {
       stepCoin(coin, dt);
       if (coin.phase !== "settled") anyFlying = true;
     }
 
-    // Only resolve once all 3 coins are launched and settled
     if (!anyFlying && this.coinsLaunched === 3) {
       if (!this.allSettled) {
         this.allSettled = true;
@@ -91,6 +92,7 @@ export class TossScene implements Scene {
     const t = getTheme();
     const cx = Math.floor(frame.width / 2);
     const h = frame.height;
+    const anchor = anchorRow(h);
 
     if (this.phase === "waiting") {
       const label = `Round ${this.round + 1} / 6`;
@@ -98,56 +100,30 @@ export class TossScene implements Scene {
       frame.writeText(2, cx - Math.floor(stringWidth(label) / 2), label, { fg: t.secondary });
       frame.writeText(4, cx - Math.floor(stringWidth(hint) / 2), hint, { fg: t.tertiary, dim: true });
     } else if (this.phase === "complete") {
-      this.renderComplete(frame, cx);
+      const hint = "[space] reveal  •  [q] discard";
+      frame.writeText(2, cx - Math.floor(stringWidth(hint) / 2), hint, { fg: t.tertiary, dim: true });
     }
 
-    // Coins
+    // Physics coins
     for (const coin of this.coins) {
       const row = Math.round(coin.y);
-      const col = Math.round(coin.x) - COIN_HALF;
+      const col = Math.round(coin.x);
       if (row < 0 || row >= h) continue;
-
       frame.writeText(row, col, coinFrame(coin), {
         fg: t.primary,
         bold: coin.phase === "settled",
       });
     }
 
-    // Hexagram lines — animated draw-in
+    // Hexagram lines — same vertical position as CastScene
     for (let i = 0; i < this.lines.length; i++) {
       const line = this.lines[i];
-      const lineRow = h - 2 - i * 2;
+      const lineRow = anchor + LINE_ROW_OFFSETS[i];
+      if (lineRow < 0 || lineRow >= h) continue;
       const progress = this.lineProgresses[i] ?? 1;
       const fg = line.isChanging ? t.accent : t.primary;
-      let lineStr: string;
-      if (progress >= 1) {
-        lineStr = line.isChanging
-          ? (line.isYang ? FINAL_CHG_YANG : FINAL_CHG_YIN)
-          : (line.isYang ? FINAL_YANG : FINAL_YIN);
-      } else {
-        const frames = line.isYang ? GLYPHS.yangFrames : GLYPHS.yinFrames;
-        const idx = Math.min(frames.length - 1, Math.floor(progress * frames.length));
-        lineStr = frames[idx];
-      }
-      frame.writeText(lineRow, cx - LINE_HALF, lineStr, { fg, bold: line.isChanging });
+      renderLine(frame, lineRow, line.isYang, progress, fg, 0, line.isChanging ? "inline" : "gutter");
     }
-  }
-
-  private renderComplete(frame: CellBuffer, cx: number): void {
-    const t = getTheme();
-    const binary = linesToBinary(this.lines);
-    const kw = BINARY_TO_KW[binary];
-    const gua = kw ? GUA[kw - 1] : null;
-
-    if (gua) {
-      const title = `${gua.u}  ${gua.n}`;
-      const subtitle = `Hexagram ${kw}  ·  ${gua.p}`;
-      frame.writeText(2, cx - Math.floor(stringWidth(title) / 2), title, { fg: t.accent, bold: true });
-      frame.writeText(3, cx - Math.floor(stringWidth(subtitle) / 2), subtitle, { fg: t.secondary });
-    }
-
-    const hint = "[space] new cast  •  [q] quit";
-    frame.writeText(5, cx - Math.floor(stringWidth(hint) / 2), hint, { fg: t.tertiary, dim: true });
   }
 
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
@@ -158,7 +134,7 @@ export class TossScene implements Scene {
       if (key.char === "q") return { goto: "home" };
       if (key.char === " ") {
         if (this.phase === "complete") {
-          this.reset();
+          return { goto: "cast-reveal" };
         } else if (this.coinsLaunched < 3) {
           this.launchCoin();
         }
@@ -181,8 +157,7 @@ export class TossScene implements Scene {
 
     const cx = Math.floor(this.cols / 2);
     const landY = this.landRow();
-    const offsets = [-5, 0, 5];
-    const dx = offsets[this.coinsLaunched];
+    const dx = COIN_OFFSETS[this.coinsLaunched];
 
     this.coins.push({
       x: cx + dx + (Math.random() - 0.5),
@@ -212,19 +187,38 @@ export class TossScene implements Scene {
     this.pendingResults = null;
     this.allSettled = false;
     this.postLandTimer = 0;
-    this.phase = this.lines.length >= 6 ? "complete" : "waiting";
+
+    if (this.lines.length >= 6) {
+      this.phase = "complete";
+      this.completedCast = this.buildCast(this.lines);
+    } else {
+      this.phase = "waiting";
+    }
   }
 
-  private reset(): void {
-    this.lines = [];
-    this.lineProgresses = [];
-    this.coins = [];
-    this._pendingLine = null;
-    this.coinsLaunched = 0;
-    this.pendingResults = null;
-    this.phase = "waiting";
-    this.allSettled = false;
-    this.postLandTimer = 0;
+  private buildCast(lines: Line[]): Cast {
+    const primaryBinary = linesToBinary(lines);
+    const primary = BINARY_TO_KW[primaryBinary];
+    const changingPositions: number[] = [];
+    let becoming: number | null = null;
+
+    const hasChanging = lines.some(l => l.isChanging);
+    if (hasChanging) {
+      const bl = lines.map(l => ({ ...l, isYang: l.isChanging ? !l.isYang : l.isYang }));
+      becoming = BINARY_TO_KW[linesToBinary(bl)] ?? null;
+      lines.forEach((l, i) => { if (l.isChanging) changingPositions.push(i + 1); });
+    }
+
+    return {
+      lines,
+      primary,
+      becoming,
+      changingPositions,
+      nuclear: nuclear(lines),
+      polarity: polarity(lines),
+      mirror: mirror(lines),
+      diagonal: diagonal(lines),
+    };
   }
 
   private lineValueToCoins(value: number): [boolean, boolean, boolean] {

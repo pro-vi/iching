@@ -5,6 +5,70 @@ import type { StyledCell } from "../../render/cell.ts";
 import type { CastModel } from "./model.ts";
 import { GLYPHS, LINE_WIDTH } from "../../glyphs.ts";
 import { getTheme } from "../../color/theme.ts";
+import { getPreset } from "../../animation/presets.ts";
+
+// ── Looping coin animation state machine ──────────────────────────────
+
+/**
+ * Self-contained coin animation that loops spin → land → collapse,
+ * using the same timing and stagger formula as castOneLine.
+ * Use step(dt) each frame, then pass state to renderCoinSet.
+ */
+export class CoinAnim {
+  phase: "spin" | "land" | "collapse" = "spin";
+  progress: [number, number, number] = [0, 0, 0];
+  results: [boolean, boolean, boolean];
+
+  private timer = 0;
+  private readonly spinMs: number;
+  private readonly staggerMs: number;
+  private readonly landMs: number;
+  private static readonly COLLAPSE_MS = 200;
+
+  constructor() {
+    const t = getPreset("default");
+    this.spinMs = t.coinFrameMs * 9;
+    this.staggerMs = t.coinStaggerMs;
+    this.landMs = t.landHoldMs;
+    this.results = [Math.random() < 0.5, Math.random() < 0.5, Math.random() < 0.5];
+  }
+
+  step(dt: number): void {
+    this.timer += dt;
+    switch (this.phase) {
+      case "spin": {
+        const p0 = Math.min(1, this.timer / this.spinMs);
+        const p1 = Math.min(1, Math.max(0, (this.timer - this.staggerMs) / (this.spinMs - this.staggerMs)));
+        const p2 = Math.min(1, Math.max(0, (this.timer - this.staggerMs * 2) / (this.spinMs - this.staggerMs * 2)));
+        this.progress = [p0, p1, p2];
+        if (p0 >= 1 && p1 >= 1 && p2 >= 1) {
+          this.progress = [1, 1, 1];
+          this.phase = "land";
+          this.timer = 0;
+        }
+        break;
+      }
+      case "land":
+        if (this.timer >= this.landMs) {
+          this.phase = "collapse";
+          this.timer = 0;
+          this.progress = [0, 0, 0];
+        }
+        break;
+      case "collapse": {
+        const p = Math.min(1, this.timer / CoinAnim.COLLAPSE_MS);
+        this.progress = [p, p, p];
+        if (p >= 1) {
+          this.phase = "spin";
+          this.timer = 0;
+          this.progress = [0, 0, 0];
+          this.results = [Math.random() < 0.5, Math.random() < 0.5, Math.random() < 0.5];
+        }
+        break;
+      }
+    }
+  }
+}
 
 /** Render the 3 coins at the given row, centered in the buffer. */
 export function renderCoins(
@@ -12,16 +76,26 @@ export function renderCoins(
   model: CastModel,
   row: number,
 ): void {
-  const t = getTheme();
   const { coinPhase, coinProgress, coinResults } = model;
   if (coinPhase === "done" || coinPhase === "idle") return;
-
-  // Center coins on the same axis as the hexagram lines
-  // Lines are LINE_WIDTH (15) chars, centered at (buf.width - LINE_WIDTH) / 2 + floor(LINE_WIDTH / 2)
   const lineLeft = Math.floor((buf.width - LINE_WIDTH) / 2);
   const centerCol = lineLeft + Math.floor(LINE_WIDTH / 2);
+  renderCoinSet(buf, centerCol, row, coinPhase, coinProgress, coinResults);
+}
 
-  // Coins spaced 4 apart: [-4, 0, +4]
+/**
+ * Render 3 coins at a given center column and row.
+ * Usable without a full CastModel — e.g. settings preview.
+ */
+export function renderCoinSet(
+  buf: CellBuffer,
+  centerCol: number,
+  row: number,
+  coinPhase: "spin" | "land" | "collapse",
+  coinProgress: [number, number, number],
+  coinResults: [boolean, boolean, boolean],
+): void {
+  const t = getTheme();
   const offsets = [-4, 0, 4];
 
   for (let i = 0; i < 3; i++) {
@@ -33,32 +107,26 @@ export function renderCoins(
 
     switch (coinPhase) {
       case "spin": {
-        // Spin through quarter-circle glyphs, each coin out of phase
         const frameIndex = Math.floor(p * (GLYPHS.coinSpin.length * 2)) % GLYPHS.coinSpin.length;
         char = GLYPHS.coinSpin[frameIndex];
-        // Color ramp: tertiary at start, secondary at middle, accent at end
         const fg = p < 0.5 ? t.tertiary : t.secondary;
         style = { fg };
         break;
       }
       case "land": {
-        // Show the landed result
         const isHeads = coinResults[i];
         char = isHeads ? GLYPHS.coinHeads : GLYPHS.coinTails;
         style = { fg: t.accent };
         break;
       }
       case "collapse": {
-        // Collapse animation: coins shrink toward center
         if (p < 0.5) {
-          // Still showing coins
           const isHeads = coinResults[i];
           char = isHeads ? GLYPHS.coinHeads : GLYPHS.coinTails;
           style = { fg: t.secondary, dim: true };
         } else {
-          // Collapsed — only center coin visible as dot
           if (i === 1) {
-            char = "\u00B7"; // middle dot
+            char = "·";
             style = { fg: t.tertiary };
           } else {
             continue;

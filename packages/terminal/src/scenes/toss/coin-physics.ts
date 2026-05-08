@@ -59,6 +59,26 @@ export function stepCoin(coin: CoinState, dt: number): void {
   }
 }
 
+/** Horizontal offsets for a 3-coin spread around center. */
+export const COIN_OFFSETS = [-5, 0, 5] as const;
+
+/** Launch 3 coins simultaneously from cx, landing at landY. */
+export function launchCoinSet(cx: number, landY: number): CoinState[] {
+  return COIN_OFFSETS.map((dx, i) => ({
+    x: cx + dx + (Math.random() - 0.5),
+    y: landY - 1,
+    vx: dx * 0.4 + (Math.random() - 0.5) * 1.5,
+    vy: INITIAL_VY + (Math.random() - 0.5) * 6,
+    flipAngle: i * (Math.PI * 2 / 3),
+    result: Math.random() < 0.5,
+    phase: "flying" as const,
+    bounces: 0,
+    landY,
+    spinRate: 0,
+    spinDecay: 0.9,
+  }));
+}
+
 /** Returns the glyph character for the coin's current animation frame. */
 export function coinFrame(coin: CoinState): string {
   if (coin.phase === "settled") return coin.result ? "◉" : "○";

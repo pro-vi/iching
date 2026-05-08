@@ -39,12 +39,12 @@ export class HomeScene implements Scene {
     const titleRow = Math.floor(frame.height / 2) - 6;
     let row = titleRow;
 
-    // Rotating taijitu fills the space above the title (1 row top margin, 1 row gap before title)
-    const maxRfromHeight = titleRow - 3;
+    // Rotating taijitu fills the space above the title (1 row top margin, 2 row gap before title)
+    const maxRfromHeight = titleRow - 6;
     const maxRfromWidth = Math.floor(frame.width / 2) - 2;
     const radius = Math.min(maxRfromHeight, maxRfromWidth);
     if (radius >= 4) {
-      const centerRow = (titleRow - 1) / 2;
+      const centerRow = (titleRow - 2) / 2;
       renderTaijitu(frame, cx, centerRow, radius, this.elapsed * 0.0004, this.state.taijituStyle);
     }
 

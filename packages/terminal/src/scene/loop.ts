@@ -27,6 +27,7 @@ export async function runScene(
   session: TerminalSession,
   clock: Clock,
   colorSupport: ColorSupport,
+  devMode = false,
 ): Promise<SceneSignal | void> {
   // Enter alt screen, raw mode, hide cursor
   session.enter();
@@ -90,6 +91,11 @@ export async function runScene(
       // Render
       const frame = CellBuffer.create(ctx.cols, ctx.rows);
       scene.render(frame, ctx);
+      if (devMode) {
+        for (let r = 0; r < frame.height; r++) {
+          frame.writeText(r, 0, String(r).padStart(3), { fg: "#444444" });
+        }
+      }
       renderer.present(prevBuffer, frame);
       prevBuffer = frame;
 

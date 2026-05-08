@@ -14,6 +14,8 @@ import { stringWidth } from "../../layout/measure.ts";
  * @param isYang - true for solid line, false for broken (yin)
  * @param progress - 0 (invisible) to 1 (fully drawn)
  * @param color - Override foreground color (for glow effects)
+ * @param xOffset - Horizontal offset from center
+ * @param markStyle - "gutter" (changing marker in separate gutter col) or "inline" (● / ○ embedded in line)
  */
 export function renderLine(
   buf: CellBuffer,
@@ -22,6 +24,7 @@ export function renderLine(
   progress: number,
   color?: string,
   xOffset: number = 0,
+  markStyle: "inline" | "gutter" = "gutter",
 ): void {
   if (progress <= 0) return;
 
@@ -32,7 +35,14 @@ export function renderLine(
   // Map progress 0-1 to frame index 0-maxFrame
   const clamped = Math.min(1, Math.max(0, progress));
   const frameIndex = Math.min(maxFrame, Math.floor(clamped * frames.length));
-  const frameStr = frames[Math.min(frameIndex, maxFrame)];
+
+  // At full progress with inline mark, use the changing-line final frame
+  let frameStr: string;
+  if (clamped >= 1 && markStyle === "inline") {
+    frameStr = isYang ? GLYPHS.yangChangingFinal : GLYPHS.yinChangingFinal;
+  } else {
+    frameStr = frames[Math.min(frameIndex, maxFrame)];
+  }
 
   // Color ramp: tertiary -> secondary -> primary based on progress
   let fg: string;
