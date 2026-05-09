@@ -51,23 +51,29 @@ export class SceneRouter {
     return this.stack[this.stack.length - 1];
   }
 
-  /** Run the router loop. Handles signals from scenes via push/pop or factory dispatch. */
+  /**
+   * Run the router loop. Handles signals from scenes via push/pop or factory dispatch.
+   * Returns `{ shouldExit: true }` when an inner scene emits `{ type: "exit" }`
+   * (e.g. Ctrl+C) so the caller can terminate the program. Otherwise returns
+   * `{ shouldExit: false }` for graceful router exits (back-from-bottom, factory
+   * returned null, or scene completed without a signal).
+   */
   async run(
     session: TerminalSession,
     clock: Clock,
     colorSupport: ColorSupport,
     devMode = false,
-  ): Promise<void> {
+  ): Promise<{ shouldExit: boolean }> {
     while (this.stack.length > 0) {
       const scene = this.current();
       const signal = await runScene(scene, session, clock, colorSupport, devMode);
 
-      if (!signal) break; // scene exited normally
+      if (!signal) return { shouldExit: false }; // scene exited normally
 
-      if (signal.type === "exit") break;
+      if (signal.type === "exit") return { shouldExit: true };
 
       if (signal.type === "back") {
-        if (this.stack.length <= 1) break; // nothing to go back to → exit router
+        if (this.stack.length <= 1) return { shouldExit: false };
         this.pop();
         continue;
       }
@@ -78,7 +84,8 @@ export class SceneRouter {
         this.push(next);
         continue;
       }
-      break; // factory didn't handle this signal — bail out so the caller can dispatch
+      return { shouldExit: false }; // factory didn't handle — caller will dispatch
     }
+    return { shouldExit: false };
   }
 }

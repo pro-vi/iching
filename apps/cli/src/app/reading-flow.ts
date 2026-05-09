@@ -47,7 +47,7 @@ export type ReadingPurpose = "cast" | "play" | "replay";
 
 export interface ReadingFlowDeps {
   run: (scene: Scene) => Promise<SceneSignal | void>;
-  runRouter: (router: SceneRouter) => Promise<void>;
+  runRouter: (router: SceneRouter) => Promise<{ shouldExit: boolean }>;
   paths: ResolvedPaths;
   cacheStore: JsonDailyCacheStore;
   today: string;
@@ -131,23 +131,26 @@ export async function runReadingFlow(
   if (skipLineTimeline) castScene.skipToComplete(true);
   const castSignal = await deps.run(castScene);
 
+  if (castSignal?.type === "exit") return { shouldExit: true };
+
   // 5. Post-cast navigation — skipped for play
-  if (!isPlay && castSignal && castSignal.type !== "exit") {
-    await runPostCastNavigation(deps, castSignal);
+  if (!isPlay && castSignal) {
+    return await runPostCastNavigation(deps, castSignal);
   }
 
-  return { shouldExit: castSignal?.type === "exit" };
+  return { shouldExit: false };
 }
 
 /**
  * Branch the post-cast navigation into the journal or dictionary explorer.
  * The cast scene emits openJournal / openDictionary / openDetail after the
- * user presses j/d or hits enter on the focused hexagram.
+ * user presses j/d or hits enter on the focused hexagram. Propagates Ctrl+C
+ * (router shouldExit) so the home loop can terminate the program.
  */
 async function runPostCastNavigation(
   deps: ReadingFlowDeps,
   signal: SceneSignal,
-): Promise<void> {
+): Promise<{ shouldExit: boolean }> {
   if (signal.type === "openJournal") {
     const journal = new JsonlJournalStore(deps.paths.state);
     const entries = await loadJournalEntries(journal);
@@ -161,14 +164,16 @@ async function runPostCastNavigation(
       new JournalScene(entries),
       makeJournalFactory(factoryDeps),
     );
-    await deps.runRouter(router);
-  } else if (signal.type === "openDictionary" || signal.type === "openDetail") {
+    return await deps.runRouter(router);
+  }
+  if (signal.type === "openDictionary" || signal.type === "openDetail") {
     const journal = new JsonlJournalStore(deps.paths.state);
     const factoryDeps = { glyphConfig: deps.glyphConfig, journal };
     const startScene: Scene = signal.type === "openDetail"
       ? makeDetailScene(signal.kw, factoryDeps)
       : new BrowseScene();
     const router = new SceneRouter(startScene, makeBrowseFactory(factoryDeps));
-    await deps.runRouter(router);
+    return await deps.runRouter(router);
   }
+  return { shouldExit: false };
 }

@@ -35,10 +35,10 @@ describe("DetailScene", () => {
     expect(signal).toEqual({ type: "back" });
   });
 
-  test("q exits", () => {
+  test("q pops back", () => {
     const scene = new DetailScene(1);
     const signal = scene.handleKey({ type: "char", char: "q" }, makeCtx());
-    expect(signal).toEqual({ type: "exit" });
+    expect(signal).toEqual({ type: "back" });
   });
 
   test("tab toggles focus", () => {

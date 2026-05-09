@@ -98,7 +98,7 @@ describe("CastScene", () => {
     const ctx = makeCtx();
 
     const result = scene.handleKey({ type: "char", char: "q" }, ctx);
-    expect(result).toEqual({ type: "exit" });
+    expect(result).toEqual({ type: "home" });
   });
 
   test("handleKey(enter) after prompt shown enters exploration mode", () => {

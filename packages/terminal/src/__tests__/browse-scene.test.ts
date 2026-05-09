@@ -49,10 +49,10 @@ describe("BrowseScene", () => {
     expect(signal).toEqual({ type: "openDetail", kw: 2 });
   });
 
-  test("q exits when not in search mode", () => {
+  test("q pops back when not in search mode", () => {
     const scene = new BrowseScene();
     const signal = scene.handleKey({ type: "char", char: "q" }, makeCtx());
-    expect(signal).toEqual({ type: "exit" });
+    expect(signal).toEqual({ type: "back" });
   });
 
   test("/ activates search mode", () => {

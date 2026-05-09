@@ -138,8 +138,8 @@ export class JournalScene implements Scene {
 
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
     if (this.entries.length === 0) {
-      if (key.type === "char" && (key.char === "q" || key.char === "d")) return { type: "exit" };
-      if (key.type === "escape") return { type: "exit" };
+      if (key.type === "char" && (key.char === "q" || key.char === "d")) return { type: "back" };
+      if (key.type === "escape") return { type: "back" };
       if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
       return;
     }
@@ -176,8 +176,8 @@ export class JournalScene implements Scene {
       return { type: "openDictionary" };
     }
 
-    if (key.type === "char" && key.char === "q") return { type: "exit" };
-    if (key.type === "escape") return { type: "exit" };
+    if (key.type === "char" && key.char === "q") return { type: "back" };
+    if (key.type === "escape") return { type: "back" };
     if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
   }
 

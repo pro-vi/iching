@@ -47,7 +47,7 @@ export function makeBrowseFactory(deps: DetailDeps): SceneFactory {
   };
 }
 
-/** SceneRouter factory for the journal path: handles openJournalReading, openDetail, openDictionary. */
+/** SceneRouter factory for the journal path: handles openJournalReading, openDetail, openDictionary, openJournal. */
 export function makeJournalFactory(deps: JournalDeps): SceneFactory {
   return (signal): Scene | null => {
     if (signal.type === "openJournalReading") {
@@ -68,6 +68,8 @@ export function makeJournalFactory(deps: JournalDeps): SceneFactory {
     }
     if (signal.type === "openDetail") return makeDetailScene(signal.kw, deps);
     if (signal.type === "openDictionary") return new BrowseScene();
+    // `j` from a replayed CastScene inside the journal router → reset to the journal list.
+    if (signal.type === "openJournal") return new JournalScene(deps.entries);
     return null;
   };
 }

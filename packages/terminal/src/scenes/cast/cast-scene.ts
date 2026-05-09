@@ -137,9 +137,9 @@ export class CastScene implements Scene {
   }
 
   handleKey(key: KeyEvent, ctx: SceneContext): SceneSignal | void {
-    // During animation, q always exits
+    // During animation, q cancels the cast and returns to the home menu.
     if (key.type === "char" && key.char === "q") {
-      return { type: "exit" };
+      return { type: "home" };
     }
 
     // Exploration mode: arrow keys switch focus, scroll commentary

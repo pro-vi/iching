@@ -105,7 +105,8 @@ async function main() {
             new BrowseScene(),
             makeBrowseFactory({ glyphConfig, journal }),
           );
-          await runRouter(router);
+          const result = await runRouter(router);
+          if (result.shouldExit) running = false;
           break;
         }
 
@@ -121,7 +122,8 @@ async function main() {
               session: { cols: session.cols, rows: session.rows },
             }),
           );
-          await runRouter(router);
+          const result = await runRouter(router);
+          if (result.shouldExit) running = false;
           break;
         }
 

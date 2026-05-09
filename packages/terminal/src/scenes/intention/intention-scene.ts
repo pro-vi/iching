@@ -69,7 +69,8 @@ export class IntentionScene implements Scene {
     }
 
     if (key.type === "escape") {
-      return { type: "exit" };
+      // Cancel the cast and return to the home menu (not a program exit).
+      return { type: "home" };
     }
 
     if (key.type === "ctrl" && key.char === "c") {

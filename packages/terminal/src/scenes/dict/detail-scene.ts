@@ -72,9 +72,9 @@ export class DetailScene implements Scene {
   }
 
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
-    // Exit
+    // q pops one router level (or exits the router if at the bottom → returns home).
     if (key.type === "char" && key.char === "q") {
-      return { type: "exit" };
+      return { type: "back" };
     }
     if (key.type === "ctrl" && key.char === "c") {
       return { type: "exit" };
