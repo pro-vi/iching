@@ -91,6 +91,9 @@ bun run typecheck # tsc --noEmit
 bun run smoke     # end-to-end smoke test
 ```
 
+Vision notes and the current scope spec are mapped in
+[docs/README.md](docs/README.md).
+
 ## Why
 
 The cast is true. If true, the hexagram is already everywhere in the
