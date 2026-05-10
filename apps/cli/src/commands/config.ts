@@ -4,12 +4,14 @@ import type { UserConfig } from "@iching/storage";
 import { outputJson, configToJson } from "../output/json.js";
 
 const CONFIG_SCHEMA: Record<string, { values?: string[]; description: string }> = {
-  theme:     { values: ["ink", "bone", "cinnabar", "jade", "river"], description: "Color theme" },
-  motion:    { values: ["default", "brisk", "deep", "reduced"], description: "Casting animation speed" },
-  color:     { values: ["auto", "always", "never"], description: "ANSI color mode" },
-  timezone:  { description: "Timezone (\"system\" or IANA name)" },
-  glyphAnim: { values: ["noise", "dots", "radial", "sand"], description: "Glyph reveal animation" },
-  glyphFont: { values: ["kaiti", "libian", "heiti"], description: "Glyph font" },
+  theme:        { values: ["ink", "bone", "cinnabar", "jade", "river"], description: "Color theme" },
+  motion:       { values: ["default", "brisk", "deep", "reduced"], description: "Casting animation speed" },
+  color:        { values: ["auto", "always", "never"], description: "ANSI color mode" },
+  timezone:     { description: "Timezone (\"system\" or IANA name)" },
+  glyphAnim:    { values: ["noise", "dots", "radial", "sand"], description: "Glyph reveal animation" },
+  glyphFont:    { values: ["kaiti", "libian", "heiti"], description: "Glyph font" },
+  taijituStyle: { values: ["dots", "dense"], description: "Home-screen taijitu style" },
+  castMode:     { values: ["auto", "manual"], description: "Cast mode (auto cast or manual coin toss)" },
 };
 
 const VALID_KEYS = Object.keys(CONFIG_SCHEMA);
@@ -92,7 +94,9 @@ export function registerConfigCommand(program: Command): void {
         process.exit(1);
       }
 
-      (cfg as Record<string, unknown>)[key] = value;
+      // Validated above against CONFIG_SCHEMA + VALID_KEYS, so the assignment is sound;
+      // the double cast through unknown acknowledges that TS can't track that proof here.
+      (cfg as unknown as Record<string, string>)[key] = value;
       await store.save(cfg);
 
       if (globalOpts.json) {
