@@ -5,8 +5,17 @@ import { localToday } from "./util/today.js";
 async function main() {
   // Operands are non-option args — i.e. actual subcommand names.
   // Global flags like --dev don't count as "args" for mode detection.
-  const { operands } = program.parseOptions(process.argv.slice(2));
+  const { operands, unknown } = program.parseOptions(process.argv.slice(2));
   const hasSubcommand = operands.length > 0;
+
+  // Unknown top-level flags (--help, --bogus, etc.) must reach Commander so
+  // it can print help or surface a "unknown option" error. Without this
+  // guard, `iching --help` falls through into hook/TUI mode and produces
+  // no help text.
+  if (unknown.length > 0) {
+    await program.parseAsync(process.argv);
+    return;
+  }
 
   // Hook mode: no subcommand + stdin is piped (not a TTY) → Claude Code hook
   if (!hasSubcommand && !process.stdin.isTTY) {
