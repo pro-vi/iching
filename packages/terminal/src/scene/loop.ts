@@ -32,7 +32,7 @@ export async function runScene(
   // Enter alt screen, raw mode, hide cursor
   session.enter();
 
-  let exitSignal: SceneSignal | void;
+  let exitSignal: SceneSignal | undefined;
 
   const ctx: SceneContext = {
     cols: session.cols,
