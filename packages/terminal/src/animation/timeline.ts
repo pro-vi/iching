@@ -4,7 +4,7 @@ import { type EasingFn, linear } from "./easing.ts";
 
 export type Step =
   | { kind: "wait"; ms: number }
-  | { kind: "call"; run: (ctx: any) => void | Promise<void> }
+  | { kind: "call"; run: (ctx: any) => unknown }
   | { kind: "tween"; ms: number; easing: EasingFn; apply: (progress: number, ctx: any) => void }
   | { kind: "parallel"; steps: Step[] }
   | { kind: "sequence"; steps: Step[] };
@@ -24,8 +24,13 @@ export function wait(ms: number): Step {
   return { kind: "wait", ms };
 }
 
-/** Execute a callback once at the current timeline position. */
-export function call(fn: (ctx: any) => void | Promise<void>): Step {
+/**
+ * Execute a callback once at the current timeline position. The runner
+ * fire-and-forgets the return value, so the type accepts `unknown` —
+ * callers can write `call(() => log.push(x))` without wrapping in a block
+ * to discard `Array.push`'s number return.
+ */
+export function call(fn: (ctx: any) => unknown): Step {
   return { kind: "call", run: fn };
 }
 

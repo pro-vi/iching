@@ -90,10 +90,11 @@ export function formatHexagramPlain(
   );
   lines.push("");
 
-  if (style) {
-    // Show only requested style
+  if (style && style !== "st") {
+    // Show only requested commentary style. "st" means structure-only —
+    // the trigram block above already covers it, so we skip the commentary.
     lines.push(hex[style]);
-  } else {
+  } else if (!style) {
     // Show all commentary styles
     lines.push(`大象 (dx): ${hex.dx}`);
     lines.push(`彖傳 (tu): ${hex.tu}`);

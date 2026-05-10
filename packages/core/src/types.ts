@@ -1,6 +1,13 @@
 /** Commentary style keys: dx=大象傳, tu=彖傳, en=English, te=彖英, w=Wilhelm (experimental) */
 export type Style = "dx" | "tu" | "en" | "te" | "w" | "st";
 
+/**
+ * Subset of Style that can be looked up directly on a Hexagram (i.e. excludes
+ * "st", which is the synthetic "structure / trigrams" style handled by a
+ * separate code path). Any random-quote selector should narrow to this.
+ */
+export type QuoteStyle = Exclude<Style, "st">;
+
 /** Hexagram entry in GUA array */
 export interface Hexagram {
   u: string; // Unicode symbol

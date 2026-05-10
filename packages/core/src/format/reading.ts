@@ -1,16 +1,16 @@
 import type { RandomSource } from "../random.js";
-import type { Cast, Style, Structure } from "../types.js";
+import type { Cast, QuoteStyle, Style, Structure } from "../types.js";
 import { GUA } from "../data/gua.js";
 import { QUOTE_STYLES } from "../data/trigrams.js";
 import { formatTrigrams } from "../identify/structure.js";
 
-/** Unbiased random quote style for derived hexagrams (excludes "st") */
-export function getRandomQuoteStyle(source: RandomSource): Style {
+/** Unbiased random quote style for derived hexagrams (excludes "st"). */
+export function getRandomQuoteStyle(source: RandomSource): QuoteStyle {
   let byte: number;
   do {
     byte = source.nextBytes(1)[0];
   } while (byte >= 250);
-  return QUOTE_STYLES[byte % 5];
+  return QUOTE_STYLES[byte % 5] as QuoteStyle;
 }
 
 /** Format full reading with optional transformation */

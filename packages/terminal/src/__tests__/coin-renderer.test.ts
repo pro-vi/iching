@@ -5,17 +5,17 @@ import { GLYPHS } from "../glyphs.ts";
 describe("coin-renderer", () => {
   test("spin glyph at progress 0 returns first spin frame", () => {
     const glyph = coinSpinGlyph(0, 0);
-    expect(GLYPHS.coinSpin).toContain(glyph);
+    expect([...GLYPHS.coinSpin] as string[]).toContain(glyph);
   });
 
   test("spin glyph at progress 0.5 returns a spin frame", () => {
     const glyph = coinSpinGlyph(0.5, 0);
-    expect(GLYPHS.coinSpin).toContain(glyph);
+    expect([...GLYPHS.coinSpin] as string[]).toContain(glyph);
   });
 
   test("spin glyph at progress 1 returns a spin frame", () => {
     const glyph = coinSpinGlyph(1, 0);
-    expect(GLYPHS.coinSpin).toContain(glyph);
+    expect([...GLYPHS.coinSpin] as string[]).toContain(glyph);
   });
 
   test("spin glyphs cycle through frames as progress increases", () => {

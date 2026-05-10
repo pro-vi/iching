@@ -24,15 +24,18 @@ const FIXTURE_CAST: Cast = {
     { value: 7, isYang: true, isChanging: false },
     { value: 7, isYang: true, isChanging: false },
   ],
-  nuclear: null,
-  polarity: null,
-  mirror: null,
-  diagonal: null,
+  // Hexagram 1 derivations: nuclear/mirror = self (1), polarity/diagonal = 2 (Kun).
+  // Exact values aren't asserted by schema-shape tests — they just need to type-check.
+  nuclear: 1,
+  polarity: 2,
+  mirror: 1,
+  diagonal: 2,
 };
 
 const FIXTURE_STRUCTURE: Structure = {
   upper: { sym: "☰", n: "乾", img: "heaven" },
   lower: { sym: "☰", n: "乾", img: "heaven" },
+  becoming: null,
 };
 
 function assertShape(
@@ -57,7 +60,7 @@ describe("schema shape — config", () => {
     const store = new JsonConfigStore(join(dir, "config.json"));
     const cfg = await store.load();
     assertShape(Object.keys(cfg), SCHEMA_KEYS.config);
-    expect(SCHEMA_KEYS.config.required.length).toBe(Object.keys(cfg).length);
+    expect(Object.keys(cfg).length).toBe(SCHEMA_KEYS.config.required.length);
   });
 
   test("round-tripped config keys match SCHEMA_KEYS.config", async () => {
