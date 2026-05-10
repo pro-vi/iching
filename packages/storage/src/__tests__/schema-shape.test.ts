@@ -70,6 +70,7 @@ describe("schema shape — config", () => {
       glyphAnim: "dots",
       glyphFont: "kaiti",
       taijituStyle: "dense",
+      castMode: "manual",
     };
     await store.save(written);
     const onDisk = JSON.parse(await readFile(join(dir, "config.json"), "utf-8"));

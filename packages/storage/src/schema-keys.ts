@@ -21,6 +21,7 @@ export const SCHEMA_KEYS = {
       "glyphAnim",
       "glyphFont",
       "taijituStyle",
+      "castMode",
     ],
     optional: [],
   },

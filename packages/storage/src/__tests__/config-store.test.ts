@@ -25,10 +25,11 @@ describe("JsonConfigStore", () => {
       glyphAnim: "dots",
       glyphFont: "kaiti",
       taijituStyle: "dots",
+      castMode: "auto",
     });
   });
 
-  test("save then load round-trip", async () => {
+  test("save then load round-trip with non-default castMode", async () => {
     const custom: UserConfig = {
       motion: "brisk",
       theme: "bone",
@@ -37,11 +38,13 @@ describe("JsonConfigStore", () => {
       glyphAnim: "dots",
       glyphFont: "heiti",
       taijituStyle: "dense",
+      castMode: "manual",
     };
 
     await store.save(custom);
     const loaded = await store.load();
     expect(loaded).toEqual(custom);
+    expect(loaded.castMode).toBe("manual");
   });
 
   test("load merges with defaults for partial config file", async () => {
@@ -58,6 +61,7 @@ describe("JsonConfigStore", () => {
       glyphAnim: "dots",
       glyphFont: "kaiti",
       taijituStyle: "dots",
+      castMode: "auto",
     });
   });
 
