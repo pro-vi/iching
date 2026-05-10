@@ -10,35 +10,22 @@ export function registerDictCommand(program: Command): void {
     .action(async (n?: string) => {
       const {
         BrowseScene,
-        DetailScene,
         SceneRouter,
         TerminalSession,
         RealClock,
         detectColorSupport,
       } = await import("@iching/terminal");
-      const { resolvePaths, JsonlJournalStore, getHexagramHistory } =
+      const { resolvePaths, JsonlJournalStore } =
         await import("@iching/storage");
+      const { makeBrowseFactory, makeDetailScene } =
+        await import("../app/scene-factories.js");
 
       const globalOpts = program.opts();
       const paths = resolvePaths(
         globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
       );
       const journal = new JsonlJournalStore(paths.state);
-
-      // Scene factory for router — loads history async after scene creation
-      const factory = (id: string) => {
-        if (id.startsWith("detail:")) {
-          const kw = Number(id.slice(7));
-          if (!Number.isInteger(kw) || kw < 1 || kw > 64) return new BrowseScene();
-          const scene = new DetailScene(kw);
-          // Load history in background — will be available after first render
-          getHexagramHistory(journal, kw).then((h) =>
-            scene.setHistory(h.castCount, h.lastCastDate),
-          );
-          return scene;
-        }
-        return new BrowseScene();
-      };
+      const factoryDeps = { journal };
 
       // Determine initial scene
       let initial;
@@ -48,17 +35,13 @@ export function registerDictCommand(program: Command): void {
           console.error("Hexagram number must be an integer from 1 to 64.");
           process.exit(1);
         }
-        const scene = new DetailScene(num);
-        // Load history for this hexagram
-        const history = await getHexagramHistory(journal, num);
-        scene.setHistory(history.castCount, history.lastCastDate);
-        initial = scene;
+        initial = makeDetailScene(num, factoryDeps);
       } else {
         initial = new BrowseScene();
       }
 
       const session = new TerminalSession();
-      const router = new SceneRouter(initial, factory);
+      const router = new SceneRouter(initial, makeBrowseFactory(factoryDeps));
       await router.run(session, new RealClock(), detectColorSupport());
       process.exit(0);
     });

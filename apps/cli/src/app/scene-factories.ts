@@ -21,7 +21,8 @@ export interface SessionDims {
 }
 
 export interface DetailDeps {
-  glyphConfig: CastGlyphInput;
+  /** Optional — interactive home flow passes the saved glyph config; standalone CLI doesn't need it. */
+  glyphConfig?: CastGlyphInput;
   journal: JsonlJournalStore;
 }
 
