@@ -5,8 +5,10 @@
 // `if (!hasSubcommand && ...)` checks at the top of main() are silent
 // because no unit test exercises the entrypoint.
 
-import { describe, test, expect } from "bun:test";
-import { resolve } from "node:path";
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
 const MAIN_TS = resolve(REPO_ROOT, "apps/cli/src/main.ts");
@@ -17,8 +19,21 @@ interface RunResult {
   stderr: string;
 }
 
+let dataDir: string;
+
+beforeEach(async () => {
+  dataDir = await mkdtemp(join(tmpdir(), "iching-mode-routing-test-"));
+});
+
+afterEach(async () => {
+  await rm(dataDir, { recursive: true, force: true });
+});
+
 async function runCli(args: string[]): Promise<RunResult> {
-  const proc = Bun.spawn(["bun", MAIN_TS, ...args], {
+  // Always pass --data-dir to an ephemeral temp dir so a regression that
+  // routes routing-mode args into hook/TUI mode can't write to the user's
+  // real ~/.local/state/iching journal or cache.
+  const proc = Bun.spawn(["bun", MAIN_TS, "--data-dir", dataDir, ...args], {
     cwd: REPO_ROOT,
     stdin: "pipe",
     stdout: "pipe",
