@@ -30,17 +30,19 @@ export interface BuildCastTimelineOpts {
 /**
  * Build the full ritual timeline for a casting sequence.
  *
- * Timeline structure:
- * 1. Opening breath
- * 2. For each line (0-5): coin toss -> land -> collapse -> line draw -> settle
- * 3. Extra pause after line 3 (trigram recognition)
- * 4. Extra pause after line 5
- * 5. Final stillness
- * 6. Whole-figure glow
- * 7. Title reveal
- * 8. If becoming: marker pulse -> morph wave -> becoming title
- * 9. If no changing: longer hold + "unchanging" subtitle
- * 10. Show prompt
+ * The timeline is the concatenation of two phases:
+ *
+ *   line phase    + reveal phase
+ *   ───────────────────────────────────────────────────────────────────
+ *   line casting    final stillness → whole-figure glow → primary glyph
+ *      (or)         → title → marker pulse (if becoming) → split slide →
+ *   line pre-settle morph wave → becoming title → becoming glyph →
+ *                   exploration mode
+ *
+ * Auto cast uses the line-casting phase (the 6-coin ritual). Manual cast
+ * uses the line pre-settle phase (lines were already drawn via the
+ * physics-toss scene). Either way, the reveal phase that follows is
+ * identical — same Step factories, same TimelineRunner, same model.
  */
 export function buildCastTimeline(
   cast: Cast,
@@ -50,42 +52,76 @@ export function buildCastTimeline(
   glyphConfig?: CastGlyphConfig,
   opts?: BuildCastTimelineOpts,
 ): Step {
-  const lineDrawingPhase: Step[] = opts?.skipLineDrawing
-    ? [
-        // Pre-settle all lines so the hexagram is fully visible when the
-        // reveal phases begin. Changing-line markers stay hidden until the
-        // marker-pulse step in the becoming sequence — same beat as auto cast.
-        call(() => {
-          for (let i = 0; i < cast.lines.length; i++) {
-            model.lines[i].settled = true;
-            model.lines[i].progress = 1;
-          }
-        }),
-        // Brief beat before the reveal phase starts.
-        wait(400),
-      ]
-    : [
-        // 1. Opening breath
-        wait(timing.startBreathMs),
-        // 2-4. Cast each line
-        ...cast.lines.map((line, i) =>
-          seq(
-            castOneLine(i, line, model, timing),
-            // Trigram recognition beat after line 3 (index 2)
-            ...(i === 2 ? [wait(timing.afterLine3Ms)] : []),
-            // Pause after line 5 (index 4)
-            ...(i === 4 ? [wait(timing.afterLine5Ms)] : []),
-          ),
-        ),
-      ];
-
   return seq(
-    ...lineDrawingPhase,
+    ...(opts?.skipLineDrawing
+      ? buildLinePresettlePhase(cast, model)
+      : buildLineCastingPhase(cast, model, timing)),
+    ...buildRevealPhase(cast, model, timing, termWidth, glyphConfig),
+  );
+}
 
-    // 5. Final stillness
+/**
+ * Line-casting phase: opening breath, then the 6-line coin ritual with
+ * trigram-recognition and final-line pauses.
+ */
+function buildLineCastingPhase(
+  cast: Cast,
+  model: CastModel,
+  timing: RitualTiming,
+): Step[] {
+  return [
+    wait(timing.startBreathMs),
+    ...cast.lines.map((line, i) =>
+      seq(
+        castOneLine(i, line, model, timing),
+        // Trigram recognition beat after line 3 (index 2)
+        ...(i === 2 ? [wait(timing.afterLine3Ms)] : []),
+        // Pause after line 5 (index 4)
+        ...(i === 4 ? [wait(timing.afterLine5Ms)] : []),
+      ),
+    ),
+  ];
+}
+
+/**
+ * Line pre-settle phase: instantly mark all 6 lines as settled and progress 1.
+ * Used when the lines were already drawn upstream (e.g. by the manual coin
+ * toss). Changing-line markers stay hidden until the marker-pulse step in
+ * the reveal phase — same visual beat as auto cast.
+ */
+function buildLinePresettlePhase(cast: Cast, model: CastModel): Step[] {
+  return [
+    call(() => {
+      for (let i = 0; i < cast.lines.length; i++) {
+        model.lines[i].settled = true;
+        model.lines[i].progress = 1;
+      }
+    }),
+    // Brief beat before the reveal phase starts.
+    wait(400),
+  ];
+}
+
+/**
+ * Reveal phase: stillness, whole-figure glow, primary glyph reveal, title,
+ * then either the becoming sequence (marker pulse → split/morph → becoming
+ * glyph → exploration) or the no-becoming hold.
+ *
+ * Shared by all reveal paths (auto cast, manual cast). The line phase that
+ * precedes it differs; everything from here on is the same.
+ */
+function buildRevealPhase(
+  cast: Cast,
+  model: CastModel,
+  timing: RitualTiming,
+  termWidth: number,
+  glyphConfig?: CastGlyphConfig,
+): Step[] {
+  return [
+    // Final stillness
     wait(timing.finalStillMs),
 
-    // 6. Whole-figure glow
+    // Whole-figure glow
     call(() => {
       model.hexagramComplete = true;
     }),
@@ -97,7 +133,7 @@ export function buildCastTimeline(
       model.glowProgress = 0;
     }),
 
-    // 6b. Primary glyph reveal (if config provided)
+    // Primary glyph reveal (if config provided)
     ...(glyphConfig
       ? [
           wait(200),
@@ -105,29 +141,35 @@ export function buildCastTimeline(
         ]
       : []),
 
-    // 7. Title reveal
+    // Title reveal
     tween(timing.titleStaggerMs > 0 ? 400 : 1, (p) => {
       model.titleProgress = p;
     }, easeOut),
 
-    // 8/9. Becoming or unchanging
+    // Becoming or unchanging
     ...(cast.becoming !== null
       ? canSplit(termWidth)
         ? buildWideBecoming(cast, model, timing, glyphConfig)
         : buildNarrowBecoming(cast, model, timing, glyphConfig)
-      : [
-          // No becoming: hold, then show prompt
-          wait(1200),
-          call(() => {
-            model.subtitleText = "";
-          }),
-          wait(timing.restMs),
-          call(() => {
-            model.showPrompt = true;
-          }),
-        ]),
-    // Becoming paths set showPrompt themselves
-  );
+      : buildUnchangingHold(model, timing)),
+  ];
+}
+
+/**
+ * No-becoming tail: hold, clear subtitle, rest, show prompt.
+ * Becoming paths set showPrompt themselves via buildEnterExploration.
+ */
+function buildUnchangingHold(model: CastModel, timing: RitualTiming): Step[] {
+  return [
+    wait(1200),
+    call(() => {
+      model.subtitleText = "";
+    }),
+    wait(timing.restMs),
+    call(() => {
+      model.showPrompt = true;
+    }),
+  ];
 }
 
 /**
