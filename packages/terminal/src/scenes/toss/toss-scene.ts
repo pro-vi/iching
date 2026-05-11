@@ -91,11 +91,11 @@ export class TossScene implements Scene {
 
     if (this.phase === "waiting") {
       const label = `Round ${this.round + 1} / 6`;
-      const hint = "[space] toss  •  [q] quit";
+      const hint = "[space] toss  ·  [esc] back";
       frame.writeText(2, cx - Math.floor(stringWidth(label) / 2), label, { fg: t.secondary });
       frame.writeText(4, cx - Math.floor(stringWidth(hint) / 2), hint, { fg: t.tertiary, dim: true });
     } else if (this.phase === "complete") {
-      const hint = "[space] reveal  •  [q] discard";
+      const hint = "[space] reveal  ·  [esc] discard";
       frame.writeText(2, cx - Math.floor(stringWidth(hint) / 2), hint, { fg: t.tertiary, dim: true });
     }
 

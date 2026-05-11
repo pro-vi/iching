@@ -55,7 +55,7 @@ export class IntentionScene implements Scene {
 
     // Hint (only render if it fits)
     if (hintRow < frame.height) {
-      const hint = "enter cast · esc back";
+      const hint = "[enter] confirm  ·  [esc] back";
       const hintCol = cx - Math.floor(stringWidth(hint) / 2);
       frame.writeText(hintRow, hintCol, hint, { fg: t.tertiary, dim: true });
     }

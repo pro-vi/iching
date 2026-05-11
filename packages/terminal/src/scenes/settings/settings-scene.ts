@@ -184,7 +184,7 @@ export class SettingsScene implements Scene {
     // Footer is anchored to the bottom; preview lives in whatever space is left.
     const footerRow = frame.height - 2;
     const footerSepRow = footerRow - 1;
-    const footer = "↑↓ setting  ←→ option  esc save & back";
+    const footer = "[↑↓] setting  ·  [←→] option  ·  [esc] save & back";
 
     const sectionSepRow = row;
     const previewLabelRow = row + 2;

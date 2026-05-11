@@ -266,9 +266,9 @@ function renderPrompt(buf: CellBuffer, model: CastModel): void {
   const t = getTheme();
   const text = model.explorationMode
     ? (model.cast.becoming !== null
-        ? "←→ switch   enter detail   [j] journal   [d] dictionary   [q] quit"
-        : "enter detail   [j] journal   [d] dictionary   [q] quit")
-    : "[enter] explore   [j] journal   [d] dictionary   [q] quit";
+        ? "[←→] switch  ·  [enter] detail  ·  [j] journal  ·  [d] dictionary  ·  [esc] back"
+        : "[enter] detail  ·  [j] journal  ·  [d] dictionary  ·  [esc] back")
+    : "[enter] explore  ·  [j] journal  ·  [d] dictionary  ·  [esc] back";
   const row = buf.height - 2;
   if (row < 0) return;
   const w = stringWidth(text);

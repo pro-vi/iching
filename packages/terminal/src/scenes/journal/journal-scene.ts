@@ -117,7 +117,7 @@ export class JournalScene implements Scene {
     }
 
     // Footer
-    const footer = "↑↓ navigate   enter view   d dictionary   esc/q back";
+    const footer = "[↑↓] navigate  ·  [enter] view  ·  [d] dictionary  ·  [esc] back";
     const footerCol = Math.max(0, Math.floor((maxW - stringWidth(footer)) / 2));
     frame.writeText(ctx.rows - 1, footerCol, footer, { fg: t.tertiary });
 

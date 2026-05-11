@@ -238,8 +238,8 @@ function renderFooter(
 
   const keys =
     model.focus === "derived"
-      ? "↑↓ select  enter open  tab scroll  esc back"
-      : "↑↓ scroll  tab derived  enter open  esc back";
+      ? "[↑↓] select  ·  [enter] open  ·  [tab] scroll  ·  [esc] back"
+      : "[↑↓] scroll  ·  [tab] derived  ·  [enter] open  ·  [esc] back";
 
   const indicator =
     model.contentHeight > model.viewportHeight

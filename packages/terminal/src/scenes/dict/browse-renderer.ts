@@ -157,8 +157,8 @@ function renderFooter(
   // Footer keybindings
   const count = `${model.filtered.length} hexagrams`;
   const keys = model.searchActive
-    ? "↑↓ navigate  enter open  esc clear  q quit"
-    : "↑↓ navigate  enter open  / search  q quit";
+    ? "[↑↓] navigate  ·  [enter] open  ·  [esc] clear search"
+    : "[↑↓] navigate  ·  [enter] open  ·  [/] search  ·  [esc] back";
 
   frame.writeText(footerRow, 1, keys, { fg: t.secondary });
   frame.writeText(footerRow, ctx.cols - count.length - 1, count, {
