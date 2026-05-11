@@ -118,8 +118,14 @@ export async function runReadingFlow(
     });
   }
 
-  // 4. Reveal — manual and replay skip the line-drawing timeline (lines are already known)
-  const skipLineTimeline = opts.source.type === "manual" || opts.source.type === "existing";
+  // 4. Reveal.
+  // - manual: lines are already cast via the coin-toss scene, so we
+  //   pre-settle them and let the post-line reveal sequence (glow → glyph
+  //   → split → morph → exploration) play naturally. Same end-state choreography
+  //   as auto cast, just minus the line-by-line drawing.
+  // - existing: replay of a saved reading — fully static, no animation.
+  // - auto: full ritual from the opening breath onward.
+  const isManual = opts.source.type === "manual";
   const castScene = new CastScene(
     cast,
     deps.motion,
@@ -127,8 +133,9 @@ export async function runReadingFlow(
     deps.glyphConfig,
     deps.session.rows,
     intention,
+    { skipLineDrawing: isManual },
   );
-  if (skipLineTimeline) castScene.skipToComplete(true);
+  if (isReplay) castScene.skipToComplete(false);
   const castSignal = await deps.run(castScene);
 
   if (castSignal?.type === "exit") return { shouldExit: true };

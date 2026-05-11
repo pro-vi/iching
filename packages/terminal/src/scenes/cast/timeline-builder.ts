@@ -17,6 +17,16 @@ export interface CastGlyphConfig {
   glyphSize: GlyphSize;
 }
 
+export interface BuildCastTimelineOpts {
+  /**
+   * Skip the opening breath + 6-line coin-cast phase, pre-settling all lines
+   * to their final state. The reveal phases (glow → glyph → split → morph →
+   * exploration) still play normally. Used by the manual coin-toss path,
+   * where the user has already cast the lines via the physics-toss scene.
+   */
+  skipLineDrawing?: boolean;
+}
+
 /**
  * Build the full ritual timeline for a casting sequence.
  *
@@ -38,21 +48,39 @@ export function buildCastTimeline(
   timing: RitualTiming,
   termWidth: number = 80,
   glyphConfig?: CastGlyphConfig,
+  opts?: BuildCastTimelineOpts,
 ): Step {
-  return seq(
-    // 1. Opening breath
-    wait(timing.startBreathMs),
+  const lineDrawingPhase: Step[] = opts?.skipLineDrawing
+    ? [
+        // Pre-settle all lines so the hexagram is fully visible when the
+        // reveal phases begin. Changing-line markers stay hidden until the
+        // marker-pulse step in the becoming sequence — same beat as auto cast.
+        call(() => {
+          for (let i = 0; i < cast.lines.length; i++) {
+            model.lines[i].settled = true;
+            model.lines[i].progress = 1;
+          }
+        }),
+        // Brief beat before the reveal phase starts.
+        wait(400),
+      ]
+    : [
+        // 1. Opening breath
+        wait(timing.startBreathMs),
+        // 2-4. Cast each line
+        ...cast.lines.map((line, i) =>
+          seq(
+            castOneLine(i, line, model, timing),
+            // Trigram recognition beat after line 3 (index 2)
+            ...(i === 2 ? [wait(timing.afterLine3Ms)] : []),
+            // Pause after line 5 (index 4)
+            ...(i === 4 ? [wait(timing.afterLine5Ms)] : []),
+          ),
+        ),
+      ];
 
-    // 2-4. Cast each line
-    ...cast.lines.map((line, i) =>
-      seq(
-        castOneLine(i, line, model, timing),
-        // Trigram recognition beat after line 3 (index 2)
-        ...(i === 2 ? [wait(timing.afterLine3Ms)] : []),
-        // Pause after line 5 (index 4)
-        ...(i === 4 ? [wait(timing.afterLine5Ms)] : []),
-      ),
-    ),
+  return seq(
+    ...lineDrawingPhase,
 
     // 5. Final stillness
     wait(timing.finalStillMs),

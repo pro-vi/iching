@@ -38,6 +38,7 @@ export class CastScene implements Scene {
     glyphConfig?: CastGlyphInput,
     termRows: number = 24,
     intention?: string,
+    opts?: { skipLineDrawing?: boolean },
   ) {
     this.model = new CastModel(cast);
     this.model.intention = intention;
@@ -60,7 +61,7 @@ export class CastScene implements Scene {
       };
     }
     const timing = getPreset(preset);
-    const step = buildCastTimeline(cast, this.model, timing, termWidth, this.glyphConfig);
+    const step = buildCastTimeline(cast, this.model, timing, termWidth, this.glyphConfig, opts);
     this.timeline = new TimelineRunner(step);
   }
 
