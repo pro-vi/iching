@@ -264,11 +264,13 @@ function renderSplitArrow(buf: CellBuffer, model: CastModel): void {
 /** Render the prompt bar at the bottom of the hexagram area. */
 function renderPrompt(buf: CellBuffer, model: CastModel): void {
   const t = getTheme();
+  // Footer only shows contextual actions. j/d still work as silent shortcuts
+  // to journal/dictionary — they live on the home menu, accessible via esc.
   const text = model.explorationMode
     ? (model.cast.becoming !== null
-        ? "[←→] switch  ·  [enter] detail  ·  [j] journal  ·  [d] dictionary  ·  [esc] back"
-        : "[enter] detail  ·  [j] journal  ·  [d] dictionary  ·  [esc] back")
-    : "[enter] explore  ·  [j] journal  ·  [d] dictionary  ·  [esc] back";
+        ? "[←→] switch  ·  [enter] detail  ·  [esc] back"
+        : "[enter] detail  ·  [esc] back")
+    : "[enter] explore  ·  [esc] back";
   const row = buf.height - 2;
   if (row < 0) return;
   const w = stringWidth(text);
