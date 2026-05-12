@@ -29,8 +29,15 @@
 需要 [Bun](https://bun.sh) >= 1.0。
 
 ```bash
-bunx @pro-vi/iching                    # 进入 TUI
-bunx @pro-vi/iching cast "该不该上线？" # 一次性起卦
+bun install -g @pro-vi/iching          # 全局安装
+iching                                  # 进入 TUI
+iching cast "该不该上线？"              # 一次性起卦
+```
+
+或免安装直接运行：
+
+```bash
+bunx @pro-vi/iching
 ```
 
 或克隆构建：

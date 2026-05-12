@@ -30,8 +30,15 @@ No web technologies, no frameworks.
 Requires [Bun](https://bun.sh) >= 1.0.
 
 ```bash
-bunx @pro-vi/iching                    # launch the TUI
-bunx @pro-vi/iching cast "ship it?"    # one-shot cast
+bun install -g @pro-vi/iching          # install globally
+iching                                  # launch the TUI
+iching cast "ship it?"                  # one-shot cast
+```
+
+Or run without installing:
+
+```bash
+bunx @pro-vi/iching
 ```
 
 Or clone and build:
