@@ -5,7 +5,7 @@
 一款沉静的终端易经 TUI。
 
 <p align="center">
-  <img src="assets/home.png" alt="iching 主界面" width="480" />
+  <img src="assets/cast.gif" alt="iching 起卦演示" width="720" />
 </p>
 
 立意。起卦。静观所现。

@@ -5,7 +5,7 @@
 A contemplative I Ching TUI for the terminal.
 
 <p align="center">
-  <img src="assets/home.png" alt="iching home screen" width="480" />
+  <img src="assets/cast.gif" alt="iching casting a hexagram" width="720" />
 </p>
 
 Set an intention. Cast a hexagram. Sit with what shows up.
