@@ -89,6 +89,13 @@ export {
   getPreset,
 } from "./animation/presets.ts";
 
+// Animation: yarrow ritual timing
+export {
+  type RitualDetail,
+  type YarrowTiming,
+  getYarrowTiming,
+} from "./animation/yarrow-presets.ts";
+
 // Scene
 export {
   type SceneContext,
