@@ -14,6 +14,7 @@ import { getTheme, setTheme, THEME_NAMES, type ThemeName } from "../../color/the
 import { stringWidth } from "../../layout/measure.ts";
 import { type CoinState, INITIAL_VY, stepCoin, coinFrame } from "../toss/coin-physics.ts";
 import { renderCoinSet, CoinAnim } from "../cast/coin-renderer.ts";
+import { brailleStrand } from "../yarrow/field-renderer.ts";
 import { LINE_WIDTH } from "../../glyphs.ts";
 
 // ── Setting definitions ──────────────────────────────────────────────
@@ -21,7 +22,7 @@ import { LINE_WIDTH } from "../../glyphs.ts";
 const ANIM_OPTIONS: GlyphAnimStyle[] = ["dots", "noise", "radial", "sand"];
 const FONT_OPTIONS: GlyphFont[] = ["kaiti", "libian", "heiti"];
 const TAIJITU_OPTIONS: TaijituStyle[] = ["dots", "dense"];
-const CAST_MODE_OPTIONS = ["auto", "manual"] as const;
+const CAST_MODE_OPTIONS = ["auto", "manual", "yarrow"] as const;
 
 interface SettingRow {
   label: string;
@@ -34,7 +35,7 @@ export interface SettingsValues {
   glyphAnim: GlyphAnimStyle;
   glyphFont: GlyphFont;
   taijituStyle: TaijituStyle;
-  castMode: "auto" | "manual";
+  castMode: "auto" | "manual" | "yarrow";
 }
 
 // ── Preview constants ─────────────────────────────────────────────────
@@ -42,7 +43,12 @@ export interface SettingsValues {
 const PREVIEW_CHAR = "乾";
 const COIN_PAUSE_SECS = 0.8;
 
-type PreviewKind = "glyph" | "taijitu" | "cast-manual" | "cast-auto";
+type PreviewKind =
+  | "glyph"
+  | "taijitu"
+  | "cast-manual"
+  | "cast-auto"
+  | "cast-yarrow";
 
 // ── Scene ────────────────────────────────────────────────────────────
 
@@ -268,6 +274,22 @@ export class SettingsScene implements Scene {
         renderCoinSet(frame, coinCenterCol, coinRow, this.coinAnim.phase, this.coinAnim.progress, this.coinAnim.results);
         break;
       }
+
+      case "cast-yarrow": {
+        const strand = brailleStrand(49);
+        const strandRow = startRow + Math.floor(availRows / 2);
+        frame.writeText(strandRow, cx - Math.floor(stringWidth(strand) / 2), strand, {
+          fg: t.primary,
+        });
+        const label = "yarrow stalk field";
+        frame.writeText(
+          strandRow + 2,
+          cx - Math.floor(stringWidth(label) / 2),
+          label,
+          { fg: t.tertiary },
+        );
+        break;
+      }
     }
   }
 
@@ -310,7 +332,12 @@ export class SettingsScene implements Scene {
 
   private previewKindForLabel(label: string | undefined): PreviewKind {
     if (label === "Taijitu") return "taijitu";
-    if (label === "Cast") return this.getValues().castMode === "manual" ? "cast-manual" : "cast-auto";
+    if (label === "Cast") {
+      const mode = this.getValues().castMode;
+      if (mode === "manual") return "cast-manual";
+      if (mode === "yarrow") return "cast-yarrow";
+      return "cast-auto";
+    }
     return "glyph"; // Theme, Glyph Animation, Font
   }
 

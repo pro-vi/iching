@@ -90,6 +90,14 @@ describe("config command", () => {
     expect(getResult.stdout.trim()).toBe("manual");
   }, 20_000);
 
+  test("set castMode yarrow persists, reload reads yarrow", async () => {
+    const setResult = await runCli(dataDir, ["config", "set", "castMode", "yarrow"]);
+    expect(setResult.exitCode).toBe(0);
+    const getResult = await runCli(dataDir, ["config", "get", "castMode"]);
+    expect(getResult.exitCode).toBe(0);
+    expect(getResult.stdout.trim()).toBe("yarrow");
+  }, 20_000);
+
   test("set castMode rejects invalid value", async () => {
     const { exitCode, stderr } = await runCli(dataDir, ["config", "set", "castMode", "wibble"]);
     expect(exitCode).not.toBe(0);

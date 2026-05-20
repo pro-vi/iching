@@ -102,7 +102,9 @@ async function main() {
             purpose: "cast",
             source: castMode === "manual"
               ? { type: "manual" }
-              : { type: "auto", seed: opts.seed ? Number(opts.seed) : undefined },
+              : castMode === "yarrow"
+                ? { type: "yarrow" }
+                : { type: "auto", seed: opts.seed ? Number(opts.seed) : undefined },
           });
           if (result.shouldExit) running = false;
           break;
