@@ -135,6 +135,9 @@ export { JournalScene } from "./scenes/journal/journal-scene.ts";
 // Scenes: toss playground
 export { TossScene } from "./scenes/toss/toss-scene.ts";
 
+// Scenes: yarrow stalk ritual
+export { YarrowScene } from "./scenes/yarrow/yarrow-scene.ts";
+
 // Widgets
 export { ScrollableRegion } from "./widgets/scrollable.ts";
 export { TextInput } from "./widgets/text-input.ts";

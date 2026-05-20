@@ -38,7 +38,8 @@ export type SceneSignal =
   | { type: "openJournalReading"; key: string }
   // Inner-flow events
   | { type: "intentionConfirmed" } // intention input completed
-  | { type: "tossCompleted"; cast: Cast }; // coin-toss ritual produced a cast
+  | { type: "tossCompleted"; cast: Cast } // coin-toss ritual produced a cast
+  | { type: "yarrowCompleted"; cast: Cast }; // yarrow stalk ritual produced a cast
 
 export interface Scene {
   enter?(ctx: SceneContext): void | Promise<void>;
