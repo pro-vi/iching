@@ -1,7 +1,7 @@
 ---
 title: Yarrow Stalk Casting Method
 type: feat
-status: active
+status: completed
 date: 2026-05-20
 origin: docs/vision/yarrow-ritual-vision.md
 ---
