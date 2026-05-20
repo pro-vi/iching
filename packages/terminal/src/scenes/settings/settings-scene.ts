@@ -77,7 +77,7 @@ export class SettingsScene implements Scene {
       { label: "Taijitu",         options: [...TAIJITU_OPTIONS],   selected: Math.max(0, TAIJITU_OPTIONS.indexOf(initial.taijituStyle)) },
       { label: "Glyph Animation", options: [...ANIM_OPTIONS],      selected: Math.max(0, ANIM_OPTIONS.indexOf(initial.glyphAnim)) },
       { label: "Font",            options: [...FONT_OPTIONS],      selected: Math.max(0, FONT_OPTIONS.indexOf(initial.glyphFont)) },
-      { label: "Cast",            options: [...CAST_MODE_OPTIONS], selected: Math.max(0, CAST_MODE_OPTIONS.indexOf(initial.castMode as any)) },
+      { label: "Cast",            options: [...CAST_MODE_OPTIONS], selected: Math.max(0, CAST_MODE_OPTIONS.indexOf(initial.castMode)) },
     ];
     this.previewKind = this.previewKindForLabel(this.rows[0]?.label);
   }

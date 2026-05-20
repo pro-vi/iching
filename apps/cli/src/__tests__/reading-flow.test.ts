@@ -4,6 +4,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Cast } from "@iching/core";
 import { resolvePaths, JsonDailyCacheStore } from "@iching/storage";
 import {
   IntentionScene,
@@ -43,8 +44,8 @@ describe("runReadingFlow — yarrow source", () => {
 
   test("runs YarrowScene, persists the cast, and reveals via CastScene", async () => {
     const scenesRun: string[] = [];
-    let yarrowCast: unknown;
-    let castSceneCast: unknown;
+    let yarrowCast: Cast | undefined;
+    let castSceneCast: Cast | undefined;
 
     const run: RunImpl = async (scene) => {
       if (scene instanceof IntentionScene) {
@@ -75,7 +76,7 @@ describe("runReadingFlow — yarrow source", () => {
     expect(castSceneCast).toEqual(yarrowCast);
 
     const cache = await deps.cacheStore.read();
-    expect(cache?.cast).toEqual(yarrowCast as never);
+    expect(cache?.cast).toEqual(yarrowCast);
     expect(cache?.shown).toBe(true);
   });
 

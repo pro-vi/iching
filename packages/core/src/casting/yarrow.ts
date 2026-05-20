@@ -81,6 +81,12 @@ function castYarrowRound(source: RandomSource, startCount: number): YarrowRound 
   };
 }
 
+/** Narrow a computed remainder/4 to a LineValue; throws if the sim drifted. */
+function toLineValue(n: number): LineValue {
+  if (n === 6 || n === 7 || n === 8 || n === 9) return n;
+  throw new Error(`yarrow: line value out of range (${n})`);
+}
+
 function lineFromValue(value: LineValue): Line {
   return {
     value,
@@ -91,16 +97,12 @@ function lineFromValue(value: LineValue): Line {
 
 /** Cast a single line via three yarrow rounds, returning the full transcript. */
 export function castYarrowLine(source: RandomSource): YarrowLineResult {
-  let count = 49;
-  const rounds: YarrowRound[] = [];
-  for (let r = 0; r < 3; r++) {
-    const round = castYarrowRound(source, count);
-    rounds.push(round);
-    count = round.remaining;
-  }
+  const first = castYarrowRound(source, 49);
+  const second = castYarrowRound(source, first.remaining);
+  const third = castYarrowRound(source, second.remaining);
   return {
-    rounds: rounds as [YarrowRound, YarrowRound, YarrowRound],
-    line: lineFromValue((count / 4) as LineValue),
+    rounds: [first, second, third],
+    line: lineFromValue(toLineValue(third.remaining / 4)),
   };
 }
 
