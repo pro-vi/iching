@@ -17,6 +17,7 @@ product shape.
 |---|---|---|
 | [Entropy Sources Vision](vision/entropy-sources-vision.md) | Randomness, intention binding, locality, and provenance | Vision note; not an implementation plan. |
 | [Large Glyph Integration](vision/large-glyph-integration.md) | Where large braille-rendered Chinese glyphs appear in cast and dictionary flows | Vision direction; implementation details may need revalidation. |
+| [Yarrow Ritual Vision](vision/yarrow-ritual-vision.md) | The yarrow stalk method — faithful 49-stalk math, braille-field animation, and pacing | Vision note; design direction, not yet implementation scope. |
 
 ## Scope Spec
 
@@ -30,6 +31,7 @@ For current product direction:
 
 1. [Entropy Sources Vision](vision/entropy-sources-vision.md)
 2. [Large Glyph Integration](vision/large-glyph-integration.md)
+3. [Yarrow Ritual Vision](vision/yarrow-ritual-vision.md)
 
 For implementation context:
 
