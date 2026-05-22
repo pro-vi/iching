@@ -72,13 +72,15 @@ describe("buildYarrowTimeline", () => {
     const { timeline, beatOffsets } = buildYarrowTimeline(m, timing, "stepped");
     const runner = new TimelineRunner(timeline);
 
-    // Line 0, round 0, count beat is index 3; its tween spans [offset2, offset3].
-    const line0CountAt25 = beatOffsets[2] + 0.25 * (beatOffsets[3] - beatOffsets[2]);
+    // The count tween begins where the preceding takeOne beat ends and runs
+    // for exactly countMs — the trailing caption-hold/beat-gap come after it.
+    // Line 0, round 0, count beat is index 3 (takeOne ends at offset 2).
+    const line0CountAt25 = beatOffsets[2] + 0.25 * timing.countMs;
     runner.advance(line0CountAt25, m);
     const line0Progress = m.countProgress;
 
-    // Line 1, round 0, count beat is index 19 + 3 = 22.
-    const line1CountAt25 = beatOffsets[21] + 0.25 * (beatOffsets[22] - beatOffsets[21]);
+    // Line 1, round 0, count beat is index 22 (takeOne ends at offset 21).
+    const line1CountAt25 = beatOffsets[21] + 0.25 * timing.countMs;
     runner.advance(line1CountAt25, m);
     const line1Progress = m.countProgress;
 

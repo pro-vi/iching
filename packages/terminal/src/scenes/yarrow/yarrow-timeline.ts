@@ -1,8 +1,9 @@
 // Yarrow timeline builder — composes the 18-round ritual from the transcript.
 //
 // Six lines, three rounds each, seven beats per round, then a fuse that turns
-// the surviving field into the hexagram line. The first line is always taught
-// in `expanded` detail regardless of preset (teach-once-then-compress).
+// the surviving field into the hexagram line. The first round of the first
+// line is narrated with on-screen captions (teach-once); the first line is
+// always animated in `expanded` detail regardless of preset.
 
 import { type Step, seq, call, tween, wait, stepDuration } from "../../animation/timeline.ts";
 import { type EasingFn, linear, easeOut, easeInOut } from "../../animation/easing.ts";
@@ -12,7 +13,7 @@ import type { YarrowModel } from "./model.ts";
 /** Stepwise easing — the `expanded` count peels groups in discrete jumps. */
 const staircase: EasingFn = (t) => Math.min(1, Math.ceil(t * 10) / 10);
 
-/** Teach-once captions, shown only on the first line. */
+/** Teach-once captions, shown only on the first round of the first line. */
 const CAPTIONS = {
   gather: "The field rests.",
   divide: "Divide at a random point.",
@@ -41,9 +42,12 @@ export function buildYarrowTimeline(
 ): YarrowTimeline {
   const beats: Step[] = [];
 
+  // A narrated beat's caption lingers an extra captionHoldMs so it can be read.
+  const hold = (caption: string): Step[] =>
+    caption ? [wait(timing.captionHoldMs)] : [];
+
   for (let lineIdx = 0; lineIdx < 6; lineIdx++) {
     const teach = lineIdx === 0;
-    const caption = (key: keyof typeof CAPTIONS): string => (teach ? CAPTIONS[key] : "");
     // Teach-once: the first line is always expanded, whatever the preset.
     const effectiveDetail: RitualDetail = teach ? "expanded" : detail;
     const countEasing: EasingFn =
@@ -55,7 +59,12 @@ export function buildYarrowTimeline(
 
     for (let roundIdx = 0; roundIdx < 3; roundIdx++) {
       const round = model.transcript[lineIdx].rounds[roundIdx];
+      // Captions appear once — the first round teaches the round's shape.
+      const narrating = lineIdx === 0 && roundIdx === 0;
+      const caption = (key: keyof typeof CAPTIONS): string =>
+        narrating ? CAPTIONS[key] : "";
 
+      const gatherCap = caption("gather");
       beats.push(
         seq(
           call(() => {
@@ -68,17 +77,20 @@ export function buildYarrowTimeline(
             model.countProgress = 0;
             model.tallyProgress = 0;
             model.carryProgress = 0;
-            model.caption = caption("gather");
+            model.caption = gatherCap;
           }),
           wait(timing.gatherMs),
+          ...hold(gatherCap),
+          wait(timing.beatGapMs),
         ),
       );
 
+      const divideCap = caption("divide");
       beats.push(
         seq(
           call(() => {
             model.beat = "divide";
-            model.caption = caption("divide");
+            model.caption = divideCap;
           }),
           tween(timing.divideMs, (p) => {
             model.splitProgress = p;
@@ -86,14 +98,17 @@ export function buildYarrowTimeline(
           call(() => {
             model.splitProgress = 1;
           }),
+          ...hold(divideCap),
+          wait(timing.beatGapMs),
         ),
       );
 
+      const takeOneCap = caption("takeOne");
       beats.push(
         seq(
           call(() => {
             model.beat = "takeOne";
-            model.caption = caption("takeOne");
+            model.caption = takeOneCap;
           }),
           tween(timing.takeOneMs, (p) => {
             model.takeOneProgress = p;
@@ -101,14 +116,17 @@ export function buildYarrowTimeline(
           call(() => {
             model.takeOneProgress = 1;
           }),
+          ...hold(takeOneCap),
+          wait(timing.beatGapMs),
         ),
       );
 
+      const countCap = caption("count");
       beats.push(
         seq(
           call(() => {
             model.beat = "count";
-            model.caption = caption("count");
+            model.caption = countCap;
           }),
           tween(timing.countMs, (p) => {
             model.countProgress = p;
@@ -116,14 +134,17 @@ export function buildYarrowTimeline(
           call(() => {
             model.countProgress = 1;
           }),
+          ...hold(countCap),
+          wait(timing.beatGapMs),
         ),
       );
 
+      const tallyCap = caption("tally");
       beats.push(
         seq(
           call(() => {
             model.beat = "tally";
-            model.caption = caption("tally");
+            model.caption = tallyCap;
           }),
           tween(timing.tallyHoldMs, (p) => {
             model.tallyProgress = p;
@@ -131,14 +152,17 @@ export function buildYarrowTimeline(
           call(() => {
             model.tallyProgress = 1;
           }),
+          ...hold(tallyCap),
+          wait(timing.beatGapMs),
         ),
       );
 
+      const carryCap = caption("carry");
       beats.push(
         seq(
           call(() => {
             model.beat = "carry";
-            model.caption = caption("carry");
+            model.caption = carryCap;
           }),
           tween(timing.carryMs, (p) => {
             model.carryProgress = p;
@@ -147,6 +171,7 @@ export function buildYarrowTimeline(
             model.carryProgress = 1;
             model.fieldCount = round.remaining;
           }),
+          ...hold(carryCap),
           wait(timing.roundGapMs),
         ),
       );
@@ -154,11 +179,12 @@ export function buildYarrowTimeline(
 
     // Fuse — the surviving field rises and condenses into the hexagram line.
     const line = model.transcript[lineIdx].line;
+    const fuseCap = teach ? CAPTIONS.fuse : "";
     beats.push(
       seq(
         call(() => {
           model.beat = "fuse";
-          model.caption = caption("fuse");
+          model.caption = fuseCap;
         }),
         tween(timing.fuseMs, (p) => {
           model.lines[lineIdx].progress = p;
@@ -167,6 +193,9 @@ export function buildYarrowTimeline(
           model.lines[lineIdx].progress = 1;
           model.lines[lineIdx].settled = true;
           if (line.isChanging) model.lines[lineIdx].markerVisible = true;
+        }),
+        ...hold(fuseCap),
+        call(() => {
           model.caption = "";
         }),
         wait(timing.lineSettleMs),

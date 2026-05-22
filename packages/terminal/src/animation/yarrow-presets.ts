@@ -29,6 +29,8 @@ export interface YarrowTiming {
   tallyHoldMs: number;
   /** Survivors re-cohere for the next round. */
   carryMs: number;
+  /** Breath after each beat — the inter-step pulse that gives the ritual cadence. */
+  beatGapMs: number;
   /** Pause between rounds. */
   roundGapMs: number;
   /** Remainder rises and condenses into the hexagram line. */
@@ -37,67 +39,77 @@ export interface YarrowTiming {
   lineSettleMs: number;
   /** Trigram-recognition pause after line 3. */
   afterTrigramMs: number;
+  /** Extra dwell on a narrated beat so its caption can be read. */
+  captionHoldMs: number;
   /** Hold the finished figure before handing off to the reveal phase. */
   revealBridgeMs: number;
 }
 
 const DEFAULT: YarrowTiming = {
-  gatherMs: 200,
-  divideMs: 450,
-  takeOneMs: 260,
-  countMs: 560,
-  tallyHoldMs: 300,
-  carryMs: 320,
-  roundGapMs: 200,
-  fuseMs: 500,
-  lineSettleMs: 220,
-  afterTrigramMs: 500,
-  revealBridgeMs: 700,
+  gatherMs: 380,
+  divideMs: 720,
+  takeOneMs: 320,
+  countMs: 640,
+  tallyHoldMs: 420,
+  carryMs: 380,
+  beatGapMs: 130,
+  roundGapMs: 340,
+  fuseMs: 560,
+  lineSettleMs: 300,
+  afterTrigramMs: 600,
+  captionHoldMs: 1000,
+  revealBridgeMs: 800,
 };
 
 const DEEP: YarrowTiming = {
-  gatherMs: 320,
-  divideMs: 680,
-  takeOneMs: 420,
-  countMs: 1100,
-  tallyHoldMs: 480,
-  carryMs: 500,
-  roundGapMs: 340,
-  fuseMs: 760,
-  lineSettleMs: 360,
-  afterTrigramMs: 760,
-  revealBridgeMs: 1000,
+  gatherMs: 560,
+  divideMs: 1050,
+  takeOneMs: 480,
+  countMs: 1200,
+  tallyHoldMs: 640,
+  carryMs: 560,
+  beatGapMs: 220,
+  roundGapMs: 540,
+  fuseMs: 860,
+  lineSettleMs: 460,
+  afterTrigramMs: 900,
+  captionHoldMs: 1500,
+  revealBridgeMs: 1200,
 };
 
 const BRISK: YarrowTiming = {
-  gatherMs: 80,
-  divideMs: 200,
-  takeOneMs: 120,
-  countMs: 160,
-  tallyHoldMs: 140,
-  carryMs: 140,
-  roundGapMs: 90,
-  fuseMs: 240,
-  lineSettleMs: 100,
-  afterTrigramMs: 180,
-  revealBridgeMs: 320,
+  gatherMs: 110,
+  divideMs: 320,
+  takeOneMs: 150,
+  countMs: 200,
+  tallyHoldMs: 180,
+  carryMs: 170,
+  beatGapMs: 60,
+  roundGapMs: 130,
+  fuseMs: 280,
+  lineSettleMs: 120,
+  afterTrigramMs: 220,
+  captionHoldMs: 650,
+  revealBridgeMs: 360,
 };
 
 // Reduced motion, not reduced meaning: motion durations collapse to zero
-// (instant state changes), but small structural holds remain so the eye can
-// still register each round changing state.
+// (instant state changes), but structural holds — and the caption dwell —
+// remain so each round is still perceptible and the teaching still readable.
 const REDUCED: YarrowTiming = {
-  gatherMs: 60,
+  gatherMs: 70,
   divideMs: 0,
   takeOneMs: 0,
   countMs: 0,
-  tallyHoldMs: 120,
+  tallyHoldMs: 140,
   carryMs: 0,
-  roundGapMs: 80,
+  beatGapMs: 50,
+  roundGapMs: 110,
   fuseMs: 0,
-  lineSettleMs: 80,
-  afterTrigramMs: 150,
-  revealBridgeMs: 250,
+  lineSettleMs: 90,
+  afterTrigramMs: 170,
+  captionHoldMs: 800,
+  revealBridgeMs: 280,
 };
 
 const TIMINGS: Record<MotionPreset, YarrowTiming> = {
