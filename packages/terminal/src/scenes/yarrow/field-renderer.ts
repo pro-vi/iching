@@ -18,7 +18,10 @@ import type { YarrowModel } from "./model.ts";
 
 // ── Stalk vocabulary ─────────────────────────────────────────────────────────
 
-const STALK = "█";
+// A stalk is a single thin vertical mark — `│`, one per cell. Adjacent
+// cells render as a fence of individual sticks (not a solid bar), so each
+// stalk is countable and take-one events register as one stick vanishing.
+const STALK = "│";
 const TOTAL_STALKS = 49;
 const GAP_CELLS = 2; // minimum visible gap between heaps during split
 const BAR_AREA_WIDTH = TOTAL_STALKS + GAP_CELLS + 1; // 52 — fits any split
@@ -211,32 +214,42 @@ function renderField(buf: CellBuffer, model: YarrowModel): void {
 
     case "count": {
       if (!round) break;
+      // Heaps drain as fours are counted off. The fours don't go to the tray —
+      // they stay in play for the next round. Tray holds only the takeOne.
       const leftStart = round.splitAt;
       const leftEnd = round.leftRemainder;
-      const rightStart = round.startCount - round.splitAt - 1; // takeOne already gone
+      const rightStart = round.startCount - round.splitAt - 1;
       const rightEnd = round.rightRemainder;
       const leftCurrent = lerp(leftStart, leftEnd, model.countProgress);
       const rightCurrent = lerp(rightStart, rightEnd, model.countProgress);
       drawSplitBar(buf, row, areaStart, leftCurrent, rightCurrent, t.primary);
-      const counted = leftStart - leftCurrent + (rightStart - rightCurrent);
-      drawTray(buf, row, areaStart, 1 + counted, t.accent);
+      drawTray(buf, row, areaStart, 1, t.accent);
       break;
     }
 
     case "tally": {
       if (!round) break;
-      drawSplitBar(buf, row, areaStart, round.leftRemainder, round.rightRemainder, t.primary);
-      drawTray(buf, row, areaStart, Math.round(model.tallyProgress * round.setAside), t.accent);
+      // The remainders MOVE from bar to tray. Bar drains to zero; tray grows
+      // from 1 (takeOne) to setAside (1 + leftRem + rightRem).
+      const remTotal = round.leftRemainder + round.rightRemainder;
+      const leftInBar = round.leftRemainder * (1 - model.tallyProgress);
+      const rightInBar = round.rightRemainder * (1 - model.tallyProgress);
+      drawSplitBar(buf, row, areaStart, leftInBar, rightInBar, t.primary);
+      const inTray = 1 + remTotal * model.tallyProgress;
+      drawTray(buf, row, areaStart, inTray, t.accent);
       writeCentered(buf, row + 1, `set aside ${round.setAside}`, center, t.tertiary, true);
       break;
     }
 
     case "carry": {
       if (!round) break;
-      if (model.carryProgress < 1) {
-        drawSplitBar(buf, row, areaStart, round.leftRemainder, round.rightRemainder, t.primary);
-      } else {
-        drawWholeBar(buf, row, center, round.remaining, t.primary);
+      // The counted-off fours return to form the next round's pile —
+      // bar regrows from empty to `remaining` stalks.
+      const currentStalks = Math.round(round.remaining * model.carryProgress);
+      if (currentStalks > 0) {
+        drawWholeBar(buf, row, center, currentStalks, t.primary);
+      }
+      if (model.carryProgress >= 1) {
         writeCentered(buf, row + 1, String(round.remaining), center, t.tertiary, true);
       }
       break;
