@@ -76,12 +76,14 @@ describe("renderYarrowField", () => {
     expect(() => renderYarrowField(buf, m)).not.toThrow();
   });
 
-  test("fuse beat leaves the field area empty", () => {
+  test("fuse beat renders the lifting bar (somewhere between field and target rows)", () => {
     const m = model();
     m.activeLine = 0;
     m.beat = "fuse";
+    m.lines[0].progress = 0; // pre-lift — bar at field row
     const buf = new CellBuffer(80, 24);
     renderYarrowField(buf, m);
-    expect(rowHasContent(buf, 20)).toBe(false);
+    // Bar starts at the field row (anchorRow(24)+5 = 20).
+    expect(rowHasContent(buf, 20)).toBe(true);
   });
 });

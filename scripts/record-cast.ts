@@ -70,7 +70,8 @@ const scene =
     : new YarrowScene(preset, source);
 
 const ctx = {} as SceneContext;
-scene.enter?.(ctx);
+// Both scenes' enter is a no-op (CastScene) or undefined (YarrowScene),
+// so skip — keeps the headless path uniform.
 
 const duration = scene.getTimeline().duration;
 
