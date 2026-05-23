@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>iching · cast</title>
+  <link rel="stylesheet" href="/wterm.css" />
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #070605;
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    /* Match the iching "bone" theme. The cast emits 24-bit color per cell,
+       so only --term-bg / --term-fg matter here. font-size and row-height
+       must scale together (row-height ≈ font-size × line-height). */
+    #terminal {
+      --term-bg: #100d0a;
+      --term-fg: #dccfb5;
+      --term-font-size: 18px; /* fallback — main.ts fits it to the viewport */
+      --term-line-height: 1.2;
+      --term-row-height: 22px;
+      padding: 20px 26px;
+      border: 1px solid rgba(192, 160, 120, 0.13);
+    }
+  </style>
+</head>
+<body>
+  <div
+    id="terminal"
+    role="textbox"
+    aria-label="iching cast ritual"
+    aria-multiline="true"
+    aria-roledescription="terminal"
+  ></div>
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
