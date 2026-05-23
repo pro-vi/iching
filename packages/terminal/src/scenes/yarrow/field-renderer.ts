@@ -195,7 +195,18 @@ function renderField(buf: CellBuffer, model: YarrowModel): void {
 
     case "divide": {
       if (!round) break;
-      drawSplitBar(buf, row, areaStart, round.splitAt, round.startCount - round.splitAt, t.primary);
+      // Cleave + spread: at splitProgress 0 the heaps sit adjacent (the bar
+      // is continuous, centered); at 1 they're pinned to the outer edges of
+      // the bar area with the gap fully open. Drives off model.splitProgress.
+      const leftStalks = round.splitAt;
+      const rightStalks = round.startCount - round.splitAt;
+      const p = model.splitProgress;
+      const wholeStart = center - Math.floor((leftStalks + rightStalks) / 2);
+      const splitRightStart = areaStart + BAR_AREA_WIDTH - rightStalks;
+      const leftCol = Math.round(lerp(wholeStart, areaStart, p));
+      const rightCol = Math.round(lerp(wholeStart + leftStalks, splitRightStart, p));
+      buf.writeText(row, leftCol, stalkBar(leftStalks), { fg: t.primary });
+      buf.writeText(row, rightCol, stalkBar(rightStalks), { fg: t.primary });
       break;
     }
 

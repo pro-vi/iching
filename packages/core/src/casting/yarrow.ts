@@ -11,10 +11,13 @@ import { assembleCast } from "./cast.js";
  * divided by 4 gives the line value 6/7/8/9.
  *
  * The split point is drawn uniformly over [1, N-1] — the standard computational
- * model of a physical division. With the `mod 4` (0 → 4) counting rule this
- * reproduces the traditional asymmetric distribution: round 1 yields the small
- * set-aside with probability 3/4, which propagates to the line distribution
- * 6:1/16, 7:5/16, 8:7/16, 9:3/16.
+ * model of a physical division. With the `mod 4` (0 → 4) counting rule, round 1
+ * exactly reproduces P(setAside=5) = 3/4 (the "few" outcome), and rounds 2-3
+ * very nearly do (residue-class counts in finite [1, N-1] make "few" slightly
+ * more likely than 1/2 — about 51-52%). The resulting line distribution
+ * therefore *approximates* the textbook 6: 1/16, 7: 5/16, 8: 7/16, 9: 3/16 —
+ * the asymmetry and ordering are preserved, but exact textbook probabilities
+ * would require sampling the round outcome directly rather than the split point.
  */
 
 /** One division round of the yarrow ritual. */
@@ -57,8 +60,18 @@ function randomInt(source: RandomSource, maxExclusive: number): number {
   }
 }
 
-/** Count a heap by fours; a remainder of 0 counts as a final group of 4. */
+/**
+ * Count a heap by fours.
+ *
+ * A non-empty heap whose size is a multiple of 4 counts as having a final
+ * group of 4 as the remainder (the "0 → 4" convention). An *empty* heap
+ * has nothing to count, so the remainder is 0. This matters when the right
+ * heap is exactly 1 stalk before takeOne (rightHeap = 0 after): without
+ * this branch, the renderer would show a 0-stalk heap "growing into 4"
+ * during the count beat — a visible conservation violation.
+ */
 function countByFours(heap: number): number {
+  if (heap === 0) return 0;
   const rem = heap % 4;
   return rem === 0 ? 4 : rem;
 }
