@@ -344,7 +344,9 @@ function renderChrome(buf: CellBuffer, model: YarrowModel): void {
   const center = Math.floor(buf.width / 2);
 
   if (model.caption) {
-    writeCentered(buf, anchorRow(buf.height) + 7, model.caption, center, t.tertiary, true);
+    // Place the caption in the empty band between the hexagram and the field,
+    // where the eye naturally lands. Was hidden under the footer at row h-2.
+    writeCentered(buf, anchorRow(buf.height) + 2, model.caption, center, t.secondary);
   }
 
   if (model.activeLine >= 0 && model.activeLine < 6 && !model.hexagramComplete) {

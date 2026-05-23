@@ -13,16 +13,52 @@ import type { YarrowModel } from "./model.ts";
 /** Stepwise easing — the `expanded` count peels groups in discrete jumps. */
 const staircase: EasingFn = (t) => Math.min(1, Math.ceil(t * 10) / 10);
 
-/** Teach-once captions, shown only on the first round of the first line. */
-const CAPTIONS = {
-  gather: "The field rests.",
-  divide: "Divide at a random point.",
-  takeOne: "Set one stalk aside.",
-  count: "Count each heap by fours.",
-  tally: "What is removed is the tally.",
-  carry: "Carry the remainder onward.",
-  fuse: "The remainder becomes the line.",
-} as const;
+// Captions name the math, not just the action — so the on-screen motion
+// connects to the original yarrow procedure. Numbers are pulled from the
+// transcript round data. Line 0 (the first line) gets the full per-beat
+// narration across all 3 rounds; every line's fuse names its value derivation.
+
+interface RoundCaptions {
+  gather: string;
+  divide: string;
+  takeOne: string;
+  count: string;
+  tally: string;
+  carry: string;
+}
+
+const LINE_VALUE_NAMES: Record<6 | 7 | 8 | 9, string> = {
+  6: "old yin",
+  7: "young yang",
+  8: "young yin",
+  9: "old yang",
+};
+
+function buildRoundCaptions(
+  roundIdx: number,
+  round: { startCount: number; splitAt: number; leftRemainder: number; rightRemainder: number; setAside: number; remaining: number },
+): RoundCaptions {
+  const left = round.splitAt;
+  const right = round.startCount - round.splitAt;
+  // Round 1 setAside is 5 ("few", counts 3) or 9 ("many", counts 2);
+  // rounds 2 & 3 are 4 ("few", 3) or 8 ("many", 2).
+  const fewValue = roundIdx === 0 ? 5 : 4;
+  const meaning = round.setAside === fewValue ? "few = 3" : "many = 2";
+  const nextLabel = roundIdx === 2 ? "fuse" : `round ${roundIdx + 2}`;
+  return {
+    gather: `Round ${roundIdx + 1} · ${round.startCount} stalks`,
+    divide: `Cut at k=${left} · heaps ${left} | ${right}`,
+    takeOne: `One aside · heaps ${left} | ${right - 1}`,
+    count: "Count each heap by fours.",
+    tally: `1 + ${round.leftRemainder} + ${round.rightRemainder} = ${round.setAside} (${meaning})`,
+    carry: `Carry ${round.remaining} → ${nextLabel}`,
+  };
+}
+
+function buildFuseCaption(remaining: number): string {
+  const value = (remaining / 4) as 6 | 7 | 8 | 9;
+  return `Remaining ${remaining} ÷ 4 = ${value} · ${LINE_VALUE_NAMES[value]}`;
+}
 
 export interface YarrowTimeline {
   /** The composed ritual timeline. */
@@ -59,10 +95,12 @@ export function buildYarrowTimeline(
 
     for (let roundIdx = 0; roundIdx < 3; roundIdx++) {
       const round = model.transcript[lineIdx].rounds[roundIdx];
-      // Captions appear once — the first round teaches the round's shape.
-      const narrating = lineIdx === 0 && roundIdx === 0;
-      const caption = (key: keyof typeof CAPTIONS): string =>
-        narrating ? CAPTIONS[key] : "";
+      // Line 0 narrates every round with numbers from the transcript — so
+      // the user sees the pattern repeat with the actual values.
+      const narrating = lineIdx === 0;
+      const caps = buildRoundCaptions(roundIdx, round);
+      const caption = (key: keyof RoundCaptions): string =>
+        narrating ? caps[key] : "";
 
       const gatherCap = caption("gather");
       beats.push(
@@ -178,8 +216,10 @@ export function buildYarrowTimeline(
     }
 
     // Fuse — the surviving field rises and condenses into the hexagram line.
+    // Every line's fuse names its derivation so the user can read each line's
+    // value as it lands.
     const line = model.transcript[lineIdx].line;
-    const fuseCap = teach ? CAPTIONS.fuse : "";
+    const fuseCap = buildFuseCaption(model.transcript[lineIdx].rounds[2].remaining);
     beats.push(
       seq(
         call(() => {
