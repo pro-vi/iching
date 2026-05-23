@@ -116,7 +116,7 @@ function drawSplitBar(
   }
 }
 
-/** Tally tray to the right of the bar area — one `█` per stalk set aside. */
+/** Tally tray to the right of the bar area — one stalk per stalk set aside. */
 function drawTray(
   buf: CellBuffer,
   row: number,
@@ -129,6 +129,25 @@ function drawTray(
   const n = Math.min(9, Math.round(stalks));
   if (trayCol + n > buf.width) return; // clip if no room
   buf.writeText(row, trayCol, STALK.repeat(n), { fg: color });
+}
+
+/**
+ * Temporary "counted-off fours" holding zone — sits in the gap between heaps.
+ * Each `▌` marker = one quartet of 4 stalks counted off. These stalks stay in
+ * play (they re-form the next round's pile at carry), distinct from the
+ * permanent set-aside tray on the right.
+ */
+function drawTempFours(
+  buf: CellBuffer,
+  row: number,
+  areaStart: number,
+  numQuartets: number,
+  color: string,
+): void {
+  if (numQuartets <= 0) return;
+  const str = "▌".repeat(numQuartets);
+  const col = areaStart + Math.floor((BAR_AREA_WIDTH - str.length) / 2);
+  buf.writeText(row, col, str, { fg: color });
 }
 
 /** Floating "stalk between the fingers" — lifts above the bar during takeOne. */
@@ -226,7 +245,8 @@ function renderField(buf: CellBuffer, model: YarrowModel): void {
     case "count": {
       if (!round) break;
       // Heaps drain as fours are counted off. The fours don't go to the tray —
-      // they stay in play for the next round. Tray holds only the takeOne.
+      // they accumulate as visible quartets in the gap (temp fours zone),
+      // because they stay in play for the next round. Tray holds the takeOne.
       const leftStart = round.splitAt;
       const leftEnd = round.leftRemainder;
       const rightStart = round.startCount - round.splitAt - 1;
@@ -234,6 +254,9 @@ function renderField(buf: CellBuffer, model: YarrowModel): void {
       const leftCurrent = lerp(leftStart, leftEnd, model.countProgress);
       const rightCurrent = lerp(rightStart, rightEnd, model.countProgress);
       drawSplitBar(buf, row, areaStart, leftCurrent, rightCurrent, t.primary);
+      const countedOff = leftStart - leftCurrent + (rightStart - rightCurrent);
+      const numQuartets = Math.floor(countedOff / 4);
+      drawTempFours(buf, row, areaStart, numQuartets, t.secondary);
       drawTray(buf, row, areaStart, 1, t.accent);
       break;
     }
@@ -241,11 +264,14 @@ function renderField(buf: CellBuffer, model: YarrowModel): void {
     case "tally": {
       if (!round) break;
       // The remainders MOVE from bar to tray. Bar drains to zero; tray grows
-      // from 1 (takeOne) to setAside (1 + leftRem + rightRem).
+      // from 1 (takeOne) to setAside (1 + leftRem + rightRem). Temp fours
+      // stay visible — they're carried forward, not set aside.
       const remTotal = round.leftRemainder + round.rightRemainder;
       const leftInBar = round.leftRemainder * (1 - model.tallyProgress);
       const rightInBar = round.rightRemainder * (1 - model.tallyProgress);
       drawSplitBar(buf, row, areaStart, leftInBar, rightInBar, t.primary);
+      const numQuartets = Math.round(round.remaining / 4);
+      drawTempFours(buf, row, areaStart, numQuartets, t.secondary);
       const inTray = 1 + remTotal * model.tallyProgress;
       drawTray(buf, row, areaStart, inTray, t.accent);
       writeCentered(buf, row + 1, `set aside ${round.setAside}`, center, t.tertiary, true);
@@ -254,12 +280,16 @@ function renderField(buf: CellBuffer, model: YarrowModel): void {
 
     case "carry": {
       if (!round) break;
-      // The counted-off fours return to form the next round's pile —
-      // bar regrows from empty to `remaining` stalks.
-      const currentStalks = Math.round(round.remaining * model.carryProgress);
-      if (currentStalks > 0) {
-        drawWholeBar(buf, row, center, currentStalks, t.primary);
+      // Temp fours migrate back to form the new round's pile — quartets
+      // disappear as a centered bar of `remaining` stalks grows in. Both
+      // sides driven by carryProgress: conservation is visible.
+      const totalQuartets = Math.round(round.remaining / 4);
+      const tempVisible = Math.round(totalQuartets * (1 - model.carryProgress));
+      const stalksInBar = Math.round(round.remaining * model.carryProgress);
+      if (stalksInBar > 0) {
+        drawWholeBar(buf, row, center, stalksInBar, t.primary);
       }
+      drawTempFours(buf, row, areaStart, tempVisible, t.secondary);
       if (model.carryProgress >= 1) {
         writeCentered(buf, row + 1, String(round.remaining), center, t.tertiary, true);
       }
