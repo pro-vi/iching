@@ -1,11 +1,12 @@
-// Yarrow field renderer — 4-stalks-per-cell block bar.
+// Yarrow field renderer — one cell = one stalk.
 //
-// One cell holds up to 4 stalks. Bottom-eighth fill levels mean each stalk is
-// 2 of 8 levels inside its cell, so individual stalks are visible at the bar's
-// edge as quarter-level drops; counting a full four is one cell extinguishing.
-// The bar lives in a 15-cell footprint matching LINE_WIDTH; heaps are pinned
-// at the outer edges of that footprint so the gap reflects depletion in place.
-// At fuse the bar lifts upward and widens out to the line glyph.
+// Each stalk is a single `█` cell, arrayed horizontally. Take 1 out → bar is
+// 1 cell narrower. Count off 4 → bar shrinks by 4 cells. Heaps pin to the
+// outer edges of the bar area so the gap in the middle reflects depletion in
+// place. The line-width mismatch (surviving 24–36 cells vs LINE_WIDTH 15) is
+// resolved at fuse: the bar lifts AND compresses to 15 cells as it rises,
+// then crystallizes into the line glyph — the substance consolidates into
+// the form.
 
 import type { CellBuffer } from "../../render/buffer.ts";
 import { getTheme } from "../../color/theme.ts";
@@ -15,38 +16,27 @@ import { anchorRow, LINE_ROW_OFFSETS } from "../cast/hexagram-renderer.ts";
 import { LINE_WIDTH } from "../../glyphs.ts";
 import type { YarrowModel } from "./model.ts";
 
-// ── Encoding ─────────────────────────────────────────────────────────────────
+// ── Stalk vocabulary ─────────────────────────────────────────────────────────
 
-const STALKS_PER_CELL = 4;
-const LEVELS = 8;
-const LEVELS_PER_STALK = LEVELS / STALKS_PER_CELL; // 2
-const FILL_CHARS = [" ", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
+const STALK = "█";
+const TOTAL_STALKS = 49;
+const GAP_CELLS = 2; // minimum visible gap between heaps during split
+const BAR_AREA_WIDTH = TOTAL_STALKS + GAP_CELLS + 1; // 52 — fits any split
 
-const BAR_AREA_WIDTH = LINE_WIDTH; // 15 — shared footprint with the line
-
-/** Render `n` stalks as a string: full cells from left, optional partial cell. */
+/** A row of N stalks: `███████` (n cells of `█`). */
 function stalkBar(n: number): string {
-  if (n <= 0) return "";
-  const full = Math.floor(n / STALKS_PER_CELL);
-  const remStalks = n - full * STALKS_PER_CELL;
-  const remLevel = Math.max(0, Math.min(LEVELS, Math.round(remStalks * LEVELS_PER_STALK)));
-  return "█".repeat(full) + (remLevel > 0 ? FILL_CHARS[remLevel] : "");
+  return STALK.repeat(Math.max(0, Math.round(n)));
 }
 
-/** Cells a stalk count occupies. */
 function stalkWidth(n: number): number {
-  return stalkBar(n).length;
-}
-
-function reverseStr(s: string): string {
-  return [...s].reverse().join("");
+  return Math.max(0, Math.round(n));
 }
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-// ── Braille helpers (kept for the settings-scene yarrow preview) ────────────
+// ── Braille helpers (kept for the settings-scene yarrow preview) ─────────────
 
 const BRAILLE_FILL_BITS = [0x01, 0x02, 0x04, 0x40, 0x08, 0x10, 0x20, 0x80];
 const BRAILLE_BASE = 0x2800;
@@ -81,38 +71,30 @@ function writeCentered(
   buf.writeText(row, center - Math.floor(stringWidth(text) / 2), text, { fg: color, dim });
 }
 
-function barAreaStartCol(buf: CellBuffer): number {
-  return Math.max(0, Math.floor((buf.width - BAR_AREA_WIDTH) / 2));
-}
-
 function fieldRow(buf: CellBuffer): number {
   return anchorRow(buf.height) + 5;
 }
 
+function barAreaStartCol(buf: CellBuffer): number {
+  return Math.max(0, Math.floor((buf.width - BAR_AREA_WIDTH) / 2));
+}
+
 // ── Bar drawing ──────────────────────────────────────────────────────────────
 
-/**
- * Draw a single (un-split) bar centered within the 15-cell footprint.
- * Used for gather, carry-complete, and pre-widen fuse.
- */
+/** Centered single bar (gather, carry-complete). */
 function drawWholeBar(
   buf: CellBuffer,
   row: number,
-  areaStart: number,
+  centerCol: number,
   stalks: number,
   color: string,
 ): void {
   const str = stalkBar(stalks);
-  const col = areaStart + Math.floor((BAR_AREA_WIDTH - str.length) / 2);
-  buf.writeText(row, col, str, { fg: color });
+  if (!str) return;
+  buf.writeText(row, centerCol - Math.floor(str.length / 2), str, { fg: color });
 }
 
-/**
- * Draw a split bar — left heap pinned LEFT, right heap pinned RIGHT, gap fills
- * the middle. Partial cells live on each heap's inner (gap-facing) edge so
- * depletion shows there: stalks drain from the inner edge first, leaving the
- * gap wider.
- */
+/** Split bar — left pinned LEFT, right pinned RIGHT, gap in the middle. */
 function drawSplitBar(
   buf: CellBuffer,
   row: number,
@@ -121,8 +103,8 @@ function drawSplitBar(
   rightStalks: number,
   color: string,
 ): void {
-  const leftStr = stalkBar(leftStalks); // full cells then partial — partial on inner side ✓
-  const rightStr = reverseStr(stalkBar(rightStalks)); // partial first, then full — partial on inner side ✓
+  const leftStr = stalkBar(leftStalks);
+  const rightStr = stalkBar(rightStalks);
   if (leftStr.length > 0) {
     buf.writeText(row, areaStart, leftStr, { fg: color });
   }
@@ -131,7 +113,7 @@ function drawSplitBar(
   }
 }
 
-/** Tray of tickmarks — one ▏ per stalk set aside (max 9). Accent color. */
+/** Tally tray to the right of the bar area — one `█` per stalk set aside. */
 function drawTray(
   buf: CellBuffer,
   row: number,
@@ -141,7 +123,9 @@ function drawTray(
 ): void {
   if (stalks <= 0) return;
   const trayCol = areaStart + BAR_AREA_WIDTH + 2;
-  buf.writeText(row, trayCol, "▏".repeat(Math.min(9, Math.round(stalks))), { fg: color });
+  const n = Math.min(9, Math.round(stalks));
+  if (trayCol + n > buf.width) return; // clip if no room
+  buf.writeText(row, trayCol, STALK.repeat(n), { fg: color });
 }
 
 /** Floating "stalk between the fingers" — lifts above the bar during takeOne. */
@@ -152,7 +136,7 @@ function drawLiftedStalk(
   color: string,
 ): void {
   if (row < 0) return;
-  buf.writeText(row, col, "▏", { fg: color });
+  buf.writeText(row, col, STALK, { fg: color });
 }
 
 // ── Hexagram lines (above the field) ─────────────────────────────────────────
@@ -163,7 +147,7 @@ function renderHexagramLines(buf: CellBuffer, model: YarrowModel): void {
   for (let i = 0; i < 6; i++) {
     const state = model.lines[i];
     if (state.progress <= 0) continue;
-    // Skip the active line during fuse — the bar is mid-flight, owned below.
+    // Skip the active line during fuse — bar is mid-flight, owned below.
     if (model.beat === "fuse" && i === model.activeLine && !state.settled) continue;
     const line = model.cast.lines[i];
     const row = anchor + LINE_ROW_OFFSETS[i];
@@ -188,7 +172,8 @@ function renderField(buf: CellBuffer, model: YarrowModel): void {
   const areaStart = barAreaStartCol(buf);
   const row = fieldRow(buf);
 
-  if (buf.width < 30) {
+  // Narrow fallback — bar area is 52 cells; below ~56 the bar overflows.
+  if (buf.width < 56) {
     if (model.beat !== "fuse" && model.beat !== "done") {
       writeCentered(buf, row, `${model.fieldCount} stalks`, center, t.primary);
     }
@@ -200,7 +185,7 @@ function renderField(buf: CellBuffer, model: YarrowModel): void {
   switch (model.beat) {
     case "idle":
     case "gather": {
-      drawWholeBar(buf, row, areaStart, model.fieldCount, t.primary);
+      drawWholeBar(buf, row, center, model.fieldCount, t.primary);
       writeCentered(buf, row + 1, String(model.fieldCount), center, t.tertiary, true);
       break;
     }
@@ -214,12 +199,12 @@ function renderField(buf: CellBuffer, model: YarrowModel): void {
     case "takeOne": {
       if (!round) break;
       const rightStalks = round.startCount - round.splitAt;
-      const takenStalks = model.takeOneProgress > 0 ? 1 : 0;
-      drawSplitBar(buf, row, areaStart, round.splitAt, rightStalks - takenStalks, t.primary);
-      // The floating stalk lifts from the right heap's inner (left-most) edge.
-      const newRightWidth = stalkWidth(rightStalks - takenStalks);
+      const taken = model.takeOneProgress > 0 ? 1 : 0;
+      drawSplitBar(buf, row, areaStart, round.splitAt, rightStalks - taken, t.primary);
+      // The lifted stalk rises from the cell the right heap just vacated.
+      const newRightWidth = stalkWidth(rightStalks - taken);
       const liftCol = areaStart + BAR_AREA_WIDTH - newRightWidth - 1;
-      const liftRow = row - Math.round(model.takeOneProgress * 2);
+      const liftRow = row - Math.round(model.takeOneProgress * 3);
       drawLiftedStalk(buf, liftRow, liftCol, t.accent);
       break;
     }
@@ -251,7 +236,7 @@ function renderField(buf: CellBuffer, model: YarrowModel): void {
       if (model.carryProgress < 1) {
         drawSplitBar(buf, row, areaStart, round.leftRemainder, round.rightRemainder, t.primary);
       } else {
-        drawWholeBar(buf, row, areaStart, round.remaining, t.primary);
+        drawWholeBar(buf, row, center, round.remaining, t.primary);
         writeCentered(buf, row + 1, String(round.remaining), center, t.tertiary, true);
       }
       break;
@@ -263,7 +248,7 @@ function renderField(buf: CellBuffer, model: YarrowModel): void {
       const transcript = model.transcript[activeLine];
       const remaining = transcript.rounds[2].remaining;
       const line = transcript.line;
-      const startWidth = stalkWidth(remaining); // e.g. 7 for 28 stalks
+      const startWidth = stalkWidth(remaining);
       const targetRow = anchorRow(buf.height) + LINE_ROW_OFFSETS[activeLine];
 
       const progress = model.lines[activeLine].progress;
@@ -271,16 +256,15 @@ function renderField(buf: CellBuffer, model: YarrowModel): void {
       const color = line.isChanging ? t.accent : t.primary;
 
       if (progress < LIFT_END) {
-        // Lift + widen: bar travels up and grows outward toward the line's
-        // 15-cell footprint. Same horizontal center throughout.
+        // Lift + compress: the bar travels up and narrows symmetrically
+        // toward LINE_WIDTH. Same horizontal center throughout.
         const p = progress / LIFT_END;
         const currentRow = Math.round(lerp(row, targetRow, p));
-        const currentWidth = Math.round(lerp(startWidth, BAR_AREA_WIDTH, p));
-        const col = areaStart + Math.floor((BAR_AREA_WIDTH - currentWidth) / 2);
-        buf.writeText(currentRow, col, "█".repeat(currentWidth), { fg: color });
+        const currentWidth = Math.round(lerp(startWidth, LINE_WIDTH, p));
+        drawWholeBar(buf, currentRow, center, currentWidth, color);
       } else {
-        // Crystallize: clear the bar area at the line row, then draw the line
-        // glyph with renderLine — which animates center-outward.
+        // Crystallize: clear the bar area at the target row, then draw the
+        // line glyph via renderLine (center-outward reveal).
         const crystalP = (progress - LIFT_END) / (1 - LIFT_END);
         buf.writeText(targetRow, areaStart, " ".repeat(BAR_AREA_WIDTH), { fg: color });
         renderLine(
