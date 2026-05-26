@@ -150,15 +150,47 @@ function drawTempFours(
   buf.writeText(row, col, str, { fg: color });
 }
 
-/** Floating "stalk between the fingers" — lifts above the bar during takeOne. */
-function drawLiftedStalk(
+/**
+ * Write a single stalk cell, optionally bolded. Used for the lifted-flyer
+ * during takeOne (`{ bold: false }`) and for the operator-cursor styling
+ * overlay (`{ bold: true }`). Full bounds-check — out-of-frame writes no-op.
+ */
+function drawStalk(
   buf: CellBuffer,
   row: number,
   col: number,
   color: string,
+  opts?: { bold?: boolean },
 ): void {
-  if (row < 0) return;
-  buf.writeText(row, col, STALK, { fg: color });
+  if (row < 0 || row >= buf.height || col < 0 || col >= buf.width) return;
+  buf.writeText(row, col, STALK, { fg: color, bold: opts?.bold });
+}
+
+/**
+ * Split a 0–1 progress into sequential left[0, 0.5] / right[0.5, 1] phases.
+ * Used by count and tally beats (and the matching cursor overlay) so left
+ * heap completes its action before right heap begins.
+ */
+function splitSeqProgress(p: number): { leftP: number; rightP: number } {
+  return { leftP: Math.min(1, p * 2), rightP: Math.max(0, p * 2 - 1) };
+}
+
+/**
+ * Position of the lifted-flyer stalk above the bar at takeOne progress p.
+ * Same geometry used by the visible flyer and by the operator cursor — one
+ * source of truth keeps them aligned.
+ */
+function flyerPosition(
+  round: { startCount: number; splitAt: number },
+  takeOneProgress: number,
+  areaStart: number,
+): { col: number; arcRows: number } {
+  const rightStalksOriginal = round.startCount - round.splitAt;
+  const startCol = areaStart + BAR_AREA_WIDTH - rightStalksOriginal;
+  const trayCol = areaStart + BAR_AREA_WIDTH + 2;
+  const col = Math.round(lerp(startCol, trayCol, takeOneProgress));
+  const arcRows = Math.round(Math.sin(takeOneProgress * Math.PI) * 4);
+  return { col, arcRows };
 }
 
 // ── Hexagram lines (above the field) ─────────────────────────────────────────
@@ -240,28 +272,27 @@ function renderField(buf: CellBuffer, model: YarrowModel): void {
       const taken = model.takeOneProgress > 0 ? 1 : 0;
       drawSplitBar(buf, row, areaStart, leftStalks, rightStalksOriginal - taken, t.primary);
       if (model.takeOneProgress > 0) {
-        const startCol = areaStart + BAR_AREA_WIDTH - rightStalksOriginal;
-        const trayCol = areaStart + BAR_AREA_WIDTH + 2;
-        const p = model.takeOneProgress;
-        const flyCol = Math.round(lerp(startCol, trayCol, p));
-        const arcRows = Math.round(Math.sin(p * Math.PI) * 4);
-        const flyRow = row - arcRows;
-        drawLiftedStalk(buf, flyRow, flyCol, t.accent);
+        const { col, arcRows } = flyerPosition(round, model.takeOneProgress, areaStart);
+        drawStalk(buf, row - arcRows, col, t.accent);
       }
       break;
     }
 
     case "count": {
       if (!round) break;
-      // Heaps drain as fours are counted off. The fours don't go to the tray —
-      // they accumulate as visible quartets in the gap (temp fours zone),
+      // Heaps drain sequentially — left first in [0, 0.5], right in [0.5, 1].
+      // Reads as "a person counting one heap then the other," not "machine
+      // counting both at once." Heaps are pinned to outer edges, so depletion
+      // appears naturally at the inner (seam) edge. Counted-off fours don't
+      // go to the tray — they accumulate as visible quartets in the gap,
       // because they stay in play for the next round. Tray holds the takeOne.
       const leftStart = round.splitAt;
       const leftEnd = round.leftRemainder;
       const rightStart = round.startCount - round.splitAt - 1;
       const rightEnd = round.rightRemainder;
-      const leftCurrent = lerp(leftStart, leftEnd, model.countProgress);
-      const rightCurrent = lerp(rightStart, rightEnd, model.countProgress);
+      const { leftP, rightP } = splitSeqProgress(model.countProgress);
+      const leftCurrent = lerp(leftStart, leftEnd, leftP);
+      const rightCurrent = lerp(rightStart, rightEnd, rightP);
       drawSplitBar(buf, row, areaStart, leftCurrent, rightCurrent, t.primary);
       const countedOff = leftStart - leftCurrent + (rightStart - rightCurrent);
       const numQuartets = Math.floor(countedOff / 4);
@@ -272,16 +303,17 @@ function renderField(buf: CellBuffer, model: YarrowModel): void {
 
     case "tally": {
       if (!round) break;
-      // The remainders MOVE from bar to tray. Bar drains to zero; tray grows
-      // from 1 (takeOne) to setAside (1 + leftRem + rightRem). Temp fours
-      // stay visible — they're carried forward, not set aside.
-      const remTotal = round.leftRemainder + round.rightRemainder;
-      const leftInBar = round.leftRemainder * (1 - model.tallyProgress);
-      const rightInBar = round.rightRemainder * (1 - model.tallyProgress);
+      // Remainders move bar → tray sequentially — left remainder joins the
+      // taken-aside first in [0, 0.5], then right remainder in [0.5, 1].
+      // Matches the cursor's escort during the left/right peel phases. Temp
+      // fours stay visible — they're carried forward, not set aside.
+      const { leftP, rightP } = splitSeqProgress(model.tallyProgress);
+      const leftInBar = round.leftRemainder * (1 - leftP);
+      const rightInBar = round.rightRemainder * (1 - rightP);
       drawSplitBar(buf, row, areaStart, leftInBar, rightInBar, t.primary);
       const numQuartets = Math.round(round.remaining / 4);
       drawTempFours(buf, row, areaStart, numQuartets, t.secondary);
-      const inTray = 1 + remTotal * model.tallyProgress;
+      const inTray = 1 + round.leftRemainder * leftP + round.rightRemainder * rightP;
       drawTray(buf, row, areaStart, inTray, t.accent);
       writeCentered(buf, row + 1, `set aside ${round.setAside}`, center, t.tertiary, true);
       break;
@@ -345,6 +377,81 @@ function renderField(buf: CellBuffer, model: YarrowModel): void {
 
     case "done":
       break;
+  }
+
+  // Operator-thread cursor — a styling overlay on the substance being touched
+  // right now. Re-styles one existing cell with bold + accent color; never
+  // creates a new glyph. Hidden during gather / fuse / done so the substance
+  // can rest at the start of a round, and the line can own its arrival.
+  applyOperatorCursor(buf, model, row, areaStart, center);
+}
+
+function applyOperatorCursor(
+  buf: CellBuffer,
+  model: YarrowModel,
+  fieldRow: number,
+  areaStart: number,
+  center: number,
+): void {
+  const round = model.currentRound();
+  if (!round) return;
+  const c = getTheme().accent;
+  const bold = { bold: true };
+
+  switch (model.beat) {
+    case "divide": {
+      // Mark the cut edge — rightmost stalk of the left heap as it pulls away.
+      // At p=0 the heaps are adjacent; at p=1 the left heap is pinned to the
+      // outer edge. Cursor rides the inner-edge stalk throughout.
+      const leftStalks = round.splitAt;
+      const rightStalks = round.startCount - round.splitAt;
+      const p = model.splitProgress;
+      const wholeStart = center - Math.floor((leftStalks + rightStalks) / 2);
+      const leftCol = Math.round(lerp(wholeStart, areaStart, p));
+      drawStalk(buf, fieldRow, leftCol + leftStalks - 1, c, bold);
+      break;
+    }
+    case "takeOne": {
+      // The lifted stalk IS the cursor — emphasize the flyer in flight.
+      if (model.takeOneProgress > 0) {
+        const { col, arcRows } = flyerPosition(round, model.takeOneProgress, areaStart);
+        drawStalk(buf, fieldRow - arcRows, col, c, bold);
+      }
+      break;
+    }
+    case "count": {
+      // Cursor highlights the next stalk about to peel — inner edge of the
+      // active heap (left in [0, 0.5], right in [0.5, 1]).
+      const leftStart = round.splitAt;
+      const leftEnd = round.leftRemainder;
+      const rightStart = round.startCount - round.splitAt - 1;
+      const rightEnd = round.rightRemainder;
+      const { leftP, rightP } = splitSeqProgress(model.countProgress);
+      if (model.countProgress < 0.5) {
+        const leftCurrent = lerp(leftStart, leftEnd, leftP);
+        drawStalk(buf, fieldRow, areaStart + Math.ceil(leftCurrent) - 1, c, bold);
+      } else if (rightStart > 0) {
+        const rightCurrent = lerp(rightStart, rightEnd, rightP);
+        drawStalk(buf, fieldRow, areaStart + BAR_AREA_WIDTH - Math.ceil(rightCurrent), c, bold);
+      }
+      break;
+    }
+    case "tally": {
+      // Cursor at the tray as a receiving mark — the latest stalk dropped in.
+      const { leftP, rightP } = splitSeqProgress(model.tallyProgress);
+      const inTray = 1 + round.leftRemainder * leftP + round.rightRemainder * rightP;
+      const trayCol = areaStart + BAR_AREA_WIDTH + 2;
+      drawStalk(buf, fieldRow, trayCol + Math.max(0, Math.ceil(inTray) - 1), c, bold);
+      break;
+    }
+    case "carry": {
+      // Cursor at the center of the gathering substance.
+      drawStalk(buf, fieldRow, center, c, bold);
+      break;
+    }
+    // gather / fuse / idle / done: cursor hidden — substance is at rest or
+    // the line is becoming itself. Manual scene's waiting phase lands here
+    // too (beat === "gather", all progresses === 0).
   }
 }
 

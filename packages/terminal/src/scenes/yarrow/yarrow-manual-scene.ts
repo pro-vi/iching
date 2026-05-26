@@ -117,7 +117,9 @@ export class YarrowManualScene implements Scene {
       { narrating },
     );
     if (roundIdx === 2) {
-      beats.push(buildYarrowFuseBeat(this.model, this.timing, lineIdx));
+      // Narrate the fuse derivation only on the first line — same teach-once
+      // rule used for round beats.
+      beats.push(buildYarrowFuseBeat(this.model, this.timing, lineIdx, { narrating: lineIdx === 0 }));
     }
 
     this.subRunner = new TimelineRunner(seq(...beats));

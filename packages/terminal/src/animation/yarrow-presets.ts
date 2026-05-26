@@ -19,6 +19,11 @@ export type RitualDetail = "expanded" | "summarized" | "stepped";
 export interface YarrowTiming {
   /** Pile rests, undivided. */
   gatherMs: number;
+  /**
+   * Extra still time held on the gathered pile before divide starts —
+   * the "this is the pile" moment. Disabled when 0 (reduced motion).
+   */
+  gatherHoldMs: number;
   /** Gap opens at the split point. */
   divideMs: number;
   /** One stalk lifts out of the right heap. */
@@ -47,6 +52,7 @@ export interface YarrowTiming {
 
 const DEFAULT: YarrowTiming = {
   gatherMs: 380,
+  gatherHoldMs: 400,
   divideMs: 720,
   takeOneMs: 320,
   countMs: 640,
@@ -63,6 +69,7 @@ const DEFAULT: YarrowTiming = {
 
 const DEEP: YarrowTiming = {
   gatherMs: 560,
+  gatherHoldMs: 800,
   divideMs: 1050,
   takeOneMs: 480,
   countMs: 1200,
@@ -79,6 +86,7 @@ const DEEP: YarrowTiming = {
 
 const BRISK: YarrowTiming = {
   gatherMs: 110,
+  gatherHoldMs: 200,
   divideMs: 320,
   takeOneMs: 150,
   countMs: 200,
@@ -98,6 +106,7 @@ const BRISK: YarrowTiming = {
 // remain so each round is still perceptible and the teaching still readable.
 const REDUCED: YarrowTiming = {
   gatherMs: 70,
+  gatherHoldMs: 0,
   divideMs: 0,
   takeOneMs: 0,
   countMs: 0,

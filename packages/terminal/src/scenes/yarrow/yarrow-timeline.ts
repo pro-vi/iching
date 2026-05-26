@@ -108,7 +108,9 @@ export function buildYarrowRoundBeats(
         model.carryProgress = 0;
         model.caption = gatherCap;
       }),
-      wait(timing.gatherMs),
+      // Gather motion settles, then hold a still "this is the pile" pose
+      // — gives the eye a moment to register the heap's mass before the cut.
+      wait(timing.gatherMs + timing.gatherHoldMs),
       ...hold(gatherCap),
       wait(timing.beatGapMs),
     ),
@@ -192,16 +194,20 @@ export function buildYarrowRoundBeats(
 
 /**
  * Build the fuse beat that lifts a line's surviving field into the hexagram
- * line glyph, with its derivation caption and settle pause.
+ * line glyph. The derivation caption is shown only when narrating — the
+ * teach-once line names its value out loud; subsequent lines land in silence
+ * and let the motion say what it is.
  */
 export function buildYarrowFuseBeat(
   model: YarrowModel,
   timing: YarrowTiming,
   lineIdx: number,
+  opts?: { narrating?: boolean },
 ): Step {
   const line = model.transcript[lineIdx].line;
+  const narrating = opts?.narrating ?? false;
   const hold = (caption: string): Step[] => (caption ? [wait(timing.captionHoldMs)] : []);
-  const fuseCap = buildFuseCaption(model.transcript[lineIdx].rounds[2].remaining);
+  const fuseCap = narrating ? buildFuseCaption(model.transcript[lineIdx].rounds[2].remaining) : "";
   return seq(
     call(() => {
       model.beat = "fuse";
@@ -240,7 +246,7 @@ export function buildYarrowTimeline(
       beats.push(...buildYarrowRoundBeats(model, timing, effectiveDetail, lineIdx, roundIdx, { narrating }));
     }
 
-    beats.push(buildYarrowFuseBeat(model, timing, lineIdx));
+    beats.push(buildYarrowFuseBeat(model, timing, lineIdx, { narrating }));
 
     // Trigram-recognition pause once the lower trigram (lines 1-3) is complete.
     if (lineIdx === 2) beats.push(wait(timing.afterTrigramMs));
