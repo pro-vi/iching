@@ -14,10 +14,12 @@ import { dirname, resolve } from "node:path";
 import {
   CastScene,
   YarrowScene,
+  YarrowManualScene,
   CellBuffer,
   DiffRenderer,
   hideCursor,
   setTheme,
+  type KeyEvent,
   type MotionPreset,
   type SceneContext,
   type ThemeName,
@@ -64,16 +66,7 @@ const out = resolve(arg("--out", `web/recordings/${method}.json`));
 setTheme(theme);
 
 const source = new SeededRandomSource(seed);
-const scene =
-  method === "coins"
-    ? new CastScene(castHexagram(source), preset, COLS, undefined, ROWS)
-    : new YarrowScene(preset, source);
-
 const ctx = {} as SceneContext;
-// Both scenes' enter is a no-op (CastScene) or undefined (YarrowScene),
-// so skip — keeps the headless path uniform.
-
-const duration = scene.getTimeline().duration;
 
 const sink = {
   buf: "",
@@ -90,25 +83,72 @@ let pendingDelay = 0;
 let held = 0;
 const frames: RecordingFrame[] = [];
 
-for (let i = 0; i < MAX_FRAMES; i++) {
-  scene.update(elapsed, DT, ctx);
-  const frame = new CellBuffer(COLS, ROWS);
-  scene.render(frame, ctx);
+if (method === "yarrow-manual") {
+  // Manual yarrow: drive a synthetic operator that presses Space after a
+  // short pause whenever the scene is waiting for a cut.
+  const SIMULATED_THINK_MS = 650;
+  const manual = new YarrowManualScene(preset, source);
+  manual.enter(ctx);
+  let thinkAcc = 0;
 
-  sink.buf = "";
-  renderer.present(prev, frame);
-  pendingDelay += DT;
-  if (sink.buf.length > 0) {
-    frames.push({ delayMs: Math.round(pendingDelay), data: sink.buf });
-    pendingDelay = 0;
+  for (let i = 0; i < MAX_FRAMES; i++) {
+    manual.update(elapsed, DT, ctx);
+    const frame = new CellBuffer(COLS, ROWS);
+    manual.render(frame, ctx);
+
+    sink.buf = "";
+    renderer.present(prev, frame);
+    pendingDelay += DT;
+    if (sink.buf.length > 0) {
+      frames.push({ delayMs: Math.round(pendingDelay), data: sink.buf });
+      pendingDelay = 0;
+    }
+    prev = frame;
+    elapsed += DT;
+
+    const phase = manual.getPhase();
+    if (phase === "waiting") {
+      thinkAcc += DT;
+      if (thinkAcc >= SIMULATED_THINK_MS) {
+        const space: KeyEvent = { type: "char", char: " " };
+        manual.handleKey(space, ctx);
+        thinkAcc = 0;
+      }
+    } else {
+      thinkAcc = 0;
+    }
+
+    if (phase === "complete") {
+      held++;
+      if (held >= HOLD_FRAMES) break;
+    }
   }
+} else {
+  const scene =
+    method === "coins"
+      ? new CastScene(castHexagram(source), preset, COLS, undefined, ROWS)
+      : new YarrowScene(preset, source);
+  const duration = scene.getTimeline().duration;
 
-  prev = frame;
-  elapsed += DT;
+  for (let i = 0; i < MAX_FRAMES; i++) {
+    scene.update(elapsed, DT, ctx);
+    const frame = new CellBuffer(COLS, ROWS);
+    scene.render(frame, ctx);
 
-  if (elapsed >= duration) {
-    held++;
-    if (held >= HOLD_FRAMES) break;
+    sink.buf = "";
+    renderer.present(prev, frame);
+    pendingDelay += DT;
+    if (sink.buf.length > 0) {
+      frames.push({ delayMs: Math.round(pendingDelay), data: sink.buf });
+      pendingDelay = 0;
+    }
+    prev = frame;
+    elapsed += DT;
+
+    if (elapsed >= duration) {
+      held++;
+      if (held >= HOLD_FRAMES) break;
+    }
   }
 }
 

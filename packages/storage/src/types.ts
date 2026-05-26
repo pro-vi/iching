@@ -12,7 +12,7 @@ export interface UserConfig {
   glyphAnim: "noise" | "dots" | "radial" | "sand";
   glyphFont: "kaiti" | "libian" | "heiti";
   taijituStyle: "dots" | "dense";
-  castMode: "auto" | "manual" | "yarrow";
+  castMode: "auto" | "manual" | "yarrow" | "yarrow-manual";
 }
 
 /** Query options for journal streaming */

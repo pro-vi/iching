@@ -22,7 +22,7 @@ import { LINE_WIDTH } from "../../glyphs.ts";
 const ANIM_OPTIONS: GlyphAnimStyle[] = ["dots", "noise", "radial", "sand"];
 const FONT_OPTIONS: GlyphFont[] = ["kaiti", "libian", "heiti"];
 const TAIJITU_OPTIONS: TaijituStyle[] = ["dots", "dense"];
-const CAST_MODE_OPTIONS = ["auto", "manual", "yarrow"] as const;
+const CAST_MODE_OPTIONS = ["auto", "manual", "yarrow", "yarrow-manual"] as const;
 
 interface SettingRow {
   label: string;
@@ -35,7 +35,7 @@ export interface SettingsValues {
   glyphAnim: GlyphAnimStyle;
   glyphFont: GlyphFont;
   taijituStyle: TaijituStyle;
-  castMode: "auto" | "manual" | "yarrow";
+  castMode: "auto" | "manual" | "yarrow" | "yarrow-manual";
 }
 
 // ── Preview constants ─────────────────────────────────────────────────
@@ -48,7 +48,8 @@ type PreviewKind =
   | "taijitu"
   | "cast-manual"
   | "cast-auto"
-  | "cast-yarrow";
+  | "cast-yarrow"
+  | "cast-yarrow-manual";
 
 // ── Scene ────────────────────────────────────────────────────────────
 
@@ -290,6 +291,22 @@ export class SettingsScene implements Scene {
         );
         break;
       }
+
+      case "cast-yarrow-manual": {
+        const strand = brailleStrand(49);
+        const strandRow = startRow + Math.floor(availRows / 2);
+        frame.writeText(strandRow, cx - Math.floor(stringWidth(strand) / 2), strand, {
+          fg: t.primary,
+        });
+        const label = "yarrow · [space] cut each round";
+        frame.writeText(
+          strandRow + 2,
+          cx - Math.floor(stringWidth(label) / 2),
+          label,
+          { fg: t.tertiary },
+        );
+        break;
+      }
     }
   }
 
@@ -336,6 +353,7 @@ export class SettingsScene implements Scene {
       const mode = this.getValues().castMode;
       if (mode === "manual") return "cast-manual";
       if (mode === "yarrow") return "cast-yarrow";
+      if (mode === "yarrow-manual") return "cast-yarrow-manual";
       return "cast-auto";
     }
     return "glyph"; // Theme, Glyph Animation, Font

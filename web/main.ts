@@ -31,7 +31,8 @@ async function main(): Promise<void> {
   const el = document.getElementById("terminal");
   if (!el) throw new Error("missing #terminal element");
 
-  const recording: Recording = await fetch("/recordings/yarrow.json").then(
+  const recName = new URLSearchParams(location.search).get("rec") ?? "yarrow";
+  const recording: Recording = await fetch(`/recordings/${recName}.json`).then(
     (r) => r.json(),
   );
 

@@ -104,7 +104,9 @@ async function main() {
               ? { type: "manual" }
               : castMode === "yarrow"
                 ? { type: "yarrow" }
-                : { type: "auto", seed: opts.seed ? Number(opts.seed) : undefined },
+                : castMode === "yarrow-manual"
+                  ? { type: "yarrow-manual" }
+                  : { type: "auto", seed: opts.seed ? Number(opts.seed) : undefined },
           });
           if (result.shouldExit) running = false;
           break;

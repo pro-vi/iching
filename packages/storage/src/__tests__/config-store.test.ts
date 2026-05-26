@@ -65,6 +65,23 @@ describe("JsonConfigStore", () => {
     });
   });
 
+  test("save then load round-trip with yarrow-manual castMode", async () => {
+    const custom: UserConfig = {
+      motion: "default",
+      theme: "bone",
+      color: "auto",
+      timezone: "system",
+      glyphAnim: "dots",
+      glyphFont: "kaiti",
+      taijituStyle: "dots",
+      castMode: "yarrow-manual",
+    };
+
+    await store.save(custom);
+    const loaded = await store.load();
+    expect(loaded.castMode).toBe("yarrow-manual");
+  });
+
   test("load migrates legacy taijituStyle values", async () => {
     await writeFile(join(dir, "config.json"), JSON.stringify({ taijituStyle: "yinDots" }), "utf-8");
     const a = await store.load();

@@ -67,6 +67,158 @@ export interface YarrowTimeline {
   beatOffsets: number[];
 }
 
+/** Pick the count easing that matches a detail level. */
+function countEasingForDetail(detail: RitualDetail): EasingFn {
+  return detail === "expanded" ? staircase : detail === "summarized" ? easeInOut : linear;
+}
+
+/**
+ * Build the six gather→divide→take→count→tally→carry beats for one round.
+ * Returned as discrete Steps so a caller can compose them (full ritual) or
+ * wrap them in a single seq() (manual scene playing one round at a time).
+ */
+export function buildYarrowRoundBeats(
+  model: YarrowModel,
+  timing: YarrowTiming,
+  detail: RitualDetail,
+  lineIdx: number,
+  roundIdx: number,
+  opts?: { narrating?: boolean },
+): Step[] {
+  const beats: Step[] = [];
+  const hold = (caption: string): Step[] => (caption ? [wait(timing.captionHoldMs)] : []);
+  const countEasing = countEasingForDetail(detail);
+  const round = model.transcript[lineIdx].rounds[roundIdx];
+  const narrating = opts?.narrating ?? false;
+  const caps = buildRoundCaptions(roundIdx, round);
+  const caption = (key: keyof RoundCaptions): string => (narrating ? caps[key] : "");
+
+  const gatherCap = caption("gather");
+  beats.push(
+    seq(
+      call(() => {
+        model.beat = "gather";
+        model.activeLine = lineIdx;
+        model.activeRound = roundIdx;
+        model.fieldCount = round.startCount;
+        model.splitProgress = 0;
+        model.takeOneProgress = 0;
+        model.countProgress = 0;
+        model.tallyProgress = 0;
+        model.carryProgress = 0;
+        model.caption = gatherCap;
+      }),
+      wait(timing.gatherMs),
+      ...hold(gatherCap),
+      wait(timing.beatGapMs),
+    ),
+  );
+
+  const divideCap = caption("divide");
+  beats.push(
+    seq(
+      call(() => {
+        model.beat = "divide";
+        model.caption = divideCap;
+      }),
+      tween(timing.divideMs, (p) => { model.splitProgress = p; }, easeInOut),
+      call(() => { model.splitProgress = 1; }),
+      ...hold(divideCap),
+      wait(timing.beatGapMs),
+    ),
+  );
+
+  const takeOneCap = caption("takeOne");
+  beats.push(
+    seq(
+      call(() => {
+        model.beat = "takeOne";
+        model.caption = takeOneCap;
+      }),
+      tween(timing.takeOneMs, (p) => { model.takeOneProgress = p; }, easeOut),
+      call(() => { model.takeOneProgress = 1; }),
+      ...hold(takeOneCap),
+      wait(timing.beatGapMs),
+    ),
+  );
+
+  const countCap = caption("count");
+  beats.push(
+    seq(
+      call(() => {
+        model.beat = "count";
+        model.caption = countCap;
+      }),
+      tween(timing.countMs, (p) => { model.countProgress = p; }, countEasing),
+      call(() => { model.countProgress = 1; }),
+      ...hold(countCap),
+      wait(timing.beatGapMs),
+    ),
+  );
+
+  const tallyCap = caption("tally");
+  beats.push(
+    seq(
+      call(() => {
+        model.beat = "tally";
+        model.caption = tallyCap;
+      }),
+      tween(timing.tallyHoldMs, (p) => { model.tallyProgress = p; }, easeOut),
+      call(() => { model.tallyProgress = 1; }),
+      ...hold(tallyCap),
+      wait(timing.beatGapMs),
+    ),
+  );
+
+  const carryCap = caption("carry");
+  beats.push(
+    seq(
+      call(() => {
+        model.beat = "carry";
+        model.caption = carryCap;
+      }),
+      tween(timing.carryMs, (p) => { model.carryProgress = p; }, easeInOut),
+      call(() => {
+        model.carryProgress = 1;
+        model.fieldCount = round.remaining;
+      }),
+      ...hold(carryCap),
+      wait(timing.roundGapMs),
+    ),
+  );
+
+  return beats;
+}
+
+/**
+ * Build the fuse beat that lifts a line's surviving field into the hexagram
+ * line glyph, with its derivation caption and settle pause.
+ */
+export function buildYarrowFuseBeat(
+  model: YarrowModel,
+  timing: YarrowTiming,
+  lineIdx: number,
+): Step {
+  const line = model.transcript[lineIdx].line;
+  const hold = (caption: string): Step[] => (caption ? [wait(timing.captionHoldMs)] : []);
+  const fuseCap = buildFuseCaption(model.transcript[lineIdx].rounds[2].remaining);
+  return seq(
+    call(() => {
+      model.beat = "fuse";
+      model.caption = fuseCap;
+    }),
+    tween(timing.fuseMs, (p) => { model.lines[lineIdx].progress = p; }, easeOut),
+    call(() => {
+      model.lines[lineIdx].progress = 1;
+      model.lines[lineIdx].settled = true;
+      if (line.isChanging) model.lines[lineIdx].markerVisible = true;
+    }),
+    ...hold(fuseCap),
+    call(() => { model.caption = ""; }),
+    wait(timing.lineSettleMs),
+  );
+}
+
 /**
  * Build the full yarrow ritual timeline. The timeline closes over `model` and
  * mutates its live state; `fastForward` lands the completed hexagram.
@@ -78,169 +230,17 @@ export function buildYarrowTimeline(
 ): YarrowTimeline {
   const beats: Step[] = [];
 
-  // A narrated beat's caption lingers an extra captionHoldMs so it can be read.
-  const hold = (caption: string): Step[] =>
-    caption ? [wait(timing.captionHoldMs)] : [];
-
   for (let lineIdx = 0; lineIdx < 6; lineIdx++) {
     const teach = lineIdx === 0;
     // Teach-once: the first line is always expanded, whatever the preset.
     const effectiveDetail: RitualDetail = teach ? "expanded" : detail;
-    const countEasing: EasingFn =
-      effectiveDetail === "expanded"
-        ? staircase
-        : effectiveDetail === "summarized"
-          ? easeInOut
-          : linear;
+    const narrating = lineIdx === 0;
 
     for (let roundIdx = 0; roundIdx < 3; roundIdx++) {
-      const round = model.transcript[lineIdx].rounds[roundIdx];
-      // Line 0 narrates every round with numbers from the transcript — so
-      // the user sees the pattern repeat with the actual values.
-      const narrating = lineIdx === 0;
-      const caps = buildRoundCaptions(roundIdx, round);
-      const caption = (key: keyof RoundCaptions): string =>
-        narrating ? caps[key] : "";
-
-      const gatherCap = caption("gather");
-      beats.push(
-        seq(
-          call(() => {
-            model.beat = "gather";
-            model.activeLine = lineIdx;
-            model.activeRound = roundIdx;
-            model.fieldCount = round.startCount;
-            model.splitProgress = 0;
-            model.takeOneProgress = 0;
-            model.countProgress = 0;
-            model.tallyProgress = 0;
-            model.carryProgress = 0;
-            model.caption = gatherCap;
-          }),
-          wait(timing.gatherMs),
-          ...hold(gatherCap),
-          wait(timing.beatGapMs),
-        ),
-      );
-
-      const divideCap = caption("divide");
-      beats.push(
-        seq(
-          call(() => {
-            model.beat = "divide";
-            model.caption = divideCap;
-          }),
-          tween(timing.divideMs, (p) => {
-            model.splitProgress = p;
-          }, easeInOut),
-          call(() => {
-            model.splitProgress = 1;
-          }),
-          ...hold(divideCap),
-          wait(timing.beatGapMs),
-        ),
-      );
-
-      const takeOneCap = caption("takeOne");
-      beats.push(
-        seq(
-          call(() => {
-            model.beat = "takeOne";
-            model.caption = takeOneCap;
-          }),
-          tween(timing.takeOneMs, (p) => {
-            model.takeOneProgress = p;
-          }, easeOut),
-          call(() => {
-            model.takeOneProgress = 1;
-          }),
-          ...hold(takeOneCap),
-          wait(timing.beatGapMs),
-        ),
-      );
-
-      const countCap = caption("count");
-      beats.push(
-        seq(
-          call(() => {
-            model.beat = "count";
-            model.caption = countCap;
-          }),
-          tween(timing.countMs, (p) => {
-            model.countProgress = p;
-          }, countEasing),
-          call(() => {
-            model.countProgress = 1;
-          }),
-          ...hold(countCap),
-          wait(timing.beatGapMs),
-        ),
-      );
-
-      const tallyCap = caption("tally");
-      beats.push(
-        seq(
-          call(() => {
-            model.beat = "tally";
-            model.caption = tallyCap;
-          }),
-          tween(timing.tallyHoldMs, (p) => {
-            model.tallyProgress = p;
-          }, easeOut),
-          call(() => {
-            model.tallyProgress = 1;
-          }),
-          ...hold(tallyCap),
-          wait(timing.beatGapMs),
-        ),
-      );
-
-      const carryCap = caption("carry");
-      beats.push(
-        seq(
-          call(() => {
-            model.beat = "carry";
-            model.caption = carryCap;
-          }),
-          tween(timing.carryMs, (p) => {
-            model.carryProgress = p;
-          }, easeInOut),
-          call(() => {
-            model.carryProgress = 1;
-            model.fieldCount = round.remaining;
-          }),
-          ...hold(carryCap),
-          wait(timing.roundGapMs),
-        ),
-      );
+      beats.push(...buildYarrowRoundBeats(model, timing, effectiveDetail, lineIdx, roundIdx, { narrating }));
     }
 
-    // Fuse — the surviving field rises and condenses into the hexagram line.
-    // Every line's fuse names its derivation so the user can read each line's
-    // value as it lands.
-    const line = model.transcript[lineIdx].line;
-    const fuseCap = buildFuseCaption(model.transcript[lineIdx].rounds[2].remaining);
-    beats.push(
-      seq(
-        call(() => {
-          model.beat = "fuse";
-          model.caption = fuseCap;
-        }),
-        tween(timing.fuseMs, (p) => {
-          model.lines[lineIdx].progress = p;
-        }, easeOut),
-        call(() => {
-          model.lines[lineIdx].progress = 1;
-          model.lines[lineIdx].settled = true;
-          if (line.isChanging) model.lines[lineIdx].markerVisible = true;
-        }),
-        ...hold(fuseCap),
-        call(() => {
-          model.caption = "";
-        }),
-        wait(timing.lineSettleMs),
-      ),
-    );
+    beats.push(buildYarrowFuseBeat(model, timing, lineIdx));
 
     // Trigram-recognition pause once the lower trigram (lines 1-3) is complete.
     if (lineIdx === 2) beats.push(wait(timing.afterTrigramMs));

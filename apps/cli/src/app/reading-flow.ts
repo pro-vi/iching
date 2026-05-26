@@ -30,6 +30,7 @@ import {
   type SceneSignal,
   TossScene,
   YarrowScene,
+  YarrowManualScene,
 } from "@iching/terminal";
 import {
   loadJournalEntries,
@@ -43,6 +44,7 @@ export type ReadingSource =
   | { type: "auto"; seed?: number }
   | { type: "manual" }
   | { type: "yarrow" }
+  | { type: "yarrow-manual" }
   | { type: "existing"; cast: Cast; intention?: string };
 
 export type ReadingPurpose = "cast" | "play" | "replay";
@@ -99,6 +101,12 @@ export async function runReadingFlow(
     if (yarrowSignal?.type === "exit") return { shouldExit: true };
     if (yarrowSignal?.type !== "yarrowCompleted") return { shouldExit: false }; // user quit mid-ritual
     cast = yarrowSignal.cast;
+  } else if (opts.source.type === "yarrow-manual") {
+    const yarrowManualScene = new YarrowManualScene(deps.motion);
+    const yarrowSignal = await deps.run(yarrowManualScene);
+    if (yarrowSignal?.type === "exit") return { shouldExit: true };
+    if (yarrowSignal?.type !== "yarrowCompleted") return { shouldExit: false }; // user quit mid-ritual
+    cast = yarrowSignal.cast;
   } else if (opts.source.type === "auto") {
     usedSeed = opts.source.seed !== undefined;
     const source = usedSeed
@@ -134,7 +142,9 @@ export async function runReadingFlow(
   // - existing: replay of a saved reading — fully static, no animation.
   // - auto: full ritual from the opening breath onward.
   const drewOwnLines =
-    opts.source.type === "manual" || opts.source.type === "yarrow";
+    opts.source.type === "manual" ||
+    opts.source.type === "yarrow" ||
+    opts.source.type === "yarrow-manual";
   const castScene = new CastScene(
     cast,
     deps.motion,
