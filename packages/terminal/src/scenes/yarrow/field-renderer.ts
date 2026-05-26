@@ -231,14 +231,23 @@ function renderField(buf: CellBuffer, model: YarrowModel): void {
 
     case "takeOne": {
       if (!round) break;
-      const rightStalks = round.startCount - round.splitAt;
+      // The lifted stalk arcs from the right heap's inner edge to the aside
+      // tray's first cell. The heap loses the stalk; the flyer carries it.
+      // At p=1 the flyer lands exactly where drawTray will place its first
+      // stalk in the count beat — same character, same cell, no jump.
+      const leftStalks = round.splitAt;
+      const rightStalksOriginal = round.startCount - round.splitAt;
       const taken = model.takeOneProgress > 0 ? 1 : 0;
-      drawSplitBar(buf, row, areaStart, round.splitAt, rightStalks - taken, t.primary);
-      // The lifted stalk rises from the cell the right heap just vacated.
-      const newRightWidth = stalkWidth(rightStalks - taken);
-      const liftCol = areaStart + BAR_AREA_WIDTH - newRightWidth - 1;
-      const liftRow = row - Math.round(model.takeOneProgress * 3);
-      drawLiftedStalk(buf, liftRow, liftCol, t.accent);
+      drawSplitBar(buf, row, areaStart, leftStalks, rightStalksOriginal - taken, t.primary);
+      if (model.takeOneProgress > 0) {
+        const startCol = areaStart + BAR_AREA_WIDTH - rightStalksOriginal;
+        const trayCol = areaStart + BAR_AREA_WIDTH + 2;
+        const p = model.takeOneProgress;
+        const flyCol = Math.round(lerp(startCol, trayCol, p));
+        const arcRows = Math.round(Math.sin(p * Math.PI) * 4);
+        const flyRow = row - arcRows;
+        drawLiftedStalk(buf, flyRow, flyCol, t.accent);
+      }
       break;
     }
 
