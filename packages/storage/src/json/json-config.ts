@@ -11,7 +11,16 @@ const DEFAULT_CONFIG: UserConfig = {
   glyphAnim: "dots",
   glyphFont: "kaiti",
   taijituStyle: "dots",
+  castMethod: "coin",
   castMode: "auto",
+};
+
+// Old castMode strings (pre split into castMethod+castMode) → new pair.
+const LEGACY_CAST_MODE: Record<string, { method: UserConfig["castMethod"]; mode: UserConfig["castMode"] }> = {
+  "auto": { method: "coin", mode: "auto" },
+  "manual": { method: "coin", mode: "manual" },
+  "yarrow": { method: "yarrow", mode: "auto" },
+  "yarrow-manual": { method: "yarrow", mode: "manual" },
 };
 
 // Legacy theme names → current canonical names.
@@ -29,8 +38,21 @@ export class JsonConfigStore implements ConfigStore {
   async load(): Promise<UserConfig> {
     try {
       const raw = await readFile(this.path, "utf-8");
-      const partial = JSON.parse(raw) as Partial<UserConfig> & { glyphSize?: unknown };
-      const merged = { ...DEFAULT_CONFIG, ...partial };
+      const partial = JSON.parse(raw) as Partial<UserConfig> & {
+        glyphSize?: unknown;
+        // Old single-field castMode (strings like "yarrow-manual"); migrated below.
+        castMode?: string;
+      };
+      // Migrate legacy single-string castMode → castMethod + castMode pair.
+      // Old configs only had `castMode`; absence of `castMethod` is the tell.
+      if (partial.castMode && partial.castMethod === undefined) {
+        const split = LEGACY_CAST_MODE[partial.castMode];
+        if (split) {
+          partial.castMethod = split.method;
+          partial.castMode = split.mode;
+        }
+      }
+      const merged = { ...DEFAULT_CONFIG, ...partial } as UserConfig;
       // Drop removed glyphSize key from older configs.
       delete (merged as { glyphSize?: unknown }).glyphSize;
       // Migrate legacy taijituStyle values (yangDots/yinDots → dots, yangDense/yinDense → dense).

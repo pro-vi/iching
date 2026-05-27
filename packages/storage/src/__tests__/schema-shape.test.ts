@@ -73,6 +73,7 @@ describe("schema shape — config", () => {
       glyphAnim: "dots",
       glyphFont: "kaiti",
       taijituStyle: "dense",
+      castMethod: "yarrow",
       castMode: "manual",
     };
     await store.save(written);

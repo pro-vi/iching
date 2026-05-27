@@ -22,7 +22,8 @@ import { LINE_WIDTH } from "../../glyphs.ts";
 const ANIM_OPTIONS: GlyphAnimStyle[] = ["dots", "noise", "radial", "sand"];
 const FONT_OPTIONS: GlyphFont[] = ["kaiti", "libian", "heiti"];
 const TAIJITU_OPTIONS: TaijituStyle[] = ["dots", "dense"];
-const CAST_MODE_OPTIONS = ["auto", "manual", "yarrow", "yarrow-manual"] as const;
+const CAST_METHOD_OPTIONS = ["coin", "yarrow"] as const;
+const CAST_MODE_OPTIONS = ["auto", "manual"] as const;
 
 interface SettingRow {
   label: string;
@@ -35,7 +36,8 @@ export interface SettingsValues {
   glyphAnim: GlyphAnimStyle;
   glyphFont: GlyphFont;
   taijituStyle: TaijituStyle;
-  castMode: "auto" | "manual" | "yarrow" | "yarrow-manual";
+  castMethod: "coin" | "yarrow";
+  castMode: "auto" | "manual";
 }
 
 // ── Preview constants ─────────────────────────────────────────────────
@@ -74,11 +76,12 @@ export class SettingsScene implements Scene {
   constructor(initial: SettingsValues) {
     this.values = { ...initial };
     this.rows = [
-      { label: "Theme",           options: [...THEME_NAMES],       selected: Math.max(0, THEME_NAMES.indexOf(initial.theme)) },
-      { label: "Taijitu",         options: [...TAIJITU_OPTIONS],   selected: Math.max(0, TAIJITU_OPTIONS.indexOf(initial.taijituStyle)) },
-      { label: "Glyph Animation", options: [...ANIM_OPTIONS],      selected: Math.max(0, ANIM_OPTIONS.indexOf(initial.glyphAnim)) },
-      { label: "Font",            options: [...FONT_OPTIONS],      selected: Math.max(0, FONT_OPTIONS.indexOf(initial.glyphFont)) },
-      { label: "Cast",            options: [...CAST_MODE_OPTIONS], selected: Math.max(0, CAST_MODE_OPTIONS.indexOf(initial.castMode)) },
+      { label: "Theme",           options: [...THEME_NAMES],         selected: Math.max(0, THEME_NAMES.indexOf(initial.theme)) },
+      { label: "Taijitu",         options: [...TAIJITU_OPTIONS],     selected: Math.max(0, TAIJITU_OPTIONS.indexOf(initial.taijituStyle)) },
+      { label: "Glyph Animation", options: [...ANIM_OPTIONS],        selected: Math.max(0, ANIM_OPTIONS.indexOf(initial.glyphAnim)) },
+      { label: "Font",            options: [...FONT_OPTIONS],        selected: Math.max(0, FONT_OPTIONS.indexOf(initial.glyphFont)) },
+      { label: "Cast Method",     options: [...CAST_METHOD_OPTIONS], selected: Math.max(0, CAST_METHOD_OPTIONS.indexOf(initial.castMethod)) },
+      { label: "Cast Mode",       options: [...CAST_MODE_OPTIONS],   selected: Math.max(0, CAST_MODE_OPTIONS.indexOf(initial.castMode)) },
     ];
     this.previewKind = this.previewKindForLabel(this.rows[0]?.label);
   }
@@ -89,7 +92,8 @@ export class SettingsScene implements Scene {
       taijituStyle: TAIJITU_OPTIONS[this.rows[1].selected] ?? "dots",
       glyphAnim: ANIM_OPTIONS[this.rows[2].selected] ?? "dots",
       glyphFont: FONT_OPTIONS[this.rows[3].selected] ?? "kaiti",
-      castMode: CAST_MODE_OPTIONS[this.rows[4].selected] ?? "auto",
+      castMethod: CAST_METHOD_OPTIONS[this.rows[4].selected] ?? "coin",
+      castMode: CAST_MODE_OPTIONS[this.rows[5].selected] ?? "auto",
     };
   }
 
@@ -349,12 +353,12 @@ export class SettingsScene implements Scene {
 
   private previewKindForLabel(label: string | undefined): PreviewKind {
     if (label === "Taijitu") return "taijitu";
-    if (label === "Cast") {
-      const mode = this.getValues().castMode;
-      if (mode === "manual") return "cast-manual";
-      if (mode === "yarrow") return "cast-yarrow";
-      if (mode === "yarrow-manual") return "cast-yarrow-manual";
-      return "cast-auto";
+    if (label === "Cast Method" || label === "Cast Mode") {
+      const { castMethod, castMode } = this.getValues();
+      if (castMethod === "yarrow") {
+        return castMode === "manual" ? "cast-yarrow-manual" : "cast-yarrow";
+      }
+      return castMode === "manual" ? "cast-manual" : "cast-auto";
     }
     return "glyph"; // Theme, Glyph Animation, Font
   }
@@ -379,7 +383,7 @@ export class SettingsScene implements Scene {
     const label = this.rows[this.focusedRow]?.label;
     if (label === "Glyph Animation" || label === "Font") {
       this.startPreview();
-    } else if (label === "Cast") {
+    } else if (label === "Cast Method" || label === "Cast Mode") {
       this.resetCastPreview();
       this.previewKind = this.previewKindForLabel(label);
     }
