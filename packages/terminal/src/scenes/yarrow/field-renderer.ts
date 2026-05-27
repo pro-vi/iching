@@ -395,8 +395,12 @@ function applyOperatorCursor(
 ): void {
   const round = model.currentRound();
   if (!round) return;
+  // Cursor highlights via color only — no bold. Bold rendering can make
+  // monospace `│` look thinner/shorter than its neighbors in some terminals,
+  // which reads as a visual artifact rather than emphasis. Accent vs primary
+  // is enough contrast in divide/count; in tally the cursor merges with the
+  // (already-accent) tray, which is correct — the tray is the destination.
   const c = getTheme().accent;
-  const bold = { bold: true };
 
   switch (model.beat) {
     case "divide": {
@@ -408,15 +412,12 @@ function applyOperatorCursor(
       const p = model.splitProgress;
       const wholeStart = center - Math.floor((leftStalks + rightStalks) / 2);
       const leftCol = Math.round(lerp(wholeStart, areaStart, p));
-      drawStalk(buf, fieldRow, leftCol + leftStalks - 1, c, bold);
+      drawStalk(buf, fieldRow, leftCol + leftStalks - 1, c);
       break;
     }
     case "takeOne": {
-      // The lifted stalk IS the cursor — emphasize the flyer in flight.
-      if (model.takeOneProgress > 0) {
-        const { col, arcRows } = flyerPosition(round, model.takeOneProgress, areaStart);
-        drawStalk(buf, fieldRow - arcRows, col, c, bold);
-      }
+      // The lifted stalk IS the cursor — already drawn accent by the flyer.
+      // No extra emphasis needed.
       break;
     }
     case "count": {
@@ -429,26 +430,27 @@ function applyOperatorCursor(
       const { leftP, rightP } = splitSeqProgress(model.countProgress);
       if (model.countProgress < 0.5) {
         const leftCurrent = lerp(leftStart, leftEnd, leftP);
-        drawStalk(buf, fieldRow, areaStart + Math.ceil(leftCurrent) - 1, c, bold);
+        drawStalk(buf, fieldRow, areaStart + Math.ceil(leftCurrent) - 1, c);
       } else if (rightStart > 0) {
         const rightCurrent = lerp(rightStart, rightEnd, rightP);
-        drawStalk(buf, fieldRow, areaStart + BAR_AREA_WIDTH - Math.ceil(rightCurrent), c, bold);
+        drawStalk(buf, fieldRow, areaStart + BAR_AREA_WIDTH - Math.ceil(rightCurrent), c);
       }
       break;
     }
     case "tally": {
       // Cursor at the tray as a receiving mark — the latest stalk dropped in.
+      // The tray is already accent, so the cursor visually merges; that's
+      // appropriate — the tray IS the operator's destination.
       const { leftP, rightP } = splitSeqProgress(model.tallyProgress);
       const inTray = 1 + round.leftRemainder * leftP + round.rightRemainder * rightP;
       const trayCol = areaStart + BAR_AREA_WIDTH + 2;
-      drawStalk(buf, fieldRow, trayCol + Math.max(0, Math.ceil(inTray) - 1), c, bold);
+      drawStalk(buf, fieldRow, trayCol + Math.max(0, Math.ceil(inTray) - 1), c);
       break;
     }
-    case "carry": {
-      // Cursor at the center of the gathering substance.
-      drawStalk(buf, fieldRow, center, c, bold);
-      break;
-    }
+    // carry: cursor hidden. The temp-fours quartets (`▌`) live in the same
+    // centered region as the gathering bar; a cursor `│` at center would
+    // overwrite a `▌` and look like a thinner stalk. The beat is short and
+    // its story is "substance returns" — the operator-thread isn't needed.
     // gather / fuse / idle / done: cursor hidden — substance is at rest or
     // the line is becoming itself. Manual scene's waiting phase lands here
     // too (beat === "gather", all progresses === 0).
