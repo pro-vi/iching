@@ -185,19 +185,15 @@ function drawTempFours(
 }
 
 /**
- * Write a single stalk cell, optionally bolded. Used for the lifted-flyer
- * during takeOne (`{ bold: false }`) and for the operator-cursor styling
- * overlay (`{ bold: true }`). Full bounds-check — out-of-frame writes no-op.
+ * Write a single stalk cell at the given color. Used for the lifted-flyer
+ * during takeOne, the operator-cursor overlay, and the H4 drag cursor —
+ * all of which highlight via color alone (bold made `│` look thinner than
+ * its neighbors in some terminals; substance vocabulary stays color-only).
+ * Full bounds-check — out-of-frame writes no-op.
  */
-function drawStalk(
-  buf: CellBuffer,
-  row: number,
-  col: number,
-  color: string,
-  opts?: { bold?: boolean },
-): void {
+function drawStalk(buf: CellBuffer, row: number, col: number, color: string): void {
   if (row < 0 || row >= buf.height || col < 0 || col >= buf.width) return;
-  buf.writeText(row, col, STALK, { fg: color, bold: opts?.bold });
+  buf.writeText(row, col, STALK, { fg: color });
 }
 
 /**
@@ -484,16 +480,12 @@ function applyOperatorCursor(
       }
       break;
     }
-    case "tally": {
-      // Cursor at the tray as a receiving mark — the latest stalk dropped in.
-      // The tray is already accent, so the cursor visually merges; that's
-      // appropriate — the tray IS the operator's destination.
-      const { leftP, rightP } = splitSeqProgress(model.tallyProgress);
-      const inTray = 1 + round.leftRemainder * leftP + round.rightRemainder * rightP;
-      const trayCol = areaStart + BAR_AREA_WIDTH + 2;
-      drawStalk(buf, fieldRow, trayCol + Math.max(0, Math.ceil(inTray) - 1), c);
-      break;
-    }
+    // tally: cursor hidden. The tray cells are already drawn at accent
+    // by `drawTray`, so a same-color cursor on the latest cell has no
+    // visible effect. Either accept the merge (which makes the cursor a
+    // lie) or differentiate, which would require a new highlight idiom
+    // (bold causes the "thinner stalk" artifact). Cleaner to omit — the
+    // tally beat's story is told by the tray growing, not by a focus mark.
     // carry: cursor hidden. The temp-fours quartets (`▌`) live in the same
     // centered region as the gathering bar; a cursor `│` at center would
     // overwrite a `▌` and look like a thinner stalk. The beat is short and
