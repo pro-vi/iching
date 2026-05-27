@@ -54,8 +54,8 @@ describe("runReadingFlow — yarrow source", () => {
       }
       if (scene instanceof YarrowScene) {
         scenesRun.push("yarrow");
-        yarrowCast = scene.getModel().cast;
-        return { type: "yarrowCompleted", cast: scene.getModel().cast };
+        yarrowCast = scene.getModel().requireCast();
+        return { type: "yarrowCompleted", cast: scene.getModel().requireCast() };
       }
       if (scene instanceof CastScene) {
         scenesRun.push("cast");

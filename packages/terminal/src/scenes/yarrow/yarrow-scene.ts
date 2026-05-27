@@ -61,7 +61,7 @@ export class YarrowScene implements Scene {
     // Once the figure stands, space receives the reading.
     if (this.model.hexagramComplete) {
       if (key.type === "char" && key.char === " ") {
-        return { type: "yarrowCompleted", cast: this.model.cast };
+        return { type: "yarrowCompleted", cast: this.model.requireCast() };
       }
       return;
     }

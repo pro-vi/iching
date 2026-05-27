@@ -25,7 +25,7 @@ describe("YarrowScene", () => {
     expect(s.getModel().hexagramComplete).toBe(true);
 
     const sig = s.handleKey(key({ type: "char", char: " " }), ctx);
-    expect(sig).toEqual({ type: "yarrowCompleted", cast: s.getModel().cast });
+    expect(sig).toEqual({ type: "yarrowCompleted", cast: s.getModel().requireCast() });
   });
 
   test("escape before completion returns home with no cast", () => {

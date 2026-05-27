@@ -84,12 +84,21 @@ let held = 0;
 const frames: RecordingFrame[] = [];
 
 if (method === "yarrow-manual") {
-  // Manual yarrow: drive a synthetic operator that presses Space after a
-  // short pause whenever the scene is waiting for a cut.
-  const SIMULATED_THINK_MS = 650;
+  // H4 manual yarrow: synthetic operator simulates the hold-release gesture.
+  // For each line, queue TARGET_KS[lineIdx] Space presses at KEY_REPEAT_MS
+  // intervals — the first counts as gathering→dragging (cursorK=1) and the
+  // rest increment. After pressesLeft hits 0, the recorder stops sending
+  // and the scene's update() accumulates silence until RELEASE_MS triggers
+  // the commit.
+  const TARGET_KS = [12, 24, 36, 8, 32, 18];
+  const KEY_REPEAT_MS = 50;
+  const space: KeyEvent = { type: "char", char: " " };
+
   const manual = new YarrowManualScene(preset, source);
   manual.enter(ctx);
-  let thinkAcc = 0;
+  let prevLineIdx = -1;
+  let pressesLeft = 0;
+  let pressTimer = 0;
 
   for (let i = 0; i < MAX_FRAMES; i++) {
     manual.update(elapsed, DT, ctx);
@@ -106,16 +115,21 @@ if (method === "yarrow-manual") {
     prev = frame;
     elapsed += DT;
 
+    const lineIdx = manual.getLineIdx();
+    if (lineIdx !== prevLineIdx && lineIdx < TARGET_KS.length) {
+      pressesLeft = TARGET_KS[lineIdx];
+      pressTimer = 0;
+      prevLineIdx = lineIdx;
+    }
+
     const phase = manual.getPhase();
-    if (phase === "waiting") {
-      thinkAcc += DT;
-      if (thinkAcc >= SIMULATED_THINK_MS) {
-        const space: KeyEvent = { type: "char", char: " " };
+    if ((phase === "gathering" || phase === "dragging") && pressesLeft > 0) {
+      pressTimer += DT;
+      while (pressTimer >= KEY_REPEAT_MS && pressesLeft > 0) {
         manual.handleKey(space, ctx);
-        thinkAcc = 0;
+        pressTimer -= KEY_REPEAT_MS;
+        pressesLeft--;
       }
-    } else {
-      thinkAcc = 0;
     }
 
     if (phase === "complete") {

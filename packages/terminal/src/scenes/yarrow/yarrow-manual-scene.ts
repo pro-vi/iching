@@ -1,13 +1,18 @@
-// YarrowManualScene — interactive yarrow ritual.
+// YarrowManualScene — H4 hold-and-release manual yarrow.
 //
-// Mirrors TossScene's shape for the yarrow path: Space commits one round
-// (gather → divide → take → count → tally → carry, then fuse on the 3rd
-// round of each line). 18 atoms total (3 rounds × 6 lines). On completion
-// Space emits `yarrowCompleted` and reading-flow hands the cast to
-// CastScene for the shared reveal.
+// Six cuts, one per line. Each cut is a hold-release gesture: the user
+// presses Space to start the drag, additional Spaces (or OS key-repeat
+// while held) advance the cursor by one cell each; 250ms of silence after
+// the last Space commits the cut at the current cursorK. The committed k
+// is used as round 1's splitAt for that line; rounds 2-3 stay RNG.
+//
+// No position numbers are shown — the cursor IS the visual choice. After
+// release, the round + fuse animation plays via the same beat pipeline as
+// auto mode. After 6 lines, the cast is assembled and Space emits
+// `yarrowCompleted`.
 
 import {
-  castYarrowHexagram,
+  castYarrowLine,
   CryptoRandomSource,
   type RandomSource,
 } from "@iching/core";
@@ -18,55 +23,139 @@ import type { MotionPreset } from "../../animation/presets.ts";
 import { getYarrowTiming } from "../../animation/yarrow-presets.ts";
 import type { YarrowTiming, RitualDetail } from "../../animation/yarrow-presets.ts";
 import { TimelineRunner } from "../../animation/runner.ts";
-import { type Step, seq } from "../../animation/timeline.ts";
+import { seq } from "../../animation/timeline.ts";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { YarrowModel } from "./model.ts";
-import { renderYarrowField } from "./field-renderer.ts";
 import {
-  buildYarrowRoundBeats,
-  buildYarrowFuseBeat,
-} from "./yarrow-timeline.ts";
+  renderYarrowField,
+  yarrowFieldGeometry,
+  drawDragCursor,
+} from "./field-renderer.ts";
+import { buildYarrowFullLineBeats } from "./yarrow-timeline.ts";
 
-const TOTAL_ATOMS = 18; // 3 rounds × 6 lines
+const LINES = 6;
+const CURSOR_MIN = 1;
+const CURSOR_MAX = 48;            // splitAt must be ≤ startCount - 1 = 48
+const RELEASE_MS = 250;           // silence after last Space → commit
 
-type Phase = "waiting" | "playing" | "complete";
+type Phase = "gathering" | "dragging" | "playing" | "complete";
 
 export class YarrowManualScene implements Scene {
   private readonly model: YarrowModel;
+  private readonly source: RandomSource;
   private readonly timing: YarrowTiming;
   private readonly detail: RitualDetail;
-  private phase: Phase = "waiting";
-  private atomIdx = 0;
+
+  private phase: Phase = "gathering";
+  private lineIdx = 0;
+  private cursorK = 0;
+  private silenceMs = 0;
   private subRunner: TimelineRunner | null = null;
   private subElapsed = 0;
 
   constructor(motion: MotionPreset = "default", source?: RandomSource) {
-    // Cast is committed at construction, same as auto YarrowScene.
-    this.model = new YarrowModel(
-      castYarrowHexagram(source ?? new CryptoRandomSource()),
-    );
+    // Manual mode starts with an empty transcript; lines are appended as
+    // the user cuts. commitCast() runs after the 6th line.
+    this.model = new YarrowModel(null);
+    this.source = source ?? new CryptoRandomSource();
     const resolved = getYarrowTiming(motion);
     this.timing = resolved.timing;
     this.detail = resolved.detail;
   }
 
   enter(_ctx: SceneContext): void {
-    this.initStateForAtom(0);
+    this.model.resetActiveLine(this.lineIdx);
   }
 
   update(_elapsed: number, dt: number, _ctx: SceneContext): void {
-    if (this.phase !== "playing" || !this.subRunner) return;
+    if (this.phase === "dragging") {
+      this.silenceMs += dt;
+      if (this.silenceMs >= RELEASE_MS && this.cursorK > 0) {
+        this.commitCut();
+      }
+      return;
+    }
+    if (this.phase === "playing" && this.subRunner) {
+      this.subElapsed += dt;
+      const done = this.subRunner.advance(this.subElapsed, this.model);
+      if (done) this.advanceToNextLine();
+    }
+  }
 
-    this.subElapsed += dt;
-    const done = this.subRunner.advance(this.subElapsed, this.model);
-    if (!done) return;
+  render(frame: CellBuffer, _ctx: SceneContext): void {
+    renderYarrowField(frame, this.model);
+    if (this.phase === "dragging") {
+      const g = yarrowFieldGeometry(frame);
+      drawDragCursor(frame, g.fieldRow, g.center, this.cursorK);
+    }
+    this.renderFooter(frame);
+  }
 
-    this.atomIdx++;
+  handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
+    if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
+
+    if (key.type === "escape") {
+      if (this.phase === "dragging") {
+        // Cancel drag, stay on same line.
+        this.cursorK = 0;
+        this.silenceMs = 0;
+        this.phase = "gathering";
+        return;
+      }
+      return { type: "home" };
+    }
+
+    if (key.type === "char" && key.char === "q") return { type: "home" };
+
+    if (key.type !== "char" || key.char !== " ") return;
+
+    switch (this.phase) {
+      case "gathering":
+        // First Space starts the drag at cursorK=1.
+        this.phase = "dragging";
+        this.cursorK = CURSOR_MIN;
+        this.silenceMs = 0;
+        break;
+      case "dragging":
+        // Subsequent Space advances cursor (saturates at CURSOR_MAX).
+        this.cursorK = Math.min(CURSOR_MAX, this.cursorK + 1);
+        this.silenceMs = 0;
+        break;
+      case "playing":
+        // Ignore input while the round animates.
+        break;
+      case "complete":
+        return { type: "yarrowCompleted", cast: this.model.requireCast() };
+    }
+  }
+
+  /** Commit the current cursor's k as round 1's splitAt for this line. */
+  private commitCut(): void {
+    const k = Math.max(CURSOR_MIN, Math.min(CURSOR_MAX, this.cursorK));
+    const result = castYarrowLine(this.source, { firstSplitAt: k });
+    this.model.appendLine(result);
+
+    // Build the line's full ritual: 3 rounds + fuse. No narration ever —
+    // round captions would expose "Cut at k=..." numerically, contradicting
+    // "hide the number, show the visual."
+    const beats = buildYarrowFullLineBeats(
+      this.model, this.timing, this.detail, this.lineIdx, { narrating: false },
+    );
+    this.subRunner = new TimelineRunner(seq(...beats));
+    this.subElapsed = 0;
+    this.phase = "playing";
+  }
+
+  private advanceToNextLine(): void {
+    this.lineIdx++;
     this.subRunner = null;
     this.subElapsed = 0;
+    this.cursorK = 0;
+    this.silenceMs = 0;
 
-    if (this.atomIdx >= TOTAL_ATOMS) {
+    if (this.lineIdx >= LINES) {
+      this.model.commitCast();
       this.phase = "complete";
       this.model.activeLine = -1;
       this.model.hexagramComplete = true;
@@ -74,78 +163,8 @@ export class YarrowManualScene implements Scene {
       return;
     }
 
-    this.phase = "waiting";
-    this.initStateForAtom(this.atomIdx);
-  }
-
-  render(frame: CellBuffer, _ctx: SceneContext): void {
-    renderYarrowField(frame, this.model);
-    this.renderFooter(frame);
-  }
-
-  handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
-    if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
-    if (key.type === "escape") return { type: "home" };
-    if (key.type === "char" && key.char === "q") return { type: "home" };
-
-    if (key.type !== "char" || key.char !== " ") return;
-
-    if (this.phase === "complete") {
-      return { type: "yarrowCompleted", cast: this.model.cast };
-    }
-    if (this.phase === "waiting") {
-      this.startAtom();
-    }
-  }
-
-  /** Build the next round's beats (+ fuse if 3rd round) and start advancing. */
-  private startAtom(): void {
-    const lineIdx = Math.floor(this.atomIdx / 3);
-    const roundIdx = this.atomIdx % 3;
-    // Narrate the very first round so the user learns the procedure; subsequent
-    // rounds run silent the same way auto mode does after line 0.
-    const narrating = this.atomIdx === 0;
-    const teach = lineIdx === 0;
-    const effectiveDetail: RitualDetail = teach ? "expanded" : this.detail;
-
-    const beats: Step[] = buildYarrowRoundBeats(
-      this.model,
-      this.timing,
-      effectiveDetail,
-      lineIdx,
-      roundIdx,
-      { narrating },
-    );
-    if (roundIdx === 2) {
-      // Narrate the fuse derivation only on the first line — same teach-once
-      // rule used for round beats.
-      beats.push(buildYarrowFuseBeat(this.model, this.timing, lineIdx, { narrating: lineIdx === 0 }));
-    }
-
-    this.subRunner = new TimelineRunner(seq(...beats));
-    this.subElapsed = 0;
-    this.phase = "playing";
-  }
-
-  /**
-   * Set the model to a "ready to cut" pose for the given atom: pile gathered,
-   * progresses zeroed, active indices updated. Renders identically to the
-   * gather beat's start state so the wait is visually consistent.
-   */
-  private initStateForAtom(atomIdx: number): void {
-    const lineIdx = Math.floor(atomIdx / 3);
-    const roundIdx = atomIdx % 3;
-    const round = this.model.transcript[lineIdx].rounds[roundIdx];
-    this.model.activeLine = lineIdx;
-    this.model.activeRound = roundIdx;
-    this.model.beat = "gather";
-    this.model.fieldCount = round.startCount;
-    this.model.splitProgress = 0;
-    this.model.takeOneProgress = 0;
-    this.model.countProgress = 0;
-    this.model.tallyProgress = 0;
-    this.model.carryProgress = 0;
-    this.model.caption = "";
+    this.phase = "gathering";
+    this.model.resetActiveLine(this.lineIdx);
   }
 
   private renderFooter(frame: CellBuffer): void {
@@ -154,33 +173,37 @@ export class YarrowManualScene implements Scene {
     if (row < 0) return;
 
     let text: string;
-    if (this.phase === "complete") {
-      text = "[space] receive the reading  ·  [esc] discard";
-    } else {
-      const lineIdx = Math.floor(this.atomIdx / 3);
-      const roundIdx = this.atomIdx % 3;
-      const label = `Line ${lineIdx + 1} · Round ${roundIdx + 1}`;
-      text = this.phase === "playing"
-        ? `${label}  ·  counting…`
-        : `${label}  ·  [space] cut  ·  [esc] back`;
+    switch (this.phase) {
+      case "complete":
+        text = "[space] receive the reading  ·  [esc] discard";
+        break;
+      case "gathering":
+        text = `Line ${this.lineIdx + 1}/6  ·  press [space] to begin cutting  ·  [esc] back`;
+        break;
+      case "dragging":
+        text = `Line ${this.lineIdx + 1}/6  ·  hold [space] to slide the cut · release to commit`;
+        break;
+      case "playing":
+        text = `Line ${this.lineIdx + 1}/6  ·  counting…`;
+        break;
     }
 
     const col = Math.max(0, Math.floor((frame.width - stringWidth(text)) / 2));
     frame.writeText(row, col, text, { fg: t.tertiary });
   }
 
-  /** Expose model for testing. */
+  // ── Test accessors ───────────────────────────────────────────────────────
+
   getModel(): YarrowModel {
     return this.model;
   }
-
-  /** Current phase — exposed for testing. */
   getPhase(): Phase {
     return this.phase;
   }
-
-  /** Current atom index (0–18) — exposed for testing. */
-  getAtomIdx(): number {
-    return this.atomIdx;
+  getLineIdx(): number {
+    return this.lineIdx;
+  }
+  getCursorK(): number {
+    return this.cursorK;
   }
 }

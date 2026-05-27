@@ -6,6 +6,7 @@ import {
   brailleCell,
   brailleStrand,
   renderYarrowField,
+  renderYarrowFieldStrip,
 } from "../scenes/yarrow/field-renderer.ts";
 
 function model(seed = 1): YarrowModel {
@@ -153,6 +154,20 @@ describe("renderYarrowField — operator cursor overlay", () => {
       expect(() => renderYarrowField(buf, m)).not.toThrow();
       expect(rowHasContent(buf, 20)).toBe(true);
     }
+  });
+
+  test("renderYarrowFieldStrip draws at the caller-supplied row", () => {
+    // 24-row buffer → scene's default field row is anchorRow(24)+5 = 20.
+    // Strip at row 10 means content lands there and NOT at row 20.
+    const m = model();
+    m.beat = "gather";
+    m.activeLine = 0;
+    m.activeRound = 0;
+    m.fieldCount = 49;
+    const buf = new CellBuffer(80, 24);
+    renderYarrowFieldStrip(buf, m, 10);
+    expect(rowHasContent(buf, 10)).toBe(true);
+    expect(rowHasContent(buf, 20)).toBe(false);
   });
 
   test("cursor is hidden during gather, fuse, carry (no extra overlay)", () => {

@@ -82,6 +82,40 @@ function barAreaStartCol(buf: CellBuffer): number {
   return Math.max(0, Math.floor((buf.width - BAR_AREA_WIDTH) / 2));
 }
 
+/**
+ * Geometry of the yarrow field for callers placing overlays on the same
+ * coordinates the renderer uses (e.g. settings preview, H4 drag cursor).
+ */
+export function yarrowFieldGeometry(buf: CellBuffer): {
+  fieldRow: number;
+  areaStart: number;
+  center: number;
+} {
+  return {
+    fieldRow: fieldRow(buf),
+    areaStart: barAreaStartCol(buf),
+    center: Math.floor(buf.width / 2),
+  };
+}
+
+/**
+ * Draw an accent `│` at the cursor's stalk position on the gathered pile.
+ * The gathered bar is centered (drawWholeBar centers `barWidth` chars on
+ * `center`), so the cursor col is computed from the bar's left edge —
+ * NOT from the 52-cell bar-area start, which is offset by 1-2 cells.
+ */
+export function drawDragCursor(
+  buf: CellBuffer,
+  fieldRow: number,
+  center: number,
+  cursorK: number,
+  barWidth: number = TOTAL_STALKS,
+): void {
+  const barStart = center - Math.floor(barWidth / 2);
+  const col = barStart + cursorK - 1;
+  drawStalk(buf, fieldRow, col, getTheme().accent);
+}
+
 // ── Bar drawing ──────────────────────────────────────────────────────────────
 
 /** Centered single bar (gather, carry-complete). */
@@ -203,7 +237,11 @@ function renderHexagramLines(buf: CellBuffer, model: YarrowModel): void {
     if (state.progress <= 0) continue;
     // Skip the active line during fuse — bar is mid-flight, owned below.
     if (model.beat === "fuse" && i === model.activeLine && !state.settled) continue;
-    const line = model.cast.lines[i];
+    // Read from the transcript (always populated for any line that's
+    // progressed past 0) — model.cast may still be null in manual mode
+    // until commitCast() runs after all 6 lines.
+    const line = model.transcript[i]?.line;
+    if (!line) continue;
     const row = anchor + LINE_ROW_OFFSETS[i];
     if (row < 0 || row >= buf.height) continue;
     renderLine(
@@ -220,11 +258,20 @@ function renderHexagramLines(buf: CellBuffer, model: YarrowModel): void {
 
 // ── Field (the bar) ──────────────────────────────────────────────────────────
 
-function renderField(buf: CellBuffer, model: YarrowModel): void {
+/**
+ * Render just the field strip at a caller-supplied row, without the
+ * hexagram band or chrome. Used by both the full yarrow scene (via
+ * `renderYarrowField`) and the settings preview, where the strip needs
+ * to land inside a narrow preview region rather than the scene's
+ * default position.
+ *
+ * The fuse beat references `LINE_ROW_OFFSETS[activeLine]` from the
+ * hexagram band — preview callers must not reach `beat === "fuse"`.
+ */
+export function renderYarrowFieldStrip(buf: CellBuffer, model: YarrowModel, row: number): void {
   const t = getTheme();
   const center = Math.floor(buf.width / 2);
   const areaStart = barAreaStartCol(buf);
-  const row = fieldRow(buf);
 
   // Narrow fallback — bar area is 52 cells; below ~56 the bar overflows.
   if (buf.width < 56) {
@@ -477,6 +524,6 @@ function renderChrome(buf: CellBuffer, model: YarrowModel): void {
 
 export function renderYarrowField(buf: CellBuffer, model: YarrowModel): void {
   renderHexagramLines(buf, model);
-  renderField(buf, model);
+  renderYarrowFieldStrip(buf, model, fieldRow(buf));
   renderChrome(buf, model);
 }

@@ -14,7 +14,13 @@ import { getTheme, setTheme, THEME_NAMES, type ThemeName } from "../../color/the
 import { stringWidth } from "../../layout/measure.ts";
 import { type CoinState, INITIAL_VY, stepCoin, coinFrame } from "../toss/coin-physics.ts";
 import { renderCoinSet, CoinAnim } from "../cast/coin-renderer.ts";
-import { brailleStrand } from "../yarrow/field-renderer.ts";
+import { renderYarrowFieldStrip } from "../yarrow/field-renderer.ts";
+import { YarrowModel } from "../yarrow/model.ts";
+import { buildYarrowRoundBeats } from "../yarrow/yarrow-timeline.ts";
+import { getYarrowTiming } from "../../animation/yarrow-presets.ts";
+import { seq } from "../../animation/timeline.ts";
+import { TimelineRunner } from "../../animation/runner.ts";
+import { castYarrowHexagram, SeededRandomSource } from "@iching/core";
 import { LINE_WIDTH } from "../../glyphs.ts";
 
 // ── Setting definitions ──────────────────────────────────────────────
@@ -44,6 +50,9 @@ export interface SettingsValues {
 
 const PREVIEW_CHAR = "乾";
 const COIN_PAUSE_SECS = 0.8;
+const YARROW_PREVIEW_SEED = 42;           // round 0 split 24|25 — balanced
+const YARROW_AUTO_GAP_MS = 800;           // quiet hold between auto loop iterations
+const YARROW_MANUAL_WAIT_MS = 1200;       // synthetic "ready to cut" pose
 
 type PreviewKind =
   | "glyph"
@@ -72,6 +81,13 @@ export class SettingsScene implements Scene {
   private coinPauseTimer = 0;
   // cast-auto preview
   private coinAnim: CoinAnim | null = null;
+  // cast-yarrow / cast-yarrow-manual preview
+  private yarrowPreviewKind: "auto" | "manual" | null = null;
+  private yarrowModel: YarrowModel | null = null;
+  private yarrowRunner: TimelineRunner | null = null;
+  private yarrowElapsed = 0;
+  private yarrowManualWaiting = false;
+  private yarrowManualWaitTimer = 0;
 
   constructor(initial: SettingsValues) {
     this.values = { ...initial };
@@ -139,6 +155,48 @@ export class SettingsScene implements Scene {
       case "cast-auto":
         this.coinAnim?.step(dt);
         break;
+
+      case "cast-yarrow":
+      case "cast-yarrow-manual": {
+        const kind = this.previewKind === "cast-yarrow-manual" ? "manual" : "auto";
+        this.ensureYarrowPreview(kind);
+        if (!this.yarrowRunner || !this.yarrowModel) break;
+
+        if (kind === "manual" && this.yarrowManualWaiting) {
+          this.yarrowManualWaitTimer += dt;
+          if (this.yarrowManualWaitTimer >= YARROW_MANUAL_WAIT_MS) {
+            // Synthetic cut — kick off the round.
+            this.yarrowManualWaiting = false;
+            this.yarrowManualWaitTimer = 0;
+            this.yarrowRunner.reset();
+            this.yarrowElapsed = 0;
+          }
+          break; // hold the gather pose
+        }
+
+        this.yarrowElapsed += dt;
+        const done = this.yarrowRunner.advance(this.yarrowElapsed, this.yarrowModel);
+        if (!done) break;
+
+        if (kind === "auto") {
+          // Hold the carry-end pose briefly, then reset to a clean gather
+          // and loop. `done` stays true past completion, so we wait for the
+          // elapsed counter to cross duration + gap before resetting.
+          if (this.yarrowElapsed >= this.yarrowRunner.duration + YARROW_AUTO_GAP_MS) {
+            this.yarrowModel?.resetActiveLine(0, this.yarrowModel.transcript[0].rounds[0].startCount);
+            this.yarrowRunner.reset();
+            this.yarrowElapsed = 0;
+          }
+        } else {
+          // Manual: return to the waiting pose. Reset state FIRST so the
+          // gather frame is clean — otherwise the post-carry centered bar
+          // sits visible under the hint until the next cut.
+          this.yarrowModel?.resetActiveLine(0, this.yarrowModel.transcript[0].rounds[0].startCount);
+          this.yarrowManualWaiting = true;
+          this.yarrowManualWaitTimer = 0;
+        }
+        break;
+      }
     }
   }
 
@@ -280,35 +338,27 @@ export class SettingsScene implements Scene {
         break;
       }
 
-      case "cast-yarrow": {
-        const strand = brailleStrand(49);
-        const strandRow = startRow + Math.floor(availRows / 2);
-        frame.writeText(strandRow, cx - Math.floor(stringWidth(strand) / 2), strand, {
-          fg: t.primary,
-        });
-        const label = "yarrow stalk field";
-        frame.writeText(
-          strandRow + 2,
-          cx - Math.floor(stringWidth(label) / 2),
-          label,
-          { fg: t.tertiary },
-        );
-        break;
-      }
-
+      case "cast-yarrow":
       case "cast-yarrow-manual": {
-        const strand = brailleStrand(49);
-        const strandRow = startRow + Math.floor(availRows / 2);
-        frame.writeText(strandRow, cx - Math.floor(stringWidth(strand) / 2), strand, {
-          fg: t.primary,
-        });
-        const label = "yarrow · [space] cut each round";
-        frame.writeText(
-          strandRow + 2,
-          cx - Math.floor(stringWidth(label) / 2),
-          label,
-          { fg: t.tertiary },
-        );
+        if (!this.yarrowModel) break;
+        const isManual = this.previewKind === "cast-yarrow-manual";
+        // Reserve bottom rows so the count caption (`fieldRow + 1`) and
+        // the manual hint don't collide. Auto needs 2 rows from the bottom;
+        // manual needs 3 (bar + caption + hint). The takeOne flyer arcs UP
+        // ~4 rows and `drawStalk` silently clips out-of-frame writes.
+        const reserved = isManual ? 3 : 2;
+        const fieldRow = startRow + Math.max(1, availRows - reserved);
+        renderYarrowFieldStrip(frame, this.yarrowModel, fieldRow);
+        if (isManual && availRows >= 5) {
+          const hint = this.yarrowManualWaiting ? "[space] cut" : "counting…";
+          const hintRow = startRow + availRows - 1;
+          frame.writeText(
+            hintRow,
+            cx - Math.floor(stringWidth(hint) / 2),
+            hint,
+            { fg: t.tertiary },
+          );
+        }
         break;
       }
     }
@@ -367,6 +417,53 @@ export class SettingsScene implements Scene {
     this.previewCoins = [];
     this.coinPauseTimer = 0;
     this.coinAnim = null;
+    this.disposeYarrowPreview();
+  }
+
+  /** Build (or rebuild) the yarrow preview state for the requested kind. */
+  private ensureYarrowPreview(kind: "auto" | "manual"): void {
+    if (this.yarrowPreviewKind === kind && this.yarrowModel && this.yarrowRunner) return;
+    this.disposeYarrowPreview();
+
+    const yarrow = castYarrowHexagram(new SeededRandomSource(YARROW_PREVIEW_SEED));
+    this.yarrowModel = new YarrowModel(yarrow);
+
+    // Always animate line 0 / round 0 — pedagogically clearest. No captions
+    // in the preview: chrome isn't drawn, so a caption write would land in
+    // a row we don't own.
+    const { timing } = getYarrowTiming("default");
+    const beats = buildYarrowRoundBeats(
+      this.yarrowModel,
+      timing,
+      "expanded",
+      0,
+      0,
+      { narrating: false },
+    );
+    this.yarrowRunner = new TimelineRunner(seq(...beats));
+    this.yarrowElapsed = 0;
+    this.yarrowPreviewKind = kind;
+
+    if (kind === "manual") {
+      // Manual starts in the "ready to cut" pose, like YarrowManualScene
+      // after enter().
+      this.yarrowModel?.resetActiveLine(0, this.yarrowModel.transcript[0].rounds[0].startCount);
+      this.yarrowManualWaiting = true;
+      this.yarrowManualWaitTimer = 0;
+    } else {
+      this.yarrowManualWaiting = false;
+      this.yarrowManualWaitTimer = 0;
+    }
+  }
+
+
+  private disposeYarrowPreview(): void {
+    this.yarrowModel = null;
+    this.yarrowRunner = null;
+    this.yarrowElapsed = 0;
+    this.yarrowPreviewKind = null;
+    this.yarrowManualWaiting = false;
+    this.yarrowManualWaitTimer = 0;
   }
 
   private onFocusChanged(): void {

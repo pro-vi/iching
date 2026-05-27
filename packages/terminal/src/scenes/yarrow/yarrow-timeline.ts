@@ -226,6 +226,27 @@ export function buildYarrowFuseBeat(
 }
 
 /**
+ * Build one line's full ritual beats: round 1 + round 2 + round 3 + fuse.
+ * The 3-rounds-plus-fuse structure is the unit of yarrow ritual; both auto
+ * (looped 6× inside `buildYarrowTimeline`) and H4 manual (called once per
+ * user-committed cut) compose from this.
+ */
+export function buildYarrowFullLineBeats(
+  model: YarrowModel,
+  timing: YarrowTiming,
+  detail: RitualDetail,
+  lineIdx: number,
+  opts?: { narrating?: boolean },
+): Step[] {
+  return [
+    ...buildYarrowRoundBeats(model, timing, detail, lineIdx, 0, opts),
+    ...buildYarrowRoundBeats(model, timing, detail, lineIdx, 1, opts),
+    ...buildYarrowRoundBeats(model, timing, detail, lineIdx, 2, opts),
+    buildYarrowFuseBeat(model, timing, lineIdx, opts),
+  ];
+}
+
+/**
  * Build the full yarrow ritual timeline. The timeline closes over `model` and
  * mutates its live state; `fastForward` lands the completed hexagram.
  */
@@ -242,11 +263,7 @@ export function buildYarrowTimeline(
     const effectiveDetail: RitualDetail = teach ? "expanded" : detail;
     const narrating = lineIdx === 0;
 
-    for (let roundIdx = 0; roundIdx < 3; roundIdx++) {
-      beats.push(...buildYarrowRoundBeats(model, timing, effectiveDetail, lineIdx, roundIdx, { narrating }));
-    }
-
-    beats.push(buildYarrowFuseBeat(model, timing, lineIdx, { narrating }));
+    beats.push(...buildYarrowFullLineBeats(model, timing, effectiveDetail, lineIdx, { narrating }));
 
     // Trigram-recognition pause once the lower trigram (lines 1-3) is complete.
     if (lineIdx === 2) beats.push(wait(timing.afterTrigramMs));

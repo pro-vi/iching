@@ -76,9 +76,28 @@ function countByFours(heap: number): number {
   return rem === 0 ? 4 : rem;
 }
 
-/** Run one division round on a pile of `startCount` stalks. */
-function castYarrowRound(source: RandomSource, startCount: number): YarrowRound {
-  const splitAt = 1 + randomInt(source, startCount - 1);
+/**
+ * Run one division round on a pile of `startCount` stalks.
+ *
+ * If `opts.splitAt` is provided, use it directly (operator-authored cut);
+ * otherwise sample uniformly from `[1, startCount - 1]`. The H4 manual mode
+ * authors round 1's splitAt; rounds 2-3 always sample.
+ */
+function castYarrowRound(
+  source: RandomSource,
+  startCount: number,
+  opts?: { splitAt?: number },
+): YarrowRound {
+  let splitAt: number;
+  if (opts?.splitAt !== undefined) {
+    const k = opts.splitAt;
+    if (!Number.isInteger(k) || k < 1 || k > startCount - 1) {
+      throw new Error(`splitAt must be integer in [1, ${startCount - 1}], got ${k}`);
+    }
+    splitAt = k;
+  } else {
+    splitAt = 1 + randomInt(source, startCount - 1);
+  }
   const leftHeap = splitAt;
   const rightHeap = startCount - splitAt - 1; // one stalk taken from the right
   const leftRemainder = countByFours(leftHeap);
@@ -108,9 +127,16 @@ function lineFromValue(value: LineValue): Line {
   };
 }
 
-/** Cast a single line via three yarrow rounds, returning the full transcript. */
-export function castYarrowLine(source: RandomSource): YarrowLineResult {
-  const first = castYarrowRound(source, 49);
+/**
+ * Cast a single line via three yarrow rounds, returning the full transcript.
+ * If `opts.firstSplitAt` is provided, round 1 uses it as the cut point
+ * (operator-authored); rounds 2-3 always sample uniformly.
+ */
+export function castYarrowLine(
+  source: RandomSource,
+  opts?: { firstSplitAt?: number },
+): YarrowLineResult {
+  const first = castYarrowRound(source, 49, { splitAt: opts?.firstSplitAt });
   const second = castYarrowRound(source, first.remaining);
   const third = castYarrowRound(source, second.remaining);
   return {
