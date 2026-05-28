@@ -23,61 +23,87 @@ function pumpToNextGathering(s: YarrowManualScene): void {
   }
 }
 
-/** Trigger release by pumping enough silence to cross the RELEASE_MS threshold. */
-function pumpToRelease(s: YarrowManualScene): void {
-  // RELEASE_MS = 250; three 100ms ticks crosses it.
-  for (let i = 0; i < 5 && s.getPhase() === "dragging"; i++) {
+/** Pump dt slices until snap auto-commits. SNAP_HOLD_MS = 250; 3×100 crosses it. */
+function pumpThroughSnap(s: YarrowManualScene): void {
+  for (let i = 0; i < 5 && s.getPhase() === "snapping"; i++) {
     s.update(0, 100, ctx);
   }
 }
 
-describe("YarrowManualScene — H4 hold-release", () => {
+/** Advance the sweep by N cells (SWEEP_INTERVAL_MS = 150). */
+function pumpSweep(s: YarrowManualScene, cells: number): void {
+  for (let i = 0; i < cells; i++) s.update(0, 150, ctx);
+}
+
+describe("YarrowManualScene — H6 sweep + snap", () => {
   test("starts in gathering at lineIdx 0 with empty transcript", () => {
     const s = scene();
     expect(s.getPhase()).toBe("gathering");
     expect(s.getLineIdx()).toBe(0);
-    expect(s.getCursorK()).toBe(0);
     expect(s.getModel().fieldCount).toBe(49);
     expect(s.getModel().transcript).toHaveLength(0);
   });
 
-  test("first Space transitions gathering → dragging at cursorK=1", () => {
+  test("first Space transitions gathering → sweeping at apertureLeft=1", () => {
     const s = scene();
     s.handleKey(space, ctx);
-    expect(s.getPhase()).toBe("dragging");
-    expect(s.getCursorK()).toBe(1);
+    expect(s.getPhase()).toBe("sweeping");
+    expect(s.getApertureLeft()).toBe(1);
   });
 
-  test("subsequent Space presses increment cursorK", () => {
+  test("sweep advances the aperture rightward over time", () => {
     const s = scene();
-    s.handleKey(space, ctx);                     // cursorK = 1 (enters drag)
-    for (let i = 0; i < 11; i++) s.handleKey(space, ctx); // +11 → 12
-    expect(s.getCursorK()).toBe(12);
-    expect(s.getPhase()).toBe("dragging");
+    s.handleKey(space, ctx);
+    expect(s.getApertureLeft()).toBe(1);
+    pumpSweep(s, 5);
+    expect(s.getApertureLeft()).toBe(6);
   });
 
-  test("cursorK saturates at 48 even with extra presses", () => {
+  test("sweep bounces at the right edge (apertureLeft = APERTURE_MAX = 45)", () => {
     const s = scene();
-    for (let i = 0; i < 60; i++) s.handleKey(space, ctx);
-    expect(s.getCursorK()).toBe(48);
+    s.handleKey(space, ctx);
+    pumpSweep(s, 50); // overshoots to force a bounce
+    // After hitting the right edge, the aperture should now be moving left.
+    // Exact position after 50 cells: 1 + 44 right + 6 left = 39 (roughly)
+    expect(s.getApertureLeft()).toBeLessThan(45);
+    expect(s.getApertureLeft()).toBeGreaterThan(0);
   });
 
-  test("silence for RELEASE_MS commits the cut and transitions to playing", () => {
+  test("Space during sweeping transitions to snapping (aperture frozen)", () => {
     const s = scene();
-    for (let i = 0; i < 15; i++) s.handleKey(space, ctx); // cursorK = 15
-    pumpToRelease(s);
+    s.handleKey(space, ctx);
+    pumpSweep(s, 10);
+    const frozen = s.getApertureLeft();
+    s.handleKey(space, ctx);
+    expect(s.getPhase()).toBe("snapping");
+    // Aperture stays put through the snap hold.
+    pumpSweep(s, 1); // 150ms; less than SNAP_HOLD_MS (250ms)
+    expect(s.getApertureLeft()).toBe(frozen);
+  });
+
+  test("snap commits a line with splitAt inside the aperture window", () => {
+    const s = scene(42);
+    s.handleKey(space, ctx);
+    pumpSweep(s, 10); // apertureLeft = 11
+    const left = s.getApertureLeft();
+    s.handleKey(space, ctx);
+    pumpThroughSnap(s);
     expect(s.getPhase()).toBe("playing");
     expect(s.getModel().transcript).toHaveLength(1);
-    expect(s.getModel().transcript[0].rounds[0].splitAt).toBe(15);
+    const k = s.getModel().transcript[0].rounds[0].splitAt;
+    expect(k).toBeGreaterThanOrEqual(left);
+    expect(k).toBeLessThanOrEqual(left + 3);
+    expect(s.getCommittedK()).toBe(k);
   });
 
-  test("escape during dragging cancels and returns to gathering for same line", () => {
+  test("escape during sweeping cancels back to gathering for the same line", () => {
     const s = scene();
-    for (let i = 0; i < 10; i++) s.handleKey(space, ctx);
+    s.handleKey(space, ctx);
+    pumpSweep(s, 5);
     s.handleKey(escape, ctx);
     expect(s.getPhase()).toBe("gathering");
     expect(s.getLineIdx()).toBe(0);
-    expect(s.getCursorK()).toBe(0);
+    expect(s.getApertureLeft()).toBe(1);
     expect(s.getModel().transcript).toHaveLength(0);
   });
 
@@ -86,32 +112,31 @@ describe("YarrowManualScene — H4 hold-release", () => {
     expect(sig).toEqual({ type: "home" });
   });
 
-  test("6 cuts produce a complete cast", () => {
+  test("6 snaps produce a complete cast", () => {
     const s = scene(42);
-    const targetKs = [12, 24, 36, 8, 32, 18];
     for (let line = 0; line < 6; line++) {
       expect(s.getPhase()).toBe("gathering");
       expect(s.getLineIdx()).toBe(line);
-      for (let i = 0; i < targetKs[line]; i++) s.handleKey(space, ctx);
-      pumpToRelease(s);
+      s.handleKey(space, ctx);         // enter sweeping
+      pumpSweep(s, 5 + line);          // varied positions
+      s.handleKey(space, ctx);         // snap
+      pumpThroughSnap(s);
       expect(s.getPhase()).toBe("playing");
       pumpToNextGathering(s);
     }
     expect(s.getPhase()).toBe("complete");
     expect(s.getModel().hexagramComplete).toBe(true);
     expect(s.getModel().transcript).toHaveLength(6);
-    for (let line = 0; line < 6; line++) {
-      expect(s.getModel().transcript[line].rounds[0].splitAt).toBe(targetKs[line]);
-    }
-    // commitCast ran; requireCast returns a valid Cast with 6 lines.
     expect(s.getModel().requireCast().lines).toHaveLength(6);
   });
 
   test("final Space emits yarrowCompleted with the assembled cast", () => {
     const s = scene(7);
     for (let line = 0; line < 6; line++) {
-      for (let i = 0; i < 8; i++) s.handleKey(space, ctx); // arbitrary k=8 per line
-      pumpToRelease(s);
+      s.handleKey(space, ctx);
+      pumpSweep(s, 10);
+      s.handleKey(space, ctx);
+      pumpThroughSnap(s);
       pumpToNextGathering(s);
     }
     const sig = s.handleKey(space, ctx);
@@ -127,10 +152,12 @@ describe("YarrowManualScene — H4 hold-release", () => {
     const buf = new CellBuffer(80, 24);
     expect(() => s.render(buf, ctx)).not.toThrow(); // gathering
     s.handleKey(space, ctx);
-    expect(() => s.render(buf, ctx)).not.toThrow(); // dragging
-    for (let i = 0; i < 10; i++) s.handleKey(space, ctx);
-    expect(() => s.render(buf, ctx)).not.toThrow(); // dragging with cursorK=11
-    pumpToRelease(s);
+    expect(() => s.render(buf, ctx)).not.toThrow(); // sweeping (aperture at 1)
+    pumpSweep(s, 20);
+    expect(() => s.render(buf, ctx)).not.toThrow(); // sweeping (aperture at 21)
+    s.handleKey(space, ctx);
+    expect(() => s.render(buf, ctx)).not.toThrow(); // snapping
+    pumpThroughSnap(s);
     expect(() => s.render(buf, ctx)).not.toThrow(); // playing
   });
 });

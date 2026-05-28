@@ -138,7 +138,7 @@ export { TossScene } from "./scenes/toss/toss-scene.ts";
 // Scenes: yarrow stalk ritual
 export { YarrowScene } from "./scenes/yarrow/yarrow-scene.ts";
 export { YarrowManualScene } from "./scenes/yarrow/yarrow-manual-scene.ts";
-export { renderYarrowFieldStrip, yarrowFieldGeometry, drawDragCursor } from "./scenes/yarrow/field-renderer.ts";
+export { renderYarrowFieldStrip, yarrowFieldGeometry, drawApertureCursor } from "./scenes/yarrow/field-renderer.ts";
 
 // Widgets
 export { ScrollableRegion } from "./widgets/scrollable.ts";

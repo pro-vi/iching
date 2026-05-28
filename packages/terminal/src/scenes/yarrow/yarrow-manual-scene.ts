@@ -1,15 +1,16 @@
-// YarrowManualScene — H4 hold-and-release manual yarrow.
+// YarrowManualScene — H6 sweep-and-snap manual yarrow.
 //
-// Six cuts, one per line. Each cut is a hold-release gesture: the user
-// presses Space to start the drag, additional Spaces (or OS key-repeat
-// while held) advance the cursor by one cell each; 250ms of silence after
-// the last Space commits the cut at the current cursorK. The committed k
-// is used as round 1's splitAt for that line; rounds 2-3 stay RNG.
+// Six cuts, one per line. Each cut is a sweeping-aperture gesture: a 4-stalk
+// wide highlight scans across the pile (bouncing L↔R); the user presses
+// Space to snap-commit the aperture's current position. The system then
+// picks a uniform-random k from the 4 stalks under the aperture and uses
+// it as round 1's splitAt for that line; rounds 2-3 stay RNG.
 //
-// No position numbers are shown — the cursor IS the visual choice. After
-// release, the round + fuse animation plays via the same beat pipeline as
-// auto mode. After 6 lines, the cast is assembled and Space emits
-// `yarrowCompleted`.
+// The 4-stalk width is load-bearing: every consecutive 4-stalk window
+// contains exactly one k where k % 4 === 0 (round-1 setAside = 9) and
+// three where it isn't (setAside = 5). So the user authors WHERE to cut
+// (which region of the bundle), but the system preserves the textbook
+// 1:3 ratio at the modulo level. "I cut around here," not "I picked 24."
 
 import {
   castYarrowLine,
@@ -30,16 +31,19 @@ import { YarrowModel } from "./model.ts";
 import {
   renderYarrowField,
   yarrowFieldGeometry,
-  drawDragCursor,
+  drawApertureCursor,
 } from "./field-renderer.ts";
 import { buildYarrowFullLineBeats } from "./yarrow-timeline.ts";
 
 const LINES = 6;
-const CURSOR_MIN = 1;
-const CURSOR_MAX = 48;            // splitAt must be ≤ startCount - 1 = 48
-const RELEASE_MS = 250;           // silence after last Space → commit
+const APERTURE_WIDTH = 4;
+const APERTURE_MIN = 1;                  // leftmost apertureLeft
+const APERTURE_MAX = 48 - APERTURE_WIDTH + 1; // = 45; covers k ∈ [45, 48]
+const SWEEP_INTERVAL_MS = 150;           // ms per cell of aperture travel
+const SNAP_HOLD_MS = 250;                // brief beat after snap before round plays
 
-type Phase = "gathering" | "dragging" | "playing" | "complete";
+type Phase = "gathering" | "sweeping" | "snapping" | "playing" | "complete";
+type SweepDir = 1 | -1;
 
 export class YarrowManualScene implements Scene {
   private readonly model: YarrowModel;
@@ -49,14 +53,15 @@ export class YarrowManualScene implements Scene {
 
   private phase: Phase = "gathering";
   private lineIdx = 0;
-  private cursorK = 0;
-  private silenceMs = 0;
+  private apertureLeft = APERTURE_MIN;
+  private sweepDir: SweepDir = 1;
+  private sweepAccumMs = 0;
+  private snapHoldMs = 0;
+  private committedK = 0;                // for tests / provenance
   private subRunner: TimelineRunner | null = null;
   private subElapsed = 0;
 
   constructor(motion: MotionPreset = "default", source?: RandomSource) {
-    // Manual mode starts with an empty transcript; lines are appended as
-    // the user cuts. commitCast() runs after the 6th line.
     this.model = new YarrowModel(null);
     this.source = source ?? new CryptoRandomSource();
     const resolved = getYarrowTiming(motion);
@@ -69,11 +74,17 @@ export class YarrowManualScene implements Scene {
   }
 
   update(_elapsed: number, dt: number, _ctx: SceneContext): void {
-    if (this.phase === "dragging") {
-      this.silenceMs += dt;
-      if (this.silenceMs >= RELEASE_MS && this.cursorK > 0) {
-        this.commitCut();
+    if (this.phase === "sweeping") {
+      this.sweepAccumMs += dt;
+      while (this.sweepAccumMs >= SWEEP_INTERVAL_MS) {
+        this.sweepAccumMs -= SWEEP_INTERVAL_MS;
+        this.advanceAperture();
       }
+      return;
+    }
+    if (this.phase === "snapping") {
+      this.snapHoldMs += dt;
+      if (this.snapHoldMs >= SNAP_HOLD_MS) this.commitCut();
       return;
     }
     if (this.phase === "playing" && this.subRunner) {
@@ -85,9 +96,9 @@ export class YarrowManualScene implements Scene {
 
   render(frame: CellBuffer, _ctx: SceneContext): void {
     renderYarrowField(frame, this.model);
-    if (this.phase === "dragging") {
+    if (this.phase === "sweeping" || this.phase === "snapping") {
       const g = yarrowFieldGeometry(frame);
-      drawDragCursor(frame, g.fieldRow, g.center, this.cursorK);
+      drawApertureCursor(frame, g.fieldRow, g.center, this.apertureLeft, APERTURE_WIDTH);
     }
     this.renderFooter(frame);
   }
@@ -96,10 +107,9 @@ export class YarrowManualScene implements Scene {
     if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
 
     if (key.type === "escape") {
-      if (this.phase === "dragging") {
-        // Cancel drag, stay on same line.
-        this.cursorK = 0;
-        this.silenceMs = 0;
+      if (this.phase === "sweeping" || this.phase === "snapping") {
+        // Cancel back to gathering for the same line.
+        this.resetSweepState();
         this.phase = "gathering";
         return;
       }
@@ -107,38 +117,68 @@ export class YarrowManualScene implements Scene {
     }
 
     if (key.type === "char" && key.char === "q") return { type: "home" };
-
     if (key.type !== "char" || key.char !== " ") return;
 
     switch (this.phase) {
       case "gathering":
-        // First Space starts the drag at cursorK=1.
-        this.phase = "dragging";
-        this.cursorK = CURSOR_MIN;
-        this.silenceMs = 0;
+        // Start the sweep at the left edge, moving right.
+        this.apertureLeft = APERTURE_MIN;
+        this.sweepDir = 1;
+        this.sweepAccumMs = 0;
+        this.phase = "sweeping";
         break;
-      case "dragging":
-        // Subsequent Space advances cursor (saturates at CURSOR_MAX).
-        this.cursorK = Math.min(CURSOR_MAX, this.cursorK + 1);
-        this.silenceMs = 0;
+      case "sweeping":
+        // Snap the cut. Aperture freezes; SNAP_HOLD_MS later the round plays.
+        this.snapHoldMs = 0;
+        this.phase = "snapping";
+        break;
+      case "snapping":
+        // Ignore — the snap is already committed and timing out.
         break;
       case "playing":
-        // Ignore input while the round animates.
+        // Ignore — animation in progress.
         break;
       case "complete":
         return { type: "yarrowCompleted", cast: this.model.requireCast() };
     }
   }
 
-  /** Commit the current cursor's k as round 1's splitAt for this line. */
+  /** Bounce-sweep — advance one cell, flip direction at edges. */
+  private advanceAperture(): void {
+    if (this.sweepDir === 1) {
+      if (this.apertureLeft >= APERTURE_MAX) {
+        this.sweepDir = -1;
+        this.apertureLeft = Math.max(APERTURE_MIN, this.apertureLeft - 1);
+      } else {
+        this.apertureLeft++;
+      }
+    } else {
+      if (this.apertureLeft <= APERTURE_MIN) {
+        this.sweepDir = 1;
+        this.apertureLeft = Math.min(APERTURE_MAX, this.apertureLeft + 1);
+      } else {
+        this.apertureLeft--;
+      }
+    }
+  }
+
+  /**
+   * Snap is over — pick a uniform-random k inside the aperture and commit
+   * the line. RNG picks from {apertureLeft, +1, +2, +3}; each window
+   * contains exactly one k % 4 === 0 and three not, preserving the 1:3
+   * setAside distribution at round 1.
+   */
   private commitCut(): void {
-    const k = Math.max(CURSOR_MIN, Math.min(CURSOR_MAX, this.cursorK));
+    // Math.floor(Math.random() * 4) — uniform 0..3 → k offset
+    // Use the seeded source if available for deterministic recordings.
+    const byte = this.source.nextBytes(1)[0];
+    const offset = byte % APERTURE_WIDTH;
+    const k = this.apertureLeft + offset;
+    this.committedK = k;
+
     const result = castYarrowLine(this.source, { firstSplitAt: k });
     this.model.appendLine(result);
 
-    // Build the line's full ritual: 3 rounds + fuse. No narration ever —
-    // round captions would expose "Cut at k=..." numerically, contradicting
-    // "hide the number, show the visual."
     const beats = buildYarrowFullLineBeats(
       this.model, this.timing, this.detail, this.lineIdx, { narrating: false },
     );
@@ -151,8 +191,7 @@ export class YarrowManualScene implements Scene {
     this.lineIdx++;
     this.subRunner = null;
     this.subElapsed = 0;
-    this.cursorK = 0;
-    this.silenceMs = 0;
+    this.resetSweepState();
 
     if (this.lineIdx >= LINES) {
       this.model.commitCast();
@@ -165,6 +204,13 @@ export class YarrowManualScene implements Scene {
 
     this.phase = "gathering";
     this.model.resetActiveLine(this.lineIdx);
+  }
+
+  private resetSweepState(): void {
+    this.apertureLeft = APERTURE_MIN;
+    this.sweepDir = 1;
+    this.sweepAccumMs = 0;
+    this.snapHoldMs = 0;
   }
 
   private renderFooter(frame: CellBuffer): void {
@@ -180,11 +226,14 @@ export class YarrowManualScene implements Scene {
       case "gathering":
         text = `Line ${this.lineIdx + 1}/6  ·  press [space] to begin cutting  ·  [esc] back`;
         break;
-      case "dragging":
-        text = `Line ${this.lineIdx + 1}/6  ·  hold [space] to slide the cut · release to commit`;
+      case "sweeping":
+        text = `Line ${this.lineIdx + 1}/6  ·  press [space] to cut`;
+        break;
+      case "snapping":
+        text = `Line ${this.lineIdx + 1}/6  ·  cut around here`;
         break;
       case "playing":
-        text = `Line ${this.lineIdx + 1}/6  ·  counting…`;
+        text = `Line ${this.lineIdx + 1}/6`;
         break;
     }
 
@@ -203,7 +252,10 @@ export class YarrowManualScene implements Scene {
   getLineIdx(): number {
     return this.lineIdx;
   }
-  getCursorK(): number {
-    return this.cursorK;
+  getApertureLeft(): number {
+    return this.apertureLeft;
+  }
+  getCommittedK(): number {
+    return this.committedK;
   }
 }

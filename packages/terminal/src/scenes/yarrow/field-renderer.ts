@@ -99,21 +99,28 @@ export function yarrowFieldGeometry(buf: CellBuffer): {
 }
 
 /**
- * Draw an accent `│` at the cursor's stalk position on the gathered pile.
- * The gathered bar is centered (drawWholeBar centers `barWidth` chars on
- * `center`), so the cursor col is computed from the bar's left edge —
- * NOT from the 52-cell bar-area start, which is offset by 1-2 cells.
+ * Draw the H6 sweeping aperture — `apertureWidth` consecutive stalks
+ * starting at `apertureLeft` (a 1-indexed k value), recolored to accent.
+ * The user authors WHERE to cut (which window); the system picks the
+ * exact stalk inside the window via RNG, preserving yarrow's mod-4
+ * distribution structurally (every 4-stalk window has exactly one
+ * k % 4 === 0 and three non-zero).
  */
-export function drawDragCursor(
+export function drawApertureCursor(
   buf: CellBuffer,
   fieldRow: number,
   center: number,
-  cursorK: number,
+  apertureLeft: number,
+  apertureWidth: number = 4,
   barWidth: number = TOTAL_STALKS,
 ): void {
+  const accent = getTheme().accent;
   const barStart = center - Math.floor(barWidth / 2);
-  const col = barStart + cursorK - 1;
-  drawStalk(buf, fieldRow, col, getTheme().accent);
+  for (let i = 0; i < apertureWidth; i++) {
+    const k = apertureLeft + i;
+    if (k < 1 || k > barWidth) continue;
+    drawStalk(buf, fieldRow, barStart + k - 1, accent);
+  }
 }
 
 // ── Bar drawing ──────────────────────────────────────────────────────────────
