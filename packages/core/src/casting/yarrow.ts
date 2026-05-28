@@ -83,7 +83,7 @@ function countByFours(heap: number): number {
  * otherwise sample uniformly from `[1, startCount - 1]`. The H4 manual mode
  * authors round 1's splitAt; rounds 2-3 always sample.
  */
-function castYarrowRound(
+export function castYarrowRound(
   source: RandomSource,
   startCount: number,
   opts?: { splitAt?: number },
@@ -114,12 +114,12 @@ function castYarrowRound(
 }
 
 /** Narrow a computed remainder/4 to a LineValue; throws if the sim drifted. */
-function toLineValue(n: number): LineValue {
+export function toLineValue(n: number): LineValue {
   if (n === 6 || n === 7 || n === 8 || n === 9) return n;
   throw new Error(`yarrow: line value out of range (${n})`);
 }
 
-function lineFromValue(value: LineValue): Line {
+export function lineFromValue(value: LineValue): Line {
   return {
     value,
     isYang: value === 7 || value === 9,

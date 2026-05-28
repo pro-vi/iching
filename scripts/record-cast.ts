@@ -84,18 +84,21 @@ let held = 0;
 const frames: RecordingFrame[] = [];
 
 if (method === "yarrow-manual") {
-  // H6 manual yarrow: synthetic operator simulates the sweep-and-snap gesture.
-  // For each line: press Space to start sweeping; let the aperture travel
-  // to TARGET_LEFTS[lineIdx]; press Space again to snap; scene's snap-hold
-  // auto-transitions to playing; wait for the round + fuse to complete.
-  const TARGET_LEFTS = [8, 20, 32, 5, 28, 14];      // varied aperture positions per line
+  // 18-cut full manual yarrow: synthetic operator sweeps + snaps per round.
+  // For each of 18 atoms: press Space to start sweeping; let the aperture
+  // travel to a deterministic target (scaled to the current pile size);
+  // press Space again to snap; the round + (fuse if round 3) play out.
+  const SWEEP_TARGETS = [
+    // Line 1            Line 2           Line 3           Line 4           Line 5           Line 6
+    0.20, 0.55, 0.30,   0.15, 0.45, 0.70, 0.60, 0.25, 0.40, 0.35, 0.80, 0.15, 0.50, 0.30, 0.65, 0.25, 0.55, 0.40,
+  ];
   const space: KeyEvent = { type: "char", char: " " };
 
   const manual = new YarrowManualScene(preset, source);
   manual.enter(ctx);
-  let prevLineIdx = -1;
+  let prevAtomIdx = -1;
   let waitingToSnap = false;
-  let snappedThisLine = false;
+  let snappedThisAtom = false;
 
   for (let i = 0; i < MAX_FRAMES; i++) {
     manual.update(elapsed, DT, ctx);
@@ -112,23 +115,25 @@ if (method === "yarrow-manual") {
     prev = frame;
     elapsed += DT;
 
-    const lineIdx = manual.getLineIdx();
-    if (lineIdx !== prevLineIdx && lineIdx < TARGET_LEFTS.length) {
+    const atomIdx = manual.getAtomIdx();
+    if (atomIdx !== prevAtomIdx && atomIdx < SWEEP_TARGETS.length) {
       waitingToSnap = false;
-      snappedThisLine = false;
-      prevLineIdx = lineIdx;
+      snappedThisAtom = false;
+      prevAtomIdx = atomIdx;
     }
 
     const phase = manual.getPhase();
-    if (phase === "gathering" && !waitingToSnap && lineIdx < TARGET_LEFTS.length) {
-      // Begin the sweep.
+    if (phase === "gathering" && !waitingToSnap && atomIdx < SWEEP_TARGETS.length) {
       manual.handleKey(space, ctx);
       waitingToSnap = true;
-    } else if (phase === "sweeping" && waitingToSnap && !snappedThisLine) {
-      // Once the aperture reaches the target, snap.
-      if (manual.getApertureLeft() >= TARGET_LEFTS[lineIdx]) {
+    } else if (phase === "sweeping" && waitingToSnap && !snappedThisAtom) {
+      // Target aperture position is a fraction of the current pile's cuttable range.
+      const startCount = manual.getCurrentStartCount();
+      const max = Math.max(1, startCount - 4);
+      const target = Math.max(1, Math.round(SWEEP_TARGETS[atomIdx] * max));
+      if (manual.getApertureLeft() >= target) {
         manual.handleKey(space, ctx);
-        snappedThisLine = true;
+        snappedThisAtom = true;
       }
     }
 

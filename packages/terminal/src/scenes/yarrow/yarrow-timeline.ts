@@ -8,6 +8,7 @@
 import { type Step, seq, call, tween, wait, stepDuration } from "../../animation/timeline.ts";
 import { type EasingFn, linear, easeOut, easeInOut } from "../../animation/easing.ts";
 import type { YarrowTiming, RitualDetail } from "../../animation/yarrow-presets.ts";
+import type { YarrowRound } from "@iching/core";
 import type { YarrowModel } from "./model.ts";
 
 /** Stepwise easing — the `expanded` count peels groups in discrete jumps. */
@@ -76,6 +77,11 @@ function countEasingForDetail(detail: RitualDetail): EasingFn {
  * Build the six gather→divide→take→count→tally→carry beats for one round.
  * Returned as discrete Steps so a caller can compose them (full ritual) or
  * wrap them in a single seq() (manual scene playing one round at a time).
+ *
+ * The `round` parameter carries the data — auto callers pass it from the
+ * fully-built `model.transcript[lineIdx].rounds[roundIdx]`; the 18-cut
+ * manual scene passes the round it just computed from the user's snap,
+ * before transcript is populated for that line.
  */
 export function buildYarrowRoundBeats(
   model: YarrowModel,
@@ -83,12 +89,12 @@ export function buildYarrowRoundBeats(
   detail: RitualDetail,
   lineIdx: number,
   roundIdx: number,
+  round: YarrowRound,
   opts?: { narrating?: boolean },
 ): Step[] {
   const beats: Step[] = [];
   const hold = (caption: string): Step[] => (caption ? [wait(timing.captionHoldMs)] : []);
   const countEasing = countEasingForDetail(detail);
-  const round = model.transcript[lineIdx].rounds[roundIdx];
   const narrating = opts?.narrating ?? false;
   const caps = buildRoundCaptions(roundIdx, round);
   const caption = (key: keyof RoundCaptions): string => (narrating ? caps[key] : "");
@@ -238,10 +244,11 @@ export function buildYarrowFullLineBeats(
   lineIdx: number,
   opts?: { narrating?: boolean },
 ): Step[] {
+  const rounds = model.transcript[lineIdx].rounds;
   return [
-    ...buildYarrowRoundBeats(model, timing, detail, lineIdx, 0, opts),
-    ...buildYarrowRoundBeats(model, timing, detail, lineIdx, 1, opts),
-    ...buildYarrowRoundBeats(model, timing, detail, lineIdx, 2, opts),
+    ...buildYarrowRoundBeats(model, timing, detail, lineIdx, 0, rounds[0], opts),
+    ...buildYarrowRoundBeats(model, timing, detail, lineIdx, 1, rounds[1], opts),
+    ...buildYarrowRoundBeats(model, timing, detail, lineIdx, 2, rounds[2], opts),
     buildYarrowFuseBeat(model, timing, lineIdx, opts),
   ];
 }

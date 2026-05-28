@@ -432,12 +432,14 @@ export class SettingsScene implements Scene {
     // in the preview: chrome isn't drawn, so a caption write would land in
     // a row we don't own.
     const { timing } = getYarrowTiming("default");
+    const round0 = this.yarrowModel.transcript[0].rounds[0];
     const beats = buildYarrowRoundBeats(
       this.yarrowModel,
       timing,
       "expanded",
       0,
       0,
+      round0,
       { narrating: false },
     );
     this.yarrowRunner = new TimelineRunner(seq(...beats));

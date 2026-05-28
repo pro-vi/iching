@@ -267,6 +267,93 @@ Reading-flow and config integration: add `{ type: "yarrow" }` to
 `ReadingSource`; extend the cast-method setting to include `yarrow`; wire the
 settings scene and the main menu.
 
+## Manual Modes
+
+The cast can be observed (auto) or performed (manual). Two manual variants
+share the codebase but answer different questions about what the operator does.
+
+### Full Manual — spatial authorship (shipped)
+
+Eighteen sweep-and-snap gestures per cast: one per round (3 rounds × 6 lines).
+
+A 4-stalk-wide aperture sweeps across the current pile (49, then ~40, then
+~32, etc.). The operator taps Space to snap the aperture at a chosen
+position; the system picks a uniform-random k from inside the 4-stalk window
+and uses it as that round's split. The 4-stalk width preserves the mod-4
+distribution exactly — every consecutive 4-stalk window has one k where
+`k % 4 === 0` and three where it doesn't, matching the textbook 1:3 setAside
+ratio (independently of pile size).
+
+The operator authors **where** to cut at every round, without authoring the
+modulo outcome. The substance's natural imprecision (a real diviner's grab
+isn't precision-aimed either) is reified as the 4-stalk aperture.
+
+### Line-Gate — temporal commitment (future)
+
+Six gestures per cast: one per line. Not a compressed 18 — a different
+analog entirely.
+
+No cursor, no sweep, no aiming. The pile sits at its starting count and
+*waits*. The operator taps Space when ready. The tap moment salts the RNG
+seed for the upcoming line; rounds 1–3 + fuse play automatically with that
+salted seed. The line lands and the pile re-gathers, waiting for the next
+gate.
+
+Each between-line tap is a **hinge** — it receives the line that just landed
+AND opens the next one. After line 6, a final receive tap hands the cast to
+the reveal.
+
+The operator owns the **temporal threshold** of each line: when does this
+line begin, when do I accept it, how long do I dwell. Spatial authorship
+belongs to full-manual; observation belongs to auto; line-gate occupies the
+unique space of presence-without-authorship.
+
+> Phrase it as: *"Your timing seals the line; the yarrow rounds unfold from
+> there."* Not *"your tap chooses the result."*
+
+#### Visual primitives the mode needs
+
+A naked tap is too thin. The UI must give the moment a threshold to cross:
+
+1. **Pile breathes while waiting.** Slow color pulse (~2s cycle) between
+   primary and secondary. The pile is alive and waiting — distinct from
+   the static gather pose in auto mode.
+2. **Tap absorbs visibly.** Brief accent flash on the pile (~150ms) at the
+   moment of tap, then the divide begins. The operator's touch passed
+   through the substance.
+3. **Just-landed line glows.** After fuse, the new line holds in accent
+   color for ~800ms before settling to its final color. The glow IS the
+   "received it" moment.
+4. **Optional pulse marker.** A faint `·` somewhere subtle, pulsing in sync
+   with the breath. Removes ambiguity that the system is waiting.
+
+Without these cues, the gate collapses into a Continue button. The mode is
+only worth shipping with the visual primitives intact.
+
+#### Design test
+
+After one line, ask the operator: "What did Space do?"
+
+- ✅ "It let the next line begin." / "I received the line." / "I sealed the
+  next one." / "I paused until it felt ready."
+- ❌ "It advanced the animation." / "It picked the seed." / "It skipped to
+  the next part."
+
+Behavioral signal: operators should naturally dwell different durations
+between lines. If everyone mashes Space immediately, the mode collapsed
+into step-through auto and should be dropped.
+
+#### Why three modes (not two)
+
+| Mode | What the operator owns | Sentence |
+|---|---|---|
+| Auto | Observation | "I am present at the cast" |
+| Line-Gate | Temporal threshold of each line | "I govern when the ritual proceeds" |
+| Full Manual | Spatial cut at every round | "I author every cut" |
+
+Three positions on the agency spectrum. Each owns a unique sentence; if
+line-gate can't own its sentence in practice, drop it back to two.
+
 ## Open Questions
 
 - **Provenance.** Should the ritual transcript (every round's intermediate

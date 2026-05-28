@@ -16,14 +16,14 @@ function scene(seed = 1): YarrowManualScene {
   return s;
 }
 
-/** Pump dt slices until the current playing line completes. */
+/** Pump dt slices until the current playing round (or round+fuse) completes. */
 function pumpToNextGathering(s: YarrowManualScene): void {
   for (let i = 0; i < 4000 && s.getPhase() === "playing"; i++) {
     s.update(0, 100, ctx);
   }
 }
 
-/** Pump dt slices until snap auto-commits. SNAP_HOLD_MS = 250; 3×100 crosses it. */
+/** Trigger snap commit by pumping enough silence to cross SNAP_HOLD_MS (250ms). */
 function pumpThroughSnap(s: YarrowManualScene): void {
   for (let i = 0; i < 5 && s.getPhase() === "snapping"; i++) {
     s.update(0, 100, ctx);
@@ -35,12 +35,23 @@ function pumpSweep(s: YarrowManualScene, cells: number): void {
   for (let i = 0; i < cells; i++) s.update(0, 150, ctx);
 }
 
-describe("YarrowManualScene — H6 sweep + snap", () => {
-  test("starts in gathering at lineIdx 0 with empty transcript", () => {
+/** Run one round atom (sweep some cells, snap, wait for play to complete). */
+function runRound(s: YarrowManualScene, sweepCells: number): void {
+  s.handleKey(space, ctx);            // gathering → sweeping
+  pumpSweep(s, sweepCells);
+  s.handleKey(space, ctx);            // sweeping → snapping
+  pumpThroughSnap(s);                 // snapping → playing
+  pumpToNextGathering(s);             // playing → gathering (next atom)
+}
+
+describe("YarrowManualScene — 18-cut full manual", () => {
+  test("starts in gathering at atom 0 with empty transcript", () => {
     const s = scene();
     expect(s.getPhase()).toBe("gathering");
+    expect(s.getAtomIdx()).toBe(0);
     expect(s.getLineIdx()).toBe(0);
-    expect(s.getModel().fieldCount).toBe(49);
+    expect(s.getRoundIdx()).toBe(0);
+    expect(s.getCurrentStartCount()).toBe(49);
     expect(s.getModel().transcript).toHaveLength(0);
   });
 
@@ -51,22 +62,11 @@ describe("YarrowManualScene — H6 sweep + snap", () => {
     expect(s.getApertureLeft()).toBe(1);
   });
 
-  test("sweep advances the aperture rightward over time", () => {
+  test("sweep advances aperture rightward", () => {
     const s = scene();
     s.handleKey(space, ctx);
-    expect(s.getApertureLeft()).toBe(1);
     pumpSweep(s, 5);
     expect(s.getApertureLeft()).toBe(6);
-  });
-
-  test("sweep bounces at the right edge (apertureLeft = APERTURE_MAX = 45)", () => {
-    const s = scene();
-    s.handleKey(space, ctx);
-    pumpSweep(s, 50); // overshoots to force a bounce
-    // After hitting the right edge, the aperture should now be moving left.
-    // Exact position after 50 cells: 1 + 44 right + 6 left = 39 (roughly)
-    expect(s.getApertureLeft()).toBeLessThan(45);
-    expect(s.getApertureLeft()).toBeGreaterThan(0);
   });
 
   test("Space during sweeping transitions to snapping (aperture frozen)", () => {
@@ -76,35 +76,56 @@ describe("YarrowManualScene — H6 sweep + snap", () => {
     const frozen = s.getApertureLeft();
     s.handleKey(space, ctx);
     expect(s.getPhase()).toBe("snapping");
-    // Aperture stays put through the snap hold.
-    pumpSweep(s, 1); // 150ms; less than SNAP_HOLD_MS (250ms)
+    pumpSweep(s, 1);
     expect(s.getApertureLeft()).toBe(frozen);
   });
 
-  test("snap commits a line with splitAt inside the aperture window", () => {
+  test("snap commits round 0 with splitAt inside the aperture window", () => {
     const s = scene(42);
     s.handleKey(space, ctx);
-    pumpSweep(s, 10); // apertureLeft = 11
+    pumpSweep(s, 10);                  // apertureLeft = 11
     const left = s.getApertureLeft();
     s.handleKey(space, ctx);
     pumpThroughSnap(s);
     expect(s.getPhase()).toBe("playing");
-    expect(s.getModel().transcript).toHaveLength(1);
+    expect(s.getModel().transcript[0].rounds[0]).toBeDefined();
     const k = s.getModel().transcript[0].rounds[0].splitAt;
     expect(k).toBeGreaterThanOrEqual(left);
     expect(k).toBeLessThanOrEqual(left + 3);
     expect(s.getCommittedK()).toBe(k);
   });
 
-  test("escape during sweeping cancels back to gathering for the same line", () => {
+  test("after round 0 commits, atomIdx advances to 1 (line 0, round 1)", () => {
+    const s = scene();
+    runRound(s, 5);
+    expect(s.getAtomIdx()).toBe(1);
+    expect(s.getLineIdx()).toBe(0);
+    expect(s.getRoundIdx()).toBe(1);
+    // Round 2's pile is round 1's remaining, not 49.
+    expect(s.getCurrentStartCount()).toBeLessThan(49);
+    expect(s.getCurrentStartCount()).toBeGreaterThanOrEqual(40);
+  });
+
+  test("aperture max shrinks with pile size on round 2+", () => {
+    const s = scene();
+    runRound(s, 5);  // commit round 0; now in round 1's gathering
+    expect(s.getApertureLeft()).toBe(1);
+    // Sweep far enough to hit the right edge of round 1's smaller pile.
+    s.handleKey(space, ctx);
+    pumpSweep(s, 100);  // overshoots
+    // Aperture should have bounced before reaching apertureMax for 49.
+    const startCount = s.getCurrentStartCount();
+    expect(s.getApertureLeft()).toBeLessThanOrEqual(startCount - 4);
+  });
+
+  test("escape during sweeping cancels back to gathering for same atom", () => {
     const s = scene();
     s.handleKey(space, ctx);
     pumpSweep(s, 5);
     s.handleKey(escape, ctx);
     expect(s.getPhase()).toBe("gathering");
-    expect(s.getLineIdx()).toBe(0);
+    expect(s.getAtomIdx()).toBe(0);
     expect(s.getApertureLeft()).toBe(1);
-    expect(s.getModel().transcript).toHaveLength(0);
   });
 
   test("escape during gathering exits to home", () => {
@@ -112,33 +133,26 @@ describe("YarrowManualScene — H6 sweep + snap", () => {
     expect(sig).toEqual({ type: "home" });
   });
 
-  test("6 snaps produce a complete cast", () => {
+  test("18 snaps produce a complete cast", () => {
     const s = scene(42);
-    for (let line = 0; line < 6; line++) {
+    for (let atom = 0; atom < 18; atom++) {
       expect(s.getPhase()).toBe("gathering");
-      expect(s.getLineIdx()).toBe(line);
-      s.handleKey(space, ctx);         // enter sweeping
-      pumpSweep(s, 5 + line);          // varied positions
-      s.handleKey(space, ctx);         // snap
-      pumpThroughSnap(s);
-      expect(s.getPhase()).toBe("playing");
-      pumpToNextGathering(s);
+      expect(s.getAtomIdx()).toBe(atom);
+      runRound(s, 3 + (atom % 5));      // varied sweep distances
     }
     expect(s.getPhase()).toBe("complete");
     expect(s.getModel().hexagramComplete).toBe(true);
     expect(s.getModel().transcript).toHaveLength(6);
+    for (const lineResult of s.getModel().transcript) {
+      expect(lineResult.rounds).toHaveLength(3);
+      expect(lineResult.line).not.toBeNull();
+    }
     expect(s.getModel().requireCast().lines).toHaveLength(6);
   });
 
   test("final Space emits yarrowCompleted with the assembled cast", () => {
     const s = scene(7);
-    for (let line = 0; line < 6; line++) {
-      s.handleKey(space, ctx);
-      pumpSweep(s, 10);
-      s.handleKey(space, ctx);
-      pumpThroughSnap(s);
-      pumpToNextGathering(s);
-    }
+    for (let atom = 0; atom < 18; atom++) runRound(s, 4);
     const sig = s.handleKey(space, ctx);
     expect(sig).toEqual({ type: "yarrowCompleted", cast: s.getModel().requireCast() });
   });
@@ -154,7 +168,7 @@ describe("YarrowManualScene — H6 sweep + snap", () => {
     s.handleKey(space, ctx);
     expect(() => s.render(buf, ctx)).not.toThrow(); // sweeping (aperture at 1)
     pumpSweep(s, 20);
-    expect(() => s.render(buf, ctx)).not.toThrow(); // sweeping (aperture at 21)
+    expect(() => s.render(buf, ctx)).not.toThrow();
     s.handleKey(space, ctx);
     expect(() => s.render(buf, ctx)).not.toThrow(); // snapping
     pumpThroughSnap(s);
