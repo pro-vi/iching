@@ -27,11 +27,19 @@ No web technologies, no frameworks.
 
 ## Install
 
-Requires [Bun](https://bun.sh) >= 1.0.
+Runs under Node 18+ or [Bun](https://bun.sh). Run without installing:
 
 ```bash
-bunx @pro-vi/iching                    # launch the TUI
-bunx @pro-vi/iching cast "ship it?"    # one-shot cast
+npx @pro-vi/iching                     # run with Node
+bunx @pro-vi/iching                    # run with Bun
+```
+
+Or install globally:
+
+```bash
+npm install -g @pro-vi/iching          # or: bun install -g @pro-vi/iching
+iching                                 # launch the TUI
+iching cast "ship it?"                 # one-shot cast
 ```
 
 Or clone and build:

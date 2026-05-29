@@ -8,6 +8,7 @@
     "test": "bun test --path-ignore-patterns='**/dist/**'",
     "build": "bun scripts/build.ts",
     "build:all": "bun scripts/build.ts --all",
+    "bundle": "bun scripts/bundle.ts",
     "smoke": "bun scripts/smoke-test.ts"
   },
   "devDependencies": {

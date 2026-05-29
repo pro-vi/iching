@@ -26,18 +26,19 @@
 
 ## 安装
 
-需要 [Bun](https://bun.sh) >= 1.0。
+可在 Node 18+ 或 [Bun](https://bun.sh) 下运行。免安装直接运行：
 
 ```bash
-bun install -g @pro-vi/iching          # 全局安装
-iching                                  # 进入 TUI
-iching cast "该不该上线？"              # 一次性起卦
+npx @pro-vi/iching                      # 用 Node 运行
+bunx @pro-vi/iching                     # 用 Bun 运行
 ```
 
-或免安装直接运行：
+或全局安装：
 
 ```bash
-bunx @pro-vi/iching
+npm install -g @pro-vi/iching          # 或：bun install -g @pro-vi/iching
+iching                                  # 进入 TUI
+iching cast "该不该上线？"              # 一次性起卦
 ```
 
 或克隆构建：

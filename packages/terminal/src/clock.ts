@@ -5,14 +5,14 @@ export interface Clock {
   sleep(ms: number): Promise<void>;
 }
 
-/** Real clock using performance.now() and Bun.sleep(). */
+/** Real clock — uses performance.now() and setTimeout (works under Bun and Node). */
 export class RealClock implements Clock {
   now(): number {
     return performance.now();
   }
 
   async sleep(ms: number): Promise<void> {
-    await Bun.sleep(ms);
+    await new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 

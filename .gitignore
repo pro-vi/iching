@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# generated npm bundle — prepack (publish/package.json) rebuilds it before publish
+publish/iching.js
 *.tsbuildinfo
 *.db
 *.db-journal
