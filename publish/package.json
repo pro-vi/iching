@@ -1,6 +1,6 @@
 {
   "name": "@pro-vi/iching",
-  "version": "0.1.4",
+  "version": "0.2.1",
   "description": "A contemplative I Ching TUI for the terminal.",
   "bin": "./iching.js",
   "files": ["iching.js", "README.md", "LICENSE"],
