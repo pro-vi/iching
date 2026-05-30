@@ -15,12 +15,7 @@ import { stringWidth } from "../../layout/measure.ts";
 import { type CoinState, INITIAL_VY, stepCoin, coinFrame } from "../toss/coin-physics.ts";
 import { renderCoinSet, CoinAnim } from "../cast/coin-renderer.ts";
 import { renderYarrowFieldStrip, drawApertureCursor } from "../yarrow/field-renderer.ts";
-import { YarrowModel } from "../yarrow/model.ts";
-import { buildYarrowRoundBeats } from "../yarrow/yarrow-timeline.ts";
-import { getYarrowTiming } from "../../animation/yarrow-presets.ts";
-import { seq } from "../../animation/timeline.ts";
-import { TimelineRunner } from "../../animation/runner.ts";
-import { castYarrowHexagram, castYarrowRound, CryptoRandomSource, SeededRandomSource } from "@iching/core";
+import { YarrowAutoPreview, YarrowManualPreview } from "../yarrow/preview.ts";
 import { LINE_WIDTH } from "../../glyphs.ts";
 
 // ── Setting definitions ──────────────────────────────────────────────
@@ -50,16 +45,6 @@ export interface SettingsValues {
 
 const PREVIEW_CHAR = "乾";
 const COIN_PAUSE_SECS = 0.8;
-const YARROW_PREVIEW_SEED = 42;           // round 0 split 24|25 — balanced
-const YARROW_AUTO_GAP_MS = 800;           // quiet hold between auto loop iterations
-// Manual preview cycles: sweep aperture → snap at a random spot → play the
-// round → return to sweeping. Same SWEEP_INTERVAL_MS as the live scene so
-// the visual rhythm carries over identically.
-const YARROW_PREVIEW_SWEEP_INTERVAL_MS = 150;
-const YARROW_PREVIEW_APERTURE_WIDTH = 4;
-const YARROW_PREVIEW_SWEEP_MIN_MS = 1800;  // shortest sweep before snap
-const YARROW_PREVIEW_SWEEP_MAX_MS = 3600;  // longest sweep before snap
-const YARROW_PREVIEW_SNAP_HOLD_MS = 500;   // frozen aperture between snap and play
 
 type PreviewKind =
   | "glyph"
@@ -88,20 +73,9 @@ export class SettingsScene implements Scene {
   private coinPauseTimer = 0;
   // cast-auto preview
   private coinAnim: CoinAnim | null = null;
-  // cast-yarrow / cast-yarrow-manual preview
-  private yarrowPreviewKind: "auto" | "manual" | null = null;
-  private yarrowModel: YarrowModel | null = null;
-  private yarrowRunner: TimelineRunner | null = null;
-  private yarrowElapsed = 0;
-  // Manual preview sweep/snap/play state. Phases: "sweeping" (aperture
-  // bounces L↔R), "snapped" (frozen, brief hold), "playing" (runner ticks
-  // through the freshly-cast round, aperture hidden).
-  private previewManualPhase: "sweeping" | "snapped" | "playing" = "sweeping";
-  private previewApertureLeft = 1;
-  private previewSweepDir: 1 | -1 = 1;
-  private previewSweepAccumMs = 0;
-  private previewSweepBudgetMs = 0;
-  private previewSnapHoldMs = 0;
+  // cast-yarrow / cast-yarrow-manual preview — parallel to coinAnim above.
+  private yarrowAuto: YarrowAutoPreview | null = null;
+  private yarrowManual: YarrowManualPreview | null = null;
 
   constructor(initial: SettingsValues) {
     this.values = { ...initial };
@@ -171,31 +145,12 @@ export class SettingsScene implements Scene {
         break;
 
       case "cast-yarrow":
-      case "cast-yarrow-manual": {
-        const kind = this.previewKind === "cast-yarrow-manual" ? "manual" : "auto";
-        this.ensureYarrowPreview(kind);
-        if (!this.yarrowModel) break;
-
-        if (kind === "manual") {
-          // Manual preview cycles through the full agency flow: sweep an
-          // aperture, snap at a random time, hold briefly, play the round,
-          // reset. Mirrors what the user actually authors live.
-          this.advanceManualPreview(dt);
-          break;
-        }
-
-        // Auto: run the round-0 ritual on loop.
-        if (!this.yarrowRunner) break;
-        this.yarrowElapsed += dt;
-        const done = this.yarrowRunner.advance(this.yarrowElapsed, this.yarrowModel);
-        if (!done) break;
-        if (this.yarrowElapsed >= this.yarrowRunner.duration + YARROW_AUTO_GAP_MS) {
-          this.yarrowModel?.resetActiveLine(0, this.yarrowModel.transcript[0].rounds[0].startCount);
-          this.yarrowRunner.reset();
-          this.yarrowElapsed = 0;
-        }
+        this.yarrowAuto?.step(dt);
         break;
-      }
+
+      case "cast-yarrow-manual":
+        this.yarrowManual?.step(dt);
+        break;
     }
   }
 
@@ -337,22 +292,23 @@ export class SettingsScene implements Scene {
         break;
       }
 
-      case "cast-yarrow":
-      case "cast-yarrow-manual": {
-        if (!this.yarrowModel) break;
-        // Reserve 2 rows from the bottom for the bar + sub-caption row.
-        // Auto and manual share the bar; manual adds the sweep aperture
-        // overlay (the affordance the user authors).
+      case "cast-yarrow": {
+        if (!this.yarrowAuto) this.yarrowAuto = new YarrowAutoPreview();
         const fieldRow = startRow + Math.max(1, availRows - 2);
-        renderYarrowFieldStrip(frame, this.yarrowModel, fieldRow);
-        // Aperture overlay only during sweep/snap phases — during play
-        // the runner mutates the bar and the aperture would just smear
-        // accent over a moving substance.
-        const isManual = this.previewKind === "cast-yarrow-manual";
-        if (isManual && this.previewManualPhase !== "playing") {
+        renderYarrowFieldStrip(frame, this.yarrowAuto.model, fieldRow);
+        break;
+      }
+
+      case "cast-yarrow-manual": {
+        if (!this.yarrowManual) this.yarrowManual = new YarrowManualPreview();
+        const fieldRow = startRow + Math.max(1, availRows - 2);
+        renderYarrowFieldStrip(frame, this.yarrowManual.model, fieldRow);
+        // Aperture overlay only during sweep/snap — during play the runner
+        // mutates the bar, and the aperture would smear over the action.
+        if (this.yarrowManual.phase !== "playing") {
           drawApertureCursor(
             frame, fieldRow, Math.floor(frame.width / 2),
-            this.previewApertureLeft, YARROW_PREVIEW_APERTURE_WIDTH,
+            this.yarrowManual.apertureLeft,
           );
         }
         break;
@@ -413,155 +369,8 @@ export class SettingsScene implements Scene {
     this.previewCoins = [];
     this.coinPauseTimer = 0;
     this.coinAnim = null;
-    this.disposeYarrowPreview();
-  }
-
-  /** Build (or rebuild) the yarrow preview state for the requested kind. */
-  private ensureYarrowPreview(kind: "auto" | "manual"): void {
-    if (this.yarrowPreviewKind === kind && this.yarrowModel && this.yarrowRunner) return;
-    this.disposeYarrowPreview();
-
-    const yarrow = castYarrowHexagram(new SeededRandomSource(YARROW_PREVIEW_SEED));
-    this.yarrowModel = new YarrowModel(yarrow);
-
-    // Always animate line 0 / round 0 — pedagogically clearest. No captions
-    // in the preview: chrome isn't drawn, so a caption write would land in
-    // a row we don't own.
-    const { timing } = getYarrowTiming("default");
-    const round0 = this.yarrowModel.transcript[0].rounds[0];
-    const beats = buildYarrowRoundBeats(
-      this.yarrowModel,
-      timing,
-      "expanded",
-      0,
-      0,
-      round0,
-      { narrating: false },
-    );
-    this.yarrowRunner = new TimelineRunner(seq(...beats));
-    this.yarrowElapsed = 0;
-    this.yarrowPreviewKind = kind;
-
-    if (kind === "manual") {
-      this.yarrowModel?.resetActiveLine(0, this.yarrowModel.transcript[0].rounds[0].startCount);
-      this.resetManualPreviewSweep();
-    }
-  }
-
-  /**
-   * Drive one frame of the manual preview state machine —
-   * sweeping → snapped → playing → sweeping. The cycle visibly mirrors
-   * what the user does in YarrowManualScene: park the aperture, snap,
-   * watch the round play.
-   */
-  private advanceManualPreview(dt: number): void {
-    if (!this.yarrowModel || !this.yarrowRunner) return;
-
-    switch (this.previewManualPhase) {
-      case "sweeping": {
-        this.previewSweepAccumMs += dt;
-        while (this.previewSweepAccumMs >= YARROW_PREVIEW_SWEEP_INTERVAL_MS) {
-          this.previewSweepAccumMs -= YARROW_PREVIEW_SWEEP_INTERVAL_MS;
-          this.advancePreviewAperture();
-        }
-        this.previewSweepBudgetMs -= dt;
-        if (this.previewSweepBudgetMs <= 0) {
-          this.previewManualPhase = "snapped";
-          this.previewSnapHoldMs = 0;
-        }
-        break;
-      }
-      case "snapped": {
-        this.previewSnapHoldMs += dt;
-        if (this.previewSnapHoldMs >= YARROW_PREVIEW_SNAP_HOLD_MS) {
-          this.commitPreviewSnap();
-        }
-        break;
-      }
-      case "playing": {
-        this.yarrowElapsed += dt;
-        const done = this.yarrowRunner.advance(this.yarrowElapsed, this.yarrowModel);
-        if (!done) break;
-        if (this.yarrowElapsed >= this.yarrowRunner.duration + YARROW_AUTO_GAP_MS) {
-          // Round complete — return the model to the gather pose and
-          // start a new sweep with a fresh random budget.
-          this.yarrowModel.resetActiveLine(0, this.yarrowModel.transcript[0].rounds[0].startCount);
-          this.resetManualPreviewSweep();
-        }
-        break;
-      }
-    }
-  }
-
-  /**
-   * Pick a uniform-random k inside the current aperture window, rebuild
-   * round 0 from that k, and hand it to a fresh runner. The played beats
-   * then reflect the visible snap — what the eye saw and what the math
-   * does line up.
-   */
-  private commitPreviewSnap(): void {
-    if (!this.yarrowModel) return;
-    const max = 49 - YARROW_PREVIEW_APERTURE_WIDTH;
-    const left = Math.max(1, Math.min(max, this.previewApertureLeft));
-    const offset = Math.floor(Math.random() * YARROW_PREVIEW_APERTURE_WIDTH);
-    const k = left + offset;
-
-    const round = castYarrowRound(new CryptoRandomSource(), 49, { splitAt: k });
-    this.yarrowModel.transcript[0].rounds[0] = round;
-    this.yarrowModel.resetActiveLine(0, 49);
-
-    const { timing } = getYarrowTiming("default");
-    const beats = buildYarrowRoundBeats(
-      this.yarrowModel, timing, "expanded", 0, 0, round, { narrating: false },
-    );
-    this.yarrowRunner = new TimelineRunner(seq(...beats));
-    this.yarrowElapsed = 0;
-    this.previewManualPhase = "playing";
-  }
-
-  /** Reset the sweep loop with a fresh random duration. */
-  private resetManualPreviewSweep(): void {
-    this.previewManualPhase = "sweeping";
-    this.previewApertureLeft = 1;
-    this.previewSweepDir = 1;
-    this.previewSweepAccumMs = 0;
-    this.previewSnapHoldMs = 0;
-    const span = YARROW_PREVIEW_SWEEP_MAX_MS - YARROW_PREVIEW_SWEEP_MIN_MS;
-    this.previewSweepBudgetMs = YARROW_PREVIEW_SWEEP_MIN_MS + Math.random() * span;
-  }
-
-  /** Bounce-sweep the aperture L↔R across the bar (gather-pose only). */
-  private advancePreviewAperture(): void {
-    const max = 49 - YARROW_PREVIEW_APERTURE_WIDTH;
-    if (this.previewSweepDir === 1) {
-      if (this.previewApertureLeft >= max) {
-        this.previewSweepDir = -1;
-        this.previewApertureLeft = Math.max(1, this.previewApertureLeft - 1);
-      } else {
-        this.previewApertureLeft++;
-      }
-    } else {
-      if (this.previewApertureLeft <= 1) {
-        this.previewSweepDir = 1;
-        this.previewApertureLeft = Math.min(max, this.previewApertureLeft + 1);
-      } else {
-        this.previewApertureLeft--;
-      }
-    }
-  }
-
-
-  private disposeYarrowPreview(): void {
-    this.yarrowModel = null;
-    this.yarrowRunner = null;
-    this.yarrowElapsed = 0;
-    this.yarrowPreviewKind = null;
-    this.previewManualPhase = "sweeping";
-    this.previewApertureLeft = 1;
-    this.previewSweepDir = 1;
-    this.previewSweepAccumMs = 0;
-    this.previewSweepBudgetMs = 0;
-    this.previewSnapHoldMs = 0;
+    this.yarrowAuto = null;
+    this.yarrowManual = null;
   }
 
   private onFocusChanged(): void {
