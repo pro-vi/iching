@@ -281,35 +281,27 @@ export class YarrowManualScene implements Scene {
     const row = frame.height - 2;
     if (row < 0) return;
 
+    // The line/round counter already lives in the chrome header (field-
+    // renderer's renderChrome at row 1). The footer carries only the
+    // phase-appropriate action prompt — duplicating the position info
+    // here is dead text.
     let text: string;
     switch (this.phase) {
       case "complete":
         text = "[space] receive the reading  ·  [esc] discard";
         break;
-      case "gathering": {
-        const lineIdx = Math.floor(this.atomIdx / ROUNDS_PER_LINE) + 1;
-        const roundIdx = (this.atomIdx % ROUNDS_PER_LINE) + 1;
-        text = `Line ${lineIdx}/6 · Round ${roundIdx}/3  ·  press [space] to begin cutting  ·  [esc] back`;
+      case "gathering":
+        text = "press [space] to begin cutting  ·  [esc] back";
         break;
-      }
-      case "sweeping": {
-        const lineIdx = Math.floor(this.atomIdx / ROUNDS_PER_LINE) + 1;
-        const roundIdx = (this.atomIdx % ROUNDS_PER_LINE) + 1;
-        text = `Line ${lineIdx}/6 · Round ${roundIdx}/3  ·  press [space] to cut`;
+      case "sweeping":
+        text = "press [space] to cut";
         break;
-      }
-      case "snapping": {
-        const lineIdx = Math.floor(this.atomIdx / ROUNDS_PER_LINE) + 1;
-        const roundIdx = (this.atomIdx % ROUNDS_PER_LINE) + 1;
-        text = `Line ${lineIdx}/6 · Round ${roundIdx}/3  ·  cut around here`;
+      case "snapping":
+        text = "cut around here";
         break;
-      }
-      case "playing": {
-        const lineIdx = Math.floor(this.atomIdx / ROUNDS_PER_LINE) + 1;
-        const roundIdx = (this.atomIdx % ROUNDS_PER_LINE) + 1;
-        text = `Line ${lineIdx}/6 · Round ${roundIdx}/3`;
+      case "playing":
+        text = "";
         break;
-      }
     }
 
     const col = Math.max(0, Math.floor((frame.width - stringWidth(text)) / 2));
