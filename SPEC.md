@@ -31,6 +31,7 @@ old checkbox.
 | Casting scenes | Implemented | cast scene, coin/line/morph/reveal renderers, timeline builder |
 | TUI dictionary | Implemented | browse model/scene, detail model/scene, dictionary command, scene routing |
 | Large glyph support | Implemented | glyph data, glyph animation modes, cast/detail integration |
+| Yarrow casting | Implemented (2026-05-30) | `core/casting/yarrow.ts`, `YarrowScene` auto, `YarrowManualScene` 18-cut full-manual, ritual-chrome parity with coin |
 | Distribution | Infrastructure present | build script, smoke script, CI workflow, release workflow |
 | Entropy source evolution | Planned | see `docs/vision/entropy-sources-vision.md` |
 
@@ -84,13 +85,18 @@ Source: [Entropy Sources Vision](docs/vision/entropy-sources-vision.md).
 
 ### Yarrow
 
-Deferred.
+Shipped in [#2](https://github.com/pro-vi/iching/pull/2) as both auto
+(animated ritual) and full-manual (18 sweep-and-snap gestures, one per
+round) modes. The earlier deferral — "yarrow should return as its own
+guided ritual, not a hidden algorithmic toggle" — is satisfied by the
+guided-ritual shape.
 
-Yarrow should not be added as a hidden algorithmic toggle. It has animation,
-pacing, instruction, and data-entry implications and should return as its own
-guided ritual scope.
+The Line-Gate variant (6-cut temporal-hinge manual, documented in the
+vision doc's "Manual Modes" section) is the only piece that remains
+deferred; it's a third-position manual mode for presence-without-
+authorship and lives in the vision doc as a future-work map.
 
-Source: [Entropy Sources Vision](docs/vision/entropy-sources-vision.md).
+Source: [Yarrow Ritual Vision](docs/vision/yarrow-ritual-vision.md).
 
 ## Maintenance Rules
 

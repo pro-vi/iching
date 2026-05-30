@@ -3,6 +3,12 @@
 How the yarrow stalk casting method should work — its math, its terminal
 vocabulary, its pacing, and how it joins the existing cast flow.
 
+> **Status: shipped in [#2](https://github.com/pro-vi/iching/pull/2).**
+> Auto mode (animated ritual) and full-manual mode (18 sweep-and-snap
+> gestures) both ship. The Line-Gate variant in the "Manual Modes"
+> section is documented but deferred. This doc remains live as the
+> design rationale + the map of what hasn't shipped yet.
+
 This is a design vision note, not an implementation task list. It is the answer
 to the deferral in [Entropy Sources Vision](entropy-sources-vision.md), which
 held that "yarrow should return later as a guided ritual, not as a quick hidden
