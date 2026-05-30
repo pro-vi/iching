@@ -49,6 +49,7 @@ async function main() {
       glyphFont: savedConfig.glyphFont,
     };
     let taijituStyle = savedConfig.taijituStyle;
+    let castMethod = savedConfig.castMethod ?? "coin";
     let castMode = savedConfig.castMode ?? "auto";
 
     const session = new TerminalSession();
@@ -87,11 +88,22 @@ async function main() {
         motion: savedConfig.motion ?? "default",
       };
 
+      // Derive the reading source from the (castMethod, castMode) pair.
+      // Cast and Play share this — Play is "sandbox-Cast" minus persistence.
+      const castSource = (): Parameters<typeof runReadingFlow>[1]["source"] => {
+        if (castMethod === "yarrow") {
+          return castMode === "manual" ? { type: "yarrow-manual" } : { type: "yarrow" };
+        }
+        return castMode === "manual"
+          ? { type: "manual" }
+          : { type: "auto", seed: opts.seed ? Number(opts.seed) : undefined };
+      };
+
       switch (signal.type) {
         case "startPlay": {
           const result = await runReadingFlow(flowDeps, {
             purpose: "play",
-            source: { type: "manual" },
+            source: castSource(),
           });
           if (result.shouldExit) running = false;
           break;
@@ -100,9 +112,7 @@ async function main() {
         case "startCast": {
           const result = await runReadingFlow(flowDeps, {
             purpose: "cast",
-            source: castMode === "manual"
-              ? { type: "manual" }
-              : { type: "auto", seed: opts.seed ? Number(opts.seed) : undefined },
+            source: castSource(),
           });
           if (result.shouldExit) running = false;
           break;
@@ -143,6 +153,7 @@ async function main() {
             taijituStyle: config.taijituStyle,
             glyphAnim: config.glyphAnim,
             glyphFont: config.glyphFont,
+            castMethod: config.castMethod ?? "coin",
             castMode: config.castMode ?? "auto",
           });
           const settingsSignal = await run(settingsScene);
@@ -154,10 +165,12 @@ async function main() {
             newConfig.taijituStyle = updated.taijituStyle;
             newConfig.glyphAnim = updated.glyphAnim;
             newConfig.glyphFont = updated.glyphFont;
+            newConfig.castMethod = updated.castMethod;
             newConfig.castMode = updated.castMode;
             await configStore.save(newConfig);
             setTheme(updated.theme);
             taijituStyle = updated.taijituStyle;
+            castMethod = updated.castMethod;
             castMode = updated.castMode;
             glyphConfig = {
               glyphAnim: updated.glyphAnim,

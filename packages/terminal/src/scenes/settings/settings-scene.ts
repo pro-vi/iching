@@ -13,7 +13,9 @@ import { autoGlyphSize } from "../../glyph-anim/auto-size.ts";
 import { getTheme, setTheme, THEME_NAMES, type ThemeName } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { type CoinState, INITIAL_VY, stepCoin, coinFrame } from "../toss/coin-physics.ts";
-import { renderCoinSet, CoinAnim } from "../cast/coin-renderer.ts";
+import { renderCoinSet, CoinAutoPreview } from "../cast/coin-renderer.ts";
+import { renderYarrowFieldStrip, drawApertureCursor } from "../yarrow/field-renderer.ts";
+import { YarrowAutoPreview, YarrowManualPreview } from "../yarrow/yarrow-previews.ts";
 import { LINE_WIDTH } from "../../glyphs.ts";
 
 // ── Setting definitions ──────────────────────────────────────────────
@@ -21,6 +23,7 @@ import { LINE_WIDTH } from "../../glyphs.ts";
 const ANIM_OPTIONS: GlyphAnimStyle[] = ["dots", "noise", "radial", "sand"];
 const FONT_OPTIONS: GlyphFont[] = ["kaiti", "libian", "heiti"];
 const TAIJITU_OPTIONS: TaijituStyle[] = ["dots", "dense"];
+const CAST_METHOD_OPTIONS = ["coin", "yarrow"] as const;
 const CAST_MODE_OPTIONS = ["auto", "manual"] as const;
 
 interface SettingRow {
@@ -34,6 +37,7 @@ export interface SettingsValues {
   glyphAnim: GlyphAnimStyle;
   glyphFont: GlyphFont;
   taijituStyle: TaijituStyle;
+  castMethod: "coin" | "yarrow";
   castMode: "auto" | "manual";
 }
 
@@ -42,7 +46,26 @@ export interface SettingsValues {
 const PREVIEW_CHAR = "乾";
 const COIN_PAUSE_SECS = 0.8;
 
-type PreviewKind = "glyph" | "taijitu" | "cast-manual" | "cast-auto";
+/**
+ * Vertical placement of the yarrow bar inside the preview pane.
+ * The live scene anchors stalks at the bottom because hexagram lines
+ * stack above them. The preview has no lines to accumulate, so the
+ * bottom-anchor reads as "floor-stuck" against the section separator.
+ * Center the bar+count pair vertically, matching coin auto's coinRow
+ * formula (`startRow + floor(availRows / 2)`) so the two previews
+ * share a visual midline.
+ */
+function yarrowFieldOffset(availRows: number): number {
+  return Math.max(1, Math.floor(availRows / 2));
+}
+
+type PreviewKind =
+  | "glyph"
+  | "taijitu"
+  | "cast-manual"
+  | "cast-auto"
+  | "cast-yarrow"
+  | "cast-yarrow-manual";
 
 // ── Scene ────────────────────────────────────────────────────────────
 
@@ -62,16 +85,20 @@ export class SettingsScene implements Scene {
   private previewCoins: CoinState[] = [];
   private coinPauseTimer = 0;
   // cast-auto preview
-  private coinAnim: CoinAnim | null = null;
+  private coinAuto: CoinAutoPreview | null = null;
+  // cast-yarrow / cast-yarrow-manual preview — parallel to coinAuto above.
+  private yarrowAuto: YarrowAutoPreview | null = null;
+  private yarrowManual: YarrowManualPreview | null = null;
 
   constructor(initial: SettingsValues) {
     this.values = { ...initial };
     this.rows = [
-      { label: "Theme",           options: [...THEME_NAMES],       selected: Math.max(0, THEME_NAMES.indexOf(initial.theme)) },
-      { label: "Taijitu",         options: [...TAIJITU_OPTIONS],   selected: Math.max(0, TAIJITU_OPTIONS.indexOf(initial.taijituStyle)) },
-      { label: "Glyph Animation", options: [...ANIM_OPTIONS],      selected: Math.max(0, ANIM_OPTIONS.indexOf(initial.glyphAnim)) },
-      { label: "Font",            options: [...FONT_OPTIONS],      selected: Math.max(0, FONT_OPTIONS.indexOf(initial.glyphFont)) },
-      { label: "Cast",            options: [...CAST_MODE_OPTIONS], selected: Math.max(0, CAST_MODE_OPTIONS.indexOf(initial.castMode as any)) },
+      { label: "Theme",           options: [...THEME_NAMES],         selected: Math.max(0, THEME_NAMES.indexOf(initial.theme)) },
+      { label: "Taijitu",         options: [...TAIJITU_OPTIONS],     selected: Math.max(0, TAIJITU_OPTIONS.indexOf(initial.taijituStyle)) },
+      { label: "Glyph Animation", options: [...ANIM_OPTIONS],        selected: Math.max(0, ANIM_OPTIONS.indexOf(initial.glyphAnim)) },
+      { label: "Font",            options: [...FONT_OPTIONS],        selected: Math.max(0, FONT_OPTIONS.indexOf(initial.glyphFont)) },
+      { label: "Cast Method",     options: [...CAST_METHOD_OPTIONS], selected: Math.max(0, CAST_METHOD_OPTIONS.indexOf(initial.castMethod)) },
+      { label: "Cast Mode",       options: [...CAST_MODE_OPTIONS],   selected: Math.max(0, CAST_MODE_OPTIONS.indexOf(initial.castMode)) },
     ];
     this.previewKind = this.previewKindForLabel(this.rows[0]?.label);
   }
@@ -82,7 +109,8 @@ export class SettingsScene implements Scene {
       taijituStyle: TAIJITU_OPTIONS[this.rows[1].selected] ?? "dots",
       glyphAnim: ANIM_OPTIONS[this.rows[2].selected] ?? "dots",
       glyphFont: FONT_OPTIONS[this.rows[3].selected] ?? "kaiti",
-      castMode: CAST_MODE_OPTIONS[this.rows[4].selected] ?? "auto",
+      castMethod: CAST_METHOD_OPTIONS[this.rows[4].selected] ?? "coin",
+      castMode: CAST_MODE_OPTIONS[this.rows[5].selected] ?? "auto",
     };
   }
 
@@ -126,7 +154,15 @@ export class SettingsScene implements Scene {
       }
 
       case "cast-auto":
-        this.coinAnim?.step(dt);
+        this.coinAuto?.step(dt);
+        break;
+
+      case "cast-yarrow":
+        this.yarrowAuto?.step(dt);
+        break;
+
+      case "cast-yarrow-manual":
+        this.yarrowManual?.step(dt);
         break;
     }
   }
@@ -149,6 +185,16 @@ export class SettingsScene implements Scene {
 
     // Setting rows
     const left = Math.max(2, cx - 24);
+
+    // Adaptive spacing: wide layout (3 rows per setting — label + options +
+    // gap) needs `frame.height >= 3N + 7` to keep the last setting clear of
+    // the footer separator at `height - 3`. At 80x24 with 6 settings, that
+    // threshold is 25 — we have 24, so use the compact 2-rows-per-setting
+    // form. Without this guard, Cast Mode options at row 21 got silently
+    // overwritten by the footer separator, leaving users to change the
+    // most important new setting blind.
+    const compact = frame.height < this.rows.length * 3 + 7;
+    const interRowGap = compact ? 1 : 2;
 
     for (let i = 0; i < this.rows.length; i++) {
       const setting = this.rows[i];
@@ -178,7 +224,7 @@ export class SettingsScene implements Scene {
         if (j < setting.options.length - 1) col += 2;
       }
 
-      row += 2;
+      row += interRowGap;
     }
 
     // Footer is anchored to the bottom; preview lives in whatever space is left.
@@ -262,10 +308,32 @@ export class SettingsScene implements Scene {
       }
 
       case "cast-auto": {
-        if (!this.coinAnim) this.coinAnim = new CoinAnim();
+        if (!this.coinAuto) this.coinAuto = new CoinAutoPreview();
         const coinRow = startRow + Math.floor(availRows / 2);
         const coinCenterCol = Math.floor((frame.width - LINE_WIDTH) / 2) + Math.floor(LINE_WIDTH / 2);
-        renderCoinSet(frame, coinCenterCol, coinRow, this.coinAnim.phase, this.coinAnim.progress, this.coinAnim.results);
+        renderCoinSet(frame, coinCenterCol, coinRow, this.coinAuto.phase, this.coinAuto.progress, this.coinAuto.results);
+        break;
+      }
+
+      case "cast-yarrow": {
+        if (!this.yarrowAuto) this.yarrowAuto = new YarrowAutoPreview();
+        const fieldRow = startRow + yarrowFieldOffset(availRows);
+        renderYarrowFieldStrip(frame, this.yarrowAuto.model, fieldRow);
+        break;
+      }
+
+      case "cast-yarrow-manual": {
+        if (!this.yarrowManual) this.yarrowManual = new YarrowManualPreview();
+        const fieldRow = startRow + yarrowFieldOffset(availRows);
+        renderYarrowFieldStrip(frame, this.yarrowManual.model, fieldRow);
+        // Aperture overlay only during sweep/snap — during play the runner
+        // mutates the bar, and the aperture would smear over the action.
+        if (this.yarrowManual.phase !== "playing") {
+          drawApertureCursor(
+            frame, fieldRow, Math.floor(frame.width / 2),
+            this.yarrowManual.apertureLeft,
+          );
+        }
         break;
       }
     }
@@ -310,14 +378,22 @@ export class SettingsScene implements Scene {
 
   private previewKindForLabel(label: string | undefined): PreviewKind {
     if (label === "Taijitu") return "taijitu";
-    if (label === "Cast") return this.getValues().castMode === "manual" ? "cast-manual" : "cast-auto";
+    if (label === "Cast Method" || label === "Cast Mode") {
+      const { castMethod, castMode } = this.getValues();
+      if (castMethod === "yarrow") {
+        return castMode === "manual" ? "cast-yarrow-manual" : "cast-yarrow";
+      }
+      return castMode === "manual" ? "cast-manual" : "cast-auto";
+    }
     return "glyph"; // Theme, Glyph Animation, Font
   }
 
   private resetCastPreview(): void {
     this.previewCoins = [];
     this.coinPauseTimer = 0;
-    this.coinAnim = null;
+    this.coinAuto = null;
+    this.yarrowAuto = null;
+    this.yarrowManual = null;
   }
 
   private onFocusChanged(): void {
@@ -334,7 +410,7 @@ export class SettingsScene implements Scene {
     const label = this.rows[this.focusedRow]?.label;
     if (label === "Glyph Animation" || label === "Font") {
       this.startPreview();
-    } else if (label === "Cast") {
+    } else if (label === "Cast Method" || label === "Cast Mode") {
       this.resetCastPreview();
       this.previewKind = this.previewKindForLabel(label);
     }

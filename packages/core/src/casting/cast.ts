@@ -8,13 +8,11 @@ import { diagonal } from "../derivation/diagonal.js";
 import { castLine } from "./coins.js";
 import { linesToBinary } from "./binary.js";
 
-/** Cast a full hexagram (6 lines) and compute all derived hexagrams. */
-export function castHexagram(source: RandomSource): Cast {
-  const lines: Line[] = [];
-  for (let i = 0; i < 6; i++) {
-    lines.push(castLine(source));
-  }
-
+/**
+ * Build a full Cast (primary, becoming, derived hexagrams) from six cast lines.
+ * Method-agnostic — coin and yarrow casting share this derivation.
+ */
+export function assembleCast(lines: Line[]): Cast {
   const primaryBinary = linesToBinary(lines);
   const primary = BINARY_TO_KW[primaryBinary];
 
@@ -45,4 +43,13 @@ export function castHexagram(source: RandomSource): Cast {
     mirror: mirror(lines),
     diagonal: diagonal(lines),
   };
+}
+
+/** Cast a full hexagram (6 lines) and compute all derived hexagrams. */
+export function castHexagram(source: RandomSource): Cast {
+  const lines: Line[] = [];
+  for (let i = 0; i < 6; i++) {
+    lines.push(castLine(source));
+  }
+  return assembleCast(lines);
 }

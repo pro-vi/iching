@@ -25,8 +25,10 @@ export {
 
 // Casting
 export { castLine } from "./casting/coins.js";
-export { castHexagram } from "./casting/cast.js";
+export { castHexagram, assembleCast } from "./casting/cast.js";
 export { linesToBinary } from "./casting/binary.js";
+export { castYarrowHexagram, castYarrowLine, castYarrowRound, lineFromValue, toLineValue } from "./casting/yarrow.js";
+export type { YarrowRound, YarrowLineResult, YarrowCast } from "./casting/yarrow.js";
 
 // Derivation
 export { nuclear } from "./derivation/nuclear.js";

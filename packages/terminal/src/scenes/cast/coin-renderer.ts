@@ -7,14 +7,20 @@ import { GLYPHS, LINE_WIDTH } from "../../glyphs.ts";
 import { getTheme } from "../../color/theme.ts";
 import { getPreset } from "../../animation/presets.ts";
 
-// ── Looping coin animation state machine ──────────────────────────────
+// ── Coin auto preview ─────────────────────────────────────────────────
+//
+// Looping spin → land → collapse animation for the settings preview.
+// Real cast (CastScene) doesn't loop — once a coin lands the line settles
+// and the scene moves on. This class exists purely to give settings an
+// ambient demo of "what coin auto looks like". Sibling: YarrowAutoPreview
+// in scenes/yarrow/yarrow-previews.ts.
 
 /**
  * Self-contained coin animation that loops spin → land → collapse,
- * using the same timing and stagger formula as castOneLine.
- * Use step(dt) each frame, then pass state to renderCoinSet.
+ * using the same timing and stagger formula as castOneLine. Settings-
+ * preview only — caller passes state to renderCoinSet each frame.
  */
-export class CoinAnim {
+export class CoinAutoPreview {
   phase: "spin" | "land" | "collapse" = "spin";
   progress: [number, number, number] = [0, 0, 0];
   results: [boolean, boolean, boolean];
@@ -56,7 +62,7 @@ export class CoinAnim {
         }
         break;
       case "collapse": {
-        const p = Math.min(1, this.timer / CoinAnim.COLLAPSE_MS);
+        const p = Math.min(1, this.timer / CoinAutoPreview.COLLAPSE_MS);
         this.progress = [p, p, p];
         if (p >= 1) {
           this.phase = "spin";

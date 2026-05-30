@@ -25,11 +25,12 @@ describe("JsonConfigStore", () => {
       glyphAnim: "dots",
       glyphFont: "kaiti",
       taijituStyle: "dots",
+      castMethod: "coin",
       castMode: "auto",
     });
   });
 
-  test("save then load round-trip with non-default castMode", async () => {
+  test("save then load round-trip with non-default cast settings", async () => {
     const custom: UserConfig = {
       motion: "brisk",
       theme: "bone",
@@ -38,17 +39,18 @@ describe("JsonConfigStore", () => {
       glyphAnim: "dots",
       glyphFont: "heiti",
       taijituStyle: "dense",
+      castMethod: "yarrow",
       castMode: "manual",
     };
 
     await store.save(custom);
     const loaded = await store.load();
     expect(loaded).toEqual(custom);
+    expect(loaded.castMethod).toBe("yarrow");
     expect(loaded.castMode).toBe("manual");
   });
 
   test("load merges with defaults for partial config file", async () => {
-    // Write a partial config directly
     const partial = { motion: "deep" };
     await writeFile(join(dir, "config.json"), JSON.stringify(partial), "utf-8");
 
@@ -61,8 +63,26 @@ describe("JsonConfigStore", () => {
       glyphAnim: "dots",
       glyphFont: "kaiti",
       taijituStyle: "dots",
+      castMethod: "coin",
       castMode: "auto",
     });
+  });
+
+  test("load migrates legacy single-string castMode → method+mode pair", async () => {
+    // Old configs only have the single `castMode` string. The loader infers
+    // `castMethod` from absence and splits into the new pair.
+    const cases: Array<[string, string, string]> = [
+      ["auto", "coin", "auto"],
+      ["manual", "coin", "manual"],
+      ["yarrow", "yarrow", "auto"],
+      ["yarrow-manual", "yarrow", "manual"],
+    ];
+    for (const [legacy, expectedMethod, expectedMode] of cases) {
+      await writeFile(join(dir, "config.json"), JSON.stringify({ castMode: legacy }), "utf-8");
+      const loaded = await store.load();
+      expect(loaded.castMethod).toBe(expectedMethod as UserConfig["castMethod"]);
+      expect(loaded.castMode).toBe(expectedMode as UserConfig["castMode"]);
+    }
   });
 
   test("load migrates legacy taijituStyle values", async () => {

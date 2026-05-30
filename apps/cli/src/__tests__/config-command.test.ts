@@ -5,7 +5,8 @@
 // through the CLI surface. The original bug: castMode landed in storage
 // and SettingsScene but never made it into CONFIG_SCHEMA, so
 // `iching config get castMode` and `set` both failed with "Unknown key".
-// Same hole for taijituStyle.
+// Same hole for taijituStyle. Later the field was split into castMethod
+// (coin|yarrow) × castMode (auto|manual); both must be reachable.
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -52,7 +53,7 @@ describe("config command", () => {
     await rm(dataDir, { recursive: true, force: true });
   });
 
-  test("list shows every persisted key, including castMode and taijituStyle", async () => {
+  test("list shows every persisted key, including castMethod, castMode, and taijituStyle", async () => {
     const { exitCode, stdout } = await runCli(dataDir, ["config", "list"]);
     expect(exitCode).toBe(0);
     // Every field that JsonConfigStore.DEFAULT_CONFIG persists must be visible.
@@ -64,6 +65,7 @@ describe("config command", () => {
       "glyphAnim",
       "glyphFont",
       "taijituStyle",
+      "castMethod",
       "castMode",
     ]) {
       expect(stdout).toContain(key);
@@ -90,8 +92,33 @@ describe("config command", () => {
     expect(getResult.stdout.trim()).toBe("manual");
   }, 20_000);
 
+  // Behavioral assertion: enabling yarrow goes through castMethod, not the
+  // legacy `castMode yarrow` string. The previous test asserted only that the
+  // string round-tripped — which it did, by writing an out-of-domain value
+  // that silently fell back to coin auto at cast time. This locks the real
+  // contract: castMethod=yarrow is how yarrow gets enabled.
+  test("set castMethod yarrow persists, reload reads yarrow", async () => {
+    const setResult = await runCli(dataDir, ["config", "set", "castMethod", "yarrow"]);
+    expect(setResult.exitCode).toBe(0);
+    const getResult = await runCli(dataDir, ["config", "get", "castMethod"]);
+    expect(getResult.exitCode).toBe(0);
+    expect(getResult.stdout.trim()).toBe("yarrow");
+  }, 20_000);
+
+  test("set castMode rejects yarrow (now out of castMode's domain)", async () => {
+    const { exitCode, stderr } = await runCli(dataDir, ["config", "set", "castMode", "yarrow"]);
+    expect(exitCode).not.toBe(0);
+    expect(stderr.toLowerCase()).toContain("invalid value");
+  }, 20_000);
+
   test("set castMode rejects invalid value", async () => {
     const { exitCode, stderr } = await runCli(dataDir, ["config", "set", "castMode", "wibble"]);
+    expect(exitCode).not.toBe(0);
+    expect(stderr.toLowerCase()).toContain("invalid value");
+  }, 20_000);
+
+  test("set castMethod rejects invalid value", async () => {
+    const { exitCode, stderr } = await runCli(dataDir, ["config", "set", "castMethod", "stones"]);
     expect(exitCode).not.toBe(0);
     expect(stderr.toLowerCase()).toContain("invalid value");
   }, 20_000);

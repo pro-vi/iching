@@ -12,6 +12,7 @@ export interface UserConfig {
   glyphAnim: "noise" | "dots" | "radial" | "sand";
   glyphFont: "kaiti" | "libian" | "heiti";
   taijituStyle: "dots" | "dense";
+  castMethod: "coin" | "yarrow";
   castMode: "auto" | "manual";
 }
 
