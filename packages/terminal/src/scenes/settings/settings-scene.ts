@@ -46,6 +46,19 @@ export interface SettingsValues {
 const PREVIEW_CHAR = "乾";
 const COIN_PAUSE_SECS = 0.8;
 
+/**
+ * Vertical placement of the yarrow bar inside the preview pane.
+ * The live scene anchors stalks at the bottom because hexagram lines
+ * stack above them. The preview has no lines to accumulate, so the
+ * bottom-anchor reads as "floor-stuck" against the section separator.
+ * Center the bar+count pair vertically, matching coin auto's coinRow
+ * formula (`startRow + floor(availRows / 2)`) so the two previews
+ * share a visual midline.
+ */
+function yarrowFieldOffset(availRows: number): number {
+  return Math.max(1, Math.floor(availRows / 2));
+}
+
 type PreviewKind =
   | "glyph"
   | "taijitu"
@@ -304,14 +317,14 @@ export class SettingsScene implements Scene {
 
       case "cast-yarrow": {
         if (!this.yarrowAuto) this.yarrowAuto = new YarrowAutoPreview();
-        const fieldRow = startRow + Math.max(1, availRows - 2);
+        const fieldRow = startRow + yarrowFieldOffset(availRows);
         renderYarrowFieldStrip(frame, this.yarrowAuto.model, fieldRow);
         break;
       }
 
       case "cast-yarrow-manual": {
         if (!this.yarrowManual) this.yarrowManual = new YarrowManualPreview();
-        const fieldRow = startRow + Math.max(1, availRows - 2);
+        const fieldRow = startRow + yarrowFieldOffset(availRows);
         renderYarrowFieldStrip(frame, this.yarrowManual.model, fieldRow);
         // Aperture overlay only during sweep/snap — during play the runner
         // mutates the bar, and the aperture would smear over the action.
