@@ -77,12 +77,16 @@ jobs:
           bun-version: latest
       - run: bun install --frozen-lockfile
 
-      - name: Bundle and prepare publish manifest
+      # Build the single-file bundle via scripts/bundle.ts (the same builder
+      # used locally and by prepack): `bun build --target=node` + a node
+      # shebang, so the published artifact runs under both `npx` and `bunx`.
+      # NOT `--target=bun`, which emits Bun's __require shim and crashes on Node.
+      - name: Bundle (node-target)
+        run: bun run bundle
+
+      - name: Prepare publish manifest
         run: |
           set -euo pipefail
-          mkdir -p publish
-          bun build --target=bun --minify --outfile=publish/iching.js apps/cli/src/main.ts
-          chmod +x publish/iching.js
           cp README.md LICENSE publish/
           VERSION=$(node -p "require('./package.json').version")
           cat > publish/package.json <<EOF
@@ -93,8 +97,8 @@ jobs:
             "bin": "./iching.js",
             "files": ["iching.js", "README.md", "LICENSE"],
             "type": "module",
-            "engines": { "bun": ">=1.0.0" },
-            "keywords": ["iching", "i-ching", "yijing", "tui", "terminal", "divination", "bun"],
+            "engines": { "node": ">=18", "bun": ">=1.0.0" },
+            "keywords": ["iching", "i-ching", "yijing", "tui", "terminal", "divination", "node", "bun"],
             "repository": { "type": "git", "url": "git+https://github.com/pro-vi/iching.git" },
             "homepage": "https://github.com/pro-vi/iching#readme",
             "bugs": { "url": "https://github.com/pro-vi/iching/issues" },
