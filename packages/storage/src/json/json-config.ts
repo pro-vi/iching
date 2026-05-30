@@ -31,6 +31,8 @@ const THEME_ALIASES: Record<string, string> = {
 };
 
 const VALID_TAIJITU_STYLES = new Set(["dots", "dense"]);
+const VALID_CAST_METHODS = new Set(["coin", "yarrow"]);
+const VALID_CAST_MODES = new Set(["auto", "manual"]);
 
 export class JsonConfigStore implements ConfigStore {
   constructor(private readonly path: string) {}
@@ -38,9 +40,12 @@ export class JsonConfigStore implements ConfigStore {
   async load(): Promise<UserConfig> {
     try {
       const raw = await readFile(this.path, "utf-8");
-      const partial = JSON.parse(raw) as Partial<UserConfig> & {
+      // Widen castMethod + castMode to plain string for the normalization
+      // checks below — at runtime these can be anything (legacy values, hand
+      // edits) even though their UserConfig types are narrow unions.
+      const partial = JSON.parse(raw) as Omit<Partial<UserConfig>, "castMethod" | "castMode"> & {
         glyphSize?: unknown;
-        // Old single-field castMode (strings like "yarrow-manual"); migrated below.
+        castMethod?: string;
         castMode?: string;
       };
       // Migrate legacy single-string castMode → castMethod + castMode pair.
@@ -51,6 +56,23 @@ export class JsonConfigStore implements ConfigStore {
           partial.castMethod = split.method;
           partial.castMode = split.mode;
         }
+      }
+      // Defense-in-depth: a current-shaped file with both fields can still
+      // carry an out-of-domain value (legacy CLI writes, hand edits, future
+      // schema drift). Route any unknown castMode back through LEGACY_CAST_MODE
+      // when possible, or fall back to the default. Same idiom we already use
+      // for taijituStyle and theme below.
+      if (partial.castMode && !VALID_CAST_MODES.has(partial.castMode)) {
+        const split = LEGACY_CAST_MODE[partial.castMode];
+        if (split) {
+          partial.castMethod = split.method;
+          partial.castMode = split.mode;
+        } else {
+          partial.castMode = DEFAULT_CONFIG.castMode;
+        }
+      }
+      if (partial.castMethod && !VALID_CAST_METHODS.has(partial.castMethod)) {
+        partial.castMethod = DEFAULT_CONFIG.castMethod;
       }
       const merged = { ...DEFAULT_CONFIG, ...partial } as UserConfig;
       // Drop removed glyphSize key from older configs.

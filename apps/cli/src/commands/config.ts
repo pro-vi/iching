@@ -11,7 +11,8 @@ const CONFIG_SCHEMA: Record<string, { values?: string[]; description: string }> 
   glyphAnim:    { values: ["noise", "dots", "radial", "sand"], description: "Glyph reveal animation" },
   glyphFont:    { values: ["kaiti", "libian", "heiti"], description: "Glyph font" },
   taijituStyle: { values: ["dots", "dense"], description: "Home-screen taijitu style" },
-  castMode:     { values: ["auto", "manual", "yarrow"], description: "Cast method (auto cast, manual coin toss, or yarrow stalk ritual)" },
+  castMethod:   { values: ["coin", "yarrow"], description: "Cast method (coin or yarrow stalk ritual)" },
+  castMode:     { values: ["auto", "manual"], description: "Cast mode (auto or operator-guided)" },
 };
 
 const VALID_KEYS = Object.keys(CONFIG_SCHEMA);
