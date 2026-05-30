@@ -36,6 +36,7 @@ import {
   renderYarrowField,
   yarrowFieldGeometry,
   drawApertureCursor,
+  bounceAperture,
 } from "./field-renderer.ts";
 import {
   buildYarrowRoundBeats,
@@ -159,24 +160,11 @@ export class YarrowManualScene implements Scene {
     }
   }
 
-  /** Bounce-sweep — advance one cell, flip direction at the current edges. */
+  /** Bounce-sweep — delegated to the shared atom; max varies per round. */
   private advanceAperture(): void {
-    const max = this.apertureMax();
-    if (this.sweepDir === 1) {
-      if (this.apertureLeft >= max) {
-        this.sweepDir = -1;
-        this.apertureLeft = Math.max(APERTURE_MIN, this.apertureLeft - 1);
-      } else {
-        this.apertureLeft++;
-      }
-    } else {
-      if (this.apertureLeft <= APERTURE_MIN) {
-        this.sweepDir = 1;
-        this.apertureLeft = Math.min(max, this.apertureLeft + 1);
-      } else {
-        this.apertureLeft--;
-      }
-    }
+    [this.apertureLeft, this.sweepDir] = bounceAperture(
+      this.apertureLeft, this.sweepDir, APERTURE_MIN, this.apertureMax(),
+    );
   }
 
   /**

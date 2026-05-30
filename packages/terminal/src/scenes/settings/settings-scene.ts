@@ -13,9 +13,9 @@ import { autoGlyphSize } from "../../glyph-anim/auto-size.ts";
 import { getTheme, setTheme, THEME_NAMES, type ThemeName } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { type CoinState, INITIAL_VY, stepCoin, coinFrame } from "../toss/coin-physics.ts";
-import { renderCoinSet, CoinAnim } from "../cast/coin-renderer.ts";
+import { renderCoinSet, CoinAutoPreview } from "../cast/coin-renderer.ts";
 import { renderYarrowFieldStrip, drawApertureCursor } from "../yarrow/field-renderer.ts";
-import { YarrowAutoPreview, YarrowManualPreview } from "../yarrow/preview.ts";
+import { YarrowAutoPreview, YarrowManualPreview } from "../yarrow/yarrow-previews.ts";
 import { LINE_WIDTH } from "../../glyphs.ts";
 
 // ── Setting definitions ──────────────────────────────────────────────
@@ -72,8 +72,8 @@ export class SettingsScene implements Scene {
   private previewCoins: CoinState[] = [];
   private coinPauseTimer = 0;
   // cast-auto preview
-  private coinAnim: CoinAnim | null = null;
-  // cast-yarrow / cast-yarrow-manual preview — parallel to coinAnim above.
+  private coinAuto: CoinAutoPreview | null = null;
+  // cast-yarrow / cast-yarrow-manual preview — parallel to coinAuto above.
   private yarrowAuto: YarrowAutoPreview | null = null;
   private yarrowManual: YarrowManualPreview | null = null;
 
@@ -141,7 +141,7 @@ export class SettingsScene implements Scene {
       }
 
       case "cast-auto":
-        this.coinAnim?.step(dt);
+        this.coinAuto?.step(dt);
         break;
 
       case "cast-yarrow":
@@ -285,10 +285,10 @@ export class SettingsScene implements Scene {
       }
 
       case "cast-auto": {
-        if (!this.coinAnim) this.coinAnim = new CoinAnim();
+        if (!this.coinAuto) this.coinAuto = new CoinAutoPreview();
         const coinRow = startRow + Math.floor(availRows / 2);
         const coinCenterCol = Math.floor((frame.width - LINE_WIDTH) / 2) + Math.floor(LINE_WIDTH / 2);
-        renderCoinSet(frame, coinCenterCol, coinRow, this.coinAnim.phase, this.coinAnim.progress, this.coinAnim.results);
+        renderCoinSet(frame, coinCenterCol, coinRow, this.coinAuto.phase, this.coinAuto.progress, this.coinAuto.results);
         break;
       }
 
@@ -368,7 +368,7 @@ export class SettingsScene implements Scene {
   private resetCastPreview(): void {
     this.previewCoins = [];
     this.coinPauseTimer = 0;
-    this.coinAnim = null;
+    this.coinAuto = null;
     this.yarrowAuto = null;
     this.yarrowManual = null;
   }

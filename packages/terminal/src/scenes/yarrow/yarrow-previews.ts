@@ -1,9 +1,9 @@
 // YarrowAutoPreview / YarrowManualPreview — settings-scene cast previews.
 //
-// Same shape as cast/coin-renderer.ts's CoinAnim: each preview owns its
-// own model + runner + state, exposes a public `step(dt)`, and surfaces
-// the bits the caller needs to render (model for both; apertureLeft +
-// phase for manual's aperture overlay).
+// Same shape as cast/coin-renderer.ts's CoinAutoPreview: each preview owns
+// its own model + runner + state, exposes a public `step(dt)`, and surfaces
+// the bits the caller needs to render (model for both; apertureLeft + phase
+// for manual's aperture overlay).
 
 import {
   castYarrowHexagram,
@@ -15,6 +15,7 @@ import {
 import { TimelineRunner } from "../../animation/runner.ts";
 import { seq } from "../../animation/timeline.ts";
 import { getYarrowTiming } from "../../animation/yarrow-presets.ts";
+import { bounceAperture } from "./field-renderer.ts";
 import { YarrowModel } from "./model.ts";
 import { buildYarrowRoundBeats } from "./yarrow-timeline.ts";
 
@@ -31,11 +32,6 @@ const STALKS = 49;
 const APERTURE_MAX = STALKS - APERTURE_WIDTH;
 
 // ── Shared setup ─────────────────────────────────────────────────────────────
-
-function newPreviewModel(): YarrowModel {
-  const yarrow = castYarrowHexagram(new SeededRandomSource(PREVIEW_SEED));
-  return new YarrowModel(yarrow);
-}
 
 function newRoundRunner(model: YarrowModel, round: YarrowRound): TimelineRunner {
   const { timing } = getYarrowTiming("default");
@@ -54,7 +50,7 @@ export class YarrowAutoPreview {
   private elapsed = 0;
 
   constructor() {
-    this.model = newPreviewModel();
+    this.model = new YarrowModel(castYarrowHexagram(new SeededRandomSource(PREVIEW_SEED)));
     this.runner = newRoundRunner(this.model, this.model.transcript[0].rounds[0]);
   }
 
@@ -72,11 +68,11 @@ export class YarrowAutoPreview {
 
 // ── Manual preview ───────────────────────────────────────────────────────────
 
-export type ManualPhase = "sweeping" | "snapped" | "playing";
+export type ManualPreviewPhase = "sweeping" | "snapping" | "playing";
 
 export class YarrowManualPreview {
   readonly model: YarrowModel;
-  phase: ManualPhase = "sweeping";
+  phase: ManualPreviewPhase = "sweeping";
   apertureLeft = 1;
 
   private runner: TimelineRunner;
@@ -87,10 +83,10 @@ export class YarrowManualPreview {
   private snapHoldMs = 0;
 
   constructor() {
-    this.model = newPreviewModel();
+    this.model = new YarrowModel(castYarrowHexagram(new SeededRandomSource(PREVIEW_SEED)));
     this.runner = newRoundRunner(this.model, this.model.transcript[0].rounds[0]);
     this.model.resetActiveLine(0, STALKS);
-    this.resetSweep();
+    this.resetSweepState();
   }
 
   step(dt: number): void {
@@ -99,17 +95,17 @@ export class YarrowManualPreview {
         this.sweepAccumMs += dt;
         while (this.sweepAccumMs >= SWEEP_INTERVAL_MS) {
           this.sweepAccumMs -= SWEEP_INTERVAL_MS;
-          this.bounceAperture();
+          this.advanceAperture();
         }
         this.sweepBudgetMs -= dt;
         if (this.sweepBudgetMs <= 0) {
-          this.phase = "snapped";
+          this.phase = "snapping";
           this.snapHoldMs = 0;
         }
         return;
-      case "snapped":
+      case "snapping":
         this.snapHoldMs += dt;
-        if (this.snapHoldMs >= SNAP_HOLD_MS) this.commitSnap();
+        if (this.snapHoldMs >= SNAP_HOLD_MS) this.commitCut();
         return;
       case "playing": {
         this.elapsed += dt;
@@ -117,7 +113,7 @@ export class YarrowManualPreview {
         if (!done) return;
         if (this.elapsed >= this.runner.duration + AUTO_GAP_MS) {
           this.model.resetActiveLine(0, STALKS);
-          this.resetSweep();
+          this.resetSweepState();
         }
         return;
       }
@@ -125,8 +121,8 @@ export class YarrowManualPreview {
   }
 
   /** Pick a uniform-random k inside the current aperture, build a fresh
-   *  round, hand it to a new runner — so the played math matches the snap. */
-  private commitSnap(): void {
+   *  round, hand it to a new runner — so the played math matches the cut. */
+  private commitCut(): void {
     const left = Math.max(1, Math.min(APERTURE_MAX, this.apertureLeft));
     const k = left + Math.floor(Math.random() * APERTURE_WIDTH);
     const round = castYarrowRound(new CryptoRandomSource(), STALKS, { splitAt: k });
@@ -137,7 +133,7 @@ export class YarrowManualPreview {
     this.phase = "playing";
   }
 
-  private resetSweep(): void {
+  private resetSweepState(): void {
     this.phase = "sweeping";
     this.apertureLeft = 1;
     this.sweepDir = 1;
@@ -146,21 +142,9 @@ export class YarrowManualPreview {
     this.sweepBudgetMs = SWEEP_MIN_MS + Math.random() * (SWEEP_MAX_MS - SWEEP_MIN_MS);
   }
 
-  private bounceAperture(): void {
-    if (this.sweepDir === 1) {
-      if (this.apertureLeft >= APERTURE_MAX) {
-        this.sweepDir = -1;
-        this.apertureLeft = Math.max(1, this.apertureLeft - 1);
-      } else {
-        this.apertureLeft++;
-      }
-    } else {
-      if (this.apertureLeft <= 1) {
-        this.sweepDir = 1;
-        this.apertureLeft = Math.min(APERTURE_MAX, this.apertureLeft + 1);
-      } else {
-        this.apertureLeft--;
-      }
-    }
+  private advanceAperture(): void {
+    [this.apertureLeft, this.sweepDir] = bounceAperture(
+      this.apertureLeft, this.sweepDir, 1, APERTURE_MAX,
+    );
   }
 }

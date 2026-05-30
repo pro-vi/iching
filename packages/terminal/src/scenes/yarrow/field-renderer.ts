@@ -142,6 +142,31 @@ export function drawApertureCursor(
   }
 }
 
+/**
+ * One cell of bounce-sweep — advance `apertureLeft` by one, reverse
+ * `sweepDir` at the edges. Returned as a tuple so callers can destructure
+ * back onto their own (private) fields without exposing them.
+ *
+ * Same atom shared by the live manual scene (driven by 150ms ticks while
+ * the user holds the gesture) and the settings preview (driven by an
+ * unattended timer).
+ */
+export function bounceAperture(
+  apertureLeft: number,
+  sweepDir: 1 | -1,
+  min: number,
+  max: number,
+): [number, 1 | -1] {
+  if (sweepDir === 1) {
+    return apertureLeft >= max
+      ? [Math.max(min, apertureLeft - 1), -1]
+      : [apertureLeft + 1, 1];
+  }
+  return apertureLeft <= min
+    ? [Math.min(max, apertureLeft + 1), 1]
+    : [apertureLeft - 1, -1];
+}
+
 // ── Bar drawing ──────────────────────────────────────────────────────────────
 
 /** Centered single bar (gather, carry-complete). */
