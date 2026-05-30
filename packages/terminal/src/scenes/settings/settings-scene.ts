@@ -173,6 +173,16 @@ export class SettingsScene implements Scene {
     // Setting rows
     const left = Math.max(2, cx - 24);
 
+    // Adaptive spacing: wide layout (3 rows per setting — label + options +
+    // gap) needs `frame.height >= 3N + 7` to keep the last setting clear of
+    // the footer separator at `height - 3`. At 80x24 with 6 settings, that
+    // threshold is 25 — we have 24, so use the compact 2-rows-per-setting
+    // form. Without this guard, Cast Mode options at row 21 got silently
+    // overwritten by the footer separator, leaving users to change the
+    // most important new setting blind.
+    const compact = frame.height < this.rows.length * 3 + 7;
+    const interRowGap = compact ? 1 : 2;
+
     for (let i = 0; i < this.rows.length; i++) {
       const setting = this.rows[i];
       const focused = i === this.focusedRow;
@@ -201,7 +211,7 @@ export class SettingsScene implements Scene {
         if (j < setting.options.length - 1) col += 2;
       }
 
-      row += 2;
+      row += interRowGap;
     }
 
     // Footer is anchored to the bottom; preview lives in whatever space is left.
