@@ -10,9 +10,13 @@ import {
 } from "@iching/core";
 import type { Line, Cast } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth } from "../../layout/measure.ts";
 import { renderLine } from "../cast/line-renderer.ts";
 import { anchorRow, LINE_ROW_OFFSETS } from "../cast/hexagram-renderer.ts";
+import {
+  formatLineCounter,
+  writeChromeHeader,
+  writeChromeFooter,
+} from "../cast/ritual-chrome.ts";
 import {
   type CoinState,
   INITIAL_VY,
@@ -85,18 +89,16 @@ export class TossScene implements Scene {
 
   render(frame: CellBuffer, _ctx: SceneContext): void {
     const t = getTheme();
-    const cx = Math.floor(frame.width / 2);
     const h = frame.height;
     const anchor = anchorRow(h);
 
     if (this.phase === "waiting") {
-      const label = `Round ${this.round + 1} / 6`;
-      const hint = "[space] toss  ·  [esc] back";
-      frame.writeText(2, cx - Math.floor(stringWidth(label) / 2), label, { fg: t.secondary });
-      frame.writeText(4, cx - Math.floor(stringWidth(hint) / 2), hint, { fg: t.tertiary, dim: true });
+      // Coin = 1 toss per line, so no sub-counter — formatLineCounter
+      // omits it when round.total <= 1.
+      writeChromeHeader(frame, formatLineCounter(this.round, 6));
+      writeChromeFooter(frame, "[space] toss  ·  [esc] back");
     } else if (this.phase === "complete") {
-      const hint = "[space] reveal  ·  [esc] discard";
-      frame.writeText(2, cx - Math.floor(stringWidth(hint) / 2), hint, { fg: t.tertiary, dim: true });
+      writeChromeFooter(frame, "[space] reveal  ·  [esc] discard");
     }
 
     // Physics coins

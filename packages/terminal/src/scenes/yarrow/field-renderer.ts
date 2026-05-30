@@ -13,6 +13,7 @@ import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { renderLine } from "../cast/line-renderer.ts";
 import { anchorRow, LINE_ROW_OFFSETS } from "../cast/hexagram-renderer.ts";
+import { formatLineCounter, writeChromeHeader } from "../cast/ritual-chrome.ts";
 import { LINE_WIDTH } from "../../glyphs.ts";
 import type { YarrowModel } from "./model.ts";
 
@@ -558,8 +559,10 @@ function renderChrome(buf: CellBuffer, model: YarrowModel): void {
   }
 
   if (model.activeLine >= 0 && model.activeLine < 6 && !model.hexagramComplete) {
-    const label = `line ${model.activeLine + 1}/6  ·  round ${model.activeRound + 1}/3`;
-    writeCentered(buf, 1, label, center, t.tertiary, true);
+    writeChromeHeader(
+      buf,
+      formatLineCounter(model.activeLine, 6, { idx: model.activeRound, total: 3 }),
+    );
   }
 }
 

@@ -15,11 +15,10 @@ import type { KeyEvent } from "../../input/key-parser.ts";
 import type { MotionPreset } from "../../animation/presets.ts";
 import { getYarrowTiming } from "../../animation/yarrow-presets.ts";
 import { TimelineRunner } from "../../animation/runner.ts";
-import { getTheme } from "../../color/theme.ts";
-import { stringWidth } from "../../layout/measure.ts";
 import { YarrowModel } from "./model.ts";
 import { buildYarrowTimeline } from "./yarrow-timeline.ts";
 import { renderYarrowField } from "./field-renderer.ts";
+import { writeChromeFooter } from "../cast/ritual-chrome.ts";
 
 const SPEEDS = [1, 2, 4];
 
@@ -94,10 +93,6 @@ export class YarrowScene implements Scene {
   }
 
   private renderFooter(frame: CellBuffer): void {
-    const t = getTheme();
-    const row = frame.height - 2;
-    if (row < 0) return;
-
     let text: string;
     if (this.model.hexagramComplete) {
       text = "[space] receive the reading  ·  [esc] discard";
@@ -107,9 +102,7 @@ export class YarrowScene implements Scene {
       const speed = this.model.speed > 1 ? `  ·  ${this.model.speed}×` : "";
       text = `[space] pause  ·  [f] speed  ·  [s] skip  ·  [esc] back${speed}`;
     }
-
-    const col = Math.max(0, Math.floor((frame.width - stringWidth(text)) / 2));
-    frame.writeText(row, col, text, { fg: t.tertiary });
+    writeChromeFooter(frame, text);
   }
 
   /** Expose model for testing. */

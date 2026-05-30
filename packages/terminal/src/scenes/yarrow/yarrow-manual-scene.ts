@@ -29,8 +29,6 @@ import { getYarrowTiming } from "../../animation/yarrow-presets.ts";
 import type { YarrowTiming, RitualDetail } from "../../animation/yarrow-presets.ts";
 import { TimelineRunner } from "../../animation/runner.ts";
 import { type Step, seq } from "../../animation/timeline.ts";
-import { getTheme } from "../../color/theme.ts";
-import { stringWidth } from "../../layout/measure.ts";
 import { YarrowModel } from "./model.ts";
 import {
   renderYarrowField,
@@ -38,6 +36,7 @@ import {
   drawApertureCursor,
   bounceAperture,
 } from "./field-renderer.ts";
+import { writeChromeFooter } from "../cast/ritual-chrome.ts";
 import {
   buildYarrowRoundBeats,
   buildYarrowFuseBeat,
@@ -277,10 +276,6 @@ export class YarrowManualScene implements Scene {
   }
 
   private renderFooter(frame: CellBuffer): void {
-    const t = getTheme();
-    const row = frame.height - 2;
-    if (row < 0) return;
-
     // The line/round counter already lives in the chrome header (field-
     // renderer's renderChrome at row 1). The footer carries only the
     // phase-appropriate action prompt — duplicating the position info
@@ -303,9 +298,7 @@ export class YarrowManualScene implements Scene {
         text = "";
         break;
     }
-
-    const col = Math.max(0, Math.floor((frame.width - stringWidth(text)) / 2));
-    frame.writeText(row, col, text, { fg: t.tertiary });
+    writeChromeFooter(frame, text);
   }
 
   // ── Test accessors ───────────────────────────────────────────────────────
