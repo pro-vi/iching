@@ -341,24 +341,12 @@ export class SettingsScene implements Scene {
       case "cast-yarrow":
       case "cast-yarrow-manual": {
         if (!this.yarrowModel) break;
-        const isManual = this.previewKind === "cast-yarrow-manual";
-        // Reserve bottom rows so the count caption (`fieldRow + 1`) and
-        // the manual hint don't collide. Auto needs 2 rows from the bottom;
-        // manual needs 3 (bar + caption + hint). The takeOne flyer arcs UP
-        // ~4 rows and `drawStalk` silently clips out-of-frame writes.
-        const reserved = isManual ? 3 : 2;
-        const fieldRow = startRow + Math.max(1, availRows - reserved);
+        // Reserve 2 rows from the bottom for the bar + sub-caption row.
+        // Auto and manual share the same preview surface — no manual hint
+        // (parity with the coin preview, which has no analogous prompt;
+        // the user reads the selection from the menu above).
+        const fieldRow = startRow + Math.max(1, availRows - 2);
         renderYarrowFieldStrip(frame, this.yarrowModel, fieldRow);
-        if (isManual && availRows >= 5) {
-          const hint = this.yarrowManualWaiting ? "[space] cut" : "counting…";
-          const hintRow = startRow + availRows - 1;
-          frame.writeText(
-            hintRow,
-            cx - Math.floor(stringWidth(hint) / 2),
-            hint,
-            { fg: t.tertiary },
-          );
-        }
         break;
       }
     }
