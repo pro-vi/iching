@@ -14,7 +14,7 @@ import { getTheme, setTheme, THEME_NAMES, type ThemeName } from "../../color/the
 import { stringWidth } from "../../layout/measure.ts";
 import { type CoinState, INITIAL_VY, stepCoin, coinFrame } from "../toss/coin-physics.ts";
 import { renderCoinSet, CoinAnim } from "../cast/coin-renderer.ts";
-import { renderYarrowFieldStrip } from "../yarrow/field-renderer.ts";
+import { renderYarrowFieldStrip, drawApertureCursor } from "../yarrow/field-renderer.ts";
 import { YarrowModel } from "../yarrow/model.ts";
 import { buildYarrowRoundBeats } from "../yarrow/yarrow-timeline.ts";
 import { getYarrowTiming } from "../../animation/yarrow-presets.ts";
@@ -52,7 +52,12 @@ const PREVIEW_CHAR = "乾";
 const COIN_PAUSE_SECS = 0.8;
 const YARROW_PREVIEW_SEED = 42;           // round 0 split 24|25 — balanced
 const YARROW_AUTO_GAP_MS = 800;           // quiet hold between auto loop iterations
-const YARROW_MANUAL_WAIT_MS = 1200;       // synthetic "ready to cut" pose
+// Manual preview sweeps the aperture continuously across the bar, never
+// snapping — mirrors what the user sees during YarrowManualScene's
+// `sweeping` phase. Same SWEEP_INTERVAL_MS as the live scene so the
+// visual rhythm carries over identically.
+const YARROW_PREVIEW_SWEEP_INTERVAL_MS = 150;
+const YARROW_PREVIEW_APERTURE_WIDTH = 4;
 
 type PreviewKind =
   | "glyph"
@@ -86,8 +91,11 @@ export class SettingsScene implements Scene {
   private yarrowModel: YarrowModel | null = null;
   private yarrowRunner: TimelineRunner | null = null;
   private yarrowElapsed = 0;
-  private yarrowManualWaiting = false;
-  private yarrowManualWaitTimer = 0;
+  // Manual preview only — bouncing sweep state. No runner; the aperture
+  // glides L↔R across the gather pose and never snaps.
+  private previewApertureLeft = 1;
+  private previewSweepDir: 1 | -1 = 1;
+  private previewSweepAccumMs = 0;
 
   constructor(initial: SettingsValues) {
     this.values = { ...initial };
@@ -160,40 +168,30 @@ export class SettingsScene implements Scene {
       case "cast-yarrow-manual": {
         const kind = this.previewKind === "cast-yarrow-manual" ? "manual" : "auto";
         this.ensureYarrowPreview(kind);
-        if (!this.yarrowRunner || !this.yarrowModel) break;
+        if (!this.yarrowModel) break;
 
-        if (kind === "manual" && this.yarrowManualWaiting) {
-          this.yarrowManualWaitTimer += dt;
-          if (this.yarrowManualWaitTimer >= YARROW_MANUAL_WAIT_MS) {
-            // Synthetic cut — kick off the round.
-            this.yarrowManualWaiting = false;
-            this.yarrowManualWaitTimer = 0;
-            this.yarrowRunner.reset();
-            this.yarrowElapsed = 0;
+        if (kind === "manual") {
+          // Manual preview shows the LIVE sweep mechanic: the aperture
+          // glides bidirectionally across the gather pose, never snapping.
+          // Mirrors what the user authors during a real cast — visible
+          // agency, not a sneak peek of the post-cut ritual.
+          this.previewSweepAccumMs += dt;
+          while (this.previewSweepAccumMs >= YARROW_PREVIEW_SWEEP_INTERVAL_MS) {
+            this.previewSweepAccumMs -= YARROW_PREVIEW_SWEEP_INTERVAL_MS;
+            this.advancePreviewAperture();
           }
-          break; // hold the gather pose
+          break;
         }
 
+        // Auto: run the round-0 ritual on loop.
+        if (!this.yarrowRunner) break;
         this.yarrowElapsed += dt;
         const done = this.yarrowRunner.advance(this.yarrowElapsed, this.yarrowModel);
         if (!done) break;
-
-        if (kind === "auto") {
-          // Hold the carry-end pose briefly, then reset to a clean gather
-          // and loop. `done` stays true past completion, so we wait for the
-          // elapsed counter to cross duration + gap before resetting.
-          if (this.yarrowElapsed >= this.yarrowRunner.duration + YARROW_AUTO_GAP_MS) {
-            this.yarrowModel?.resetActiveLine(0, this.yarrowModel.transcript[0].rounds[0].startCount);
-            this.yarrowRunner.reset();
-            this.yarrowElapsed = 0;
-          }
-        } else {
-          // Manual: return to the waiting pose. Reset state FIRST so the
-          // gather frame is clean — otherwise the post-carry centered bar
-          // sits visible under the hint until the next cut.
+        if (this.yarrowElapsed >= this.yarrowRunner.duration + YARROW_AUTO_GAP_MS) {
           this.yarrowModel?.resetActiveLine(0, this.yarrowModel.transcript[0].rounds[0].startCount);
-          this.yarrowManualWaiting = true;
-          this.yarrowManualWaitTimer = 0;
+          this.yarrowRunner.reset();
+          this.yarrowElapsed = 0;
         }
         break;
       }
@@ -342,11 +340,18 @@ export class SettingsScene implements Scene {
       case "cast-yarrow-manual": {
         if (!this.yarrowModel) break;
         // Reserve 2 rows from the bottom for the bar + sub-caption row.
-        // Auto and manual share the same preview surface — no manual hint
-        // (parity with the coin preview, which has no analogous prompt;
-        // the user reads the selection from the menu above).
+        // Auto and manual share the bar; manual adds the sweep aperture
+        // overlay (the affordance the user authors).
         const fieldRow = startRow + Math.max(1, availRows - 2);
         renderYarrowFieldStrip(frame, this.yarrowModel, fieldRow);
+        if (this.previewKind === "cast-yarrow-manual") {
+          // The aperture sits on top of the gather-pose bar at the same
+          // column center renderYarrowFieldStrip uses internally.
+          drawApertureCursor(
+            frame, fieldRow, Math.floor(frame.width / 2),
+            this.previewApertureLeft, YARROW_PREVIEW_APERTURE_WIDTH,
+          );
+        }
         break;
       }
     }
@@ -435,14 +440,34 @@ export class SettingsScene implements Scene {
     this.yarrowPreviewKind = kind;
 
     if (kind === "manual") {
-      // Manual starts in the "ready to cut" pose, like YarrowManualScene
-      // after enter().
+      // Manual pins the model to a clean gather pose (49 stalks, no beat
+      // animation). The runner exists but is never advanced for manual —
+      // sweep animation is driven entirely by the aperture state below.
       this.yarrowModel?.resetActiveLine(0, this.yarrowModel.transcript[0].rounds[0].startCount);
-      this.yarrowManualWaiting = true;
-      this.yarrowManualWaitTimer = 0;
+      this.previewApertureLeft = 1;
+      this.previewSweepDir = 1;
+      this.previewSweepAccumMs = 0;
+    }
+  }
+
+  /** Bounce-sweep the manual preview aperture L↔R across the bar. */
+  private advancePreviewAperture(): void {
+    // 49 stalks, 4-wide aperture → apertureLeft ∈ [1, 45].
+    const max = 49 - YARROW_PREVIEW_APERTURE_WIDTH;
+    if (this.previewSweepDir === 1) {
+      if (this.previewApertureLeft >= max) {
+        this.previewSweepDir = -1;
+        this.previewApertureLeft = Math.max(1, this.previewApertureLeft - 1);
+      } else {
+        this.previewApertureLeft++;
+      }
     } else {
-      this.yarrowManualWaiting = false;
-      this.yarrowManualWaitTimer = 0;
+      if (this.previewApertureLeft <= 1) {
+        this.previewSweepDir = 1;
+        this.previewApertureLeft = Math.min(max, this.previewApertureLeft + 1);
+      } else {
+        this.previewApertureLeft--;
+      }
     }
   }
 
@@ -452,8 +477,9 @@ export class SettingsScene implements Scene {
     this.yarrowRunner = null;
     this.yarrowElapsed = 0;
     this.yarrowPreviewKind = null;
-    this.yarrowManualWaiting = false;
-    this.yarrowManualWaitTimer = 0;
+    this.previewApertureLeft = 1;
+    this.previewSweepDir = 1;
+    this.previewSweepAccumMs = 0;
   }
 
   private onFocusChanged(): void {
