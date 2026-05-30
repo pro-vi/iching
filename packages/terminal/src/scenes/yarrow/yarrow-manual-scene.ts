@@ -203,9 +203,14 @@ export class YarrowManualScene implements Scene {
     this.ensureTranscriptSlot(lineIdx);
     this.model.transcript[lineIdx].rounds[roundIdx] = round;
 
+    // Narrate the post-cut math (takeOne / count / tally / carry / fuse) so
+    // the operator who authored the cut sees the outcome arithmetic — but
+    // suppress the divide caption that would name k explicitly. Phase-driven
+    // narration, not mode-driven: agency over the cut doesn't make the
+    // arithmetic self-evident.
     const beats: Step[] = buildYarrowRoundBeats(
       this.model, this.timing, this.detail, lineIdx, roundIdx, round,
-      { narrating: false },
+      { narrating: true, revealCut: false },
     );
 
     if (roundIdx === ROUNDS_PER_LINE - 1) {
@@ -214,7 +219,7 @@ export class YarrowManualScene implements Scene {
       const line = lineFromValue(toLineValue(round.remaining / 4));
       this.model.transcript[lineIdx].line = line;
       this.currentLineRounds = [];
-      beats.push(buildYarrowFuseBeat(this.model, this.timing, lineIdx, { narrating: false }));
+      beats.push(buildYarrowFuseBeat(this.model, this.timing, lineIdx, { narrating: true }));
     }
 
     this.subRunner = new TimelineRunner(seq(...beats));

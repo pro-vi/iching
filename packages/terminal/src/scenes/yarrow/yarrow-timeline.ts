@@ -90,14 +90,23 @@ export function buildYarrowRoundBeats(
   lineIdx: number,
   roundIdx: number,
   round: YarrowRound,
-  opts?: { narrating?: boolean },
+  opts?: { narrating?: boolean; revealCut?: boolean },
 ): Step[] {
   const beats: Step[] = [];
   const hold = (caption: string): Step[] => (caption ? [wait(timing.captionHoldMs)] : []);
   const countEasing = countEasingForDetail(detail);
   const narrating = opts?.narrating ?? false;
+  // Phase-driven secrecy: in manual mode the user authored the cut, so the
+  // divide caption (which names k explicitly) is suppressed even when other
+  // captions narrate. Auto mode passes revealCut: true so the cut k is named
+  // alongside the divide animation.
+  const revealCut = opts?.revealCut ?? true;
   const caps = buildRoundCaptions(roundIdx, round);
-  const caption = (key: keyof RoundCaptions): string => (narrating ? caps[key] : "");
+  const caption = (key: keyof RoundCaptions): string => {
+    if (!narrating) return "";
+    if (key === "divide" && !revealCut) return "";
+    return caps[key];
+  };
 
   const gatherCap = caption("gather");
   beats.push(

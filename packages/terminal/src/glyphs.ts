@@ -44,9 +44,14 @@ export const GLYPHS = {
   yangFinal: "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
   yinFinal: "\u2501\u2501\u2501\u2501\u2501\u2501   \u2501\u2501\u2501\u2501\u2501\u2501",
 
-  // Settled changing-line finals with inline mark (used by TossScene / inline markStyle)
-  yangChangingFinal: "\u2501\u2501\u2501\u2501\u2501\u2501 \u25cf \u2501\u2501\u2501\u2501\u2501\u2501", // \u2501\u2501\u2501\u2501\u2501\u2501 \u25cf \u2501\u2501\u2501\u2501\u2501\u2501
-  yinChangingFinal:  "\u2501\u2501\u2501\u2501\u2501\u2501 \u25cb \u2501\u2501\u2501\u2501\u2501\u2501", // \u2501\u2501\u2501\u2501\u2501\u2501 \u25cb \u2501\u2501\u2501\u2501\u2501\u2501
+  // Settled changing-line finals with inline mark (used by TossScene / inline markStyle).
+  // Fisheye (\u25c9 U+25C9) carries a ring around the dot, giving more visual mass than the
+  // bare \u25cf \u2014 at small terminal resolution the ring survives the downscale while the
+  // dot alone tends to disappear into the surrounding strokes. Yang-changing keeps a
+  // filled center (becoming yin), yin-changing uses the bullseye (\u25ce) opening (becoming
+  // yang). Whole line is accent-colored; the marker reads as the brightest cell.
+  yangChangingFinal: "\u2501\u2501\u2501\u2501\u2501\u2501 \u25c9 \u2501\u2501\u2501\u2501\u2501\u2501", // \u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u25c9 \u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  yinChangingFinal:  "\u2501\u2501\u2501\u2501\u2501\u2501 \u25ce \u2501\u2501\u2501\u2501\u2501\u2501", // \u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u25ce \u2500\u2500\u2500\u2500\u2500\u2500\u2500
 } as const;
 
 /** Width of a hexagram line in characters */

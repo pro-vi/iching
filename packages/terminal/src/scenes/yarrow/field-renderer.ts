@@ -100,7 +100,14 @@ export function yarrowFieldGeometry(buf: CellBuffer): {
 
 /**
  * Draw the H6 sweeping aperture — `apertureWidth` consecutive stalks
- * starting at `apertureLeft` (a 1-indexed k value), recolored to accent.
+ * starting at `apertureLeft` (a 1-indexed k value), recolored to accent
+ * and flanked by bracket glyphs (`╞`, `╡`) on the cells just outside
+ * the window. Color alone reads too subtle when the bar is downscaled
+ * or when the sweep freezes after snap; the brackets give a non-color
+ * cue that survives both. The brackets overwrite the immediately-
+ * adjacent stalks (one on each side), so the aperture remains 4 stalks
+ * wide but the outer boundary is unmistakable.
+ *
  * The user authors WHERE to cut (which window); the system picks the
  * exact stalk inside the window via RNG, preserving yarrow's mod-4
  * distribution structurally (every 4-stalk window has exactly one
@@ -116,10 +123,22 @@ export function drawApertureCursor(
 ): void {
   const accent = getTheme().accent;
   const barStart = center - Math.floor(barWidth / 2);
+  // Inner stalks: recolor each cell to accent.
   for (let i = 0; i < apertureWidth; i++) {
     const k = apertureLeft + i;
     if (k < 1 || k > barWidth) continue;
     drawStalk(buf, fieldRow, barStart + k - 1, accent);
+  }
+  // Outer brackets — overwrite adjacent cells if they exist. Edge clamp:
+  // when aperture sits at left edge (k=1) the left bracket is just outside
+  // the bar; we suppress it rather than write into bar-area chrome.
+  const leftBracketK = apertureLeft - 1;
+  const rightBracketK = apertureLeft + apertureWidth;
+  if (leftBracketK >= 1 && leftBracketK <= barWidth) {
+    buf.writeText(fieldRow, barStart + leftBracketK - 1, "╞", { fg: accent });
+  }
+  if (rightBracketK >= 1 && rightBracketK <= barWidth) {
+    buf.writeText(fieldRow, barStart + rightBracketK - 1, "╡", { fg: accent });
   }
 }
 
