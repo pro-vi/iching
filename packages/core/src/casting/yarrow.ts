@@ -12,12 +12,13 @@ import { assembleCast } from "./cast.js";
  *
  * The split point is drawn uniformly over [1, N-1] — the standard computational
  * model of a physical division. With the `mod 4` (0 → 4) counting rule, round 1
- * exactly reproduces P(setAside=5) = 3/4 (the "few" outcome), and rounds 2-3
- * very nearly do (residue-class counts in finite [1, N-1] make "few" slightly
- * more likely than 1/2 — about 51-52%). The resulting line distribution
- * therefore *approximates* the textbook 6: 1/16, 7: 5/16, 8: 7/16, 9: 3/16 —
- * the asymmetry and ordering are preserved, but exact textbook probabilities
- * would require sampling the round outcome directly rather than the split point.
+ * approximates P(setAside=5) = 3/4 (the "few" outcome) — actual is 37/48 ≈ 0.771
+ * over uniform [1, 48] — and rounds 2-3 are similarly close (residue-class
+ * counts in finite [1, N-1] make "few" slightly more likely than 1/2 — about
+ * 51-52%). The resulting line distribution therefore *approximates* the
+ * textbook 6: 1/16, 7: 5/16, 8: 7/16, 9: 3/16 — asymmetry and ordering are
+ * preserved, but exact textbook probabilities would require sampling the round
+ * outcome directly rather than the split point.
  */
 
 /** One division round of the yarrow ritual. */
