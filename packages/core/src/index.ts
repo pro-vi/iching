@@ -62,6 +62,8 @@ export {
   QUOTE_STYLES,
   DERIVED_LABELS,
   DERIVED_LABELS_CN,
+  TRIGRAM_ASSOC_EN,
+  type TrigramAssocEn,
 } from "./data/trigrams.js";
 export { LARGE_GLYPHS, type GlyphFont, type GlyphSize, type GlyphEntry } from "./data/large-glyphs.js";
 export { XU_GUA, XU_GUA_META } from "./data/xugua.js";
