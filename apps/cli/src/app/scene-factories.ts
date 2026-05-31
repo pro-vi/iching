@@ -13,6 +13,7 @@ import {
   JournalScene,
   type Scene,
   type SceneFactory,
+  ShuoGuaChapterScene,
 } from "@iching/terminal";
 
 export interface SessionDims {
@@ -44,6 +45,9 @@ export function makeDetailScene(kw: number, deps: DetailDeps): DetailScene {
 export function makeBrowseFactory(deps: DetailDeps): SceneFactory {
   return (signal): Scene | null => {
     if (signal.type === "openDetail") return makeDetailScene(signal.kw, deps);
+    if (signal.type === "openShuoguaChapter") {
+      return new ShuoGuaChapterScene(signal.chapter);
+    }
     return null;
   };
 }
@@ -68,6 +72,9 @@ export function makeJournalFactory(deps: JournalDeps): SceneFactory {
       return cs;
     }
     if (signal.type === "openDetail") return makeDetailScene(signal.kw, deps);
+    if (signal.type === "openShuoguaChapter") {
+      return new ShuoGuaChapterScene(signal.chapter);
+    }
     if (signal.type === "openDictionary") return new BrowseScene();
     // `j` from a replayed CastScene inside the journal router → reset to the journal list.
     if (signal.type === "openJournal") return new JournalScene(deps.entries);

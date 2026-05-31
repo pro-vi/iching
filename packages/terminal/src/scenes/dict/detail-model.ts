@@ -131,4 +131,11 @@ export class DetailModel {
   selectedDerivedKW(): number {
     return this.derivedLinks[this.derivedCursor].kw;
   }
+
+  selectedShuoguaChapter(): number | undefined {
+    const op = this.derivedLinks[this.derivedCursor].op;
+    return this.detail.connections.shuoguaCitations.find(
+      (citation) => citation.op === op,
+    )?.chapter;
+  }
 }

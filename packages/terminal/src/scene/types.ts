@@ -35,6 +35,7 @@ export type SceneSignal =
   | { type: "openSettings" }      // open the settings editor
   // Cast / dictionary navigation
   | { type: "openDetail"; kw: number }
+  | { type: "openShuoguaChapter"; chapter: number }
   | { type: "openJournalReading"; key: string }
   // Inner-flow events
   | { type: "intentionConfirmed" } // intention input completed
