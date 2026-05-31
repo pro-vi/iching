@@ -66,6 +66,7 @@ export {
 export { LARGE_GLYPHS, type GlyphFont, type GlyphSize, type GlyphEntry } from "./data/large-glyphs.js";
 export { XU_GUA, XU_GUA_META } from "./data/xugua.js";
 export { ZA_GUA, ZA_GUA_META, ZA_GUA_BY_HEX } from "./data/zagua.js";
+export { SHUOGUA, TRIGRAM_ASSOC, SHUOGUA_META } from "./data/shuogua.js";
 
 // Format
 export { formatReading, getRandomQuoteStyle } from "./format/reading.js";
