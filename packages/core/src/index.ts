@@ -44,6 +44,7 @@ export { polarity } from "./derivation/polarity.js";
 export { mirror } from "./derivation/mirror.js";
 export { diagonal } from "./derivation/diagonal.js";
 export { isLockedPair } from "./derivation/locked-pairs.js";
+export { connections } from "./derivation/connections.js";
 
 // Identify
 export { BINARY_TO_KW, hexagramByBinary, hexagramByKW } from "./identify/lookup.js";

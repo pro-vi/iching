@@ -1,12 +1,13 @@
 // HexagramDetail — build a full detail struct for a hexagram
 
-import type { Hexagram, TrigramInfo, Line } from "./types.js";
+import type { Hexagram, TrigramInfo, Line, CastConnections } from "./types.js";
 import { GUA } from "./data/gua.js";
 import { getStructure } from "./identify/structure.js";
 import { nuclear } from "./derivation/nuclear.js";
 import { polarity } from "./derivation/polarity.js";
 import { mirror } from "./derivation/mirror.js";
 import { diagonal } from "./derivation/diagonal.js";
+import { connections as buildConnections } from "./derivation/connections.js";
 
 export interface HexagramDetail {
   kw: number;
@@ -18,6 +19,8 @@ export interface HexagramDetail {
   diagonal: { kw: number; gua: Hexagram };
   isLocked: boolean;
   lockedPartner?: { kw: number; gua: Hexagram };
+  /** Text-bearing relations overlay — 序卦 / 雜卦 / 說卦 citations. */
+  connections: CastConnections;
 }
 
 /** Convert a hexagram's raw line array [0|1, ...] to Line[] for derivation functions */
@@ -49,6 +52,7 @@ export function buildHexagramDetail(kw: number): HexagramDetail {
     mirror: { kw: mirrorKw, gua: GUA[mirrorKw - 1] },
     diagonal: { kw: diagonalKw, gua: GUA[diagonalKw - 1] },
     isLocked,
+    connections: buildConnections({ primary: kw }),
   };
 
   if (isLocked) {
