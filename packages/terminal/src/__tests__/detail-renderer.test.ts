@@ -68,20 +68,23 @@ describe("buildContentLines — always-on additions", () => {
   });
 });
 
-describe("buildContentLines — gated sections (legacy hexagrams without new fields)", () => {
-  test("does NOT render 卦辭 section when gua.gc is absent", () => {
-    const model = new DetailModel(3);
+describe("buildContentLines — 卦辭 + 小象傳 sections (U8 backfill)", () => {
+  test("renders 卦辭 section header + canonical text for hex 1 乾", () => {
+    const model = new DetailModel(1);
     const lines = buildContentLines(model, WIDTH);
-    // Header line "卦辭" should not appear (no gc populated yet — U8 territory)
     const gcHeaderRow = findIndex(lines, (l) => l.text === "卦辭");
-    expect(gcHeaderRow).toBe(-1);
+    expect(gcHeaderRow).toBeGreaterThan(-1);
+    // 乾's 卦辭: 元亨，利貞。 — must appear after the header.
+    expect(someText(lines, "元亨")).toBe(true);
+    expect(someText(lines, "利貞")).toBe(true);
   });
 
-  test("yao block does NOT include 小象傳 lines when gua.yaoXiao is absent", () => {
+  test("yao block includes 小象傳 lines after each yaoEn entry for hex 3 屯", () => {
     const model = new DetailModel(3);
     const lines = buildContentLines(model, WIDTH);
-    // 屯's 小象 line 1: 雖磐桓，志行正也。 — should not appear (yaoXiao undefined)
-    expect(someText(lines, "雖磐桓")).toBe(false);
+    // 屯's 小象 line 1: 雖磐桓，志行正也。
+    expect(someText(lines, "雖磐桓")).toBe(true);
+    expect(someText(lines, "志行正也")).toBe(true);
   });
 });
 
