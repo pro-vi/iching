@@ -70,6 +70,12 @@ export { LARGE_GLYPHS, type GlyphFont, type GlyphSize, type GlyphEntry } from ".
 export { XU_GUA, XU_GUA_META } from "./data/xugua.js";
 export { ZA_GUA, ZA_GUA_META, ZA_GUA_BY_HEX } from "./data/zagua.js";
 export { SHUOGUA, TRIGRAM_ASSOC, SHUOGUA_META } from "./data/shuogua.js";
+export {
+  LEGGE_XUGUA_EN,
+  LEGGE_ZAGUA_EN,
+  LEGGE_SHUOGUA_EN,
+  LEGGE_META,
+} from "./data/legge.js";
 
 // Format
 export { formatReading, getRandomQuoteStyle } from "./format/reading.js";

@@ -136,20 +136,29 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
     lines.push({ text: "" });
   }
 
-  // Commentary sections
-  const sections: [string, string][] = [
-    ["大象傳", gua.dx],
-    ["彖傳", gua.tu],
-    ["Image", gua.en],
-    ["Judgment", gua.te],
-    ["Wilhelm", gua.w],
+  // Commentary sections — each section's main text + (when populated) the
+  // Legge voice as a dim sibling row. Activated by U10 once gua.legge is
+  // backfilled; legacy entries (no legge) render unchanged.
+  type Section = { label: string; text: string; legge?: string };
+  const sections: Section[] = [
+    { label: "大象傳", text: gua.dx },
+    { label: "彖傳", text: gua.tu },
+    { label: "Image", text: gua.en, legge: gua.legge?.image },
+    { label: "Judgment", text: gua.te, legge: gua.legge?.judgment },
+    { label: "Wilhelm", text: gua.w },
   ];
 
-  for (const [label, text] of sections) {
-    lines.push({ text: label, fg: t.accent, bold: true });
-    const wrapped = wordWrap(text, textWidth);
+  for (const section of sections) {
+    lines.push({ text: section.label, fg: t.accent, bold: true });
+    const wrapped = wordWrap(section.text, textWidth);
     for (const wl of wrapped) {
       lines.push({ text: wl, fg: t.secondary });
+    }
+    if (section.legge) {
+      const wrappedLegge = wordWrap(section.legge, textWidth);
+      for (const wl of wrappedLegge) {
+        lines.push({ text: wl, fg: t.secondary, dim: true });
+      }
     }
     lines.push({ text: "" });
   }
@@ -173,6 +182,13 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
         const wrappedEn = wordWrap(gua.yaoEn[i], textWidth);
         for (const wl of wrappedEn) {
           lines.push({ text: wl, fg: t.tertiary });
+        }
+      }
+      // Legge en (U10 — voice-stacked under the line translation).
+      if (gua.legge && gua.legge.lines[i]) {
+        const wrappedLegge = wordWrap(gua.legge.lines[i], textWidth);
+        for (const wl of wrappedLegge) {
+          lines.push({ text: wl, fg: t.tertiary, dim: true });
         }
       }
       // 小象傳 (per-line commentary). Gated on gua.yaoXiao — present after
