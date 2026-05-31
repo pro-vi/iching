@@ -19,7 +19,7 @@ import { buildConnections } from "../derivation/connections.js";
  */
 
 // LEGGE_ZAGUA_BY_HEX reroutes the two documented anomalies (pair=[41] →
-// hex 39, pair=[50,51] → hex 49), so all 64 hexes now get a Legge couplet.
+// hex 39, pair=[50,51] → hexes 49 + 50), so all 64 hexes now get a Legge couplet.
 // Historically these were treated as a gap; the reroute closes it.
 
 describe("Hexagram-level field coverage", () => {
@@ -93,18 +93,21 @@ describe("Wings textEn coverage", () => {
     }
   });
 
-  test("anomaly reroute — hex 39 carries Kien content, hex 49 carries Ko content", () => {
+  test("anomaly reroute — hex 39 carries Kien content, hex 49 + 50 carry Ko/Ting content", () => {
     // The pair=[41] couplet's content describes Kien (hex 39); rerouted.
     expect(LEGGE_ZAGUA_BY_HEX[39]).toMatch(/Kien/i);
-    // The pair=[50,51] couplet's content describes Ko (hex 49); rerouted.
-    expect(LEGGE_ZAGUA_BY_HEX[49]).toMatch(/Ko/);
+    // The pair=[50,51] couplet's content describes Ko + Ting (hexes 49 + 50); rerouted.
+    expect(LEGGE_ZAGUA_BY_HEX[49]).toMatch(/Ting.*Ko/);
+    expect(LEGGE_ZAGUA_BY_HEX[50]).toBe(LEGGE_ZAGUA_BY_HEX[49]);
   });
 
   test("anomaly reroute — hex 41 + 51 keep their LEGITIMATE couplets (not overwritten)", () => {
     // Hex 41 should not carry the Kien text now that the anomaly is routed away.
     expect(LEGGE_ZAGUA_BY_HEX[41]).not.toMatch(/Kien/i);
-    // Hex 51 should not carry the Ko text.
-    expect(LEGGE_ZAGUA_BY_HEX[51]).not.toMatch(/^Ko[^a-z]/);
+    expect(LEGGE_ZAGUA_BY_HEX[41]).toMatch(/Sun and Yi/);
+    // Hex 51 should not carry the Ko/Ting anomaly now that it is routed away.
+    expect(LEGGE_ZAGUA_BY_HEX[51]).not.toBe(LEGGE_ZAGUA_BY_HEX[49]);
+    expect(LEGGE_ZAGUA_BY_HEX[51]).toBe("Kan starts; Kan stops.");
   });
 });
 
