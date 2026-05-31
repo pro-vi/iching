@@ -13,6 +13,14 @@ export type {
   Structure,
   DailyCache,
   HistoryEntry,
+  // Data-enrichment additions (U1 — defined here, exported now for U2+ consumers)
+  LeggeHexagram,
+  TrigramAssoc,
+  XuGuaEntry,
+  ZaGuaEntry,
+  ShuoguaChapter,
+  ShuoguaCitation,
+  CastConnections,
 } from "./types.js";
 
 // RandomSource
@@ -56,6 +64,8 @@ export {
   DERIVED_LABELS_CN,
 } from "./data/trigrams.js";
 export { LARGE_GLYPHS, type GlyphFont, type GlyphSize, type GlyphEntry } from "./data/large-glyphs.js";
+export { XU_GUA, XU_GUA_META } from "./data/xugua.js";
+export { ZA_GUA, ZA_GUA_META, ZA_GUA_BY_HEX } from "./data/zagua.js";
 
 // Format
 export { formatReading, getRandomQuoteStyle } from "./format/reading.js";
