@@ -52,9 +52,10 @@ export function buildConnections(cast: Pick<Cast, "primary">): CastConnections {
   if (xu) result.xuGua = xu;
   const za = ZA_GUA_BY_HEX[cast.primary];
   if (za) {
-    // Overlay Legge English by hex number — hexes 39 and 49 have no Legge
-    // entry due to documented Legge-era typography anomalies (see legge.ts),
-    // so textEn stays undefined for them and the renderer falls back to zh.
+    // Overlay Legge English by hex number. The LEGGE_ZAGUA_BY_HEX index
+    // reroutes documented Legge typography anomalies (pair=[41] → hex 39,
+    // pair=[50,51] → hex 49), so every hex 1..64 gets a non-undefined
+    // couplet text. The undefined branch is kept defensively.
     const textEn = LEGGE_ZAGUA_BY_HEX[cast.primary];
     result.zaGuaPair = textEn !== undefined ? { ...za, textEn } : za;
   }

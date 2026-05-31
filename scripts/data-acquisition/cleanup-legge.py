@@ -68,13 +68,14 @@ def main() -> None:
     if axe_fixes:
         fixes_applied.append(f"OCR 'axe' → 'are': {axe_fixes} entries")
 
-    # Record fixes in _meta.
-    data.setdefault("_meta", {}).setdefault("postPullFixes", []).extend([
-        "hex 41 line 2 missing trailing period — appended",
-        f"xuGua footnote-digit residue in {xugua_fixes} entries — extended regex for "
-        "(...)N and space-separated word N forms",
-        f"OCR 'axe subjected' → 'are subjected' in {axe_fixes} entries (hex 8/9/10)",
-    ])
+    # Record only the fixes actually applied this run; dedupe against any
+    # prior runs so re-running on already-clean JSON does NOT accumulate
+    # duplicate or zero-count entries.
+    if fixes_applied:
+        meta_fixes = data.setdefault("_meta", {}).setdefault("postPullFixes", [])
+        for fix in fixes_applied:
+            if fix not in meta_fixes:
+                meta_fixes.append(fix)
 
     # Verify invariants.
     assert data["hexagrams"][40]["lines"][1].rstrip().endswith("."), "hex 41 line 2 fix failed"

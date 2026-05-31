@@ -143,17 +143,29 @@ export const LEGGE_ZAGUA_EN: { pair: number[]; text: string }[] = [
 /**
  * Reverse index for LEGGE_ZAGUA_EN — hex 1..64 → Legge couplet text.
  *
- * Built by iterating each couplet's `pair[]`. Two documented Legge
- * typography anomalies leave gaps: hex 39 (Kien) appears under a couplet
- * tagged `pair=[41]`, and hex 49 (Ko) under `pair=[50, 51]` — so hexes 39
- * and 49 ARE NOT keys here and render zh-only in the 雜卦 row.
- * The data-coverage test asserts this gap explicitly so a future hand-
- * curation either populates them or leaves the deliberate exception.
+ * Two documented Legge typography anomalies have entries whose `pair[]`
+ * tags don't match their actual content:
+ *
+ *   pair=[41]    — content describes Kien alone (hex 39, single-hex)
+ *   pair=[50,51] — content describes Ko + Ting   (hexes 49 + 50, couplet)
+ *
+ * A naive iteration would let these anomalous entries OVERWRITE the
+ * legitimate mappings for hex 41 (Sun/I couplet) and hex 51 (Chen/Ken
+ * couplet). Instead we recognize the anomalous pair-tags and route their
+ * text to the hexagrams the content actually describes. After this fix
+ * all 64 hexes get a Legge couplet via this index.
  */
 export const LEGGE_ZAGUA_BY_HEX: Record<number, string> = (() => {
   const idx: Record<number, string> = {};
+  const ANOMALY_REROUTE: Record<string, number[]> = {
+    "[41]": [39],
+    "[50,51]": [49, 50],
+  };
   for (const entry of LEGGE_ZAGUA_EN) {
-    for (const hex of entry.pair) {
+    const key = `[${entry.pair.join(",")}]`;
+    const reroute = ANOMALY_REROUTE[key];
+    const targets = reroute ?? entry.pair;
+    for (const hex of targets) {
       idx[hex] = entry.text;
     }
   }

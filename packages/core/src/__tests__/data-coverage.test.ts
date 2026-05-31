@@ -18,7 +18,9 @@ import { buildConnections } from "../derivation/connections.js";
  * The branch goes silently dead. This test would fail.
  */
 
-const DOCUMENTED_ZAGUA_GAPS = new Set([39, 49]);
+// LEGGE_ZAGUA_BY_HEX reroutes the two documented anomalies (pair=[41] →
+// hex 39, pair=[50,51] → hex 49), so all 64 hexes now get a Legge couplet.
+// Historically these were treated as a gap; the reroute closes it.
 
 describe("Hexagram-level field coverage", () => {
   test("gc — all 64 hexagrams populated (root oracle, U8)", () => {
@@ -84,15 +86,25 @@ describe("Wings textEn coverage", () => {
     }
   });
 
-  test("LEGGE_ZAGUA_BY_HEX — covers 62 hexes (gap on 39 + 49 per Legge typography)", () => {
-    const covered = Array.from({ length: 64 }, (_, i) => i + 1).filter(
-      (h) => LEGGE_ZAGUA_BY_HEX[h] !== undefined,
-    );
-    const uncovered = Array.from({ length: 64 }, (_, i) => i + 1).filter(
-      (h) => LEGGE_ZAGUA_BY_HEX[h] === undefined,
-    );
-    expect(covered).toHaveLength(62);
-    expect(new Set(uncovered)).toEqual(DOCUMENTED_ZAGUA_GAPS);
+  test("LEGGE_ZAGUA_BY_HEX — covers all 64 hexes (anomalies rerouted)", () => {
+    for (let h = 1; h <= 64; h++) {
+      expect(LEGGE_ZAGUA_BY_HEX[h], `hex ${h}`).toBeDefined();
+      expect(LEGGE_ZAGUA_BY_HEX[h]!.length).toBeGreaterThan(0);
+    }
+  });
+
+  test("anomaly reroute — hex 39 carries Kien content, hex 49 carries Ko content", () => {
+    // The pair=[41] couplet's content describes Kien (hex 39); rerouted.
+    expect(LEGGE_ZAGUA_BY_HEX[39]).toMatch(/Kien/i);
+    // The pair=[50,51] couplet's content describes Ko (hex 49); rerouted.
+    expect(LEGGE_ZAGUA_BY_HEX[49]).toMatch(/Ko/);
+  });
+
+  test("anomaly reroute — hex 41 + 51 keep their LEGITIMATE couplets (not overwritten)", () => {
+    // Hex 41 should not carry the Kien text now that the anomaly is routed away.
+    expect(LEGGE_ZAGUA_BY_HEX[41]).not.toMatch(/Kien/i);
+    // Hex 51 should not carry the Ko text.
+    expect(LEGGE_ZAGUA_BY_HEX[51]).not.toMatch(/^Ko[^a-z]/);
   });
 });
 
@@ -105,26 +117,12 @@ describe("Consumer-completeness — buildConnections surfaces what the renderer 
     }
   });
 
-  test("62 of 64 hexes produce a zaGuaPair with Legge textEn populated", () => {
-    let withEn = 0;
-    let withoutEn = 0;
+  test("all 64 hexes produce a zaGuaPair with Legge textEn populated", () => {
     for (let h = 1; h <= 64; h++) {
       const conn = buildConnections({ primary: h });
-      if (conn.zaGuaPair?.textEn) {
-        withEn++;
-      } else {
-        withoutEn++;
-      }
-    }
-    expect(withEn).toBe(62);
-    expect(withoutEn).toBe(2);
-  });
-
-  test("hex 39 + hex 49 zaGuaPair carries zh text but no Legge English (documented gap)", () => {
-    for (const h of DOCUMENTED_ZAGUA_GAPS) {
-      const conn = buildConnections({ primary: h });
-      expect(conn.zaGuaPair?.text.length).toBeGreaterThan(0);
-      expect(conn.zaGuaPair?.textEn).toBeUndefined();
+      expect(conn.zaGuaPair?.text.length, `hex ${h} zh`).toBeGreaterThan(0);
+      expect(conn.zaGuaPair?.textEn, `hex ${h} en`).toBeDefined();
+      expect(conn.zaGuaPair!.textEn!.length).toBeGreaterThan(0);
     }
   });
 
