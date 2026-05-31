@@ -1,6 +1,7 @@
 import type { Cast, CastConnections, ShuoguaCitation, DerivedType } from "../types.js";
 import { XU_GUA } from "../data/xugua.js";
 import { ZA_GUA_BY_HEX } from "../data/zagua.js";
+import { LEGGE_ZAGUA_BY_HEX } from "../data/legge.js";
 
 /**
  * Static map: each derivation operation → the 說卦 chapter that grounds it
@@ -50,6 +51,12 @@ export function buildConnections(cast: Pick<Cast, "primary">): CastConnections {
   const xu = XU_GUA[cast.primary - 1];
   if (xu) result.xuGua = xu;
   const za = ZA_GUA_BY_HEX[cast.primary];
-  if (za) result.zaGuaPair = za;
+  if (za) {
+    // Overlay Legge English by hex number — hexes 39 and 49 have no Legge
+    // entry due to documented Legge-era typography anomalies (see legge.ts),
+    // so textEn stays undefined for them and the renderer falls back to zh.
+    const textEn = LEGGE_ZAGUA_BY_HEX[cast.primary];
+    result.zaGuaPair = textEn !== undefined ? { ...za, textEn } : za;
+  }
   return result;
 }

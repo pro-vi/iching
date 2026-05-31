@@ -14,11 +14,14 @@
 export type Style = "dx" | "tu" | "en" | "te" | "w" | "st" | "gc";
 
 /**
- * Subset of Style that can be looked up directly on a Hexagram (i.e. excludes
- * "st", which is the synthetic "structure / trigrams" style handled by a
- * separate code path). Any random-quote selector should narrow to this.
+ * Subset of Style usable by the random-quote selector. Excludes "st"
+ * (synthetic trigram-structure path, handled separately) AND "gc" (卦辭 is
+ * the root oracle, not a random-quotable commentary lineage — and the
+ * field is optional, so a random selector cannot rely on its presence).
+ * The runtime pool in QUOTE_STYLES (data/trigrams.ts) is kept in lockstep
+ * with this type by style-union-parity.test.ts.
  */
-export type QuoteStyle = Exclude<Style, "st">;
+export type QuoteStyle = Exclude<Style, "st" | "gc">;
 
 /** Hexagram entry in GUA array */
 export interface Hexagram {
@@ -215,7 +218,12 @@ export interface ShuoguaCitation {
  * overlay built by `derivation/connections.ts`; does not mutate the Cast.
  */
 export interface CastConnections {
-  /** Sequence narrative from the previous hexagram. Absent for hex 1. */
+  /**
+   * Sequence narrative from the previous hexagram. Populated for all hexes
+   * 1..64 — hex 1 and hex 2 share the opening cosmological preamble (序卦
+   * has no explicit standalone line for either; the preamble is attributed
+   * to both).
+   */
   xuGua?: XuGuaEntry;
   /** Contrastive pair commentary. May be absent if the disordered tail leaves a gap. */
   zaGuaPair?: ZaGuaEntry;

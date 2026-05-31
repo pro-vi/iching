@@ -1,4 +1,4 @@
-import type { Style, DerivedType, TrigramInfo } from "../types.js";
+import type { Style, QuoteStyle, DerivedType, TrigramInfo } from "../types.js";
 import { TRIGRAM_ASSOC } from "./shuogua.js";
 
 export const TRIGRAMS: TrigramInfo[] = [
@@ -13,9 +13,11 @@ export const TRIGRAMS: TrigramInfo[] = [
 ];
 
 export const STYLES: Style[] = ["dx", "tu", "en", "te", "w", "st", "gc"];
-// QUOTE_STYLES intentionally excludes "gc" — 卦辭 (root oracle) is not a
-// random-quotable commentary lineage. See types.ts Style for rationale.
-export const QUOTE_STYLES: Style[] = ["dx", "tu", "en", "te", "w"];
+// QUOTE_STYLES intentionally excludes "st" (synthetic structure path) and
+// "gc" (root oracle, not a random-quotable lineage). Typed as QuoteStyle[]
+// so consumers like getRandomQuoteStyle return the narrower type without
+// casts. See types.ts Style for rationale.
+export const QUOTE_STYLES: QuoteStyle[] = ["dx", "tu", "en", "te", "w"];
 
 export const DERIVED_LABELS: Record<DerivedType, string> = {
   nuclear: "互卦 (hidden within)",

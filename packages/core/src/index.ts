@@ -73,6 +73,7 @@ export { SHUO_GUA, TRIGRAM_ASSOC, SHUO_GUA_META } from "./data/shuogua.js";
 export {
   LEGGE_XUGUA_EN,
   LEGGE_ZAGUA_EN,
+  LEGGE_ZAGUA_BY_HEX,
   LEGGE_SHUOGUA_EN,
   LEGGE_META,
 } from "./data/legge.js";

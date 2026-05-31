@@ -141,6 +141,26 @@ export const LEGGE_ZAGUA_EN: { pair: number[]; text: string }[] = [
 ];
 
 /**
+ * Reverse index for LEGGE_ZAGUA_EN — hex 1..64 → Legge couplet text.
+ *
+ * Built by iterating each couplet's `pair[]`. Two documented Legge
+ * typography anomalies leave gaps: hex 39 (Kien) appears under a couplet
+ * tagged `pair=[41]`, and hex 49 (Ko) under `pair=[50, 51]` — so hexes 39
+ * and 49 ARE NOT keys here and render zh-only in the 雜卦 row.
+ * The data-coverage test asserts this gap explicitly so a future hand-
+ * curation either populates them or leaves the deliberate exception.
+ */
+export const LEGGE_ZAGUA_BY_HEX: Record<number, string> = (() => {
+  const idx: Record<number, string> = {};
+  for (const entry of LEGGE_ZAGUA_EN) {
+    for (const hex of entry.pair) {
+      idx[hex] = entry.text;
+    }
+  }
+  return idx;
+})();
+
+/**
  * Legge Appendix V — Treatise on the Trigrams (說卦傳).
  * Legge numbered 22 paragraphs across his rendering; this differs from
  * the conventional 11-chapter division used by SHUO_GUA.chapters, so we

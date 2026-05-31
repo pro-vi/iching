@@ -144,7 +144,10 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
     { label: "大象傳", text: gua.dx },
     { label: "彖傳", text: gua.tu },
     { label: "Image", text: gua.en, legge: gua.legge?.image },
-    { label: "Judgment", text: gua.te, legge: gua.legge?.judgment },
+    // Judgment section: te = English of 彖傳 (commentary on 卦辭). Legge's
+    // judgment translates the 卦辭 itself, which is already surfaced in the
+    // 卦辭 section above — so no `legge` row here.
+    { label: "Judgment", text: gua.te },
     { label: "Wilhelm", text: gua.w },
   ];
 
@@ -192,17 +195,27 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
         }
       }
       // 小象傳 (per-line commentary). Gated on gua.yaoXiao — present after
-      // U8 backfills; absent for legacy data.
+      // U8 backfills; absent for legacy data. Legge does not translate
+      // the per-line 小象 (Appendix II of his SBE volume isn't in our pull),
+      // so no English voice for 小象 — zh only.
       if (gua.yaoXiao && gua.yaoXiao[i]) {
         const wrappedXiao = wordWrap(gua.yaoXiao[i], textWidth);
         for (const wl of wrappedXiao) {
           lines.push({ text: wl, fg: t.tertiary, dim: true });
         }
-        if (gua.yaoXiaoEn && gua.yaoXiaoEn[i]) {
-          const wrappedXiaoEn = wordWrap(gua.yaoXiaoEn[i], textWidth);
-          for (const wl of wrappedXiaoEn) {
-            lines.push({ text: wl, fg: t.tertiary, dim: true });
-          }
+      }
+      lines.push({ text: "" });
+    }
+    // 用九 / 用六 — the canonical 7th paragraph for hex 1 / hex 2. Only
+    // Legge translates these in our pull; zh is not in gua.yao (which is
+    // sized 6). Surface only when Legge supplies a 7th entry.
+    if (gua.legge && gua.legge.lines.length > 6) {
+      const label = model.detail.kw === 1 ? "用九" : model.detail.kw === 2 ? "用六" : "用爻";
+      lines.push({ text: label, fg: t.accent, bold: true });
+      for (let j = 6; j < gua.legge.lines.length; j++) {
+        const wrapped = wordWrap(gua.legge.lines[j], textWidth);
+        for (const wl of wrapped) {
+          lines.push({ text: wl, fg: t.secondary, dim: true });
         }
       }
       lines.push({ text: "" });
@@ -233,13 +246,16 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
       fg: isSelected ? t.primary : t.secondary,
     });
   }
-  // 序卦 — sequence narrative from the previous hexagram.
+  // 序卦 — sequence narrative from the previous hexagram. zh text is
+  // word-wrapped (matches the English branch — long entries for hex
+  // 30/31 carry the merged cosmological preamble and exceeded the
+  // terminal width without wrapping).
   if (connections.xuGua) {
     lines.push({ text: "" });
-    lines.push({
-      text: `序卦 ← ${connections.xuGua.text}`,
-      fg: t.secondary,
-    });
+    const xuZh = wordWrap(`序卦 ← ${connections.xuGua.text}`, textWidth);
+    for (const wl of xuZh) {
+      lines.push({ text: wl, fg: t.secondary });
+    }
     if (connections.xuGua.textEn) {
       const wrapped = wordWrap(connections.xuGua.textEn, textWidth);
       for (const wl of wrapped) {
@@ -247,14 +263,14 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
       }
     }
   }
-  // 雜卦 — contrastive pairing.
+  // 雜卦 — contrastive pairing. zh wrapped symmetrically.
   if (connections.zaGuaPair) {
     const partners = connections.zaGuaPair.names.join(" · ");
     const suffix = partners.length > 0 ? `  (${partners})` : "";
-    lines.push({
-      text: `雜卦 ↔ ${connections.zaGuaPair.text}${suffix}`,
-      fg: t.secondary,
-    });
+    const zaZh = wordWrap(`雜卦 ↔ ${connections.zaGuaPair.text}${suffix}`, textWidth);
+    for (const wl of zaZh) {
+      lines.push({ text: wl, fg: t.secondary });
+    }
     if (connections.zaGuaPair.textEn) {
       const wrapped = wordWrap(connections.zaGuaPair.textEn, textWidth);
       for (const wl of wrapped) {
