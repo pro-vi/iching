@@ -12,7 +12,9 @@ export const TRIGRAMS: TrigramInfo[] = [
   { n: "乾", img: "heaven", sym: "☰", assoc: TRIGRAM_ASSOC["乾"] }, // 7: 111
 ];
 
-export const STYLES: Style[] = ["dx", "tu", "en", "te", "w", "st"];
+export const STYLES: Style[] = ["dx", "tu", "en", "te", "w", "st", "gc"];
+// QUOTE_STYLES intentionally excludes "gc" — 卦辭 (root oracle) is not a
+// random-quotable commentary lineage. See types.ts Style for rationale.
 export const QUOTE_STYLES: Style[] = ["dx", "tu", "en", "te", "w"];
 
 export const DERIVED_LABELS: Record<DerivedType, string> = {

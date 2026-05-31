@@ -61,6 +61,7 @@ export function formatCastPlain(
 
   // Commentary
   lines.push("Commentary:");
+  if (primary.gc) lines.push(`  卦辭 (gc): ${primary.gc}`);
   lines.push(`  大象 (dx): ${primary.dx}`);
   lines.push(`  彖傳 (tu): ${primary.tu}`);
   lines.push(`  Image (en): ${primary.en}`);
@@ -93,9 +94,12 @@ export function formatHexagramPlain(
   if (style && style !== "st") {
     // Show only requested commentary style. "st" means structure-only —
     // the trigram block above already covers it, so we skip the commentary.
-    lines.push(hex[style]);
+    // Optional Style keys ("gc") fall back to empty if unpopulated; the
+    // CLI command layer (commands/hexagram.ts) catches that case earlier.
+    lines.push(hex[style] ?? "");
   } else if (!style) {
     // Show all commentary styles
+    if (hex.gc) lines.push(`卦辭 (gc): ${hex.gc}`);
     lines.push(`大象 (dx): ${hex.dx}`);
     lines.push(`彖傳 (tu): ${hex.tu}`);
     lines.push(`Image (en): ${hex.en}`);

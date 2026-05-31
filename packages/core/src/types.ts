@@ -3,17 +3,15 @@
  * - dx=大象傳, tu=彖傳, en=English image, te=English judgment
  * - w=Wilhelm-flavored synthesis (experimental, not direct quotes)
  * - st=synthetic structure (handled by a separate code path)
+ * - gc=卦辭 (root Judgment / oracle text — added in data-enrichment U7;
+ *   populated by U8's backfill)
  *
- * The data-enrichment optional fields (`gc`, `legge`) are NOT in this union
- * for now — they remain direct-access only. Adding them to Style requires
- * updating the consumer sites that do `g[style]` indexing (those expect
- * defined values); that lockstep change is owned by U7 of the
- * data-enrichment plan.
- *
- * Per-line commentary fields are arrays (yao, yaoEn, yaoXiao, yaoXiaoEn) and
- * are NOT in this union — they're accessed as direct fields.
+ * "gc" is in Style and STYLES but NOT in QUOTE_STYLES — the root oracle
+ * is not a random-quotable commentary lineage. Per-line commentary fields
+ * (yao, yaoEn, yaoXiao, yaoXiaoEn) and the Legge translation lineage
+ * (legge) are accessed directly, not via Style indexing.
  */
-export type Style = "dx" | "tu" | "en" | "te" | "w" | "st";
+export type Style = "dx" | "tu" | "en" | "te" | "w" | "st" | "gc";
 
 /**
  * Subset of Style that can be looked up directly on a Hexagram (i.e. excludes
