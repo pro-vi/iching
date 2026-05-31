@@ -19,6 +19,44 @@ export interface ContentLine {
   dim?: boolean;
 }
 
+/**
+ * A multi-voice text node — canonical zh plus zero or more English voices.
+ * Used by the stacked-voice renderer for Judgment / Image / line readings /
+ * 卦辭 surfaces.
+ */
+export interface VoiceNode {
+  zh?: string;
+  modernEn?: string;
+  wilhelmEn?: string;
+  leggeEn?: string;
+}
+
+type Theme = ReturnType<typeof getTheme>;
+
+/**
+ * Render a translation-voice stack: canonical zh + each populated English
+ * voice in fixed order (modern → wilhelm-flavored → legge). Each voice row
+ * only emits when its content exists, so future lineages (Legge in U10)
+ * plug in without touching call sites. Empty input emits nothing.
+ */
+function renderStackedVoices(
+  lines: ContentLine[],
+  textWidth: number,
+  t: Theme,
+  node: VoiceNode,
+): void {
+  const push = (text: string, fg: string | undefined, dim: boolean): void => {
+    const wrapped = wordWrap(text, textWidth);
+    for (const wl of wrapped) {
+      lines.push({ text: wl, fg, dim });
+    }
+  };
+  if (node.zh) push(node.zh, t.primary, false);
+  if (node.modernEn) push(node.modernEn, t.secondary, false);
+  if (node.wilhelmEn) push(node.wilhelmEn, t.secondary, true);
+  if (node.leggeEn) push(node.leggeEn, t.secondary, true);
+}
+
 /** Build all content lines for the detail view */
 export function buildContentLines(model: DetailModel, width: number): ContentLine[] {
   const t = getTheme();
@@ -69,10 +107,34 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
     fg: t.secondary,
   });
 
+  // Compact 說卦 trigram catalogue (family / body / animal / direction).
+  // Always rendered when both trigrams have assoc populated (U4 ships this
+  // for all 8 trigrams, so this branch fires on every cast).
+  if (s.upper.assoc && s.lower.assoc) {
+    const upperCat = `${s.upper.assoc.family} ${s.upper.assoc.body} ${s.upper.assoc.animal} ${s.upper.assoc.direction}`;
+    const lowerCat = `${s.lower.assoc.family} ${s.lower.assoc.body} ${s.lower.assoc.animal} ${s.lower.assoc.direction}`;
+    lines.push({
+      text: centerPad(`${upperCat}  ·  ${lowerCat}`, textWidth),
+      fg: t.tertiary,
+      dim: true,
+    });
+  }
+
   // Separator
   lines.push({ text: "" });
   lines.push({ text: "─".repeat(textWidth), fg: t.tertiary });
   lines.push({ text: "" });
+
+  // 卦辭 (root Judgment / oracle text). Gated on gua.gc — present after U8
+  // backfills; absent for legacy data (renders nothing).
+  if (gua.gc) {
+    lines.push({ text: "卦辭", fg: t.accent, bold: true });
+    renderStackedVoices(lines, textWidth, t, {
+      zh: gua.gc,
+      leggeEn: gua.gcEn,
+    });
+    lines.push({ text: "" });
+  }
 
   // Commentary sections
   const sections: [string, string][] = [
@@ -113,6 +175,20 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
           lines.push({ text: wl, fg: t.tertiary });
         }
       }
+      // 小象傳 (per-line commentary). Gated on gua.yaoXiao — present after
+      // U8 backfills; absent for legacy data.
+      if (gua.yaoXiao && gua.yaoXiao[i]) {
+        const wrappedXiao = wordWrap(gua.yaoXiao[i], textWidth);
+        for (const wl of wrappedXiao) {
+          lines.push({ text: wl, fg: t.tertiary, dim: true });
+        }
+        if (gua.yaoXiaoEn && gua.yaoXiaoEn[i]) {
+          const wrappedXiaoEn = wordWrap(gua.yaoXiaoEn[i], textWidth);
+          for (const wl of wrappedXiaoEn) {
+            lines.push({ text: wl, fg: t.tertiary, dim: true });
+          }
+        }
+      }
       lines.push({ text: "" });
     }
   }
@@ -121,16 +197,54 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
   lines.push({ text: "─".repeat(textWidth), fg: t.tertiary });
   lines.push({ text: "" });
 
-  // Derived hexagrams
-  lines.push({ text: "Derived", fg: t.accent, bold: true });
+  // Relations — numeric derivations with 說卦 chapter citations, then the
+  // text-bearing rows for 序卦 (sequence narrative) and 雜卦 (contrast pair).
+  // The numeric rows and citations always render. xuGua/zaGuaPair are
+  // populated by U5's connections() for every valid hex 1..64.
+  lines.push({ text: "Relations", fg: t.accent, bold: true });
+  const connections = model.detail.connections;
+  const citationByOp = new Map(
+    connections.shuoguaCitations.map((c) => [c.op, c.chapter]),
+  );
   for (let i = 0; i < model.derivedLinks.length; i++) {
     const link = model.derivedLinks[i];
     const isSelected = model.focus === "derived" && model.derivedCursor === i;
     const marker = isSelected ? ">" : " ";
+    const chapter = citationByOp.get(link.op);
+    const citation = chapter !== undefined ? `  [說卦 ch.${chapter}]` : "";
     lines.push({
-      text: `${marker} ${link.labelCn} ${link.label.padEnd(10)} ${link.symbol} ${link.name}  ${link.ename}`,
+      text: `${marker} ${link.labelCn} ${link.label.padEnd(10)} ${link.symbol} ${link.name}  ${link.ename}${citation}`,
       fg: isSelected ? t.primary : t.secondary,
     });
+  }
+  // 序卦 — sequence narrative from the previous hexagram.
+  if (connections.xuGua) {
+    lines.push({ text: "" });
+    lines.push({
+      text: `序卦 ← ${connections.xuGua.text}`,
+      fg: t.secondary,
+    });
+    if (connections.xuGua.textEn) {
+      const wrapped = wordWrap(connections.xuGua.textEn, textWidth);
+      for (const wl of wrapped) {
+        lines.push({ text: wl, fg: t.tertiary, dim: true });
+      }
+    }
+  }
+  // 雜卦 — contrastive pairing.
+  if (connections.zaGuaPair) {
+    const partners = connections.zaGuaPair.names.join(" · ");
+    const suffix = partners.length > 0 ? `  (${partners})` : "";
+    lines.push({
+      text: `雜卦 ↔ ${connections.zaGuaPair.text}${suffix}`,
+      fg: t.secondary,
+    });
+    if (connections.zaGuaPair.textEn) {
+      const wrapped = wordWrap(connections.zaGuaPair.textEn, textWidth);
+      for (const wl of wrapped) {
+        lines.push({ text: wl, fg: t.tertiary, dim: true });
+      }
+    }
   }
 
   // Locked pair
