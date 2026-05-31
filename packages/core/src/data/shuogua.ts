@@ -19,7 +19,7 @@ import type { ShuoguaChapter, TrigramAssoc } from "../types.js";
  * Source: ctext.org/book-of-changes/shuo-gua/zh (primary), cross-checked
  * against zh.wikisource.org and 3 other PD I Ching repos.
  */
-export const SHUOGUA: { chapters: ShuoguaChapter[] } = {
+export const SHUO_GUA: { chapters: ShuoguaChapter[] } = {
   chapters: [
     { n: 1, text: "昔者聖人之作《易》也，幽贊於神明而生蓍，參天兩地而倚數，觀變於陰陽而立卦，發揮於剛柔而生爻，和順於道德而理於義，窮理盡性以至於命。" },
     { n: 2, text: "昔者聖人之作《易》也，將以順性命之理，是以立天之道曰陰與陽，立地之道曰柔與剛，立人之道曰仁與義。兼三才而兩之，故《易》六畫而成卦。分陰分陽，迭用柔剛，故《易》六位而成章。" },
@@ -154,7 +154,7 @@ export const TRIGRAM_ASSOC: Record<string, TrigramAssoc> = {
   },
 };
 
-export const SHUOGUA_META = {
+export const SHUO_GUA_META = {
   source: "https://ctext.org/book-of-changes/shuo-gua/zh (Chinese Text Project — primary)",
   crossChecks: [
     "https://ctext.org/book-of-changes/shuo-gua",

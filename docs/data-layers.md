@@ -18,7 +18,7 @@ line commentary     yaoXiao[6] (小象傳)          yaoXiaoEn[6]?       —
 full translation    —                            legge.judgment      —
                                                  legge.image
                                                  legge.lines[6 or 7]
-trigram catalogue   TrigramInfo.assoc            TRIGRAM_ASSOC_EN    —
+trigram catalogue   TrigramInfo.assoc            TRIGRAM_ASSOC_GLOSS_EN —
                     (image, family, body,        (project-authored
                      animal, direction,           short glosses,
                      attribute, extendedImages)   labeled non-canonical)
@@ -26,7 +26,7 @@ sequence narrative  XU_GUA[i].text (序卦傳)      .textEn (Legge)     —
 contrast pair       ZA_GUA[i].text (雜卦傳)      LEGGE_ZAGUA_EN     —
                                                   (separate index;
                                                   46 entries vs ZA_GUA's 53)
-trigram chapters    SHUOGUA.chapters (說卦傳)    LEGGE_SHUOGUA_EN   —
+trigram chapters    SHUO_GUA.chapters (說卦傳)    LEGGE_SHUOGUA_EN   —
                                                   (Legge's 22 paras
                                                    vs canonical 11)
 relations overlay   —                            —                  CastConnections —
@@ -45,7 +45,7 @@ numeric derivations —                            —                  nuclear,
 |---|---|---|---|
 | `gc`, `yaoXiao` | ctext.org/book-of-changes/{slug} | zh.wikisource.org/wiki/周易 | ancient Zhou Yi + Ten Wings, PD |
 | `XU_GUA`, `ZA_GUA` | ctext.org/book-of-changes/xu-gua, .../za-gua | zh.wikisource.org | Ten Wings, PD |
-| `SHUOGUA.chapters`, `TRIGRAM_ASSOC` (named fields) | ctext.org/book-of-changes/shuo-gua | zh.wikisource + 3 PD mirrors | Ten Wings, PD |
+| `SHUO_GUA.chapters`, `TRIGRAM_ASSOC` (named fields) | ctext.org/book-of-changes/shuo-gua | zh.wikisource + 3 PD mirrors | Ten Wings, PD |
 | `legge.*`, `LEGGE_*_EN` | archive.org SBE16 plaintext | sacred-texts.com + Wikisource | Legge d. 1897, SBE Vol 16 pub. 1882 — PD worldwide |
 
 **Editorial** content is project-supplied and labeled as such everywhere it renders:
@@ -53,7 +53,7 @@ numeric derivations —                            —                  nuclear,
 | Field | Why it's editorial | Where labeled |
 |---|---|---|
 | `TRIGRAM_ASSOC[k].season`, `.cosmologicalRole`, `.other` | English glosses in parens (e.g. "late autumn / early winter") synthesized for downstream UX, not in 說卦 source | optional in `TrigramAssoc`; UI must surface as "derived" |
-| `TRIGRAM_ASSOC_EN` | project-authored short English labels (father / head / horse / northwest / strength) — not from Legge or Wilhelm/Baynes | file-head comment + dedicated `TrigramAssocEn` interface; UI must surface as "project gloss" |
+| `TRIGRAM_ASSOC_GLOSS_EN` | project-authored short English labels (father / head / horse / northwest / strength) — not from Legge or Wilhelm/Baynes | file-head comment + dedicated `TrigramAssocGloss` interface; UI must surface as "project gloss" |
 | `Hexagram.w` (Wilhelm-flavored synthesis) | project paraphrase; some entries contain verbatim Wilhelm/Baynes phrasing flagged by the session's overlap scan (separate cleanup track) | declared at types.ts ("Inspired by Wilhelm — experimental, not direct quotes") |
 | `Hexagram.en`, `.te`, `.yaoEn` | anonymous modern English — author/lineage not declared; reads modern-paraphrase | de facto editorial; treat as project content |
 
@@ -72,10 +72,10 @@ packages/core/src/data/
                       gc, gcEn, yaoXiao, yaoXiaoEn, legge fields backfilled
                       from per-corpus modules below)
   trigrams.ts       — TRIGRAMS[8] (TrigramInfo + assoc wiring),
-                      TRIGRAM_ASSOC_EN (project glosses)
+                      TRIGRAM_ASSOC_GLOSS_EN (project glosses)
   xugua.ts          — XU_GUA[64] (序卦), XU_GUA_META
   zagua.ts          — ZA_GUA[53] (雜卦), ZA_GUA_BY_HEX, ZA_GUA_META
-  shuogua.ts        — SHUOGUA.chapters[11] + TRIGRAM_ASSOC[8], SHUOGUA_META
+  shuogua.ts        — SHUO_GUA.chapters[11] + TRIGRAM_ASSOC[8], SHUOGUA_META
   legge.ts          — LEGGE_XUGUA_EN[64], LEGGE_ZAGUA_EN[46],
                       LEGGE_SHUOGUA_EN[22], LEGGE_META
   large-glyphs.ts   — pre-existing Braille glyph data
@@ -164,6 +164,6 @@ Every text field in the data layer has unambiguous public domain status:
 
 - **Ancient Chinese texts** (Zhou Yi root judgments, all Ten Wings) — composed before 200 BCE, transmitted with the Yijing for over 2,000 years. Public domain worldwide under any copyright regime.
 - **James Legge translation** — Legge died 1897; SBE Vol XVI published 1882. Public domain by ~144 years past any copyright term in any jurisdiction.
-- **Project-authored content** — `w` paraphrases, `en`/`te`/`yaoEn` modern English, `TRIGRAM_ASSOC_EN` glosses. Owned by this project, MIT-licensed (or whatever the repo's license is).
+- **Project-authored content** — `w` paraphrases, `en`/`te`/`yaoEn` modern English, `TRIGRAM_ASSOC_GLOSS_EN` glosses. Owned by this project, MIT-licensed (or whatever the repo's license is).
 
 Sources cited per module's `*_META` block. The `data-acquisition/` workspace (gitignored) preserves the verification trail — raw pulls, parse scripts, intermediate JSONs, complementary-mapping report. Re-running a pull workflow regenerates everything reproducibly.

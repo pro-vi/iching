@@ -216,7 +216,7 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
   // Relations — numeric derivations with 說卦 chapter citations, then the
   // text-bearing rows for 序卦 (sequence narrative) and 雜卦 (contrast pair).
   // The numeric rows and citations always render. xuGua/zaGuaPair are
-  // populated by U5's connections() for every valid hex 1..64.
+  // populated by U5's buildConnections() for every valid hex 1..64.
   lines.push({ text: "Relations", fg: t.accent, bold: true });
   const connections = model.detail.connections;
   const citationByOp = new Map(

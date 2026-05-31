@@ -49,7 +49,7 @@ export const DERIVED_LABELS_CN: Record<DerivedType, string> = {
  * Excludes `extendedImages` (no terse English equivalent for a 14-item
  * polysemous catalogue — render in zh per the U6 cast surface).
  */
-export interface TrigramAssocEn {
+export interface TrigramAssocGloss {
   family: string;
   body: string;
   animal: string;
@@ -57,7 +57,7 @@ export interface TrigramAssocEn {
   attribute: string;
 }
 
-export const TRIGRAM_ASSOC_EN: Record<string, TrigramAssocEn> = {
+export const TRIGRAM_ASSOC_GLOSS_EN: Record<string, TrigramAssocGloss> = {
   "乾": { family: "father", body: "head", animal: "horse", direction: "northwest", attribute: "strength" },
   "坤": { family: "mother", body: "belly", animal: "ox", direction: "southwest", attribute: "yielding" },
   "震": { family: "eldest son", body: "foot", animal: "dragon", direction: "east", attribute: "movement" },

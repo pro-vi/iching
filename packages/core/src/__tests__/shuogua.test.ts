@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { SHUOGUA, TRIGRAM_ASSOC, SHUOGUA_META } from "../data/shuogua.js";
+import { SHUO_GUA, TRIGRAM_ASSOC, SHUO_GUA_META } from "../data/shuogua.js";
 
 /**
  * U3 integrity tests — 說卦傳 data module.
@@ -13,32 +13,32 @@ import { SHUOGUA, TRIGRAM_ASSOC, SHUOGUA_META } from "../data/shuogua.js";
 
 const TRIGRAM_KEYS = ["乾", "坤", "震", "巽", "坎", "離", "艮", "兌"];
 
-describe("SHUOGUA chapters", () => {
+describe("SHUO_GUA chapters", () => {
   test("has exactly 11 chapters (standard 王弼 / 孔穎達 division)", () => {
-    expect(SHUOGUA.chapters).toHaveLength(11);
+    expect(SHUO_GUA.chapters).toHaveLength(11);
   });
 
   test("chapter numbers are sequential 1..11", () => {
-    SHUOGUA.chapters.forEach((ch, i) => {
+    SHUO_GUA.chapters.forEach((ch, i) => {
       expect(ch.n).toBe(i + 1);
     });
   });
 
   test("every chapter has non-empty text", () => {
-    for (const ch of SHUOGUA.chapters) {
+    for (const ch of SHUO_GUA.chapters) {
       expect(ch.text.length).toBeGreaterThan(0);
     }
   });
 
   test("verification anchor — ch5 directional cycle (帝出乎震…)", () => {
-    const ch5 = SHUOGUA.chapters[4]!;
+    const ch5 = SHUO_GUA.chapters[4]!;
     expect(ch5.text).toContain("帝出乎震");
     expect(ch5.text).toContain("齊乎巽");
     expect(ch5.text).toContain("成言乎艮");
   });
 
   test("verification anchor — ch8 animal associations", () => {
-    const ch8 = SHUOGUA.chapters[7]!;
+    const ch8 = SHUO_GUA.chapters[7]!;
     expect(ch8.text).toContain("乾為馬");
     expect(ch8.text).toContain("坤為牛");
     expect(ch8.text).toContain("艮為狗");
@@ -46,7 +46,7 @@ describe("SHUOGUA chapters", () => {
   });
 
   test("verification anchor — ch11 extended trigram catalogue", () => {
-    const ch11 = SHUOGUA.chapters[10]!;
+    const ch11 = SHUO_GUA.chapters[10]!;
     expect(ch11.text).toContain("乾為天");
     expect(ch11.text).toContain("為圜");
     expect(ch11.text).toContain("坤為地");
@@ -148,11 +148,11 @@ describe("TRIGRAM_ASSOC", () => {
   });
 });
 
-describe("SHUOGUA_META", () => {
+describe("SHUO_GUA_META", () => {
   test("carries provenance + chapter count", () => {
-    expect(SHUOGUA_META.source).toMatch(/ctext\.org/);
-    expect(SHUOGUA_META.crossChecks.length).toBeGreaterThan(0);
-    expect(SHUOGUA_META.license).toMatch(/public domain/);
-    expect(SHUOGUA_META.chapterCount).toBe(11);
+    expect(SHUO_GUA_META.source).toMatch(/ctext\.org/);
+    expect(SHUO_GUA_META.crossChecks.length).toBeGreaterThan(0);
+    expect(SHUO_GUA_META.license).toMatch(/public domain/);
+    expect(SHUO_GUA_META.chapterCount).toBe(11);
   });
 });

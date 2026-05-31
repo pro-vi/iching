@@ -211,7 +211,7 @@ export interface ShuoguaCitation {
  * Text-bearing relations overlay computed from a Cast.
  *
  * Joins the numeric derivations (nuclear / polarity / mirror / diagonal /
- * becoming) with canonical text data from XU_GUA, ZA_GUA, and SHUOGUA. Pure
+ * becoming) with canonical text data from XU_GUA, ZA_GUA, and SHUO_GUA. Pure
  * overlay built by `derivation/connections.ts`; does not mutate the Cast.
  */
 export interface CastConnections {

@@ -45,7 +45,7 @@ const buildShuoguaCitations = (): ShuoguaCitation[] =>
  * runtime, or a synthesized `{ primary: kw }` from the HexagramDetail path
  * where no Cast exists.
  */
-export function connections(cast: Pick<Cast, "primary">): CastConnections {
+export function buildConnections(cast: Pick<Cast, "primary">): CastConnections {
   const result: CastConnections = { shuoguaCitations: buildShuoguaCitations() };
   const xu = XU_GUA[cast.primary - 1];
   if (xu) result.xuGua = xu;

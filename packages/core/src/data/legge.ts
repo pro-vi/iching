@@ -143,7 +143,7 @@ export const LEGGE_ZAGUA_EN: { pair: number[]; text: string }[] = [
 /**
  * Legge Appendix V — Treatise on the Trigrams (說卦傳).
  * Legge numbered 22 paragraphs across his rendering; this differs from
- * the conventional 11-chapter division used by SHUOGUA.chapters, so we
+ * the conventional 11-chapter division used by SHUO_GUA.chapters, so we
  * keep Legge's numbering rather than force-fit.
  */
 export const LEGGE_SHUOGUA_EN: Record<number, string> = {

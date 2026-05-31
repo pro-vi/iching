@@ -7,7 +7,7 @@ import { nuclear } from "./derivation/nuclear.js";
 import { polarity } from "./derivation/polarity.js";
 import { mirror } from "./derivation/mirror.js";
 import { diagonal } from "./derivation/diagonal.js";
-import { connections as buildConnections } from "./derivation/connections.js";
+import { buildConnections } from "./derivation/connections.js";
 
 export interface HexagramDetail {
   kw: number;

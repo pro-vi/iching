@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { connections } from "../derivation/connections.js";
+import { buildConnections } from "../derivation/connections.js";
 import { ZA_GUA_BY_HEX } from "../data/zagua.js";
 import { mirror } from "../derivation/mirror.js";
 import { polarity } from "../derivation/polarity.js";
@@ -30,14 +30,14 @@ function linesOf(kw: number): Line[] {
 
 describe("connections — text overlay for a cast", () => {
   test("returns 5 shuoguaCitations covering all DerivedType ops", () => {
-    const conn = connections({ primary: 3 });
+    const conn = buildConnections({ primary: 3 });
     expect(conn.shuoguaCitations).toHaveLength(5);
     const ops = conn.shuoguaCitations.map((c) => c.op).sort();
     expect(ops).toEqual(["becoming", "diagonal", "mirror", "nuclear", "polarity"]);
   });
 
   test("shuoguaCitations chapter numbers are valid 1..11", () => {
-    const conn = connections({ primary: 3 });
+    const conn = buildConnections({ primary: 3 });
     for (const c of conn.shuoguaCitations) {
       expect(c.chapter).toBeGreaterThanOrEqual(1);
       expect(c.chapter).toBeLessThanOrEqual(11);
@@ -45,7 +45,7 @@ describe("connections — text overlay for a cast", () => {
   });
 
   test("hex 3 (屯) — xuGua carries canonical sequence transition", () => {
-    const conn = connections({ primary: 3 });
+    const conn = buildConnections({ primary: 3 });
     expect(conn.xuGua).toBeDefined();
     expect(conn.xuGua!.hexagram).toBe(3);
     expect(conn.xuGua!.name).toBe("屯");
@@ -53,7 +53,7 @@ describe("connections — text overlay for a cast", () => {
   });
 
   test("hex 1 (乾) — xuGua present with shared cosmological preamble note", () => {
-    const conn = connections({ primary: 1 });
+    const conn = buildConnections({ primary: 1 });
     expect(conn.xuGua).toBeDefined();
     expect(conn.xuGua!.name).toBe("乾");
     expect(conn.xuGua!.text).toContain("有天地，然後萬物生焉");
@@ -61,13 +61,13 @@ describe("connections — text overlay for a cast", () => {
   });
 
   test("hex 1 + hex 2 share the opening cosmological preamble", () => {
-    const conn1 = connections({ primary: 1 });
-    const conn2 = connections({ primary: 2 });
+    const conn1 = buildConnections({ primary: 1 });
+    const conn2 = buildConnections({ primary: 2 });
     expect(conn1.xuGua!.text).toBe(conn2.xuGua!.text);
   });
 
   test("hex 1 (乾) — zaGuaPair has both 乾 and 坤 (canonical opening pair)", () => {
-    const conn = connections({ primary: 1 });
+    const conn = buildConnections({ primary: 1 });
     expect(conn.zaGuaPair).toBeDefined();
     expect(conn.zaGuaPair!.pair).toEqual([1, 2]);
     expect(conn.zaGuaPair!.text).toContain("剛");
@@ -75,8 +75,8 @@ describe("connections — text overlay for a cast", () => {
   });
 
   test("hex 29 (坎) + hex 30 (離) — entries present (self-mirror pair)", () => {
-    const conn29 = connections({ primary: 29 });
-    const conn30 = connections({ primary: 30 });
+    const conn29 = buildConnections({ primary: 29 });
+    const conn30 = buildConnections({ primary: 30 });
     expect(conn29.zaGuaPair).toBeDefined();
     expect(conn30.zaGuaPair).toBeDefined();
     // Their entries reference 29 / 30 somewhere in the pair[] arrays.
@@ -89,15 +89,15 @@ describe("connections — text overlay for a cast", () => {
   });
 
   test("returns fresh shuoguaCitations array per call (no shared mutable state)", () => {
-    const a = connections({ primary: 3 });
-    const b = connections({ primary: 3 });
+    const a = buildConnections({ primary: 3 });
+    const b = buildConnections({ primary: 3 });
     expect(a.shuoguaCitations).not.toBe(b.shuoguaCitations);
     expect(a.shuoguaCitations).toEqual(b.shuoguaCitations);
   });
 
   test("xuGua and zaGuaPair populated for all valid hex 1..64", () => {
     for (let h = 1; h <= 64; h++) {
-      const conn = connections({ primary: h });
+      const conn = buildConnections({ primary: h });
       expect(conn.xuGua).toBeDefined();
       expect(conn.zaGuaPair).toBeDefined();
     }
