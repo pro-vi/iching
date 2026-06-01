@@ -1,7 +1,5 @@
 import type {
-  DerivedType,
   ShuoguaChapter,
-  ShuoguaDerivationContext,
   TrigramAssoc,
 } from "../types.js";
 
@@ -82,34 +80,6 @@ export const SHUO_GUA: { chapters: ShuoguaChapter[] } = {
       modernEn: "Qian is heaven, roundness, ruler, father, jade, metal, cold, ice, deep red, good horse, old horse, lean horse, piebald horse, and tree fruit. Kun is earth, mother, cloth, cauldron, frugality, leveling, cow with calf, great cart, pattern, multitude, handle; among lands it is black. Zhen is thunder, dragon, dark-yellow, spreading growth, great road, eldest son, decisive agitation, young green bamboo, reeds and rushes; among horses it is good neighing, raised hind foot, active foot, white forehead; among crops it is reverse growth; at its extreme it becomes strength and fresh abundance. Xun is wood, wind, eldest daughter, plumb line, craft, white, long, high, advancing and retreating, irresolution, smell; in people it is sparse hair, broad forehead, much white in the eyes, and profit-seeking in the market; at its extreme it becomes an agitated trigram. Kan is water, ditches, hiddenness, bending, bow and wheel; in people it is added worry, heart sickness, ear pain, blood, and red; among horses it is beautiful spine, urgent heart, lowered head, thin hoof, and dragging step; for carts it is many faults, passage, moon, and thief; among trees it is firm with much heartwood. Li is fire, sun, lightning, middle daughter, armor and helmet, weapons; in people it is a large belly; it is dryness, turtle, crab, snail, clam, tortoise; among trees it is hollow above and withered. Gen is mountain, path, small stone, gate tower, fruit on vines, gatekeeper, finger, dog, rat, and black-beaked creatures; among trees it is firm with many joints. Dui is lake, youngest daughter, shaman, mouth and tongue, breaking and severing, attached decision; among lands it is hard and salty; it is concubine and sheep.",
     },
   ],
-};
-
-export const SHUOGUA_DERIVATION_CONTEXT: Record<DerivedType, ShuoguaDerivationContext> = {
-  nuclear: {
-    chapter: 3,
-    title: "Inner trigram exchange",
-    relevance: "The nuclear hexagram is built from the cast's inner line structure. Chapter 3 describes the trigrams as relational forces that exchange breath, press on one another, and interlace, so it grounds reading the hidden hexagram as an inner configuration rather than a separate oracle.",
-  },
-  polarity: {
-    chapter: 2,
-    title: "Yin-yang reversal",
-    relevance: "Polarity flips every line. Chapter 2 names yin and yang as the way of heaven and yielding and firm as the way of earth, so it grounds the polarity hexagram as a full reversal along the Yi's primary complementary axis.",
-  },
-  mirror: {
-    chapter: 6,
-    title: "Changed vantage",
-    relevance: "The mirror hexagram reverses the figure's orientation. Chapter 6 says transformation happens when paired forces reach, answer, and do not oppose one another, so it grounds mirror as a changed vantage within the same field of relations.",
-  },
-  becoming: {
-    chapter: 7,
-    title: "Operational quality",
-    relevance: "The becoming hexagram is where moving lines carry the cast. Chapter 7 gives each trigram its operative quality, so it grounds becoming as a change in how the situation acts.",
-  },
-  diagonal: {
-    chapter: 6,
-    title: "Farthest transformed view",
-    relevance: "The diagonal combines mirror and polarity. Chapter 6 grounds this compound relation because it frames transformation as the coordination of opposed forces into completed change.",
-  },
 };
 
 /**

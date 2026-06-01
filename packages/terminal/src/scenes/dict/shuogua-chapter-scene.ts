@@ -1,9 +1,7 @@
 // ShuoGuaChapterScene — scrollable 說卦傳 chapter reader
 
 import {
-  DERIVED_LABELS,
   SHUO_GUA,
-  SHUOGUA_DERIVATION_CONTEXT,
   TRIGRAMS,
   TRIGRAM_ASSOC_GLOSS_EN,
   type DerivedType,
@@ -124,7 +122,6 @@ export class ShuoGuaChapterScene implements Scene {
       fg: t.secondary,
       dim: true,
     });
-    this.addRelevanceSection(lines, textWidth, t);
     this.addTrigramTable(lines, textWidth, t);
 
     return lines;
@@ -142,26 +139,6 @@ export class ShuoGuaChapterScene implements Scene {
     lines.push({ text: label, fg: t.accent, bold: true });
     for (const row of wordWrap(text, textWidth)) {
       lines.push({ text: row, ...style });
-    }
-    lines.push({ text: "" });
-  }
-
-  private addRelevanceSection(lines: ContentLine[], textWidth: number, t: Theme): void {
-    if (this.op) {
-      const context = SHUOGUA_DERIVATION_CONTEXT[this.op];
-      const heading = `Why this citation matters — ${DERIVED_LABELS[this.op]}`;
-      this.addSection(lines, textWidth, t, heading, context.relevance, { fg: t.secondary });
-      return;
-    }
-
-    const citedBy = Object.entries(SHUOGUA_DERIVATION_CONTEXT)
-      .filter(([, context]) => context.chapter === this.chapter)
-      .map(([op, context]) => `${DERIVED_LABELS[op as DerivedType]} — ${context.title}`);
-    if (citedBy.length === 0) return;
-
-    lines.push({ text: "Cited by", fg: t.accent, bold: true });
-    for (const row of citedBy) {
-      lines.push({ text: row, fg: t.secondary });
     }
     lines.push({ text: "" });
   }

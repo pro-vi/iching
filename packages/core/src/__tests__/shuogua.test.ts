@@ -1,8 +1,6 @@
 import { describe, test, expect } from "bun:test";
-import type { DerivedType } from "../types.js";
 import {
   SHUO_GUA,
-  SHUOGUA_DERIVATION_CONTEXT,
   TRIGRAM_ASSOC,
   SHUO_GUA_META,
 } from "../data/shuogua.js";
@@ -68,31 +66,23 @@ describe("SHUO_GUA chapters", () => {
   });
 });
 
-describe("SHUOGUA_DERIVATION_CONTEXT", () => {
-  const DERIVED_TYPES: DerivedType[] = [
+describe("buildConnections 說卦 citations", () => {
+  const DERIVED_TYPES = [
     "nuclear",
     "polarity",
     "mirror",
     "becoming",
     "diagonal",
-  ];
+  ] as const;
 
-  test("covers every DerivedType with a non-empty relevance note", () => {
-    expect(Object.keys(SHUOGUA_DERIVATION_CONTEXT).sort()).toEqual([...DERIVED_TYPES].sort());
-    for (const op of DERIVED_TYPES) {
-      const context = SHUOGUA_DERIVATION_CONTEXT[op];
-      expect(context.chapter).toBeGreaterThanOrEqual(1);
-      expect(context.chapter).toBeLessThanOrEqual(11);
-      expect(context.title.length).toBeGreaterThan(0);
-      expect(context.relevance.length).toBeGreaterThan(40);
-    }
-  });
-
-  test("context chapter numbers match buildConnections citations", () => {
+  test("cites one available chapter for every derivation operation", () => {
     const citations = buildConnections({ primary: 1 }).shuoguaCitations;
-    for (const citation of citations) {
-      expect(SHUOGUA_DERIVATION_CONTEXT[citation.op].chapter).toBe(citation.chapter);
-    }
+    expect(citations.map((citation) => citation.op).sort()).toEqual([...DERIVED_TYPES].sort());
+    citations.forEach((citation) => {
+      expect(citation.chapter).toBeGreaterThanOrEqual(1);
+      expect(citation.chapter).toBeLessThanOrEqual(SHUO_GUA.chapters.length);
+      expect(SHUO_GUA.chapters[citation.chapter - 1]?.text.length).toBeGreaterThan(0);
+    });
   });
 });
 

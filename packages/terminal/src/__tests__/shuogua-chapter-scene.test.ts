@@ -37,7 +37,7 @@ describe("ShuoGuaChapterScene", () => {
     expect(true).toBe(true);
   });
 
-  test("renders canonical text, working translation, and derivation relevance", () => {
+  test("renders canonical text and working translation without interpretive derivation notes", () => {
     const scene = new ShuoGuaChapterScene(3, "nuclear");
     const ctx = makeCtx(96, 40);
     const buf = CellBuffer.create(ctx.cols, ctx.rows);
@@ -48,8 +48,8 @@ describe("ShuoGuaChapterScene", () => {
     expect(text).toContain("天地定位");
     expect(text).toContain("Working translation");
     expect(text).toContain("Heaven and earth settle their positions");
-    expect(text).toContain("Why this citation matters");
-    expect(text).toContain("inner line structure");
+    expect(text).not.toContain("Why this citation matters");
+    expect(text).not.toContain("inner line structure");
   });
 
   test("renders trigram table rows for catalogue chapters", () => {

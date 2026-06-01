@@ -205,13 +205,6 @@ export interface ShuoguaChapter {
   textEn?: string;
 }
 
-/** Project-authored explanation for why a derivation operation cites a 說卦 chapter. */
-export interface ShuoguaDerivationContext {
-  chapter: number;
-  title: string;
-  relevance: string;
-}
-
 /** Citation pointing into 說卦傳 for a derivation operation. */
 export interface ShuoguaCitation {
   op: DerivedType;

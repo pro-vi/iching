@@ -18,6 +18,8 @@ export interface DerivedLink {
   symbol: string;
   name: string;
   ename: string;
+  oracle?: string;
+  oracleEn?: string;
 }
 
 export class DetailModel {
@@ -72,6 +74,8 @@ export class DetailModel {
         symbol: d.nuclear.gua.u,
         name: d.nuclear.gua.n,
         ename: d.nuclear.gua.ename,
+        oracle: d.nuclear.gua.gc,
+        oracleEn: d.nuclear.gua.gcEn,
       },
       {
         op: "polarity",
@@ -81,6 +85,8 @@ export class DetailModel {
         symbol: d.polarity.gua.u,
         name: d.polarity.gua.n,
         ename: d.polarity.gua.ename,
+        oracle: d.polarity.gua.gc,
+        oracleEn: d.polarity.gua.gcEn,
       },
       {
         op: "mirror",
@@ -90,6 +96,8 @@ export class DetailModel {
         symbol: d.mirror.gua.u,
         name: d.mirror.gua.n,
         ename: d.mirror.gua.ename,
+        oracle: d.mirror.gua.gc,
+        oracleEn: d.mirror.gua.gcEn,
       },
       {
         op: "diagonal",
@@ -99,6 +107,8 @@ export class DetailModel {
         symbol: d.diagonal.gua.u,
         name: d.diagonal.gua.n,
         ename: d.diagonal.gua.ename,
+        oracle: d.diagonal.gua.gc,
+        oracleEn: d.diagonal.gua.gcEn,
       },
     ];
   }

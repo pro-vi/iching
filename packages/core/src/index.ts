@@ -19,7 +19,6 @@ export type {
   XuGuaEntry,
   ZaGuaEntry,
   ShuoguaChapter,
-  ShuoguaDerivationContext,
   ShuoguaCitation,
   CastConnections,
 } from "./types.js";
@@ -72,7 +71,6 @@ export { XU_GUA, XU_GUA_META } from "./data/xugua.js";
 export { ZA_GUA, ZA_GUA_META, ZA_GUA_BY_HEX } from "./data/zagua.js";
 export {
   SHUO_GUA,
-  SHUOGUA_DERIVATION_CONTEXT,
   TRIGRAM_ASSOC,
   SHUO_GUA_META,
 } from "./data/shuogua.js";

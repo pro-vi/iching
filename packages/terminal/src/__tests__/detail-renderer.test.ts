@@ -39,15 +39,29 @@ describe("buildContentLines — always-on additions", () => {
     expect(someText(lines, "Relations")).toBe(true);
   });
 
-  test("annotates each derived row with [說卦 ch.N]", () => {
+  test("keeps derived rows compact until a relation is selected", () => {
     const model = new DetailModel(3);
     const lines = buildContentLines(model, WIDTH);
-    // Each numeric derivation row (互卦/錯卦/綜卦/對角) should carry a 說卦 citation.
     const derivedRows = lines.filter((l) => l.text.match(/(互卦|錯卦|綜卦|對角)/));
     expect(derivedRows.length).toBeGreaterThanOrEqual(4);
     for (const row of derivedRows) {
-      expect(row.text).toMatch(/\[說卦 ch\.\d+\]/);
+      expect(row.text).not.toMatch(/說卦/);
     }
+  });
+
+  test("selected derived row shows the target gua's own 卦辭 before the 說卦 source", () => {
+    const model = new DetailModel(3);
+    model.focus = "derived";
+    const lines = buildContentLines(model, WIDTH);
+    const relationsIndex = findIndex(lines, (l) => l.text === "Relations");
+    const sourceIndex = findIndex(lines, (l) => l.text.includes("說卦 source"));
+    const oracleIndex = lines.findIndex(
+      (line, index) => index > relationsIndex && line.text.includes("卦辭"),
+    );
+    expect(relationsIndex).toBeGreaterThan(-1);
+    expect(oracleIndex).toBeGreaterThan(-1);
+    expect(sourceIndex).toBeGreaterThan(-1);
+    expect(oracleIndex).toBeLessThan(sourceIndex);
   });
 
   test("renders 序卦 row with canonical text for hex 3 屯", () => {
