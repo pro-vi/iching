@@ -1,4 +1,9 @@
-import type { ShuoguaChapter, TrigramAssoc } from "../types.js";
+import type {
+  DerivedType,
+  ShuoguaChapter,
+  ShuoguaDerivationContext,
+  TrigramAssoc,
+} from "../types.js";
 
 /**
  * 說卦傳 — Discussion of the Trigrams.
@@ -21,18 +26,90 @@ import type { ShuoguaChapter, TrigramAssoc } from "../types.js";
  */
 export const SHUO_GUA: { chapters: ShuoguaChapter[] } = {
   chapters: [
-    { n: 1, text: "昔者聖人之作《易》也，幽贊於神明而生蓍，參天兩地而倚數，觀變於陰陽而立卦，發揮於剛柔而生爻，和順於道德而理於義，窮理盡性以至於命。" },
-    { n: 2, text: "昔者聖人之作《易》也，將以順性命之理，是以立天之道曰陰與陽，立地之道曰柔與剛，立人之道曰仁與義。兼三才而兩之，故《易》六畫而成卦。分陰分陽，迭用柔剛，故《易》六位而成章。" },
-    { n: 3, text: "天地定位，山澤通氣，雷風相薄，水火不相射，八卦相錯。數往者順，知來者逆，是故《易》逆數也。" },
-    { n: 4, text: "雷以動之，風以散之，雨以潤之，日以烜之，艮以止之，兌以說之，乾以君之，坤以藏之。" },
-    { n: 5, text: "帝出乎震，齊乎巽，相見乎離，致役乎坤，說言乎兌，戰乎乾，勞乎坎，成言乎艮。萬物出乎震，震東方也。齊乎巽，巽東南也，齊也者，言萬物之絜齊也。離也者，明也，萬物皆相見，南方之卦也。聖人南面而聽天下，嚮明而治，蓋取諸此也。坤也者，地也，萬物皆致養焉，故曰致役乎坤。兌，正秋也，萬物之所說也，故曰說言乎兌。戰乎乾，乾，西北之卦也，言陰陽相薄也。坎者，水也，正北方之卦也，勞卦也，萬物之所歸也，故曰勞乎坎。艮，東北之卦也，萬物之所成終而所成始也，故曰成言乎艮。" },
-    { n: 6, text: "神也者，妙萬物而為言者也。動萬物者莫疾乎雷，橈萬物者莫疾乎風，燥萬物者莫熯乎火，說萬物者莫說乎澤，潤萬物者莫潤乎水，終萬物始萬物者莫盛乎艮。故水火相逮，雷風不相悖，山澤通氣，然後能變化，既成萬物也。" },
-    { n: 7, text: "乾，健也；坤，順也；震，動也；巽，入也；坎，陷也；離，麗也；艮，止也；兌，說也。" },
-    { n: 8, text: "乾為馬，坤為牛，震為龍，巽為雞，坎為豕，離為雉，艮為狗，兌為羊。" },
-    { n: 9, text: "乾為首，坤為腹，震為足，巽為股，坎為耳，離為目，艮為手，兌為口。" },
-    { n: 10, text: "乾，天也，故稱乎父；坤，地也，故稱乎母。震一索而得男，故謂之長男；巽一索而得女，故謂之長女。坎再索而得男，故謂之中男；離再索而得女，故謂之中女。艮三索而得男，故謂之少男；兌三索而得女，故謂之少女。" },
-    { n: 11, text: "乾為天，為圜，為君，為父，為玉，為金，為寒，為冰，為大赤，為良馬，為老馬，為瘠馬，為駁馬，為木果。坤為地，為母，為布，為釜，為吝嗇，為均，為子母牛，為大輿，為文，為眾，為柄，其於地也為黑。震為雷，為龍，為玄黃，為敷，為大塗，為長子，為決躁，為蒼筤竹，為萑葦；其於馬也，為善鳴，為馵足，為作足，為的顙；其於稼也，為反生；其究為健，為蕃鮮。巽為木，為風，為長女，為繩直，為工，為白，為長，為高，為進退，為不果，為臭；其於人也，為寡髮，為廣顙，為多白眼，為近利市三倍；其究為躁卦。坎為水，為溝瀆，為隱伏，為矯輮，為弓輪；其於人也，為加憂，為心病，為耳痛，為血卦，為赤；其於馬也，為美脊，為亟心，為下首，為薄蹄，為曳；其於輿也，為多眚，為通，為月，為盜；其於木也，為堅多心。離為火，為日，為電，為中女，為甲冑，為戈兵；其於人也，為大腹；為乾卦，為鱉，為蟹，為蠃，為蚌，為龜；其於木也，為科上槁。艮為山，為徑路，為小石，為門闕，為果蓏，為閽寺，為指，為狗，為鼠，為黔喙之屬；其於木也，為堅多節。兌為澤，為少女，為巫，為口舌，為毀折，為附決；其於地也，為剛鹵；為妾，為羊。" },
+    {
+      n: 1,
+      text: "昔者聖人之作《易》也，幽贊於神明而生蓍，參天兩地而倚數，觀變於陰陽而立卦，發揮於剛柔而生爻，和順於道德而理於義，窮理盡性以至於命。",
+      modernEn: "In ancient times, when the sages made the Yi, they gave hidden aid to spirit-brightness and brought forth the milfoil. They took heaven as three and earth as two, relied on number, observed change through yin and yang, set up the hexagrams, unfolded firm and yielding into lines, harmonized with dao and virtue, ordered things by rightness, and exhausted principle and nature until they reached what is allotted as fate.",
+    },
+    {
+      n: 2,
+      text: "昔者聖人之作《易》也，將以順性命之理，是以立天之道曰陰與陽，立地之道曰柔與剛，立人之道曰仁與義。兼三才而兩之，故《易》六畫而成卦。分陰分陽，迭用柔剛，故《易》六位而成章。",
+      modernEn: "When the sages made the Yi, they meant it to accord with the principles of nature and mandate. They named the way of heaven yin and yang, the way of earth yielding and firm, and the way of human beings benevolence and rightness. Combining the three powers and doubling them, the Yi forms hexagrams from six strokes; dividing yin from yang and alternating yielding with firm, the six positions become a patterned whole.",
+    },
+    {
+      n: 3,
+      text: "天地定位，山澤通氣，雷風相薄，水火不相射，八卦相錯。數往者順，知來者逆，是故《易》逆數也。",
+      modernEn: "Heaven and earth settle their positions; mountain and lake exchange breath; thunder and wind press on one another; water and fire do not strike each other. The eight trigrams interlace. To count what has gone is to follow the sequence; to know what is coming is to move against it. Therefore the Yi counts by reversal.",
+    },
+    {
+      n: 4,
+      text: "雷以動之，風以散之，雨以潤之，日以烜之，艮以止之，兌以說之，乾以君之，坤以藏之。",
+      modernEn: "Thunder moves things, wind disperses them, rain moistens them, and the sun warms them. Gen stops them, Dui gladdens them, Qian governs them, and Kun stores them away.",
+    },
+    {
+      n: 5,
+      text: "帝出乎震，齊乎巽，相見乎離，致役乎坤，說言乎兌，戰乎乾，勞乎坎，成言乎艮。萬物出乎震，震東方也。齊乎巽，巽東南也，齊也者，言萬物之絜齊也。離也者，明也，萬物皆相見，南方之卦也。聖人南面而聽天下，嚮明而治，蓋取諸此也。坤也者，地也，萬物皆致養焉，故曰致役乎坤。兌，正秋也，萬物之所說也，故曰說言乎兌。戰乎乾，乾，西北之卦也，言陰陽相薄也。坎者，水也，正北方之卦也，勞卦也，萬物之所歸也，故曰勞乎坎。艮，東北之卦也，萬物之所成終而所成始也，故曰成言乎艮。",
+      modernEn: "The Lord comes forth in Zhen, brings things into order in Xun, makes them visible in Li, sends them into service in Kun, rejoices in words in Dui, struggles in Qian, toils in Kan, and completes the saying in Gen. All things emerge in Zhen, the east; become even and purified in Xun, the southeast; appear to one another in Li, brightness and the south. The sage faces south and governs toward brightness from this image. Kun is earth, where all things receive nourishment. Dui is true autumn, where things rejoice. Qian is the northwest, where yin and yang press against each other. Kan is water and true north, the trigram of toil and return. Gen is the northeast, where things complete their end and begin again.",
+    },
+    {
+      n: 6,
+      text: "神也者，妙萬物而為言者也。動萬物者莫疾乎雷，橈萬物者莫疾乎風，燥萬物者莫熯乎火，說萬物者莫說乎澤，潤萬物者莫潤乎水，終萬物始萬物者莫盛乎艮。故水火相逮，雷風不相悖，山澤通氣，然後能變化，既成萬物也。",
+      modernEn: "Spirit means the subtle working by which the ten thousand things are spoken of. Nothing moves things more swiftly than thunder, bends them more swiftly than wind, dries them more intensely than fire, gladdens them more than lake, moistens them more than water, or ends and begins them more fully than Gen. Thus water and fire reach one another, thunder and wind do not oppose one another, mountain and lake exchange breath; only then can transformation occur and the ten thousand things be completed.",
+    },
+    {
+      n: 7,
+      text: "乾，健也；坤，順也；震，動也；巽，入也；坎，陷也；離，麗也；艮，止也；兌，說也。",
+      modernEn: "Qian is strength; Kun is yielding; Zhen is movement; Xun is entering; Kan is pitfall; Li is clinging brightness; Gen is stopping; Dui is joy.",
+    },
+    {
+      n: 8,
+      text: "乾為馬，坤為牛，震為龍，巽為雞，坎為豕，離為雉，艮為狗，兌為羊。",
+      modernEn: "Qian is horse; Kun is ox; Zhen is dragon; Xun is rooster; Kan is pig; Li is pheasant; Gen is dog; Dui is sheep.",
+    },
+    {
+      n: 9,
+      text: "乾為首，坤為腹，震為足，巽為股，坎為耳，離為目，艮為手，兌為口。",
+      modernEn: "Qian is head; Kun is belly; Zhen is foot; Xun is thigh; Kan is ear; Li is eye; Gen is hand; Dui is mouth.",
+    },
+    {
+      n: 10,
+      text: "乾，天也，故稱乎父；坤，地也，故稱乎母。震一索而得男，故謂之長男；巽一索而得女，故謂之長女。坎再索而得男，故謂之中男；離再索而得女，故謂之中女。艮三索而得男，故謂之少男；兌三索而得女，故謂之少女。",
+      modernEn: "Qian is heaven, and so is called father; Kun is earth, and so is called mother. Zhen is the male obtained in the first seeking, and is called the eldest son; Xun is the female obtained in the first seeking, and is called the eldest daughter. Kan is the male obtained in the second seeking, the middle son; Li is the female obtained in the second seeking, the middle daughter. Gen is the male obtained in the third seeking, the youngest son; Dui is the female obtained in the third seeking, the youngest daughter.",
+    },
+    {
+      n: 11,
+      text: "乾為天，為圜，為君，為父，為玉，為金，為寒，為冰，為大赤，為良馬，為老馬，為瘠馬，為駁馬，為木果。坤為地，為母，為布，為釜，為吝嗇，為均，為子母牛，為大輿，為文，為眾，為柄，其於地也為黑。震為雷，為龍，為玄黃，為敷，為大塗，為長子，為決躁，為蒼筤竹，為萑葦；其於馬也，為善鳴，為馵足，為作足，為的顙；其於稼也，為反生；其究為健，為蕃鮮。巽為木，為風，為長女，為繩直，為工，為白，為長，為高，為進退，為不果，為臭；其於人也，為寡髮，為廣顙，為多白眼，為近利市三倍；其究為躁卦。坎為水，為溝瀆，為隱伏，為矯輮，為弓輪；其於人也，為加憂，為心病，為耳痛，為血卦，為赤；其於馬也，為美脊，為亟心，為下首，為薄蹄，為曳；其於輿也，為多眚，為通，為月，為盜；其於木也，為堅多心。離為火，為日，為電，為中女，為甲冑，為戈兵；其於人也，為大腹；為乾卦，為鱉，為蟹，為蠃，為蚌，為龜；其於木也，為科上槁。艮為山，為徑路，為小石，為門闕，為果蓏，為閽寺，為指，為狗，為鼠，為黔喙之屬；其於木也，為堅多節。兌為澤，為少女，為巫，為口舌，為毀折，為附決；其於地也，為剛鹵；為妾，為羊。",
+      modernEn: "Qian is heaven, roundness, ruler, father, jade, metal, cold, ice, deep red, good horse, old horse, lean horse, piebald horse, and tree fruit. Kun is earth, mother, cloth, cauldron, frugality, leveling, cow with calf, great cart, pattern, multitude, handle; among lands it is black. Zhen is thunder, dragon, dark-yellow, spreading growth, great road, eldest son, decisive agitation, young green bamboo, reeds and rushes; among horses it is good neighing, raised hind foot, active foot, white forehead; among crops it is reverse growth; at its extreme it becomes strength and fresh abundance. Xun is wood, wind, eldest daughter, plumb line, craft, white, long, high, advancing and retreating, irresolution, smell; in people it is sparse hair, broad forehead, much white in the eyes, and profit-seeking in the market; at its extreme it becomes an agitated trigram. Kan is water, ditches, hiddenness, bending, bow and wheel; in people it is added worry, heart sickness, ear pain, blood, and red; among horses it is beautiful spine, urgent heart, lowered head, thin hoof, and dragging step; for carts it is many faults, passage, moon, and thief; among trees it is firm with much heartwood. Li is fire, sun, lightning, middle daughter, armor and helmet, weapons; in people it is a large belly; it is dryness, turtle, crab, snail, clam, tortoise; among trees it is hollow above and withered. Gen is mountain, path, small stone, gate tower, fruit on vines, gatekeeper, finger, dog, rat, and black-beaked creatures; among trees it is firm with many joints. Dui is lake, youngest daughter, shaman, mouth and tongue, breaking and severing, attached decision; among lands it is hard and salty; it is concubine and sheep.",
+    },
   ],
+};
+
+export const SHUOGUA_DERIVATION_CONTEXT: Record<DerivedType, ShuoguaDerivationContext> = {
+  nuclear: {
+    chapter: 3,
+    title: "Inner trigram exchange",
+    relevance: "The nuclear hexagram is built from the cast's inner line structure. Chapter 3 describes the trigrams as relational forces that exchange breath, press on one another, and interlace, so it grounds reading the hidden hexagram as an inner configuration rather than a separate oracle.",
+  },
+  polarity: {
+    chapter: 2,
+    title: "Yin-yang reversal",
+    relevance: "Polarity flips every line. Chapter 2 names yin and yang as the way of heaven and yielding and firm as the way of earth, so it grounds the polarity hexagram as a full reversal along the Yi's primary complementary axis.",
+  },
+  mirror: {
+    chapter: 6,
+    title: "Changed vantage",
+    relevance: "The mirror hexagram reverses the figure's orientation. Chapter 6 says transformation happens when paired forces reach, answer, and do not oppose one another, so it grounds mirror as a changed vantage within the same field of relations.",
+  },
+  becoming: {
+    chapter: 7,
+    title: "Operational quality",
+    relevance: "The becoming hexagram is where moving lines carry the cast. Chapter 7 gives each trigram its operative quality, so it grounds becoming as a change in how the situation acts.",
+  },
+  diagonal: {
+    chapter: 6,
+    title: "Farthest transformed view",
+    relevance: "The diagonal combines mirror and polarity. Chapter 6 grounds this compound relation because it frames transformation as the coordination of opposed forces into completed change.",
+  },
 };
 
 /**

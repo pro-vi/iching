@@ -1,6 +1,6 @@
 // Scene interface — lifecycle contract for terminal scenes
 
-import type { Cast } from "@iching/core";
+import type { Cast, DerivedType } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
 import type { KeyEvent } from "../input/key-parser.ts";
 import type { ColorSupport } from "../color/detect.ts";
@@ -35,7 +35,7 @@ export type SceneSignal =
   | { type: "openSettings" }      // open the settings editor
   // Cast / dictionary navigation
   | { type: "openDetail"; kw: number }
-  | { type: "openShuoguaChapter"; chapter: number }
+  | { type: "openShuoguaChapter"; chapter: number; op?: DerivedType }
   | { type: "openJournalReading"; key: string }
   // Inner-flow events
   | { type: "intentionConfirmed" } // intention input completed

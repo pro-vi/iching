@@ -199,8 +199,17 @@ export interface ShuoguaChapter {
   n: number;
   /** Canonical zh text. */
   text: string;
+  /** Project-authored modern English keyed to the standard 11-chapter division. */
+  modernEn?: string;
   /** Legge's English (Appendix V of SBE vol. XVI). Populated post-Legge-cleanup. */
   textEn?: string;
+}
+
+/** Project-authored explanation for why a derivation operation cites a 說卦 chapter. */
+export interface ShuoguaDerivationContext {
+  chapter: number;
+  title: string;
+  relevance: string;
 }
 
 /** Citation pointing into 說卦傳 for a derivation operation. */

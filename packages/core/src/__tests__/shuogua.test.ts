@@ -1,5 +1,12 @@
 import { describe, test, expect } from "bun:test";
-import { SHUO_GUA, TRIGRAM_ASSOC, SHUO_GUA_META } from "../data/shuogua.js";
+import type { DerivedType } from "../types.js";
+import {
+  SHUO_GUA,
+  SHUOGUA_DERIVATION_CONTEXT,
+  TRIGRAM_ASSOC,
+  SHUO_GUA_META,
+} from "../data/shuogua.js";
+import { buildConnections } from "../derivation/connections.js";
 
 /**
  * U3 integrity tests — 說卦傳 data module.
@@ -30,6 +37,13 @@ describe("SHUO_GUA chapters", () => {
     }
   });
 
+  test("every chapter has a project-authored modern English translation", () => {
+    for (const ch of SHUO_GUA.chapters) {
+      expect(ch.modernEn, `ch ${ch.n}`).toBeDefined();
+      expect(ch.modernEn!.length, `ch ${ch.n}`).toBeGreaterThan(20);
+    }
+  });
+
   test("verification anchor — ch5 directional cycle (帝出乎震…)", () => {
     const ch5 = SHUO_GUA.chapters[4]!;
     expect(ch5.text).toContain("帝出乎震");
@@ -51,6 +65,34 @@ describe("SHUO_GUA chapters", () => {
     expect(ch11.text).toContain("為圜");
     expect(ch11.text).toContain("坤為地");
     expect(ch11.text).toContain("為母");
+  });
+});
+
+describe("SHUOGUA_DERIVATION_CONTEXT", () => {
+  const DERIVED_TYPES: DerivedType[] = [
+    "nuclear",
+    "polarity",
+    "mirror",
+    "becoming",
+    "diagonal",
+  ];
+
+  test("covers every DerivedType with a non-empty relevance note", () => {
+    expect(Object.keys(SHUOGUA_DERIVATION_CONTEXT).sort()).toEqual([...DERIVED_TYPES].sort());
+    for (const op of DERIVED_TYPES) {
+      const context = SHUOGUA_DERIVATION_CONTEXT[op];
+      expect(context.chapter).toBeGreaterThanOrEqual(1);
+      expect(context.chapter).toBeLessThanOrEqual(11);
+      expect(context.title.length).toBeGreaterThan(0);
+      expect(context.relevance.length).toBeGreaterThan(40);
+    }
+  });
+
+  test("context chapter numbers match buildConnections citations", () => {
+    const citations = buildConnections({ primary: 1 }).shuoguaCitations;
+    for (const citation of citations) {
+      expect(SHUOGUA_DERIVATION_CONTEXT[citation.op].chapter).toBe(citation.chapter);
+    }
   });
 });
 

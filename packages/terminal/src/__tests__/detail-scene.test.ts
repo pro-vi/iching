@@ -83,7 +83,7 @@ describe("DetailScene", () => {
     const scene = new DetailScene(1);
     scene.handleKey({ type: "tab" }, makeCtx()); // focus derived
     const signal = scene.handleKey({ type: "char", char: "s" }, makeCtx());
-    expect(signal).toEqual({ type: "openShuoguaChapter", chapter: 3 });
+    expect(signal).toEqual({ type: "openShuoguaChapter", chapter: 3, op: "nuclear" });
   });
 
   test("setHistory updates model", () => {

@@ -138,4 +138,10 @@ export class DetailModel {
       (citation) => citation.op === op,
     )?.chapter;
   }
+
+  selectedShuoguaCitation(): { chapter: number; op: DerivedType } | undefined {
+    const op = this.derivedLinks[this.derivedCursor].op;
+    const chapter = this.selectedShuoguaChapter();
+    return chapter === undefined ? undefined : { chapter, op };
+  }
 }

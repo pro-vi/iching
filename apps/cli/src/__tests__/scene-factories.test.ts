@@ -50,8 +50,9 @@ describe("makeBrowseFactory", () => {
 
   test("typed openShuoguaChapter signal returns ShuoGuaChapterScene", () => {
     const factory = makeBrowseFactory({ journal });
-    const scene = factory({ type: "openShuoguaChapter", chapter: 3 });
+    const scene = factory({ type: "openShuoguaChapter", chapter: 3, op: "nuclear" });
     expect(scene).toBeInstanceOf(ShuoGuaChapterScene);
+    expect((scene as ShuoGuaChapterScene).getOp()).toBe("nuclear");
   });
 });
 
@@ -90,8 +91,9 @@ describe("makeJournalFactory", () => {
       entries: [],
       session: { cols: 80, rows: 24 },
     });
-    const scene = factory({ type: "openShuoguaChapter", chapter: 6 });
+    const scene = factory({ type: "openShuoguaChapter", chapter: 6, op: "mirror" });
     expect(scene).toBeInstanceOf(ShuoGuaChapterScene);
+    expect((scene as ShuoGuaChapterScene).getOp()).toBe("mirror");
   });
 
   test("typed openJournal resets to JournalScene (j-from-replay path)", () => {

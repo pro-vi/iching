@@ -46,7 +46,7 @@ export function makeBrowseFactory(deps: DetailDeps): SceneFactory {
   return (signal): Scene | null => {
     if (signal.type === "openDetail") return makeDetailScene(signal.kw, deps);
     if (signal.type === "openShuoguaChapter") {
-      return new ShuoGuaChapterScene(signal.chapter);
+      return new ShuoGuaChapterScene(signal.chapter, signal.op);
     }
     return null;
   };
@@ -73,7 +73,7 @@ export function makeJournalFactory(deps: JournalDeps): SceneFactory {
     }
     if (signal.type === "openDetail") return makeDetailScene(signal.kw, deps);
     if (signal.type === "openShuoguaChapter") {
-      return new ShuoGuaChapterScene(signal.chapter);
+      return new ShuoGuaChapterScene(signal.chapter, signal.op);
     }
     if (signal.type === "openDictionary") return new BrowseScene();
     // `j` from a replayed CastScene inside the journal router → reset to the journal list.

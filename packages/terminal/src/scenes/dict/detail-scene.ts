@@ -139,8 +139,8 @@ export class DetailScene implements Scene {
     }
 
     if (key.type === "char" && key.char === "s" && this.model.focus === "derived") {
-      const chapter = this.model.selectedShuoguaChapter();
-      if (chapter !== undefined) return { type: "openShuoguaChapter", chapter };
+      const citation = this.model.selectedShuoguaCitation();
+      if (citation) return { type: "openShuoguaChapter", ...citation };
     }
   }
 
