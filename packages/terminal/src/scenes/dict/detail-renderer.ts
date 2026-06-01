@@ -216,25 +216,11 @@ function renderRelationsBlock(
     const isSelected = model.focus === "derived" && model.derivedCursor === i;
     const marker = isSelected ? ">" : " ";
     const chapter = citationByOp.get(link.op);
+    const citation = chapter !== undefined ? `  [說卦 ch.${chapter}]` : "";
     lines.push({
-      text: `${marker} ${link.labelCn} ${link.label.padEnd(10)} ${link.symbol} ${link.name}  ${link.ename}`,
+      text: `${marker} ${link.labelCn} ${link.label.padEnd(10)} ${link.symbol} ${link.name}  ${link.ename}${citation}`,
       fg: isSelected ? t.primary : t.secondary,
     });
-    if (isSelected) {
-      if (link.oracle) {
-        pushWrapped(lines, textWidth, `  卦辭 ${link.oracle}`, { fg: t.secondary });
-      }
-      if (link.oracleEn) {
-        pushWrapped(lines, textWidth, `  ${link.oracleEn}`, { fg: t.tertiary, dim: true });
-      }
-      if (chapter !== undefined) {
-        lines.push({
-          text: `  說卦 source: ch.${chapter}  [s] open source`,
-          fg: t.tertiary,
-          dim: true,
-        });
-      }
-    }
   }
   if (connections.xuGua) {
     lines.push({ text: "" });
