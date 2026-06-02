@@ -3,8 +3,19 @@ import type { UserConfig } from "../types.js";
 import type { ConfigStore } from "../config-store.js";
 import { atomicWriteJson } from "./atomic-write.js";
 
+const MOTION_OPTIONS = ["default", "brisk", "deep", "reduced"] as const;
+const LANGUAGE_OPTIONS = ["zh-Hans", "zh-Hant", "en"] as const;
+const THEME_OPTIONS = ["ink", "bone", "cinnabar", "jade", "river"] as const;
+const COLOR_OPTIONS = ["auto", "always", "never"] as const;
+const GLYPH_ANIM_OPTIONS = ["noise", "dots", "radial", "sand"] as const;
+const GLYPH_FONT_OPTIONS = ["kaiti", "libian", "heiti"] as const;
+const TAIJITU_STYLE_OPTIONS = ["dots", "dense"] as const;
+const CAST_METHOD_OPTIONS = ["coin", "yarrow"] as const;
+const CAST_MODE_OPTIONS = ["auto", "manual"] as const;
+
 const DEFAULT_CONFIG: UserConfig = {
   motion: "default",
+  language: "zh-Hant",
   theme: "bone",
   color: "auto",
   timezone: "system",
@@ -24,15 +35,98 @@ const LEGACY_CAST_MODE: Record<string, { method: UserConfig["castMethod"]; mode:
 };
 
 // Legacy theme names → current canonical names.
-const THEME_ALIASES: Record<string, string> = {
+const THEME_ALIASES: Record<string, UserConfig["theme"]> = {
   "temple-night": "cinnabar",
   "lantern": "cinnabar",
   "dawn": "bone",
 };
 
-const VALID_TAIJITU_STYLES = new Set(["dots", "dense"]);
-const VALID_CAST_METHODS = new Set(["coin", "yarrow"]);
-const VALID_CAST_MODES = new Set(["auto", "manual"]);
+// User-visible aliases are accepted for hand-edited config files; the CLI
+// writes stable BCP-47-ish values.
+const LANGUAGE_ALIASES: Record<string, UserConfig["language"]> = {
+  "简": "zh-Hans",
+  "簡": "zh-Hans",
+  "simplified": "zh-Hans",
+  "繁": "zh-Hant",
+  "traditional": "zh-Hant",
+  "EN": "en",
+  "english": "en",
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isOneOf<const T extends readonly string[]>(
+  options: T,
+  value: unknown,
+): value is T[number] {
+  return typeof value === "string" && options.includes(value as T[number]);
+}
+
+function stringValue(
+  record: Record<string, unknown>,
+  key: keyof UserConfig,
+): string | undefined {
+  const value = record[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function normalizeConfig(parsed: unknown): UserConfig {
+  const merged: UserConfig = { ...DEFAULT_CONFIG };
+  if (!isRecord(parsed)) return merged;
+
+  if (isOneOf(MOTION_OPTIONS, parsed.motion)) merged.motion = parsed.motion;
+
+  const rawLanguage = stringValue(parsed, "language");
+  if (isOneOf(LANGUAGE_OPTIONS, rawLanguage)) {
+    merged.language = rawLanguage;
+  } else if (rawLanguage && LANGUAGE_ALIASES[rawLanguage]) {
+    merged.language = LANGUAGE_ALIASES[rawLanguage];
+  }
+
+  const rawTheme = stringValue(parsed, "theme");
+  if (isOneOf(THEME_OPTIONS, rawTheme)) {
+    merged.theme = rawTheme;
+  } else if (rawTheme && THEME_ALIASES[rawTheme]) {
+    merged.theme = THEME_ALIASES[rawTheme];
+  }
+
+  if (isOneOf(COLOR_OPTIONS, parsed.color)) merged.color = parsed.color;
+  if (typeof parsed.timezone === "string") merged.timezone = parsed.timezone;
+  if (isOneOf(GLYPH_ANIM_OPTIONS, parsed.glyphAnim)) merged.glyphAnim = parsed.glyphAnim;
+  if (isOneOf(GLYPH_FONT_OPTIONS, parsed.glyphFont)) merged.glyphFont = parsed.glyphFont;
+
+  const rawTaijituStyle = stringValue(parsed, "taijituStyle");
+  if (isOneOf(TAIJITU_STYLE_OPTIONS, rawTaijituStyle)) {
+    merged.taijituStyle = rawTaijituStyle;
+  } else if (rawTaijituStyle) {
+    merged.taijituStyle = rawTaijituStyle.toLowerCase().includes("dense") ? "dense" : "dots";
+  }
+
+  const rawCastMethod = stringValue(parsed, "castMethod");
+  const rawCastMode = stringValue(parsed, "castMode");
+  if (rawCastMode && rawCastMethod === undefined) {
+    const split = LEGACY_CAST_MODE[rawCastMode];
+    if (split) {
+      merged.castMethod = split.method;
+      merged.castMode = split.mode;
+    }
+  } else {
+    if (isOneOf(CAST_METHOD_OPTIONS, rawCastMethod)) merged.castMethod = rawCastMethod;
+    if (isOneOf(CAST_MODE_OPTIONS, rawCastMode)) {
+      merged.castMode = rawCastMode;
+    } else if (rawCastMode) {
+      const split = LEGACY_CAST_MODE[rawCastMode];
+      if (split) {
+        merged.castMethod = split.method;
+        merged.castMode = split.mode;
+      }
+    }
+  }
+
+  return merged;
+}
 
 export class JsonConfigStore implements ConfigStore {
   constructor(private readonly path: string) {}
@@ -40,54 +134,8 @@ export class JsonConfigStore implements ConfigStore {
   async load(): Promise<UserConfig> {
     try {
       const raw = await readFile(this.path, "utf-8");
-      // Widen castMethod + castMode to plain string for the normalization
-      // checks below — at runtime these can be anything (legacy values, hand
-      // edits) even though their UserConfig types are narrow unions.
-      const partial = JSON.parse(raw) as Omit<Partial<UserConfig>, "castMethod" | "castMode"> & {
-        glyphSize?: unknown;
-        castMethod?: string;
-        castMode?: string;
-      };
-      // Migrate legacy single-string castMode → castMethod + castMode pair.
-      // Old configs only had `castMode`; absence of `castMethod` is the tell.
-      if (partial.castMode && partial.castMethod === undefined) {
-        const split = LEGACY_CAST_MODE[partial.castMode];
-        if (split) {
-          partial.castMethod = split.method;
-          partial.castMode = split.mode;
-        }
-      }
-      // Defense-in-depth: a current-shaped file with both fields can still
-      // carry an out-of-domain value (legacy CLI writes, hand edits, future
-      // schema drift). Route any unknown castMode back through LEGACY_CAST_MODE
-      // when possible, or fall back to the default. Same idiom we already use
-      // for taijituStyle and theme below.
-      if (partial.castMode && !VALID_CAST_MODES.has(partial.castMode)) {
-        const split = LEGACY_CAST_MODE[partial.castMode];
-        if (split) {
-          partial.castMethod = split.method;
-          partial.castMode = split.mode;
-        } else {
-          partial.castMode = DEFAULT_CONFIG.castMode;
-        }
-      }
-      if (partial.castMethod && !VALID_CAST_METHODS.has(partial.castMethod)) {
-        partial.castMethod = DEFAULT_CONFIG.castMethod;
-      }
-      const merged = { ...DEFAULT_CONFIG, ...partial } as UserConfig;
-      // Drop removed glyphSize key from older configs.
-      delete (merged as { glyphSize?: unknown }).glyphSize;
-      // Migrate legacy taijituStyle values (yangDots/yinDots → dots, yangDense/yinDense → dense).
-      const style = merged.taijituStyle as string;
-      if (!VALID_TAIJITU_STYLES.has(style)) {
-        merged.taijituStyle = style.toLowerCase().includes("dense") ? "dense" : "dots";
-      }
-      // Migrate legacy theme names.
-      const aliased = THEME_ALIASES[merged.theme as string];
-      if (aliased) {
-        merged.theme = aliased as UserConfig["theme"];
-      }
-      return merged;
+      const parsed: unknown = JSON.parse(raw);
+      return normalizeConfig(parsed);
     } catch (err: unknown) {
       if ((err as NodeJS.ErrnoException).code === "ENOENT")
         return { ...DEFAULT_CONFIG };

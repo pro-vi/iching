@@ -1,4 +1,5 @@
 import type { DailyCache } from "@iching/core";
+import type { DisplayLanguage } from "@iching/core";
 
 /** Re-export DailyCache as DailyCacheRecord for storage-layer naming */
 export type DailyCacheRecord = DailyCache;
@@ -6,6 +7,7 @@ export type DailyCacheRecord = DailyCache;
 /** User-facing configuration */
 export interface UserConfig {
   motion: "default" | "brisk" | "deep" | "reduced";
+  language: DisplayLanguage;
   theme: "ink" | "bone" | "cinnabar" | "jade" | "river";
   color: "auto" | "always" | "never";
   timezone: "system" | string;

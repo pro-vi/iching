@@ -4,6 +4,7 @@
 // Types
 export type {
   Style,
+  DisplayLanguage,
   Hexagram,
   LineValue,
   Line,

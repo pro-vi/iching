@@ -15,6 +15,7 @@ export const SCHEMA_KEYS = {
   config: {
     required: [
       "motion",
+      "language",
       "theme",
       "color",
       "timezone",
