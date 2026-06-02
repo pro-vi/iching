@@ -15,7 +15,7 @@ export function registerDictCommand(program: Command): void {
         RealClock,
         detectColorSupport,
       } = await import("@iching/terminal");
-      const { resolvePaths, JsonlJournalStore } =
+      const { resolvePaths, JsonConfigStore, JsonlJournalStore } =
         await import("@iching/storage");
       const { makeBrowseFactory, makeDetailScene } =
         await import("../app/scene-factories.js");
@@ -24,8 +24,9 @@ export function registerDictCommand(program: Command): void {
       const paths = resolvePaths(
         globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
       );
+      const config = await new JsonConfigStore(paths.config).load();
       const journal = new JsonlJournalStore(paths.state);
-      const factoryDeps = { journal };
+      const factoryDeps = { journal, language: config.language };
 
       // Determine initial scene
       let initial;

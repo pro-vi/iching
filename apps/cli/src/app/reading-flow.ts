@@ -11,6 +11,7 @@ import {
   castHexagram,
   type Cast,
   CryptoRandomSource,
+  type DisplayLanguage,
   SeededRandomSource,
 } from "@iching/core";
 import {
@@ -57,6 +58,7 @@ export interface ReadingFlowDeps {
   today: string;
   session: SessionDims;
   glyphConfig: CastGlyphInput;
+  language: DisplayLanguage;
   motion: MotionPreset;
 }
 
@@ -182,6 +184,7 @@ async function runPostCastNavigation(
     const entries = await loadJournalEntries(journal);
     const factoryDeps = {
       glyphConfig: deps.glyphConfig,
+      language: deps.language,
       journal,
       entries,
       session: deps.session,
@@ -194,7 +197,11 @@ async function runPostCastNavigation(
   }
   if (signal.type === "openDictionary" || signal.type === "openDetail") {
     const journal = new JsonlJournalStore(deps.paths.state);
-    const factoryDeps = { glyphConfig: deps.glyphConfig, journal };
+    const factoryDeps = {
+      glyphConfig: deps.glyphConfig,
+      language: deps.language,
+      journal,
+    };
     const startScene: Scene = signal.type === "openDetail"
       ? makeDetailScene(signal.kw, factoryDeps)
       : new BrowseScene();

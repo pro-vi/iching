@@ -3,7 +3,7 @@
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
-import type { GlyphFont } from "@iching/core";
+import type { DisplayLanguage, GlyphFont } from "@iching/core";
 import type { GlyphAnimStyle } from "../../glyph-anim/types.ts";
 import { composeGlyph } from "../../glyph-anim/compose.ts";
 import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
@@ -21,10 +21,16 @@ const FOOTER_ROWS = 2;
 export class DetailScene implements Scene {
   private model: DetailModel;
   private glyphConfig?: DetailGlyphConfig;
+  private language: DisplayLanguage;
 
-  constructor(kw: number, glyphConfig?: DetailGlyphConfig) {
+  constructor(
+    kw: number,
+    glyphConfig?: DetailGlyphConfig,
+    language: DisplayLanguage = "zh-Hant",
+  ) {
     this.model = new DetailModel(kw);
     this.glyphConfig = glyphConfig;
+    this.language = language;
   }
 
   enter(ctx: SceneContext): void {
@@ -50,7 +56,9 @@ export class DetailScene implements Scene {
     }
 
     // Pre-compute content height so scroll bounds work before first render
-    this.model.contentHeight = buildContentLines(this.model, ctx.cols).length;
+    this.model.contentHeight = buildContentLines(this.model, ctx.cols, {
+      language: this.language,
+    }).length;
   }
 
   update(elapsed: number, _dt: number, _ctx: SceneContext): void {
@@ -64,7 +72,7 @@ export class DetailScene implements Scene {
   }
 
   render(frame: CellBuffer, ctx: SceneContext): void {
-    renderDetail(frame, this.model, ctx);
+    renderDetail(frame, this.model, ctx, { language: this.language });
   }
 
   resize(_cols: number, rows: number): void {

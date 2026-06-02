@@ -51,6 +51,7 @@ async function main() {
     let taijituStyle = savedConfig.taijituStyle;
     let castMethod = savedConfig.castMethod ?? "coin";
     let castMode = savedConfig.castMode ?? "auto";
+    let language = savedConfig.language;
 
     const session = new TerminalSession();
     const colorSupport = detectColorSupport();
@@ -85,6 +86,7 @@ async function main() {
         paths, cacheStore, today,
         session: { cols: session.cols, rows: session.rows },
         glyphConfig,
+        language,
         motion: savedConfig.motion ?? "default",
       };
 
@@ -122,7 +124,7 @@ async function main() {
           const journal = new JsonlJournalStore(paths.state);
           const router = new SceneRouter(
             new BrowseScene(),
-            makeBrowseFactory({ glyphConfig, journal }),
+            makeBrowseFactory({ glyphConfig, language, journal }),
           );
           const result = await runRouter(router);
           if (result.shouldExit) running = false;
@@ -136,6 +138,7 @@ async function main() {
             new JournalScene(entries),
             makeJournalFactory({
               glyphConfig,
+              language,
               journal,
               entries,
               session: { cols: session.cols, rows: session.rows },
@@ -171,6 +174,7 @@ async function main() {
             newConfig.castMode = updated.castMode;
             await configStore.save(newConfig);
             setTheme(updated.theme);
+            language = updated.language;
             taijituStyle = updated.taijituStyle;
             castMethod = updated.castMethod;
             castMode = updated.castMode;
