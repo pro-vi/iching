@@ -3,19 +3,125 @@ import { resolvePaths, JsonConfigStore } from "@iching/storage";
 import type { UserConfig } from "@iching/storage";
 import { outputJson, configToJson } from "../output/json.js";
 
-const CONFIG_SCHEMA: Record<string, { values?: string[]; description: string }> = {
-  theme:        { values: ["ink", "bone", "cinnabar", "jade", "river"], description: "Color theme" },
-  motion:       { values: ["default", "brisk", "deep", "reduced"], description: "Casting animation speed" },
-  color:        { values: ["auto", "always", "never"], description: "ANSI color mode" },
-  timezone:     { description: "Timezone (\"system\" or IANA name)" },
-  glyphAnim:    { values: ["noise", "dots", "radial", "sand"], description: "Glyph reveal animation" },
-  glyphFont:    { values: ["kaiti", "libian", "heiti"], description: "Glyph font" },
-  taijituStyle: { values: ["dots", "dense"], description: "Home-screen taijitu style" },
-  castMethod:   { values: ["coin", "yarrow"], description: "Cast method (coin or yarrow stalk ritual)" },
-  castMode:     { values: ["auto", "manual"], description: "Cast mode (auto or operator-guided)" },
+type ConfigEntry = {
+  values?: readonly string[];
+  description: string;
+  set: (cfg: UserConfig, value: string) => boolean;
 };
 
-const VALID_KEYS = Object.keys(CONFIG_SCHEMA);
+function isOneOf<const T extends readonly string[]>(
+  options: T,
+  value: string,
+): value is T[number] {
+  return options.includes(value as T[number]);
+}
+
+const THEME_VALUES = ["ink", "bone", "cinnabar", "jade", "river"] as const;
+const MOTION_VALUES = ["default", "brisk", "deep", "reduced"] as const;
+const COLOR_VALUES = ["auto", "always", "never"] as const;
+const LANGUAGE_VALUES = ["zh-Hans", "zh-Hant", "en"] as const;
+const GLYPH_ANIM_VALUES = ["noise", "dots", "radial", "sand"] as const;
+const GLYPH_FONT_VALUES = ["kaiti", "libian", "heiti"] as const;
+const TAIJITU_STYLE_VALUES = ["dots", "dense"] as const;
+const CAST_METHOD_VALUES = ["coin", "yarrow"] as const;
+const CAST_MODE_VALUES = ["auto", "manual"] as const;
+
+const CONFIG_SCHEMA: Record<keyof UserConfig, ConfigEntry> = {
+  theme: {
+    values: THEME_VALUES,
+    description: "Color theme",
+    set: (cfg, value) => {
+      if (!isOneOf(THEME_VALUES, value)) return false;
+      cfg.theme = value;
+      return true;
+    },
+  },
+  motion: {
+    values: MOTION_VALUES,
+    description: "Casting animation speed",
+    set: (cfg, value) => {
+      if (!isOneOf(MOTION_VALUES, value)) return false;
+      cfg.motion = value;
+      return true;
+    },
+  },
+  language: {
+    values: LANGUAGE_VALUES,
+    description: "Display language (简, 繁, or English)",
+    set: (cfg, value) => {
+      if (!isOneOf(LANGUAGE_VALUES, value)) return false;
+      cfg.language = value;
+      return true;
+    },
+  },
+  color: {
+    values: COLOR_VALUES,
+    description: "ANSI color mode",
+    set: (cfg, value) => {
+      if (!isOneOf(COLOR_VALUES, value)) return false;
+      cfg.color = value;
+      return true;
+    },
+  },
+  timezone: {
+    description: "Timezone (\"system\" or IANA name)",
+    set: (cfg, value) => {
+      cfg.timezone = value;
+      return true;
+    },
+  },
+  glyphAnim: {
+    values: GLYPH_ANIM_VALUES,
+    description: "Glyph reveal animation",
+    set: (cfg, value) => {
+      if (!isOneOf(GLYPH_ANIM_VALUES, value)) return false;
+      cfg.glyphAnim = value;
+      return true;
+    },
+  },
+  glyphFont: {
+    values: GLYPH_FONT_VALUES,
+    description: "Glyph font",
+    set: (cfg, value) => {
+      if (!isOneOf(GLYPH_FONT_VALUES, value)) return false;
+      cfg.glyphFont = value;
+      return true;
+    },
+  },
+  taijituStyle: {
+    values: TAIJITU_STYLE_VALUES,
+    description: "Home-screen taijitu style",
+    set: (cfg, value) => {
+      if (!isOneOf(TAIJITU_STYLE_VALUES, value)) return false;
+      cfg.taijituStyle = value;
+      return true;
+    },
+  },
+  castMethod: {
+    values: CAST_METHOD_VALUES,
+    description: "Cast method (coin or yarrow stalk ritual)",
+    set: (cfg, value) => {
+      if (!isOneOf(CAST_METHOD_VALUES, value)) return false;
+      cfg.castMethod = value;
+      return true;
+    },
+  },
+  castMode: {
+    values: CAST_MODE_VALUES,
+    description: "Cast mode (auto or operator-guided)",
+    set: (cfg, value) => {
+      if (!isOneOf(CAST_MODE_VALUES, value)) return false;
+      cfg.castMode = value;
+      return true;
+    },
+  },
+};
+
+const VALID_KEYS = Object.keys(CONFIG_SCHEMA) as Array<keyof typeof CONFIG_SCHEMA>;
+
+function isConfigKey(key: string): key is keyof typeof CONFIG_SCHEMA {
+  return key in CONFIG_SCHEMA;
+}
 
 export function registerConfigCommand(program: Command): void {
   const config = program
@@ -37,7 +143,7 @@ export function registerConfigCommand(program: Command): void {
         outputJson(cfg);
       } else {
         for (const key of VALID_KEYS) {
-          const value = cfg[key as keyof UserConfig];
+          const value = cfg[key];
           const schema = CONFIG_SCHEMA[key];
           const valid = schema.values ? ` (${schema.values.join("|")})` : "";
           console.log(`  ${key.padEnd(12)} = ${value}${valid}`);
@@ -57,12 +163,12 @@ export function registerConfigCommand(program: Command): void {
       const store = new JsonConfigStore(paths.config);
       const cfg = await store.load();
 
-      if (!VALID_KEYS.includes(key)) {
+      if (!isConfigKey(key)) {
         console.error(`Unknown key "${key}". Valid keys: ${VALID_KEYS.join(", ")}`);
         process.exit(1);
       }
 
-      const value = cfg[key as keyof UserConfig];
+      const value = cfg[key];
       if (globalOpts.json) {
         outputJson(configToJson(key, value));
       } else {
@@ -83,7 +189,7 @@ export function registerConfigCommand(program: Command): void {
       const store = new JsonConfigStore(paths.config);
       const cfg = await store.load();
 
-      if (!VALID_KEYS.includes(key)) {
+      if (!isConfigKey(key)) {
         console.error(`Unknown key "${key}". Valid keys: ${VALID_KEYS.join(", ")}`);
         process.exit(1);
       }
@@ -95,9 +201,10 @@ export function registerConfigCommand(program: Command): void {
         process.exit(1);
       }
 
-      // Validated above against CONFIG_SCHEMA + VALID_KEYS, so the assignment is sound;
-      // the double cast through unknown acknowledges that TS can't track that proof here.
-      (cfg as unknown as Record<string, string>)[key] = value;
+      if (!schema.set(cfg, value)) {
+        console.error(`Invalid value "${value}" for ${key}. Valid: ${schema.values?.join(", ") ?? "any string"}`);
+        process.exit(1);
+      }
       await store.save(cfg);
 
       if (globalOpts.json) {

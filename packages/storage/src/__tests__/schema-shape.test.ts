@@ -67,6 +67,7 @@ describe("schema shape — config", () => {
     const store = new JsonConfigStore(join(dir, "config.json"));
     const written: UserConfig = {
       motion: "brisk",
+      language: "en",
       theme: "cinnabar",
       color: "always",
       timezone: "America/Los_Angeles",

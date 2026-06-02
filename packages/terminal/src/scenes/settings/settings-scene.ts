@@ -4,7 +4,7 @@ import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
 import type { GlyphAnimator, GlyphAnimStyle } from "../../glyph-anim/types.ts";
-import type { GlyphFont, GlyphSize } from "@iching/core";
+import type { DisplayLanguage, GlyphFont, GlyphSize } from "@iching/core";
 import type { TaijituStyle } from "../home/taijitu-render.ts";
 import { renderTaijitu } from "../home/taijitu-render.ts";
 import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
@@ -22,6 +22,12 @@ import { LINE_WIDTH } from "../../glyphs.ts";
 
 const ANIM_OPTIONS: GlyphAnimStyle[] = ["dots", "noise", "radial", "sand"];
 const FONT_OPTIONS: GlyphFont[] = ["kaiti", "libian", "heiti"];
+const LANGUAGE_OPTIONS: DisplayLanguage[] = ["zh-Hans", "zh-Hant", "en"];
+const LANGUAGE_LABELS: Record<DisplayLanguage, string> = {
+  "zh-Hans": "简",
+  "zh-Hant": "繁",
+  en: "EN",
+};
 const TAIJITU_OPTIONS: TaijituStyle[] = ["dots", "dense"];
 const CAST_METHOD_OPTIONS = ["coin", "yarrow"] as const;
 const CAST_MODE_OPTIONS = ["auto", "manual"] as const;
@@ -34,6 +40,7 @@ interface SettingRow {
 
 export interface SettingsValues {
   theme: ThemeName;
+  language: DisplayLanguage;
   glyphAnim: GlyphAnimStyle;
   glyphFont: GlyphFont;
   taijituStyle: TaijituStyle;
@@ -94,6 +101,7 @@ export class SettingsScene implements Scene {
     this.values = { ...initial };
     this.rows = [
       { label: "Theme",           options: [...THEME_NAMES],         selected: Math.max(0, THEME_NAMES.indexOf(initial.theme)) },
+      { label: "Language",        options: LANGUAGE_OPTIONS.map((lang) => LANGUAGE_LABELS[lang]), selected: Math.max(0, LANGUAGE_OPTIONS.indexOf(initial.language)) },
       { label: "Taijitu",         options: [...TAIJITU_OPTIONS],     selected: Math.max(0, TAIJITU_OPTIONS.indexOf(initial.taijituStyle)) },
       { label: "Glyph Animation", options: [...ANIM_OPTIONS],        selected: Math.max(0, ANIM_OPTIONS.indexOf(initial.glyphAnim)) },
       { label: "Font",            options: [...FONT_OPTIONS],        selected: Math.max(0, FONT_OPTIONS.indexOf(initial.glyphFont)) },
@@ -106,11 +114,12 @@ export class SettingsScene implements Scene {
   getValues(): SettingsValues {
     return {
       theme: THEME_NAMES[this.rows[0].selected] ?? "bone",
-      taijituStyle: TAIJITU_OPTIONS[this.rows[1].selected] ?? "dots",
-      glyphAnim: ANIM_OPTIONS[this.rows[2].selected] ?? "dots",
-      glyphFont: FONT_OPTIONS[this.rows[3].selected] ?? "kaiti",
-      castMethod: CAST_METHOD_OPTIONS[this.rows[4].selected] ?? "coin",
-      castMode: CAST_MODE_OPTIONS[this.rows[5].selected] ?? "auto",
+      language: LANGUAGE_OPTIONS[this.rows[1].selected] ?? "zh-Hant",
+      taijituStyle: TAIJITU_OPTIONS[this.rows[2].selected] ?? "dots",
+      glyphAnim: ANIM_OPTIONS[this.rows[3].selected] ?? "dots",
+      glyphFont: FONT_OPTIONS[this.rows[4].selected] ?? "kaiti",
+      castMethod: CAST_METHOD_OPTIONS[this.rows[5].selected] ?? "coin",
+      castMode: CAST_MODE_OPTIONS[this.rows[6].selected] ?? "auto",
     };
   }
 

@@ -19,6 +19,7 @@ describe("JsonConfigStore", () => {
 
     expect(config).toEqual({
       motion: "default",
+      language: "zh-Hant",
       theme: "bone",
       color: "auto",
       timezone: "system",
@@ -33,6 +34,7 @@ describe("JsonConfigStore", () => {
   test("save then load round-trip with non-default cast settings", async () => {
     const custom: UserConfig = {
       motion: "brisk",
+      language: "en",
       theme: "bone",
       color: "never",
       timezone: "America/New_York",
@@ -57,6 +59,7 @@ describe("JsonConfigStore", () => {
     const config = await store.load();
     expect(config).toEqual({
       motion: "deep",
+      language: "zh-Hant",
       theme: "bone",
       color: "auto",
       timezone: "system",
@@ -93,5 +96,21 @@ describe("JsonConfigStore", () => {
     await writeFile(join(dir, "config.json"), JSON.stringify({ taijituStyle: "yangDense" }), "utf-8");
     const b = await store.load();
     expect(b.taijituStyle).toBe("dense");
+  });
+
+  test("load defaults invalid language values", async () => {
+    await writeFile(join(dir, "config.json"), JSON.stringify({ language: "klingon" }), "utf-8");
+    const loaded = await store.load();
+    expect(loaded.language).toBe("zh-Hant");
+  });
+
+  test("load accepts display language aliases from hand-edited config", async () => {
+    await writeFile(join(dir, "config.json"), JSON.stringify({ language: "简" }), "utf-8");
+    const simplified = await store.load();
+    expect(simplified.language).toBe("zh-Hans");
+
+    await writeFile(join(dir, "config.json"), JSON.stringify({ language: "EN" }), "utf-8");
+    const english = await store.load();
+    expect(english.language).toBe("en");
   });
 });
