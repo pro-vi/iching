@@ -150,6 +150,7 @@ async function main() {
           const config = await configStore.load();
           const settingsScene = new SettingsScene({
             theme: config.theme,
+            language: config.language,
             taijituStyle: config.taijituStyle,
             glyphAnim: config.glyphAnim,
             glyphFont: config.glyphFont,
@@ -162,6 +163,7 @@ async function main() {
             const updated = settingsScene.getValues();
             const newConfig = await configStore.load();
             newConfig.theme = updated.theme;
+            newConfig.language = updated.language;
             newConfig.taijituStyle = updated.taijituStyle;
             newConfig.glyphAnim = updated.glyphAnim;
             newConfig.glyphFont = updated.glyphFont;

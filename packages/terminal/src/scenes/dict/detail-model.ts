@@ -1,11 +1,17 @@
 // DetailModel — scroll position, focused section, selected derived link
 
-import { type HexagramDetail, type GlyphEntry, buildHexagramDetail } from "@iching/core";
+import {
+  type HexagramDetail,
+  type GlyphEntry,
+  type DerivedType,
+  buildHexagramDetail,
+} from "@iching/core";
 import type { GlyphAnimator } from "../../glyph-anim/types.ts";
 
 export type DetailFocus = "content" | "derived";
 
 export interface DerivedLink {
+  op: DerivedType;
   label: string;
   labelCn: string;
   kw: number;
@@ -59,6 +65,7 @@ export class DetailModel {
     const d = this.detail;
     this.derivedLinks = [
       {
+        op: "nuclear",
         label: "Nuclear",
         labelCn: "互卦",
         kw: d.nuclear.kw,
@@ -67,6 +74,7 @@ export class DetailModel {
         ename: d.nuclear.gua.ename,
       },
       {
+        op: "polarity",
         label: "Polarity",
         labelCn: "錯卦",
         kw: d.polarity.kw,
@@ -75,6 +83,7 @@ export class DetailModel {
         ename: d.polarity.gua.ename,
       },
       {
+        op: "mirror",
         label: "Mirror",
         labelCn: "綜卦",
         kw: d.mirror.kw,
@@ -83,6 +92,7 @@ export class DetailModel {
         ename: d.mirror.gua.ename,
       },
       {
+        op: "diagonal",
         label: "Diagonal",
         labelCn: "對角",
         kw: d.diagonal.kw,
@@ -120,5 +130,18 @@ export class DetailModel {
 
   selectedDerivedKW(): number {
     return this.derivedLinks[this.derivedCursor].kw;
+  }
+
+  selectedShuoguaChapter(): number | undefined {
+    const op = this.derivedLinks[this.derivedCursor].op;
+    return this.detail.connections.shuoguaCitations.find(
+      (citation) => citation.op === op,
+    )?.chapter;
+  }
+
+  selectedShuoguaCitation(): { chapter: number; op: DerivedType } | undefined {
+    const op = this.derivedLinks[this.derivedCursor].op;
+    const chapter = this.selectedShuoguaChapter();
+    return chapter === undefined ? undefined : { chapter, op };
   }
 }

@@ -53,13 +53,14 @@ describe("config command", () => {
     await rm(dataDir, { recursive: true, force: true });
   });
 
-  test("list shows every persisted key, including castMethod, castMode, and taijituStyle", async () => {
+  test("list shows every persisted key, including language and cast settings", async () => {
     const { exitCode, stdout } = await runCli(dataDir, ["config", "list"]);
     expect(exitCode).toBe(0);
     // Every field that JsonConfigStore.DEFAULT_CONFIG persists must be visible.
     for (const key of [
       "theme",
       "motion",
+      "language",
       "color",
       "timezone",
       "glyphAnim",
@@ -76,6 +77,12 @@ describe("config command", () => {
     const { exitCode, stdout } = await runCli(dataDir, ["config", "get", "castMode"]);
     expect(exitCode).toBe(0);
     expect(stdout.trim()).toBe("auto");
+  }, 20_000);
+
+  test("get language returns the default value", async () => {
+    const { exitCode, stdout } = await runCli(dataDir, ["config", "get", "language"]);
+    expect(exitCode).toBe(0);
+    expect(stdout.trim()).toBe("zh-Hant");
   }, 20_000);
 
   test("get taijituStyle returns the default value", async () => {
@@ -105,6 +112,14 @@ describe("config command", () => {
     expect(getResult.stdout.trim()).toBe("yarrow");
   }, 20_000);
 
+  test("set language en persists, reload reads en", async () => {
+    const setResult = await runCli(dataDir, ["config", "set", "language", "en"]);
+    expect(setResult.exitCode).toBe(0);
+    const getResult = await runCli(dataDir, ["config", "get", "language"]);
+    expect(getResult.exitCode).toBe(0);
+    expect(getResult.stdout.trim()).toBe("en");
+  }, 20_000);
+
   test("set castMode rejects yarrow (now out of castMode's domain)", async () => {
     const { exitCode, stderr } = await runCli(dataDir, ["config", "set", "castMode", "yarrow"]);
     expect(exitCode).not.toBe(0);
@@ -132,6 +147,12 @@ describe("config command", () => {
 
   test("set taijituStyle rejects invalid value", async () => {
     const { exitCode, stderr } = await runCli(dataDir, ["config", "set", "taijituStyle", "outline"]);
+    expect(exitCode).not.toBe(0);
+    expect(stderr.toLowerCase()).toContain("invalid value");
+  }, 20_000);
+
+  test("set language rejects invalid value", async () => {
+    const { exitCode, stderr } = await runCli(dataDir, ["config", "set", "language", "latin"]);
     expect(exitCode).not.toBe(0);
     expect(stderr.toLowerCase()).toContain("invalid value");
   }, 20_000);

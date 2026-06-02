@@ -137,6 +137,11 @@ export class DetailScene implements Scene {
       const kw = this.model.selectedDerivedKW();
       return { type: "openDetail", kw };
     }
+
+    if (key.type === "char" && key.char === "s" && this.model.focus === "derived") {
+      const citation = this.model.selectedShuoguaCitation();
+      if (citation) return { type: "openShuoguaChapter", ...citation };
+    }
   }
 
   /** Expose model for testing */

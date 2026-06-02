@@ -12,3 +12,6 @@ publish/iching.js
 .prov/
 logs/
 .research/
+/data-acquisition/
+# Local JSON -> TS acquisition tooling depends on ignored /data-acquisition inputs.
+/scripts/data-acquisition/

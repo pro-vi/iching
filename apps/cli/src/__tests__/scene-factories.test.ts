@@ -8,7 +8,12 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { JsonlJournalStore } from "@iching/storage";
-import { BrowseScene, DetailScene, JournalScene } from "@iching/terminal";
+import {
+  BrowseScene,
+  DetailScene,
+  JournalScene,
+  ShuoGuaChapterScene,
+} from "@iching/terminal";
 import {
   makeBrowseFactory,
   makeJournalFactory,
@@ -42,6 +47,13 @@ describe("makeBrowseFactory", () => {
     expect(factory({ type: "openJournal" })).toBeNull();
     expect(factory({ type: "openSettings" })).toBeNull();
   });
+
+  test("typed openShuoguaChapter signal returns ShuoGuaChapterScene", () => {
+    const factory = makeBrowseFactory({ journal });
+    const scene = factory({ type: "openShuoguaChapter", chapter: 3, op: "nuclear" });
+    expect(scene).toBeInstanceOf(ShuoGuaChapterScene);
+    expect((scene as ShuoGuaChapterScene).getOp()).toBe("nuclear");
+  });
 });
 
 describe("makeJournalFactory", () => {
@@ -71,6 +83,17 @@ describe("makeJournalFactory", () => {
     });
     const scene = factory({ type: "openDictionary" });
     expect(scene).toBeInstanceOf(BrowseScene);
+  });
+
+  test("typed openShuoguaChapter returns ShuoGuaChapterScene", () => {
+    const factory = makeJournalFactory({
+      journal,
+      entries: [],
+      session: { cols: 80, rows: 24 },
+    });
+    const scene = factory({ type: "openShuoguaChapter", chapter: 6, op: "mirror" });
+    expect(scene).toBeInstanceOf(ShuoGuaChapterScene);
+    expect((scene as ShuoGuaChapterScene).getOp()).toBe("mirror");
   });
 
   test("typed openJournal resets to JournalScene (j-from-replay path)", () => {

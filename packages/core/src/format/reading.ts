@@ -4,13 +4,13 @@ import { GUA } from "../data/gua.js";
 import { QUOTE_STYLES } from "../data/trigrams.js";
 import { formatTrigrams } from "../identify/structure.js";
 
-/** Unbiased random quote style for derived hexagrams (excludes "st"). */
+/** Unbiased random quote style for derived hexagrams — uses QUOTE_STYLES. */
 export function getRandomQuoteStyle(source: RandomSource): QuoteStyle {
   let byte: number;
   do {
     byte = source.nextBytes(1)[0];
   } while (byte >= 250);
-  return QUOTE_STYLES[byte % 5] as QuoteStyle;
+  return QUOTE_STYLES[byte % 5];
 }
 
 /** Format full reading with optional transformation */
@@ -28,7 +28,9 @@ export function formatReading(
       middle += ` → ${formatTrigrams(structure.becoming)}`;
     }
   } else {
-    middle = g[style];
+    // Optional Style keys ("gc") may be undefined until backfill — fall
+    // through to empty string so callers always get a string back.
+    middle = g[style] ?? "";
   }
 
   let out = `${g.u} ${g.n} (${g.p}) — ${middle}`;

@@ -163,4 +163,5 @@ export { BrowseScene } from "./scenes/dict/browse-scene.ts";
 export { BrowseModel } from "./scenes/dict/browse-model.ts";
 export { DetailScene, type DetailGlyphConfig } from "./scenes/dict/detail-scene.ts";
 export { DetailModel } from "./scenes/dict/detail-model.ts";
+export { ShuoGuaChapterScene } from "./scenes/dict/shuogua-chapter-scene.ts";
 export { wordWrap } from "./scenes/dict/word-wrap.ts";

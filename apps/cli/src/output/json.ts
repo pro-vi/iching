@@ -42,6 +42,7 @@ export function castToJson(
       diagonal: cast.diagonal,
     },
     commentary: {
+      ...(primary.gc !== undefined ? { gc: primary.gc } : {}),
       dx: primary.dx,
       tu: primary.tu,
       en: primary.en,
@@ -63,6 +64,7 @@ export function hexagramToJson(
     symbol: hex.u,
     lines: hex.l,
     commentary: {
+      ...(hex.gc !== undefined ? { gc: hex.gc } : {}),
       dx: hex.dx,
       tu: hex.tu,
       en: hex.en,

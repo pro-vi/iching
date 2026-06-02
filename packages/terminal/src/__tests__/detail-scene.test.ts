@@ -79,6 +79,13 @@ describe("DetailScene", () => {
     expect(result.kw).toBeLessThanOrEqual(64);
   });
 
+  test("s on derived opens the selected 說卦 chapter", () => {
+    const scene = new DetailScene(1);
+    scene.handleKey({ type: "tab" }, makeCtx()); // focus derived
+    const signal = scene.handleKey({ type: "char", char: "s" }, makeCtx());
+    expect(signal).toEqual({ type: "openShuoguaChapter", chapter: 3, op: "nuclear" });
+  });
+
   test("setHistory updates model", () => {
     const scene = new DetailScene(1);
     scene.setHistory(3, "2026-03-28");
