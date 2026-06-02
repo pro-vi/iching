@@ -82,7 +82,7 @@ describe("config command", () => {
   test("get language returns the default value", async () => {
     const { exitCode, stdout } = await runCli(dataDir, ["config", "get", "language"]);
     expect(exitCode).toBe(0);
-    expect(stdout.trim()).toBe("zh-Hant");
+    expect(stdout.trim()).toBe("en");
   }, 20_000);
 
   test("get taijituStyle returns the default value", async () => {

@@ -22,11 +22,11 @@ import { LINE_WIDTH } from "../../glyphs.ts";
 
 const ANIM_OPTIONS: GlyphAnimStyle[] = ["dots", "noise", "radial", "sand"];
 const FONT_OPTIONS: GlyphFont[] = ["kaiti", "libian", "heiti"];
-const LANGUAGE_OPTIONS: DisplayLanguage[] = ["zh-Hans", "zh-Hant", "en"];
+const LANGUAGE_OPTIONS: DisplayLanguage[] = ["en", "zh-Hant", "zh-Hans"];
 const LANGUAGE_LABELS: Record<DisplayLanguage, string> = {
+  en: "EN",
   "zh-Hans": "简",
   "zh-Hant": "繁",
-  en: "EN",
 };
 const TAIJITU_OPTIONS: TaijituStyle[] = ["dots", "dense"];
 const CAST_METHOD_OPTIONS = ["coin", "yarrow"] as const;
@@ -114,7 +114,7 @@ export class SettingsScene implements Scene {
   getValues(): SettingsValues {
     return {
       theme: THEME_NAMES[this.rows[0].selected] ?? "bone",
-      language: LANGUAGE_OPTIONS[this.rows[1].selected] ?? "zh-Hant",
+      language: LANGUAGE_OPTIONS[this.rows[1].selected] ?? "en",
       taijituStyle: TAIJITU_OPTIONS[this.rows[2].selected] ?? "dots",
       glyphAnim: ANIM_OPTIONS[this.rows[3].selected] ?? "dots",
       glyphFont: FONT_OPTIONS[this.rows[4].selected] ?? "kaiti",

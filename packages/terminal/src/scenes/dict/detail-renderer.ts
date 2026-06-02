@@ -24,7 +24,7 @@ export interface DetailRenderOptions {
   language?: DisplayLanguage;
 }
 
-const DEFAULT_LANGUAGE: DisplayLanguage = "zh-Hant";
+const DEFAULT_LANGUAGE: DisplayLanguage = "en";
 
 const SIMPLIFIED_CHARS: Record<string, string> = {
   "兌": "兑",

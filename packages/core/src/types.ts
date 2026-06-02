@@ -9,7 +9,7 @@ export type Style = "dx" | "tu" | "en" | "te" | "w" | "st";
 export type QuoteStyle = Exclude<Style, "st">;
 
 /** Display language preference. Text coverage is incremental per surface. */
-export type DisplayLanguage = "zh-Hans" | "zh-Hant" | "en";
+export type DisplayLanguage = "en" | "zh-Hant" | "zh-Hans";
 
 /** Hexagram entry in GUA array */
 export interface Hexagram {

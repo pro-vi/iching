@@ -7,7 +7,7 @@ function makeCtx(cols = 80, rows = 24): SceneContext {
   return { cols, rows, done: false, colorSupport: "none" };
 }
 
-function makeScene(language: "zh-Hans" | "zh-Hant" | "en" = "zh-Hant"): SettingsScene {
+function makeScene(language: "zh-Hans" | "zh-Hant" | "en" = "en"): SettingsScene {
   return new SettingsScene({
     theme: "bone",
     language,
@@ -38,9 +38,7 @@ describe("SettingsScene language", () => {
     scene.render(buf, ctx);
     const text = bufferText(buf);
     expect(text).toContain("Language");
-    expect(text).toContain("简");
-    expect(text).toContain("繁");
-    expect(text).toContain("EN");
+    expect(text).toContain("[EN]  繁  简");
   });
 
   test("left/right changes the language row", () => {
@@ -48,6 +46,6 @@ describe("SettingsScene language", () => {
     const ctx = makeCtx();
     scene.handleKey({ type: "arrow", direction: "down" }, ctx);
     scene.handleKey({ type: "arrow", direction: "right" }, ctx);
-    expect(scene.getValues().language).toBe("en");
+    expect(scene.getValues().language).toBe("zh-Hans");
   });
 });

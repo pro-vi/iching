@@ -19,7 +19,7 @@ function isOneOf<const T extends readonly string[]>(
 const THEME_VALUES = ["ink", "bone", "cinnabar", "jade", "river"] as const;
 const MOTION_VALUES = ["default", "brisk", "deep", "reduced"] as const;
 const COLOR_VALUES = ["auto", "always", "never"] as const;
-const LANGUAGE_VALUES = ["zh-Hans", "zh-Hant", "en"] as const;
+const LANGUAGE_VALUES = ["en", "zh-Hant", "zh-Hans"] as const;
 const GLYPH_ANIM_VALUES = ["noise", "dots", "radial", "sand"] as const;
 const GLYPH_FONT_VALUES = ["kaiti", "libian", "heiti"] as const;
 const TAIJITU_STYLE_VALUES = ["dots", "dense"] as const;
@@ -47,7 +47,7 @@ const CONFIG_SCHEMA: Record<keyof UserConfig, ConfigEntry> = {
   },
   language: {
     values: LANGUAGE_VALUES,
-    description: "Display language (简, 繁, or English)",
+    description: "Display language (English, 繁, or 简)",
     set: (cfg, value) => {
       if (!isOneOf(LANGUAGE_VALUES, value)) return false;
       cfg.language = value;

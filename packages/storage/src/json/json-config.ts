@@ -4,7 +4,7 @@ import type { ConfigStore } from "../config-store.js";
 import { atomicWriteJson } from "./atomic-write.js";
 
 const MOTION_OPTIONS = ["default", "brisk", "deep", "reduced"] as const;
-const LANGUAGE_OPTIONS = ["zh-Hans", "zh-Hant", "en"] as const;
+const LANGUAGE_OPTIONS = ["en", "zh-Hant", "zh-Hans"] as const;
 const THEME_OPTIONS = ["ink", "bone", "cinnabar", "jade", "river"] as const;
 const COLOR_OPTIONS = ["auto", "always", "never"] as const;
 const GLYPH_ANIM_OPTIONS = ["noise", "dots", "radial", "sand"] as const;
@@ -15,7 +15,7 @@ const CAST_MODE_OPTIONS = ["auto", "manual"] as const;
 
 const DEFAULT_CONFIG: UserConfig = {
   motion: "default",
-  language: "zh-Hant",
+  language: "en",
   theme: "bone",
   color: "auto",
   timezone: "system",

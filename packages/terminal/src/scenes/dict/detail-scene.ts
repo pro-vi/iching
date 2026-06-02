@@ -26,7 +26,7 @@ export class DetailScene implements Scene {
   constructor(
     kw: number,
     glyphConfig?: DetailGlyphConfig,
-    language: DisplayLanguage = "zh-Hant",
+    language: DisplayLanguage = "en",
   ) {
     this.model = new DetailModel(kw);
     this.glyphConfig = glyphConfig;

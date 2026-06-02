@@ -19,7 +19,7 @@ describe("JsonConfigStore", () => {
 
     expect(config).toEqual({
       motion: "default",
-      language: "zh-Hant",
+      language: "en",
       theme: "bone",
       color: "auto",
       timezone: "system",
@@ -59,7 +59,7 @@ describe("JsonConfigStore", () => {
     const config = await store.load();
     expect(config).toEqual({
       motion: "deep",
-      language: "zh-Hant",
+      language: "en",
       theme: "bone",
       color: "auto",
       timezone: "system",
@@ -101,7 +101,7 @@ describe("JsonConfigStore", () => {
   test("load defaults invalid language values", async () => {
     await writeFile(join(dir, "config.json"), JSON.stringify({ language: "klingon" }), "utf-8");
     const loaded = await store.load();
-    expect(loaded.language).toBe("zh-Hant");
+    expect(loaded.language).toBe("en");
   });
 
   test("load accepts display language aliases from hand-edited config", async () => {
