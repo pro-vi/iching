@@ -10,15 +10,15 @@ import { assembleCast } from "./cast.js";
  * (round 1) or 4 or 8 (rounds 2-3). After three rounds the remaining pile
  * divided by 4 gives the line value 6/7/8/9.
  *
- * The split point is drawn uniformly over [1, N-1] — the standard computational
- * model of a physical division. With the `mod 4` (0 → 4) counting rule, round 1
- * approximates P(setAside=5) = 3/4 (the "few" outcome) — actual is 37/48 ≈ 0.771
- * over uniform [1, 48] — and rounds 2-3 are similarly close (residue-class
- * counts in finite [1, N-1] make "few" slightly more likely than 1/2 — about
- * 51-52%). The resulting line distribution therefore *approximates* the
- * textbook 6: 1/16, 7: 5/16, 8: 7/16, 9: 3/16 — asymmetry and ordering are
- * preserved, but exact textbook probabilities would require sampling the round
- * outcome directly rather than the split point.
+ * Auto yarrow samples the visible split point from a canonical domain that
+ * preserves the textbook yarrow probabilities without making the split
+ * decorative. Round 1 samples k in [1, 44], giving setAside 5:9 as 3:1.
+ * Rounds 2-3 sample k in [1, N-4], giving setAside 4:8 as 1:1. The transcript
+ * remains causal: splitAt -> remainders -> setAside -> remaining -> line.
+ *
+ * If a split point is supplied explicitly, it is treated as an authored cut and
+ * may use the full physical interval [1, N-1]. Manual yarrow uses that path, so
+ * its distribution depends on how the operator chooses cuts.
  */
 
 /** One division round of the yarrow ritual. */
@@ -61,6 +61,12 @@ function randomInt(source: RandomSource, maxExclusive: number): number {
   }
 }
 
+function autoSplitCount(startCount: number): number {
+  if (startCount === 49) return 44;
+  if (startCount % 4 === 0 && startCount >= 8) return startCount - 4;
+  return startCount - 1;
+}
+
 /**
  * Count a heap by fours.
  *
@@ -81,8 +87,7 @@ function countByFours(heap: number): number {
  * Run one division round on a pile of `startCount` stalks.
  *
  * If `opts.splitAt` is provided, use it directly (operator-authored cut);
- * otherwise sample uniformly from `[1, startCount - 1]`. The H4 manual mode
- * authors round 1's splitAt; rounds 2-3 always sample.
+ * otherwise sample the auto-mode split point from the canonical yarrow domain.
  */
 export function castYarrowRound(
   source: RandomSource,
@@ -97,7 +102,7 @@ export function castYarrowRound(
     }
     splitAt = k;
   } else {
-    splitAt = 1 + randomInt(source, startCount - 1);
+    splitAt = 1 + randomInt(source, autoSplitCount(startCount));
   }
   const leftHeap = splitAt;
   const rightHeap = startCount - splitAt - 1; // one stalk taken from the right
@@ -130,8 +135,8 @@ export function lineFromValue(value: LineValue): Line {
 
 /**
  * Cast a single line via three yarrow rounds, returning the full transcript.
- * If `opts.firstSplitAt` is provided, round 1 uses it as the cut point
- * (operator-authored); rounds 2-3 always sample uniformly.
+ * If `opts.firstSplitAt` is provided, round 1 uses it as an authored cut point;
+ * rounds 2-3 still use the auto-mode canonical yarrow domain.
  */
 export function castYarrowLine(
   source: RandomSource,

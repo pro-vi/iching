@@ -1,7 +1,15 @@
 import { describe, test, expect } from "bun:test";
-import { castYarrowHexagram, castYarrowLine } from "../casting/yarrow.js";
-import { SeededRandomSource } from "../random.js";
+import { castYarrowHexagram, castYarrowLine, castYarrowRound } from "../casting/yarrow.js";
+import { SeededRandomSource, TapeRandomSource } from "../random.js";
 import type { LineValue } from "../types.js";
+
+function autoDomainSize(startCount: number): number {
+  return startCount === 49 ? 44 : startCount - 4;
+}
+
+function acceptedByteLimit(maxExclusive: number): number {
+  return Math.floor(256 / maxExclusive) * maxExclusive;
+}
 
 describe("castYarrowHexagram", () => {
   test("produces a complete Cast with seeded source", () => {
@@ -74,13 +82,14 @@ describe("castYarrowLine — firstSplitAt authoring (H4 manual mode)", () => {
     expect(result.rounds[0].splitAt).toBe(24);
   });
 
-  test("rounds 2 and 3 still sample uniformly from [1, N-1]", () => {
-    const source = new SeededRandomSource(99);
+  test("rounds 2 and 3 still use the canonical auto split domain", () => {
+    const source = new TapeRandomSource(new Uint8Array([36, 32]));
     const result = castYarrowLine(source, { firstSplitAt: 20 });
-    expect(result.rounds[1].splitAt).toBeGreaterThanOrEqual(1);
-    expect(result.rounds[1].splitAt).toBeLessThanOrEqual(result.rounds[1].startCount - 1);
-    expect(result.rounds[2].splitAt).toBeGreaterThanOrEqual(1);
-    expect(result.rounds[2].splitAt).toBeLessThanOrEqual(result.rounds[2].startCount - 1);
+
+    expect(result.rounds[1].startCount).toBe(40);
+    expect(result.rounds[1].splitAt).toBe(1);
+    expect(result.rounds[2].startCount).toBe(36);
+    expect(result.rounds[2].splitAt).toBe(1);
   });
 
   test("same seed + same firstSplitAt → identical result (determinism)", () => {
@@ -113,33 +122,75 @@ describe("castYarrowLine — firstSplitAt authoring (H4 manual mode)", () => {
 });
 
 describe("castYarrowLine — distribution", () => {
-  test("converges to the traditional yarrow distribution", () => {
-    const source = new SeededRandomSource(99);
-    const counts: Record<number, number> = { 6: 0, 7: 0, 8: 0, 9: 0 };
-    const samples = 64000;
-    for (let i = 0; i < samples; i++) {
-      counts[castYarrowLine(source).line.value]++;
+  test("auto rounds use canonical split domains through the visible splitAt", () => {
+    for (const startCount of [49, 44, 40, 36, 32]) {
+      const domain = autoDomainSize(startCount);
+
+      expect(castYarrowRound(new TapeRandomSource(new Uint8Array([0])), startCount).splitAt).toBe(1);
+      expect(
+        castYarrowRound(new TapeRandomSource(new Uint8Array([domain - 1])), startCount).splitAt,
+      ).toBe(domain);
+      expect(castYarrowRound(new TapeRandomSource(new Uint8Array([domain])), startCount).splitAt).toBe(1);
+    }
+  });
+
+  test("auto round domains produce exact textbook set-aside ratios", () => {
+    const cases: Array<{ startCount: number; expected: Record<number, number> }> = [
+      { startCount: 49, expected: { 5: 165, 9: 55 } },
+      { startCount: 44, expected: { 4: 120, 8: 120 } },
+      { startCount: 40, expected: { 4: 126, 8: 126 } },
+      { startCount: 36, expected: { 4: 128, 8: 128 } },
+      { startCount: 32, expected: { 4: 126, 8: 126 } },
+    ];
+
+    for (const { startCount, expected } of cases) {
+      const counts: Record<number, number> = {};
+      const limit = acceptedByteLimit(autoDomainSize(startCount));
+      for (let byte = 0; byte < limit; byte++) {
+        const round = castYarrowRound(new TapeRandomSource(new Uint8Array([byte])), startCount);
+        counts[round.setAside] = (counts[round.setAside] ?? 0) + 1;
+      }
+      expect(counts).toEqual(expected);
+    }
+  });
+
+  test("auto split domains induce the exact traditional yarrow distribution", () => {
+    let states = [{ startCount: 49, weight: 1 }];
+
+    for (let i = 0; i < 3; i++) {
+      const next: typeof states = [];
+      for (const state of states) {
+        const domain = autoDomainSize(state.startCount);
+        for (let splitAt = 1; splitAt <= domain; splitAt++) {
+          const round = castYarrowRound(
+            new TapeRandomSource(new Uint8Array([])),
+            state.startCount,
+            { splitAt },
+          );
+          next.push({ startCount: round.remaining, weight: state.weight / domain });
+        }
+      }
+      states = next;
     }
 
-    // Textbook yarrow: 6 = 1/16, 7 = 5/16, 8 = 7/16, 9 = 3/16.
-    // The uniform-integer split-point model approximates this but does NOT
-    // reproduce it exactly: rounds 2-3 favor "few" slightly above 1/2, and
-    // the empty-right-heap edge case (countByFours(0) = 0) shifts more cases
-    // toward "few" — together they nudge the distribution toward higher line
-    // values by up to ~5 percentage points on the largest term. Exact textbook
-    // probabilities would require sampling the round outcome directly rather
-    // than the split point — tracked as a follow-up.
+    const distribution: Record<LineValue, number> = { 6: 0, 7: 0, 8: 0, 9: 0 };
+    for (const state of states) {
+      const value = state.startCount / 4;
+      distribution[value as LineValue] += state.weight;
+    }
+
     const target = { 6: 1 / 16, 7: 5 / 16, 8: 7 / 16, 9: 3 / 16 };
     for (const v of [6, 7, 8, 9] as const) {
-      const freq = counts[v] / samples;
-      expect(Math.abs(freq - target[v])).toBeLessThan(0.06);
+      expect(distribution[v]).toBeCloseTo(target[v], 12);
     }
+  });
 
-    // The load-bearing claim: the asymmetric ordering must hold —
-    // young yin most common, old yin rarest, with young yang and old yang
-    // between. This is what distinguishes yarrow from the symmetric coin cast.
-    expect(counts[8]).toBeGreaterThan(counts[7]);
-    expect(counts[7]).toBeGreaterThan(counts[9]);
-    expect(counts[9]).toBeGreaterThan(counts[6]);
+  test("authored manual cuts may still use the full physical split interval", () => {
+    const round = castYarrowRound(new TapeRandomSource(new Uint8Array([])), 49, { splitAt: 48 });
+
+    expect(round.splitAt).toBe(48);
+    expect(round.rightRemainder).toBe(0);
+    expect(round.setAside).toBe(5);
+    expect(round.remaining).toBe(44);
   });
 });

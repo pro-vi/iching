@@ -4,9 +4,8 @@
 // A 4-stalk-wide aperture sweeps L↔R across the current pile (49 → ~40 → ~32
 // across the line). The operator taps Space to snap the aperture; the system
 // picks a uniform-random k from the 4-stalk window and uses it as that
-// round's split. The 4-stalk width preserves the mod-4 distribution at every
-// pile size — each consecutive 4-stalk window has exactly one k where
-// k % 4 === 0 (setAside = 9 or 8) and three where it doesn't (5 or 4).
+// round's split. This preserves the authored-cut ritual arithmetic; the
+// distribution depends on where the operator snaps the aperture.
 //
 // The operator authors WHERE to cut at every round. Rounds are computed
 // incrementally as the user snaps — the line value isn't known until round 3

@@ -35,17 +35,22 @@ from attended uncertainty.** The test for whether the design works — after
 watching the default presentation, a user can say "I saw *how* the yarrow
 method produced this," not merely "I waited longer than coins."
 
-## Decided: Faithful Simulation
+## Decided: Canonical Split Simulation
 
-The casting math is a faithful 49-stalk simulation. Per line there are three
-rounds; the line value is derived from the stalks remaining after the third
-round.
+The casting math is a faithful 49-stalk counting transcript with a canonical
+auto split-point model. Per line there are three rounds; the line value is
+derived from the stalks remaining after the third round.
 
 ### Algorithm
 
 Per round, starting from a pile of `N` stalks:
 
-1. Pick a random split point `k` in `[1, N-1]` via the existing `RandomSource`.
+1. Pick a random split point `k` via the existing `RandomSource`.
+   - Auto mode uses the canonical split domain: round 1 samples `k` in
+     `[1, 44]`; rounds 2 and 3 sample `k` in `[1, N-4]`. This keeps `k` as the
+     visible entropy-sourced draw while preserving exact textbook yarrow odds.
+   - Manual mode uses the operator-authored cut in the physical interval
+     `[1, N-1]`; its distribution depends on how the operator chooses cuts.
    Left heap = `k`, right heap = `N - k`.
 2. Take one stalk from the right heap and set it aside.
 3. Count the left heap by fours; the remainder is `1-4` (a remainder of `0`
@@ -59,16 +64,16 @@ Per round, starting from a pile of `N` stalks:
 After three rounds `remaining` is one of `{24, 28, 32, 36}`; divided by 4 it
 gives the line value `{6, 7, 8, 9}`.
 
-### Distribution must be validated
+### Auto distribution must be exact
 
 The textbook yarrow distribution (1/16 : 5/16 : 7/16 : 3/16) depends on the
-probability model behind the split. A uniformly random integer `k` is the
-standard computational model and should produce it closely — but this is an
-assumption, not a guarantee.
+probability model behind the split. Auto mode must produce that distribution
+exactly without sampling the line value directly or turning the split into a
+post-hoc visual.
 
-**Requirement:** a core test samples many casts and asserts the line-value
-distribution converges to the target within tolerance. If it deviates, the fix
-belongs in the split-point model, not in the animation.
+**Requirement:** core tests enumerate the canonical auto split domains and prove
+the induced line-value distribution is exactly 1:5:7:3 over 6/7/8/9. If it
+deviates, the fix belongs in the split-point model, not in the animation.
 
 ### The transcript is the storyboard
 
@@ -285,14 +290,13 @@ Eighteen sweep-and-snap gestures per cast: one per round (3 rounds × 6 lines).
 A 4-stalk-wide aperture sweeps across the current pile (49, then ~40, then
 ~32, etc.). The operator taps Space to snap the aperture at a chosen
 position; the system picks a uniform-random k from inside the 4-stalk window
-and uses it as that round's split. The 4-stalk width preserves the mod-4
-distribution exactly — every consecutive 4-stalk window has one k where
-`k % 4 === 0` and three where it doesn't, matching the textbook 1:3 setAside
-ratio (independently of pile size).
+and uses it as that round's split.
 
-The operator authors **where** to cut at every round, without authoring the
-modulo outcome. The substance's natural imprecision (a real diviner's grab
-isn't precision-aimed either) is reified as the 4-stalk aperture.
+The operator authors **where** to cut at every round. The substance's natural
+imprecision (a real diviner's grab isn't precision-aimed either) is reified as
+the 4-stalk aperture. Manual mode preserves the ritual arithmetic and user
+agency, but it does not guarantee textbook line odds; its distribution depends
+on the operator's cuts.
 
 ### Line-Gate — temporal commitment (future)
 
