@@ -12,8 +12,10 @@
 // (e.g. CastScene's reveal) simply don't call these helpers.
 
 import type { CellBuffer } from "../../render/buffer.ts";
+import type { DisplayLanguage } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
+import { tr } from "../../i18n/messages.ts";
 
 const HEADER_ROW = 1;
 const FOOTER_ROW_FROM_BOTTOM = 2;
@@ -27,10 +29,11 @@ export function formatLineCounter(
   lineIdx: number,
   totalLines: number,
   round?: { idx: number; total: number },
+  language: DisplayLanguage = "en",
 ): string {
-  const base = `line ${lineIdx + 1}/${totalLines}`;
+  const base = `${tr(language, "chrome.line")} ${lineIdx + 1}/${totalLines}`;
   if (!round || round.total <= 1) return base;
-  return `${base}  ·  round ${round.idx + 1}/${round.total}`;
+  return `${base}  ·  ${tr(language, "chrome.round")} ${round.idx + 1}/${round.total}`;
 }
 
 /** Place the position counter at row 1, centered, dim tertiary color. */

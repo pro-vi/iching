@@ -58,6 +58,9 @@ export {
 } from "./data/trigrams.js";
 export { LARGE_GLYPHS, type GlyphFont, type GlyphSize, type GlyphEntry } from "./data/large-glyphs.js";
 
+// i18n — audited Traditional -> Simplified conversion
+export { toSimplified, SIMPLIFIED_MAP, SIMPLIFIED_EXCEPTIONS } from "./i18n/simplify.js";
+
 // Format
 export { formatReading, getRandomQuoteStyle } from "./format/reading.js";
 export { formatDerived } from "./format/derived.js";

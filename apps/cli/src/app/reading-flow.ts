@@ -98,13 +98,13 @@ export async function runReadingFlow(
     if (tossSignal?.type !== "tossCompleted") return { shouldExit: false }; // user quit before 6 lines
     cast = tossSignal.cast;
   } else if (opts.source.type === "yarrow") {
-    const yarrowScene = new YarrowScene(deps.motion);
+    const yarrowScene = new YarrowScene(deps.motion, undefined, deps.language);
     const yarrowSignal = await deps.run(yarrowScene);
     if (yarrowSignal?.type === "exit") return { shouldExit: true };
     if (yarrowSignal?.type !== "yarrowCompleted") return { shouldExit: false }; // user quit mid-ritual
     cast = yarrowSignal.cast;
   } else if (opts.source.type === "yarrow-manual") {
-    const yarrowManualScene = new YarrowManualScene(deps.motion);
+    const yarrowManualScene = new YarrowManualScene(deps.motion, undefined, deps.language);
     const yarrowSignal = await deps.run(yarrowManualScene);
     if (yarrowSignal?.type === "exit") return { shouldExit: true };
     if (yarrowSignal?.type !== "yarrowCompleted") return { shouldExit: false }; // user quit mid-ritual

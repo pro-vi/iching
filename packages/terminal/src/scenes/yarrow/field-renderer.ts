@@ -15,6 +15,8 @@ import { stringWidth } from "../../layout/measure.ts";
 import { renderLine } from "../cast/line-renderer.ts";
 import { anchorRow, LINE_ROW_OFFSETS } from "../cast/hexagram-renderer.ts";
 import { formatLineCounter, writeChromeHeader } from "../cast/ritual-chrome.ts";
+import { tr } from "../../i18n/messages.ts";
+import type { DisplayLanguage } from "@iching/core";
 import { LINE_WIDTH } from "../../glyphs.ts";
 import type { YarrowModel } from "./model.ts";
 
@@ -327,7 +329,12 @@ function renderHexagramLines(buf: CellBuffer, model: YarrowModel): void {
  * The fuse beat references `LINE_ROW_OFFSETS[activeLine]` from the
  * hexagram band — preview callers must not reach `beat === "fuse"`.
  */
-export function renderYarrowFieldStrip(buf: CellBuffer, model: YarrowModel, row: number): void {
+export function renderYarrowFieldStrip(
+  buf: CellBuffer,
+  model: YarrowModel,
+  row: number,
+  language: DisplayLanguage = "en",
+): void {
   const t = getTheme();
   const center = Math.floor(buf.width / 2);
   const areaStart = barAreaStartCol(buf);
@@ -335,7 +342,7 @@ export function renderYarrowFieldStrip(buf: CellBuffer, model: YarrowModel, row:
   // Narrow fallback — bar area is 52 cells; below ~56 the bar overflows.
   if (buf.width < 56) {
     if (model.beat !== "fuse" && model.beat !== "done") {
-      writeCentered(buf, row, `${model.fieldCount} stalks`, center, t.primary);
+      writeCentered(buf, row, `${model.fieldCount} ${tr(language, "yarrow.stalks")}`, center, t.primary);
     }
     return;
   }
@@ -421,7 +428,7 @@ export function renderYarrowFieldStrip(buf: CellBuffer, model: YarrowModel, row:
       drawTempFours(buf, row, areaStart, numQuartets, t.secondary);
       const inTray = 1 + round.leftRemainder * leftP + round.rightRemainder * rightP;
       drawTray(buf, row, areaStart, inTray, t.accent);
-      writeCentered(buf, row + 1, `set aside ${round.setAside}`, center, t.tertiary, true);
+      writeCentered(buf, row + 1, `${tr(language, "yarrow.setAside")} ${round.setAside}`, center, t.tertiary, true);
       break;
     }
 
@@ -561,7 +568,7 @@ function applyOperatorCursor(
 
 // ── Chrome (caption + progress label) ────────────────────────────────────────
 
-function renderChrome(buf: CellBuffer, model: YarrowModel): void {
+function renderChrome(buf: CellBuffer, model: YarrowModel, language: DisplayLanguage): void {
   const t = getTheme();
   const center = Math.floor(buf.width / 2);
 
@@ -572,15 +579,19 @@ function renderChrome(buf: CellBuffer, model: YarrowModel): void {
   if (model.activeLine >= 0 && model.activeLine < 6 && !model.hexagramComplete) {
     writeChromeHeader(
       buf,
-      formatLineCounter(model.activeLine, 6, { idx: model.activeRound, total: 3 }),
+      formatLineCounter(model.activeLine, 6, { idx: model.activeRound, total: 3 }, language),
     );
   }
 }
 
 // ── Entry ────────────────────────────────────────────────────────────────────
 
-export function renderYarrowField(buf: CellBuffer, model: YarrowModel): void {
+export function renderYarrowField(
+  buf: CellBuffer,
+  model: YarrowModel,
+  language: DisplayLanguage = "en",
+): void {
   renderHexagramLines(buf, model);
-  renderYarrowFieldStrip(buf, model, fieldRow(buf));
-  renderChrome(buf, model);
+  renderYarrowFieldStrip(buf, model, fieldRow(buf), language);
+  renderChrome(buf, model, language);
 }

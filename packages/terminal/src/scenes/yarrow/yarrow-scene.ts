@@ -19,6 +19,8 @@ import { YarrowModel } from "./model.ts";
 import { buildYarrowTimeline } from "./yarrow-timeline.ts";
 import { renderYarrowField } from "./field-renderer.ts";
 import { writeChromeFooter } from "../cast/ritual-chrome.ts";
+import { tr } from "../../i18n/messages.ts";
+import type { DisplayLanguage } from "@iching/core";
 
 const SPEEDS = [1, 2, 4];
 
@@ -29,12 +31,14 @@ export class YarrowScene implements Scene {
   /** Scene-controlled clock — pace control modulates how fast this advances. */
   private virtualElapsed = 0;
   private complete = false;
+  private readonly language: DisplayLanguage;
 
-  constructor(motion: MotionPreset = "default", source?: RandomSource) {
+  constructor(motion: MotionPreset = "default", source?: RandomSource, language: DisplayLanguage = "en") {
     // The cast is committed once, here — the moment the ritual begins.
+    this.language = language;
     this.model = new YarrowModel(castYarrowHexagram(source ?? new CryptoRandomSource()));
     const { timing, detail } = getYarrowTiming(motion);
-    const built = buildYarrowTimeline(this.model, timing, detail);
+    const built = buildYarrowTimeline(this.model, timing, detail, language);
     this.timeline = new TimelineRunner(built.timeline);
     this.beatOffsets = built.beatOffsets;
   }
@@ -48,8 +52,10 @@ export class YarrowScene implements Scene {
   }
 
   render(frame: CellBuffer, _ctx: SceneContext): void {
-    renderYarrowField(frame, this.model);
-    this.renderFooter(frame);
+    // Captions are baked into the timeline at construction with this.language;
+    // use the same language for the live field + footer to stay consistent.
+    renderYarrowField(frame, this.model, this.language);
+    this.renderFooter(frame, this.language);
   }
 
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
@@ -92,15 +98,15 @@ export class YarrowScene implements Scene {
     this.complete = true;
   }
 
-  private renderFooter(frame: CellBuffer): void {
+  private renderFooter(frame: CellBuffer, lang: DisplayLanguage): void {
     let text: string;
     if (this.model.hexagramComplete) {
-      text = "[space] receive the reading  ·  [esc] discard";
+      text = `[space] ${tr(lang, "verb.receiveReading")}  ·  [esc] ${tr(lang, "verb.discard")}`;
     } else if (this.model.paused) {
-      text = "[space] resume  ·  [→] step  ·  [s] skip  ·  [esc] back";
+      text = `[space] ${tr(lang, "verb.resume")}  ·  [→] ${tr(lang, "verb.step")}  ·  [s] ${tr(lang, "verb.skip")}  ·  [esc] ${tr(lang, "verb.back")}`;
     } else {
       const speed = this.model.speed > 1 ? `  ·  ${this.model.speed}×` : "";
-      text = `[space] pause  ·  [f] speed  ·  [s] skip  ·  [esc] back${speed}`;
+      text = `[space] ${tr(lang, "verb.pause")}  ·  [f] ${tr(lang, "verb.speed")}  ·  [s] ${tr(lang, "verb.skip")}  ·  [esc] ${tr(lang, "verb.back")}${speed}`;
     }
     writeChromeFooter(frame, text);
   }

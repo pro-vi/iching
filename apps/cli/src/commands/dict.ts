@@ -43,7 +43,9 @@ export function registerDictCommand(program: Command): void {
 
       const session = new TerminalSession();
       const router = new SceneRouter(initial, makeBrowseFactory(factoryDeps));
-      await router.run(session, new RealClock(), detectColorSupport());
+      // Thread config.language into the router so the BROWSE scene honors it too
+      // (not just detail via factoryDeps) — P1-b fix.
+      await router.run(session, new RealClock(), detectColorSupport(), false, config.language);
       process.exit(0);
     });
 }

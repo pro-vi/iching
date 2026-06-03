@@ -4,10 +4,12 @@ import type { CellBuffer } from "../../render/buffer.ts";
 import type { SceneContext } from "../../scene/types.ts";
 import type { DetailModel, DerivedLink } from "./detail-model.ts";
 import type { DisplayLanguage } from "@iching/core";
+import { toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth, centerPad } from "../../layout/measure.ts";
 import { wordWrap } from "./word-wrap.ts";
 import { GLYPHS } from "../../glyphs.ts";
+import { tr } from "../../i18n/messages.ts";
 
 const FOOTER_ROWS = 2;
 const PADDING = 2;
@@ -26,104 +28,6 @@ export interface DetailRenderOptions {
 
 const DEFAULT_LANGUAGE: DisplayLanguage = "en";
 
-const SIMPLIFIED_CHARS: Record<string, string> = {
-  "兌": "兑",
-  "剛": "刚",
-  "剝": "剥",
-  "勞": "劳",
-  "勝": "胜",
-  "勢": "势",
-  "化": "化",
-  "卽": "即",
-  "厲": "厉",
-  "嘆": "叹",
-  "喪": "丧",
-  "嚴": "严",
-  "壯": "壮",
-  "復": "复",
-  "恆": "恒",
-  "懼": "惧",
-  "應": "应",
-  "損": "损",
-  "敗": "败",
-  "斷": "断",
-  "旣": "既",
-  "時": "时",
-  "會": "会",
-  "極": "极",
-  "樂": "乐",
-  "傳": "传",
-  "樹": "树",
-  "歸": "归",
-  "殘": "残",
-  "沒": "没",
-  "澤": "泽",
-  "災": "灾",
-  "爲": "为",
-  "牽": "牵",
-  "獲": "获",
-  "當": "当",
-  "發": "发",
-  "盜": "盗",
-  "對": "对",
-  "矇": "蒙",
-  "禍": "祸",
-  "節": "节",
-  "終": "终",
-  "結": "结",
-  "維": "维",
-  "縣": "县",
-  "綜": "综",
-  "羅": "罗",
-  "義": "义",
-  "羣": "群",
-  "聽": "听",
-  "與": "与",
-  "處": "处",
-  "虛": "虚",
-  "號": "号",
-  "蠱": "蛊",
-  "衆": "众",
-  "裏": "里",
-  "見": "见",
-  "觀": "观",
-  "記": "记",
-  "訟": "讼",
-  "貞": "贞",
-  "貫": "贯",
-  "賁": "贲",
-  "趨": "趋",
-  "跡": "迹",
-  "輔": "辅",
-  "辭": "辞",
-  "過": "过",
-  "進": "进",
-  "遠": "远",
-  "違": "违",
-  "遯": "遁",
-  "適": "适",
-  "錯": "错",
-  "鎖": "锁",
-  "雜": "杂",
-  "離": "离",
-  "難": "难",
-  "電": "电",
-  "靈": "灵",
-  "順": "顺",
-  "頤": "颐",
-  "風": "风",
-  "飛": "飞",
-  "餘": "余",
-  "驚": "惊",
-  "體": "体",
-  "魚": "鱼",
-  "鳥": "鸟",
-  "麗": "丽",
-  "麤": "粗",
-  "龍": "龙",
-  "龜": "龟",
-};
-
 const TRIGRAM_IMAGE_ZH: Record<string, string> = {
   "乾": "天",
   "坤": "地",
@@ -140,8 +44,10 @@ function activeLanguage(options?: DetailRenderOptions): DisplayLanguage {
 }
 
 function zh(text: string, language: DisplayLanguage): string {
+  // Delegate to the audited core Traditional->Simplified converter (no naive
+  // local map). zh-Hant returns text unchanged; only zh-Hans converts.
   if (language !== "zh-Hans") return text;
-  return Array.from(text, (ch) => SIMPLIFIED_CHARS[ch] ?? ch).join("");
+  return toSimplified(text);
 }
 
 function pushWrapped(
@@ -225,7 +131,9 @@ export function buildContentLines(
     ? [
         ["Image", gua.en],
         ["Judgment", gua.te],
-        ["Wilhelm", gua.w],
+        // "Wilhelm-inspired" (not bare "Wilhelm"): gua.w is interpretive advice
+        // after Wilhelm, NOT a direct quotation (AC-010 attribution policy; C-005).
+        ["Wilhelm-inspired", gua.w],
       ]
     : [
         [zh("大象傳", language), zh(gua.dx, language)],
@@ -373,13 +281,14 @@ export function renderDetail(
   }
 
   // Footer
-  renderFooter(frame, model, ctx);
+  renderFooter(frame, model, ctx, activeLanguage(options));
 }
 
 function renderFooter(
   frame: CellBuffer,
   model: DetailModel,
   ctx: SceneContext,
+  language: DisplayLanguage,
 ): void {
   const t = getTheme();
   const sepRow = ctx.rows - 2;
@@ -389,8 +298,8 @@ function renderFooter(
 
   const keys =
     model.focus === "derived"
-      ? "[↑↓] select  ·  [enter] open  ·  [tab] scroll  ·  [esc] back"
-      : "[↑↓] scroll  ·  [tab] derived  ·  [enter] open  ·  [esc] back";
+      ? `[↑↓] ${tr(language, "verb.select")}  ·  [enter] ${tr(language, "verb.open")}  ·  [tab] ${tr(language, "verb.scroll")}  ·  [esc] ${tr(language, "verb.back")}`
+      : `[↑↓] ${tr(language, "verb.scroll")}  ·  [tab] ${tr(language, "verb.derived")}  ·  [enter] ${tr(language, "verb.open")}  ·  [esc] ${tr(language, "verb.back")}`;
 
   const indicator =
     model.contentHeight > model.viewportHeight

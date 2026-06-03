@@ -17,6 +17,7 @@ import {
   writeChromeHeader,
   writeChromeFooter,
 } from "../cast/ritual-chrome.ts";
+import { tr } from "../../i18n/messages.ts";
 import {
   type CoinState,
   INITIAL_VY,
@@ -87,18 +88,19 @@ export class TossScene implements Scene {
     }
   }
 
-  render(frame: CellBuffer, _ctx: SceneContext): void {
+  render(frame: CellBuffer, ctx: SceneContext): void {
     const t = getTheme();
+    const lang = ctx.language ?? "en";
     const h = frame.height;
     const anchor = anchorRow(h);
 
     if (this.phase === "waiting") {
       // Coin = 1 toss per line, so no sub-counter — formatLineCounter
       // omits it when round.total <= 1.
-      writeChromeHeader(frame, formatLineCounter(this.round, 6));
-      writeChromeFooter(frame, "[space] toss  ·  [esc] back");
+      writeChromeHeader(frame, formatLineCounter(this.round, 6, undefined, lang));
+      writeChromeFooter(frame, `[space] ${tr(lang, "verb.toss")}  ·  [esc] ${tr(lang, "verb.back")}`);
     } else if (this.phase === "complete") {
-      writeChromeFooter(frame, "[space] reveal  ·  [esc] discard");
+      writeChromeFooter(frame, `[space] ${tr(lang, "verb.reveal")}  ·  [esc] ${tr(lang, "verb.discard")}`);
     }
 
     // Physics coins

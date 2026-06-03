@@ -17,6 +17,7 @@ import { renderCoinSet, CoinAutoPreview } from "../cast/coin-renderer.ts";
 import { renderYarrowFieldStrip, drawApertureCursor } from "../yarrow/field-renderer.ts";
 import { YarrowAutoPreview, YarrowManualPreview } from "../yarrow/yarrow-previews.ts";
 import { LINE_WIDTH } from "../../glyphs.ts";
+import { tr, type MessageKey } from "../../i18n/messages.ts";
 
 // ── Setting definitions ──────────────────────────────────────────────
 
@@ -33,7 +34,8 @@ const CAST_METHOD_OPTIONS = ["coin", "yarrow"] as const;
 const CAST_MODE_OPTIONS = ["auto", "manual"] as const;
 
 interface SettingRow {
-  label: string;
+  /** Stable message-catalog key; the visible label is localized at render time. */
+  key: MessageKey;
   options: string[];
   selected: number;
 }
@@ -100,15 +102,15 @@ export class SettingsScene implements Scene {
   constructor(initial: SettingsValues) {
     this.values = { ...initial };
     this.rows = [
-      { label: "Theme",           options: [...THEME_NAMES],         selected: Math.max(0, THEME_NAMES.indexOf(initial.theme)) },
-      { label: "Language",        options: LANGUAGE_OPTIONS.map((lang) => LANGUAGE_LABELS[lang]), selected: Math.max(0, LANGUAGE_OPTIONS.indexOf(initial.language)) },
-      { label: "Taijitu",         options: [...TAIJITU_OPTIONS],     selected: Math.max(0, TAIJITU_OPTIONS.indexOf(initial.taijituStyle)) },
-      { label: "Glyph Animation", options: [...ANIM_OPTIONS],        selected: Math.max(0, ANIM_OPTIONS.indexOf(initial.glyphAnim)) },
-      { label: "Font",            options: [...FONT_OPTIONS],        selected: Math.max(0, FONT_OPTIONS.indexOf(initial.glyphFont)) },
-      { label: "Cast Method",     options: [...CAST_METHOD_OPTIONS], selected: Math.max(0, CAST_METHOD_OPTIONS.indexOf(initial.castMethod)) },
-      { label: "Cast Mode",       options: [...CAST_MODE_OPTIONS],   selected: Math.max(0, CAST_MODE_OPTIONS.indexOf(initial.castMode)) },
+      { key: "settings.theme",          options: [...THEME_NAMES],         selected: Math.max(0, THEME_NAMES.indexOf(initial.theme)) },
+      { key: "settings.language",       options: LANGUAGE_OPTIONS.map((lang) => LANGUAGE_LABELS[lang]), selected: Math.max(0, LANGUAGE_OPTIONS.indexOf(initial.language)) },
+      { key: "settings.taijitu",        options: [...TAIJITU_OPTIONS],     selected: Math.max(0, TAIJITU_OPTIONS.indexOf(initial.taijituStyle)) },
+      { key: "settings.glyphAnimation", options: [...ANIM_OPTIONS],        selected: Math.max(0, ANIM_OPTIONS.indexOf(initial.glyphAnim)) },
+      { key: "settings.font",           options: [...FONT_OPTIONS],        selected: Math.max(0, FONT_OPTIONS.indexOf(initial.glyphFont)) },
+      { key: "settings.castMethod",     options: [...CAST_METHOD_OPTIONS], selected: Math.max(0, CAST_METHOD_OPTIONS.indexOf(initial.castMethod)) },
+      { key: "settings.castMode",       options: [...CAST_MODE_OPTIONS],   selected: Math.max(0, CAST_MODE_OPTIONS.indexOf(initial.castMode)) },
     ];
-    this.previewKind = this.previewKindForLabel(this.rows[0]?.label);
+    this.previewKind = this.previewKindForKey(this.rows[0]?.key);
   }
 
   getValues(): SettingsValues {
@@ -182,7 +184,8 @@ export class SettingsScene implements Scene {
     let row = 2;
 
     // Title
-    const title = "Settings";
+    const lang = this.values.language;
+    const title = tr(lang, "settings.title");
     frame.writeText(row, cx - Math.floor(stringWidth(title) / 2), title, { fg: t.primary, bold: true });
     row += 1;
 
@@ -209,7 +212,7 @@ export class SettingsScene implements Scene {
       const setting = this.rows[i];
       const focused = i === this.focusedRow;
 
-      frame.writeText(row, left, setting.label, {
+      frame.writeText(row, left, tr(lang, setting.key), {
         fg: focused ? t.primary : t.secondary,
         bold: focused,
       });
@@ -239,7 +242,7 @@ export class SettingsScene implements Scene {
     // Footer is anchored to the bottom; preview lives in whatever space is left.
     const footerRow = frame.height - 2;
     const footerSepRow = footerRow - 1;
-    const footer = "[↑↓] setting  ·  [←→] option  ·  [esc] save & back";
+    const footer = `[↑↓] ${tr(lang, "verb.setting")}  ·  [←→] ${tr(lang, "verb.option")}  ·  [esc] ${tr(lang, "verb.saveBack")}`;
 
     const sectionSepRow = row;
     const previewLabelRow = row + 2;
@@ -249,7 +252,7 @@ export class SettingsScene implements Scene {
 
     if (previewAvailRows >= MIN_PREVIEW_ROWS) {
       frame.writeText(sectionSepRow, sepCol, sep, { fg: t.border });
-      frame.writeText(previewLabelRow, left, "Preview:", { fg: t.secondary });
+      frame.writeText(previewLabelRow, left, tr(lang, "settings.preview"), { fg: t.secondary });
       this.renderPreview(frame, cx, previewContentRow, previewAvailRows);
     }
 
@@ -385,9 +388,9 @@ export class SettingsScene implements Scene {
     }
   }
 
-  private previewKindForLabel(label: string | undefined): PreviewKind {
-    if (label === "Taijitu") return "taijitu";
-    if (label === "Cast Method" || label === "Cast Mode") {
+  private previewKindForKey(key: MessageKey | undefined): PreviewKind {
+    if (key === "settings.taijitu") return "taijitu";
+    if (key === "settings.castMethod" || key === "settings.castMode") {
       const { castMethod, castMode } = this.getValues();
       if (castMethod === "yarrow") {
         return castMode === "manual" ? "cast-yarrow-manual" : "cast-yarrow";
@@ -406,22 +409,22 @@ export class SettingsScene implements Scene {
   }
 
   private onFocusChanged(): void {
-    const label = this.rows[this.focusedRow]?.label;
+    const key = this.rows[this.focusedRow]?.key;
     this.resetCastPreview();
     this.previewActive = false;
-    this.previewKind = this.previewKindForLabel(label);
-    if (label === "Glyph Animation" || label === "Font") this.startPreview();
+    this.previewKind = this.previewKindForKey(key);
+    if (key === "settings.glyphAnimation" || key === "settings.font") this.startPreview();
   }
 
   private onOptionChanged(): void {
     const vals = this.getValues();
     setTheme(vals.theme);
-    const label = this.rows[this.focusedRow]?.label;
-    if (label === "Glyph Animation" || label === "Font") {
+    const key = this.rows[this.focusedRow]?.key;
+    if (key === "settings.glyphAnimation" || key === "settings.font") {
       this.startPreview();
-    } else if (label === "Cast Method" || label === "Cast Mode") {
+    } else if (key === "settings.castMethod" || key === "settings.castMode") {
       this.resetCastPreview();
-      this.previewKind = this.previewKindForLabel(label);
+      this.previewKind = this.previewKindForKey(key);
     }
   }
 

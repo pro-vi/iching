@@ -36,6 +36,8 @@ import {
   bounceAperture,
 } from "./field-renderer.ts";
 import { writeChromeFooter } from "../cast/ritual-chrome.ts";
+import { tr } from "../../i18n/messages.ts";
+import type { DisplayLanguage } from "@iching/core";
 import {
   buildYarrowRoundBeats,
   buildYarrowFuseBeat,
@@ -75,9 +77,12 @@ export class YarrowManualScene implements Scene {
   private subRunner: TimelineRunner | null = null;
   private subElapsed = 0;
 
-  constructor(motion: MotionPreset = "default", source?: RandomSource) {
+  private readonly language: DisplayLanguage;
+
+  constructor(motion: MotionPreset = "default", source?: RandomSource, language: DisplayLanguage = "en") {
     this.model = new YarrowModel(null);
     this.source = source ?? new CryptoRandomSource();
+    this.language = language;
     const resolved = getYarrowTiming(motion);
     this.timing = resolved.timing;
     this.detail = resolved.detail;
@@ -109,7 +114,7 @@ export class YarrowManualScene implements Scene {
   }
 
   render(frame: CellBuffer, _ctx: SceneContext): void {
-    renderYarrowField(frame, this.model);
+    renderYarrowField(frame, this.model, this.language);
     if (this.phase === "sweeping" || this.phase === "snapping") {
       const g = yarrowFieldGeometry(frame);
       drawApertureCursor(
@@ -117,7 +122,7 @@ export class YarrowManualScene implements Scene {
         APERTURE_WIDTH, this.currentStartCount(),
       );
     }
-    this.renderFooter(frame);
+    this.renderFooter(frame, this.language);
   }
 
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
@@ -196,7 +201,7 @@ export class YarrowManualScene implements Scene {
     // arithmetic self-evident.
     const beats: Step[] = buildYarrowRoundBeats(
       this.model, this.timing, this.detail, lineIdx, roundIdx, round,
-      { narrating: true, revealCut: false },
+      { narrating: true, revealCut: false, language: this.language },
     );
 
     if (roundIdx === ROUNDS_PER_LINE - 1) {
@@ -274,24 +279,24 @@ export class YarrowManualScene implements Scene {
     this.snapHoldMs = 0;
   }
 
-  private renderFooter(frame: CellBuffer): void {
+  private renderFooter(frame: CellBuffer, lang: DisplayLanguage): void {
     // The line/round counter already lives in the chrome header (field-
     // renderer's renderChrome at row 1). The footer carries only the
     // phase-appropriate action prompt — duplicating the position info
-    // here is dead text.
+    // here is dead text. Key-hint [key] verb form, normalized across languages.
     let text: string;
     switch (this.phase) {
       case "complete":
-        text = "[space] receive the reading  ·  [esc] discard";
+        text = `[space] ${tr(lang, "verb.receiveReading")}  ·  [esc] ${tr(lang, "verb.discard")}`;
         break;
       case "gathering":
-        text = "press [space] to begin cutting  ·  [esc] back";
+        text = `[space] ${tr(lang, "verb.beginCutting")}  ·  [esc] ${tr(lang, "verb.back")}`;
         break;
       case "sweeping":
-        text = "press [space] to cut";
+        text = `[space] ${tr(lang, "verb.cut")}`;
         break;
       case "snapping":
-        text = "cut around here";
+        text = tr(lang, "verb.cutAroundHere");
         break;
       case "playing":
         text = "";

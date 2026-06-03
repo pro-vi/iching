@@ -59,9 +59,9 @@ async function main() {
 
     // Bound runners — every call site uses the same session/clock/color/dev
     const run = (scene: Parameters<typeof runScene>[0]) =>
-      runScene(scene, session, clock, colorSupport, devMode);
+      runScene(scene, session, clock, colorSupport, devMode, language);
     const runRouter = (router: InstanceType<typeof SceneRouter>) =>
-      router.run(session, clock, colorSupport, devMode);
+      router.run(session, clock, colorSupport, devMode, language);
 
     // Home menu loop — keeps returning to home until exit
     let running = true;
