@@ -5,9 +5,11 @@ import { YarrowModel } from "../scenes/yarrow/model.ts";
 import {
   brailleCell,
   brailleStrand,
+  drawApertureCursor,
   renderYarrowField,
   renderYarrowFieldStrip,
 } from "../scenes/yarrow/field-renderer.ts";
+import { setTheme } from "../color/theme.ts";
 
 function model(seed = 1): YarrowModel {
   return new YarrowModel(castYarrowHexagram(new SeededRandomSource(seed)));
@@ -137,8 +139,8 @@ describe("renderYarrowField — sequential count + tally", () => {
 
 describe("renderYarrowField — operator cursor overlay", () => {
   test("cursor renders without error during all active beats", () => {
-    // The cursor highlights via color only (accent vs primary); bold was
-    // dropped to avoid the "thinner stalk" artifact in some terminals.
+    // The cursor highlights without bold; bold was dropped to avoid the
+    // "thinner stalk" artifact in some terminals.
     // These tests confirm rendering doesn't throw and the field row has
     // content; visual verification of the highlight happens via recording.
     for (const beat of ["divide", "takeOne", "count", "tally"] as const) {
@@ -168,6 +170,27 @@ describe("renderYarrowField — operator cursor overlay", () => {
     renderYarrowFieldStrip(buf, m, 10);
     expect(rowHasContent(buf, 10)).toBe(true);
     expect(rowHasContent(buf, 20)).toBe(false);
+  });
+
+  test("manual aperture cursor is visibly highlighted in ink theme", () => {
+    setTheme("ink");
+    try {
+      const buf = new CellBuffer(80, 24);
+
+      drawApertureCursor(buf, 10, 40, 10);
+
+      const highlighted = buf.getCell(10, 25);
+      expect(highlighted.char).toBe("│");
+      expect(highlighted.fg).toBe("#606060");
+      expect(highlighted.bg).toBeUndefined();
+
+      const rightBracket = buf.getCell(10, 29);
+      expect(rightBracket.char).toBe("╡");
+      expect(rightBracket.fg).toBe("#606060");
+      expect(rightBracket.bg).toBeUndefined();
+    } finally {
+      setTheme("bone");
+    }
   });
 
   test("cursor is hidden during gather, fuse, carry (no extra overlay)", () => {

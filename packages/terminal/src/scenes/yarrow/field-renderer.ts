@@ -9,6 +9,7 @@
 // the form.
 
 import type { CellBuffer } from "../../render/buffer.ts";
+import type { StyledCell } from "../../render/cell.ts";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { renderLine } from "../cast/line-renderer.ts";
@@ -101,7 +102,7 @@ export function yarrowFieldGeometry(buf: CellBuffer): {
 
 /**
  * Draw the H6 sweeping aperture — `apertureWidth` consecutive stalks
- * starting at `apertureLeft` (a 1-indexed k value), recolored to accent
+ * starting at `apertureLeft` (a 1-indexed k value), highlighted
  * and flanked by bracket glyphs (`╞`, `╡`) on the cells just outside
  * the window. Color alone reads too subtle when the bar is downscaled
  * or when the sweep freezes after snap; the brackets give a non-color
@@ -110,9 +111,7 @@ export function yarrowFieldGeometry(buf: CellBuffer): {
  * wide but the outer boundary is unmistakable.
  *
  * The user authors WHERE to cut (which window); the system picks the
- * exact stalk inside the window via RNG, preserving yarrow's mod-4
- * distribution structurally (every 4-stalk window has exactly one
- * k % 4 === 0 and three non-zero).
+ * exact stalk inside the window via RNG.
  */
 export function drawApertureCursor(
   buf: CellBuffer,
@@ -122,13 +121,13 @@ export function drawApertureCursor(
   apertureWidth: number = 4,
   barWidth: number = TOTAL_STALKS,
 ): void {
-  const accent = getTheme().accent;
+  const style = cursorStalkStyle();
   const barStart = center - Math.floor(barWidth / 2);
-  // Inner stalks: recolor each cell to accent.
+  // Inner stalks: restyle each cell into the active cursor idiom.
   for (let i = 0; i < apertureWidth; i++) {
     const k = apertureLeft + i;
     if (k < 1 || k > barWidth) continue;
-    drawStalk(buf, fieldRow, barStart + k - 1, accent);
+    drawStyledStalk(buf, fieldRow, barStart + k - 1, style);
   }
   // Outer brackets — overwrite adjacent cells if they exist. Edge clamp:
   // when aperture sits at left edge (k=1) the left bracket is just outside
@@ -136,10 +135,10 @@ export function drawApertureCursor(
   const leftBracketK = apertureLeft - 1;
   const rightBracketK = apertureLeft + apertureWidth;
   if (leftBracketK >= 1 && leftBracketK <= barWidth) {
-    buf.writeText(fieldRow, barStart + leftBracketK - 1, "╞", { fg: accent });
+    buf.writeText(fieldRow, barStart + leftBracketK - 1, "╞", style);
   }
   if (rightBracketK >= 1 && rightBracketK <= barWidth) {
-    buf.writeText(fieldRow, barStart + rightBracketK - 1, "╡", { fg: accent });
+    buf.writeText(fieldRow, barStart + rightBracketK - 1, "╡", style);
   }
 }
 
@@ -237,15 +236,27 @@ function drawTempFours(
 }
 
 /**
- * Write a single stalk cell at the given color. Used for the lifted-flyer
- * during takeOne, the operator-cursor overlay, and the H4 drag cursor —
- * all of which highlight via color alone (bold made `│` look thinner than
- * its neighbors in some terminals; substance vocabulary stays color-only).
+ * Write a single stalk cell at the given color.
  * Full bounds-check — out-of-frame writes no-op.
  */
 function drawStalk(buf: CellBuffer, row: number, col: number, color: string): void {
+  drawStyledStalk(buf, row, col, { fg: color });
+}
+
+function drawStyledStalk(
+  buf: CellBuffer,
+  row: number,
+  col: number,
+  style: Partial<StyledCell>,
+): void {
   if (row < 0 || row >= buf.height || col < 0 || col >= buf.width) return;
-  buf.writeText(row, col, STALK, { fg: color });
+  buf.writeText(row, col, STALK, style);
+}
+
+function cursorStalkStyle(): Partial<StyledCell> {
+  const t = getTheme();
+  if (t.name === "ink") return { fg: t.tertiary };
+  return { fg: t.accent };
 }
 
 /**
@@ -475,7 +486,7 @@ export function renderYarrowFieldStrip(buf: CellBuffer, model: YarrowModel, row:
   }
 
   // Operator-thread cursor — a styling overlay on the substance being touched
-  // right now. Re-styles one existing cell with bold + accent color; never
+  // right now. Re-styles one existing cell; never
   // creates a new glyph. Hidden during gather / fuse / done so the substance
   // can rest at the start of a round, and the line can own its arrival.
   applyOperatorCursor(buf, model, row, areaStart, center);
@@ -490,12 +501,12 @@ function applyOperatorCursor(
 ): void {
   const round = model.currentRound();
   if (!round) return;
-  // Cursor highlights via color only — no bold. Bold rendering can make
+  // Cursor highlights without bold. Bold rendering can make
   // monospace `│` look thinner/shorter than its neighbors in some terminals,
-  // which reads as a visual artifact rather than emphasis. Accent vs primary
-  // is enough contrast in divide/count; in tally the cursor merges with the
-  // (already-accent) tray, which is correct — the tray is the destination.
-  const c = getTheme().accent;
+  // which reads as a visual artifact rather than emphasis. Non-ink themes use
+  // accent foreground; ink uses reverse-video because accent and primary are
+  // both near-white.
+  const style = cursorStalkStyle();
 
   switch (model.beat) {
     case "divide": {
@@ -507,7 +518,7 @@ function applyOperatorCursor(
       const p = model.splitProgress;
       const wholeStart = center - Math.floor((leftStalks + rightStalks) / 2);
       const leftCol = Math.round(lerp(wholeStart, areaStart, p));
-      drawStalk(buf, fieldRow, leftCol + leftStalks - 1, c);
+      drawStyledStalk(buf, fieldRow, leftCol + leftStalks - 1, style);
       break;
     }
     case "takeOne": {
@@ -525,10 +536,10 @@ function applyOperatorCursor(
       const { leftP, rightP } = splitSeqProgress(model.countProgress);
       if (model.countProgress < 0.5) {
         const leftCurrent = lerp(leftStart, leftEnd, leftP);
-        drawStalk(buf, fieldRow, areaStart + Math.ceil(leftCurrent) - 1, c);
+        drawStyledStalk(buf, fieldRow, areaStart + Math.ceil(leftCurrent) - 1, style);
       } else if (rightStart > 0) {
         const rightCurrent = lerp(rightStart, rightEnd, rightP);
-        drawStalk(buf, fieldRow, areaStart + BAR_AREA_WIDTH - Math.ceil(rightCurrent), c);
+        drawStyledStalk(buf, fieldRow, areaStart + BAR_AREA_WIDTH - Math.ceil(rightCurrent), style);
       }
       break;
     }
