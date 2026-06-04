@@ -16,9 +16,9 @@
 //     Traditional. Their only standard simplification is a CJK Ext-B glyph
 //     (𬙊/𫗧/𦈡, U+2xxxx) that renders as tofu in terminal fonts, so the readable
 //     BMP Traditional form is kept deliberately. Listed in SIMPLIFIED_EXCEPTIONS.
-//   - 祐 (示, 自天祐之 hex14) is NOT mapped: it has no official simplification
-//     (示->亻 to 佑 would be non-standard and degrade the divine-blessing sense);
-//     it passes through unchanged in both scripts.
+//   - 祐->佑 (示, 自天祐之 hex14) is KEPT: 祐/佑 are interchangeable for 上天保佑 and
+//     simplified 周易 editions conventionally print 自天佑之 (cf. 咷->啕, 遯->遁: the
+//     table deliberately follows PRC convention past OpenCC's stricter t2s here).
 //
 // Conversion is one-directional (繁->简) and per-character; it is only ever applied
 // to known Traditional source text, so the merge ambiguities of the reverse
@@ -50,7 +50,7 @@ export const SIMPLIFIED_MAP: Readonly<Record<string, string>> = {
   渙: "涣", 滅: "灭", 漣: "涟", 漸: "渐", 潛: "潜", 澤: "泽", 濟: "济", 災: "灾",
   為: "为", 無: "无", 爾: "尔", 牀: "床", 牽: "牵", 獄: "狱", 獨: "独", 獲: "获",
   瑣: "琐", 甕: "瓮", 異: "异", 當: "当", 疇: "畴", 發: "发", 眾: "众", 碩: "硕",
-  祿: "禄", 禦: "御", 禮: "礼", 稱: "称", 穀: "谷", 積: "积", 窮: "穷",
+  祐: "佑", 祿: "禄", 禦: "御", 禮: "礼", 稱: "称", 穀: "谷", 積: "积", 窮: "穷",
   窺: "窥", 節: "节", 篤: "笃", 約: "约", 納: "纳", 紛: "纷", 紱: "绂", 終: "终",
   統: "统", 經: "经", 維: "维", 綸: "纶", 緩: "缓", 繫: "系", 繼: "继", 續: "续",
   罰: "罚", 罷: "罢", 義: "义", 習: "习", 聖: "圣", 聞: "闻", 膚: "肤", 臨: "临",

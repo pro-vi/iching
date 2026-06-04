@@ -168,8 +168,10 @@ OpenCC `t2s(zhHant)`.
 
 - **received-text fixes:** hex 61 中孚 九二 `鶴鳴`→**`鳴鶴`** (在陰 — transposition vs the
   繫辭-quoted received text); hex 57 巽 九二/上九 `牀`→**`床`** (source + hex 23 use 床).
-- **simplification fix:** dropped `祐→佑` — 祐 has no official simplification; 自天祐之
-  (hex 14) keeps 祐 in both scripts (示 divine-blessing sense, not 亻 human-help 佑).
+- **`祐→佑` reviewed and KEPT:** an initial pass removed this mapping, but a second-opinion
+  cross-check showed simplified 周易 editions conventionally print 自天佑之 and 祐/佑 are
+  interchangeable for 上天保佑 — so the audited 祐→佑 stays (consistent with the table's
+  other convention-over-OpenCC deviations 咷→啕 / 遯→遁). zh-Hans renders 自天佑之 (hex 14).
 - **Ext-B retention (new exception class):** 纆/餗/繻 keep their Traditional form in
   zh-Hans because the only standard simplification is a tofu-prone CJK Ext-B glyph
   (𬙊/𫗧/𦈡). Enumerated in `SIMPLIFIED_EXCEPTIONS` so coverage stays mapped-or-excepted.
