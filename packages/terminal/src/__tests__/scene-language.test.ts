@@ -87,6 +87,30 @@ describe("SettingsScene — no bilingual stacking", () => {
     expect(text).not.toContain("設定"); // no Traditional residue
     expect(text).toContain("简");
   });
+
+  // Regression (Codex P3): moving the Language row with ←/→ must re-localize the
+  // scene immediately. render() previously read this.values.language (the saved
+  // snapshot, refreshed only on Escape), so the UI stayed in the old language
+  // until save + reopen. It now reads the live getValues().language.
+  test("changing the Language row re-localizes the scene live, before save", () => {
+    const values: SettingsValues = {
+      theme: "bone",
+      language: "en",
+      taijituStyle: "dots",
+      glyphAnim: "dots",
+      glyphFont: "kaiti",
+      castMethod: "coin",
+      castMode: "auto",
+    };
+    const scene = new SettingsScene(values);
+    scene.handleKey({ type: "arrow", direction: "down" }, ctx); // focus Language row
+    scene.handleKey({ type: "arrow", direction: "right" }, ctx); // en → zh-Hant
+    const buf = CellBuffer.create(ctx.cols, ctx.rows);
+    scene.render(buf, ctx);
+    const text = bufferText(buf);
+    expect(text).toContain("設定"); // live-localized title (zh-Hant), not the saved "en"
+    expect(text).not.toContain("Settings"); // old language no longer shown
+  });
 });
 
 describe("HomeScene — no bilingual stacking", () => {

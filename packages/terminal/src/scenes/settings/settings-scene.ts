@@ -183,8 +183,11 @@ export class SettingsScene implements Scene {
     const cx = Math.floor(frame.width / 2);
     let row = 2;
 
-    // Title
-    const lang = this.values.language;
+    // Title. Localize from the LIVE selection (getValues), not the saved
+    // snapshot (this.values, refreshed only on Escape) — so moving the Language
+    // row with ←/→ re-localizes the scene immediately, matching how Theme already
+    // previews live via onOptionChanged.
+    const lang = this.getValues().language;
     const title = tr(lang, "settings.title");
     frame.writeText(row, cx - Math.floor(stringWidth(title) / 2), title, { fg: t.primary, bold: true });
     row += 1;
