@@ -73,4 +73,24 @@ describe("searchHexagrams", () => {
       expect(gua.ename.length).toBeGreaterThan(0);
     }
   });
+
+  // Regression (Codex P2): the zh-Hans dictionary displays simplified names, so a
+  // user types the simplified form they see (兑) — which must still match the
+  // Traditional gua.n (兌). Search now also matches toSimplified(gua.n).
+  test("search by Simplified name (兑) finds 兌 / KW58", () => {
+    const results = searchHexagrams("兑");
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0].n).toBe("兌");
+  });
+
+  test("search by Simplified name (观) finds 觀 / KW20", () => {
+    const results = searchHexagrams("观");
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0].n).toBe("觀");
+  });
+
+  test("Traditional name search still matches (兌)", () => {
+    const results = searchHexagrams("兌");
+    expect(results[0].n).toBe("兌");
+  });
 });

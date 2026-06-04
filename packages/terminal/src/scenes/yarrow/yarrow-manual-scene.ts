@@ -210,7 +210,7 @@ export class YarrowManualScene implements Scene {
       const line = lineFromValue(toLineValue(round.remaining / 4));
       this.model.transcript[lineIdx].line = line;
       this.currentLineRounds = [];
-      beats.push(buildYarrowFuseBeat(this.model, this.timing, lineIdx, { narrating: true }));
+      beats.push(buildYarrowFuseBeat(this.model, this.timing, lineIdx, { narrating: true, language: this.language }));
     }
 
     this.subRunner = new TimelineRunner(seq(...beats));

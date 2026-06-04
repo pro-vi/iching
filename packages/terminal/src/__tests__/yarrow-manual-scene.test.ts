@@ -174,4 +174,29 @@ describe("YarrowManualScene — 18-cut full manual", () => {
     pumpThroughSnap(s);
     expect(() => s.render(buf, ctx)).not.toThrow(); // playing
   });
+
+  // Regression (Codex P3): the line's fuse beat omitted `language`, so the final
+  // fuse caption defaulted to English ("Remaining … old yin") even in zh-Hant/
+  // zh-Hans manual mode while the round beats were localized. The call now
+  // forwards this.language. Drive line 0's three rounds and capture captions.
+  test("fuse caption is localized in zh-Hant manual mode, no English leak", () => {
+    const s = new YarrowManualScene("brisk", new SeededRandomSource(1), "zh-Hant");
+    s.enter(ctx);
+    const caps: string[] = [];
+    for (let round = 0; round < 3; round++) {
+      s.handleKey(space, ctx);   // gathering → sweeping
+      pumpSweep(s, 4);
+      s.handleKey(space, ctx);   // sweeping → snapping
+      pumpThroughSnap(s);        // snapping → playing
+      for (let i = 0; i < 4000 && s.getPhase() === "playing"; i++) {
+        s.update(0, 100, ctx);
+        const cap = (s as unknown as { model: { caption: string } }).model.caption;
+        if (cap) caps.push(cap);
+      }
+    }
+    const all = caps.join("\n");
+    expect(all).toContain("餘策"); // localized "Remaining" from the fuse caption
+    expect(all).not.toContain("Remaining"); // no English fuse-caption leak
+    expect(all).not.toContain("old yin");
+  });
 });
