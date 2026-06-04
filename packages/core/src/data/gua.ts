@@ -1583,11 +1583,11 @@ export const GUA: Hexagram[] = [
     w: "Wind follows upon wind. The gentle penetrates as water wears away stone — not through force, but through quiet persistence in a single direction.",
     yao: [
       "初六：進退，利武人之貞。",
-      "九二：巽在牀下，用史巫紛若，吉，無咎。",
+      "九二：巽在床下，用史巫紛若，吉，無咎。",
       "九三：頻巽，吝。",
       "六四：悔亡，田獲三品。",
       "九五：貞吉，悔亡，無不利。無初有終。先庚三日，後庚三日，吉。",
-      "上九：巽在牀下，喪其資斧，貞凶。",
+      "上九：巽在床下，喪其資斧，貞凶。",
     ],
     yaoEn: [
       "Advancing and retreating in hesitation. The perseverance of a military person is favorable.",
@@ -1695,7 +1695,7 @@ export const GUA: Hexagram[] = [
     w: "True power emerges from internal character. Without central transformative force from within, external unity becomes deception.",
     yao: [
       "初九：虞吉，有他不燕。",
-      "九二：鶴鳴在陰，其子和之。我有好爵，吾與爾靡之。",
+      "九二：鳴鶴在陰，其子和之。我有好爵，吾與爾靡之。",
       "六三：得敵，或鼓或罷，或泣或歌。",
       "六四：月幾望，馬匹亡，無咎。",
       "九五：有孚攣如，無咎。",
