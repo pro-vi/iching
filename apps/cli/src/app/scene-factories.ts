@@ -64,6 +64,7 @@ export function makeJournalFactory(deps: JournalDeps): SceneFactory {
         deps.glyphConfig,
         deps.session.rows,
         entry.intention,
+        { language: deps.language },
       );
       cs.skipToComplete(false);
       return cs;

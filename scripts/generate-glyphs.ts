@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 /**
- * Pre-render all 64 hexagram Chinese names as braille terminal art.
- * 3 fonts × 3 sizes × 64 characters = 576 renders.
+ * Pre-render all 64 hexagram Chinese names as braille terminal art —
+ * Traditional name chars plus their Simplified forms (for zh-Hans), across
+ * 3 fonts × 3 sizes.
  * Output: packages/core/src/data/large-glyphs.ts
  *
  * Each glyph is stored as an array of row strings (braille characters),
@@ -10,6 +11,7 @@
 
 import { spawnSync } from "child_process";
 import { GUA } from "../packages/core/src/data/gua.ts";
+import { toSimplified } from "../packages/core/src/i18n/simplify.ts";
 
 // ── Fonts ──
 
@@ -110,10 +112,13 @@ for row in range(h):
 
 type GlyphData = Record<string, Record<string, Record<number, string[]>>>;
 
-// Collect all unique characters from hexagram names
+// Collect all unique characters from hexagram names — Traditional AND their
+// Simplified forms, so zh-Hans renders a Simplified glyph (e.g. 觀→观, 兌→兑)
+// instead of falling back to the Traditional emblem above Simplified text.
 const allChars = new Set<string>();
 for (const gua of GUA) {
   for (const ch of gua.n) allChars.add(ch);
+  for (const ch of toSimplified(gua.n)) allChars.add(ch);
 }
 const charList = [...allChars].sort();
 

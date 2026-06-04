@@ -154,7 +154,7 @@ export async function runReadingFlow(
     deps.glyphConfig,
     deps.session.rows,
     intention,
-    { skipLineDrawing: drewOwnLines },
+    { skipLineDrawing: drewOwnLines, language: deps.language },
   );
   if (isReplay) castScene.skipToComplete(false);
   const castSignal = await deps.run(castScene);

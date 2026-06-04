@@ -10,6 +10,7 @@ import { CastScene } from "../scenes/cast/cast-scene.ts";
 import { BrowseScene } from "../scenes/dict/browse-scene.ts";
 import { JournalScene } from "../scenes/journal/journal-scene.ts";
 import { renderDetail } from "../scenes/dict/detail-renderer.ts";
+import { DetailScene } from "../scenes/dict/detail-scene.ts";
 import { DetailModel } from "../scenes/dict/detail-model.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import type { SceneContext } from "../scene/types.ts";
@@ -362,5 +363,54 @@ describe("DetailScene footer — nav verbs honor language", () => {
     expect(text).toContain("衍卦"); // derived
     expect(text).not.toContain("scroll");
     expect(text).not.toContain("卷动"); // no Simplified residue
+  });
+});
+
+// Regression (Codex P2 ×2): the large braille glyph was composed from the
+// Traditional name even in zh-Hans, so a Traditional 兌 rendered above Simplified
+// 兑 text. The atlas now carries Simplified name glyphs, and both the dictionary
+// detail (DetailScene.enter) and the cast reveal (timeline buildGlyphReveal)
+// compose from the Simplified name in zh-Hans. KW58 兌→兑 has a distinct glyph.
+describe("Glyph composition honors language — Simplified glyphs in zh-Hans", () => {
+  const glyphCfg = { glyphAnim: "dots", glyphFont: "kaiti" } as const;
+
+  function detailGlyph(language: DisplayLanguage): string[] | undefined {
+    const s = new DetailScene(58, glyphCfg, language);
+    s.enter(ctxFor(language));
+    return (s as unknown as { model: { glyphEntry: { rows: string[] } | null } }).model
+      .glyphEntry?.rows;
+  }
+
+  test("dictionary detail glyph in zh-Hans differs from zh-Hant (兑 not 兌)", () => {
+    const hant = detailGlyph("zh-Hant");
+    const hans = detailGlyph("zh-Hans");
+    expect(hant).toBeDefined();
+    expect(hans).toBeDefined();
+    expect(hans).not.toEqual(hant);
+  });
+
+  const cast58: Cast = {
+    lines: [makeLine(7), makeLine(7), makeLine(8), makeLine(7), makeLine(7), makeLine(8)],
+    primary: 58,
+    becoming: null,
+    changingPositions: [],
+    nuclear: 1,
+    polarity: 1,
+    mirror: 1,
+    diagonal: 1,
+  };
+  function castGlyph(language: DisplayLanguage): string[] | undefined {
+    const s = new CastScene(cast58, "reduced", 80, glyphCfg, 24, undefined, { language });
+    s.skipToComplete(false);
+    return (s as unknown as { model: { primaryGlyphEntry: { rows: string[] } | null } }).model
+      .primaryGlyphEntry?.rows;
+  }
+
+  test("cast reveal glyph in zh-Hans differs from zh-Hant", () => {
+    const hant = castGlyph("zh-Hant");
+    const hans = castGlyph("zh-Hans");
+    expect(hant).toBeDefined();
+    expect(hans).toBeDefined();
+    expect(hans).not.toEqual(hant);
   });
 });

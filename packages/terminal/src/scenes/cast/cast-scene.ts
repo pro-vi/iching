@@ -40,7 +40,7 @@ export class CastScene implements Scene {
     glyphConfig?: CastGlyphInput,
     termRows: number = 24,
     intention?: string,
-    opts?: { skipLineDrawing?: boolean },
+    opts?: { skipLineDrawing?: boolean; language?: DisplayLanguage },
   ) {
     this.model = new CastModel(cast);
     this.model.intention = intention;
@@ -60,6 +60,7 @@ export class CastScene implements Scene {
       this.glyphConfig = {
         ...glyphConfig,
         glyphSize: autoGlyphSize(availRows, termWidth, maxChars),
+        language: opts?.language,
       };
     }
     const timing = getPreset(preset);
