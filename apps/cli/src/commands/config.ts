@@ -120,7 +120,10 @@ const CONFIG_SCHEMA: Record<keyof UserConfig, ConfigEntry> = {
 const VALID_KEYS = Object.keys(CONFIG_SCHEMA) as Array<keyof typeof CONFIG_SCHEMA>;
 
 function isConfigKey(key: string): key is keyof typeof CONFIG_SCHEMA {
-  return key in CONFIG_SCHEMA;
+  // own-property check, NOT `key in CONFIG_SCHEMA` — the `in` operator walks the
+  // prototype chain, so inherited names (toString/constructor/valueOf/__proto__)
+  // would falsely pass the guard and crash `set` / mis-print `get`.
+  return Object.hasOwn(CONFIG_SCHEMA, key);
 }
 
 export function registerConfigCommand(program: Command): void {

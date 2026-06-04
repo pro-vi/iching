@@ -162,4 +162,22 @@ describe("config command", () => {
     expect(exitCode).not.toBe(0);
     expect(stderr.toLowerCase()).toContain("unknown key");
   }, 20_000);
+
+  // Regression: `key in CONFIG_SCHEMA` walked the prototype chain, so inherited
+  // Object.prototype names slipped past the unknown-key guard — `get` printed the
+  // inherited function and `set` crashed ("schema.set is not a function"). The
+  // guard now uses Object.hasOwn; both must report a clean "unknown key" error.
+  test("get inherited prototype key (toString) reports unknown key", async () => {
+    const { exitCode, stderr, stdout } = await runCli(dataDir, ["config", "get", "toString"]);
+    expect(exitCode).not.toBe(0);
+    expect(stderr.toLowerCase()).toContain("unknown key");
+    expect(stdout).not.toContain("function");
+  }, 20_000);
+
+  test("set inherited prototype key (constructor) reports unknown key, does not crash", async () => {
+    const { exitCode, stderr } = await runCli(dataDir, ["config", "set", "constructor", "x"]);
+    expect(exitCode).not.toBe(0);
+    expect(stderr.toLowerCase()).toContain("unknown key");
+    expect(stderr.toLowerCase()).not.toContain("is not a function");
+  }, 20_000);
 });
