@@ -59,18 +59,27 @@ const LANGUAGE_ALIASES: Record<string, UserConfig["language"]> = {
  * seed, never a live binding: once a config exists, the saved choice wins and
  * the locale is never consulted again.
  *
- * Reads the standard precedence LC_ALL > LC_MESSAGES > LANG > LANGUAGE and maps
- * to the three supported languages. Handles both POSIX ("zh_CN.UTF-8", "zh_TW")
- * and BCP-47 ("zh-Hant-TW") forms; an explicit script subtag wins over region.
- * Anything non-Chinese — including empty / "C" / "POSIX" — falls back to English.
+ * Precedence follows GNU gettext for the *display/message* language: the
+ * effective locale comes from LC_ALL > LC_MESSAGES > LANG, but a present
+ * LANGUAGE (a colon-separated priority list, e.g. "zh_TW:en") OUTRANKS it —
+ * EXCEPT in the C/POSIX (or unset) locale, where localization is off and
+ * LANGUAGE is ignored. Handles POSIX ("zh_CN.UTF-8", "zh_TW") and BCP-47
+ * ("zh-Hant-TW") forms; an explicit script subtag wins over region. Anything
+ * non-Chinese — including empty / "C" / "POSIX" — falls back to English.
  */
 export function detectSystemLanguage(
   env: Record<string, string | undefined> = process.env,
 ): UserConfig["language"] {
-  const raw = env.LC_ALL || env.LC_MESSAGES || env.LANG || env.LANGUAGE || "";
-  // Strip codeset/modifier and, for GNU LANGUAGE's colon-separated priority
-  // list ("zh_TW:en"), take the first entry. "zh_CN.UTF-8@modifier" /
+  // Effective locale (LANGUAGE excluded — it only selects the message language).
+  const locale = env.LC_ALL || env.LC_MESSAGES || env.LANG || "";
+  const localeLang = locale.split(/[.@]/)[0].toLowerCase();
+  // Not localized (C / POSIX / unset): no language intent, and GNU LANGUAGE is
+  // disabled in the C locale → English.
+  if (localeLang === "" || localeLang === "c" || localeLang === "posix") return "en";
+  // LANGUAGE (colon priority list) chooses the display language and outranks the
+  // locale when localization is on; take its first entry. Strip codeset/modifier;
   // "zh-Hant-TW" / "zh_TW:en" → normalized parts ["zh","hant","tw"] etc.
+  const raw = env.LANGUAGE || locale;
   const parts = raw.split(/[.@:]/)[0].replace(/_/g, "-").toLowerCase().split("-");
   if (parts[0] !== "zh") return "en";
   if (parts.includes("hant")) return "zh-Hant"; // script subtag wins over region
@@ -160,6 +169,14 @@ export class JsonConfigStore implements ConfigStore {
   constructor(private readonly path: string) {}
 
   /**
+   * First-boot seed retained in memory when it could not be persisted (read-only
+   * / full data dir). Lets the rest of THIS session — e.g. reopening Settings,
+   * which reloads config — see the detected language instead of flipping back to
+   * defaults. Shadowed the moment a real config file exists.
+   */
+  private seededInMemory: UserConfig | null = null;
+
+  /**
    * Read + parse the config file, tolerating a present-but-corrupt file the
    * same way `normalizeConfig` tolerates a structurally-invalid one: a
    * `JSON.parse` failure (truncated / hand-edited / empty) falls back to
@@ -183,7 +200,11 @@ export class JsonConfigStore implements ConfigStore {
   }
 
   async load(): Promise<UserConfig> {
-    return (await this.readExisting()) ?? { ...DEFAULT_CONFIG };
+    const existing = await this.readExisting();
+    if (existing) return existing;
+    // No file on disk: fall back to a deferred in-memory seed if first boot
+    // couldn't persist (so the session stays in its detected language), else defaults.
+    return this.seededInMemory ? { ...this.seededInMemory } : { ...DEFAULT_CONFIG };
   }
 
   /**
@@ -206,12 +227,13 @@ export class JsonConfigStore implements ConfigStore {
     try {
       await this.save(seeded);
     } catch {
-      /* deferred: not writable this session */
+      this.seededInMemory = seeded; // deferred: keep it for this session's reloads
     }
     return seeded;
   }
 
   async save(config: UserConfig): Promise<void> {
     await atomicWriteJson(this.path, config);
+    this.seededInMemory = null; // persisted — the file is now the source of truth
   }
 }

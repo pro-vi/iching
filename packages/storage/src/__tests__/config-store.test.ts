@@ -180,6 +180,28 @@ describe("JsonConfigStore", () => {
     // persist failed, so nothing was frozen to disk this session
     await expect(readFile(path, "utf-8")).rejects.toThrow();
   });
+
+  test("a deferred (unwritable) seed is retained in memory for same-session reloads", async () => {
+    // Comment-2 fix: when the seed can't be persisted, a later config reload in
+    // the same session (e.g. opening Settings) must NOT flip back to defaults.
+    class FailingSaveStore extends JsonConfigStore {
+      override async save(): Promise<void> {
+        throw Object.assign(new Error("EACCES"), { code: "EACCES" });
+      }
+    }
+    const orig = process.env.LC_ALL;
+    try {
+      process.env.LC_ALL = "zh_TW.UTF-8"; // deterministic detected language
+      const store2 = new FailingSaveStore(join(dir, "config.json"));
+      const seeded = await store2.loadOrSeed();
+      expect(seeded.language).toBe("zh-Hant");
+      const reloaded = await store2.load(); // same store, same session
+      expect(reloaded.language).toBe("zh-Hant"); // not "en" — seed retained in memory
+    } finally {
+      if (orig === undefined) delete process.env.LC_ALL;
+      else process.env.LC_ALL = orig;
+    }
+  });
 });
 
 describe("detectSystemLanguage", () => {
@@ -204,18 +226,25 @@ describe("detectSystemLanguage", () => {
     });
   }
 
-  test("respects precedence: LC_ALL > LC_MESSAGES > LANG > LANGUAGE", () => {
+  test("locale precedence for the effective locale: LC_ALL > LC_MESSAGES > LANG", () => {
     expect(detectSystemLanguage({ LANG: "en_US", LC_ALL: "zh_CN" })).toBe("zh-Hans");
     expect(detectSystemLanguage({ LANG: "zh_CN", LC_MESSAGES: "en_US" })).toBe("en");
-    expect(detectSystemLanguage({ LANGUAGE: "zh_TW" })).toBe("zh-Hant");
-    expect(detectSystemLanguage({ LANG: "zh_TW", LANGUAGE: "en_US" })).toBe("zh-Hant");
   });
 
-  // GNU LANGUAGE is a colon-separated priority list — only the first entry counts.
-  test("handles LANGUAGE colon-separated priority lists (first entry wins)", () => {
-    expect(detectSystemLanguage({ LANGUAGE: "zh_TW:en" })).toBe("zh-Hant");
-    expect(detectSystemLanguage({ LANGUAGE: "zh_Hant:zh_CN" })).toBe("zh-Hant");
-    expect(detectSystemLanguage({ LANGUAGE: "en:zh_CN" })).toBe("en");
-    expect(detectSystemLanguage({ LANGUAGE: "zh_CN:zh_TW" })).toBe("zh-Hans");
+  // GNU gettext: LANGUAGE (colon priority list) selects the *display* language
+  // and outranks LANG/LC_MESSAGES/LC_ALL when a real locale is active.
+  test("LANGUAGE outranks the locale when localization is on (first list entry wins)", () => {
+    // bilingual setup — English locale for formatting, Chinese for messages
+    expect(detectSystemLanguage({ LANG: "en_US.UTF-8", LANGUAGE: "zh_TW:en" })).toBe("zh-Hant");
+    expect(detectSystemLanguage({ LANG: "en_US.UTF-8", LANGUAGE: "zh_Hant:zh_CN" })).toBe("zh-Hant");
+    expect(detectSystemLanguage({ LANG: "zh_TW", LANGUAGE: "zh_CN:zh_TW" })).toBe("zh-Hans");
+    expect(detectSystemLanguage({ LANG: "zh_TW", LANGUAGE: "en_US" })).toBe("en");
+    expect(detectSystemLanguage({ LC_ALL: "en_US", LANGUAGE: "zh_TW" })).toBe("zh-Hant");
+  });
+
+  test("LANGUAGE is ignored in the C/POSIX/unset locale (gettext rule)", () => {
+    expect(detectSystemLanguage({ LANG: "C", LANGUAGE: "zh_TW" })).toBe("en");
+    expect(detectSystemLanguage({ LANG: "POSIX", LANGUAGE: "zh_TW:en" })).toBe("en");
+    expect(detectSystemLanguage({ LANGUAGE: "zh_TW" })).toBe("en"); // no locale → C
   });
 });
