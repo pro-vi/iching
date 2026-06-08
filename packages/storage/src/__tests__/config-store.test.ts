@@ -145,6 +145,41 @@ describe("JsonConfigStore", () => {
       else process.env.LC_ALL = orig;
     }
   });
+
+  // ── resilience (gate findings) ──
+
+  test("load() degrades to defaults on a corrupt config file — does not throw", async () => {
+    await writeFile(join(dir, "config.json"), "{ not valid json", "utf-8");
+    const cfg = await store.load();
+    expect(cfg.language).toBe("en");
+    expect(cfg.theme).toBe("bone"); // full defaults, not a crash
+  });
+
+  test("loadOrSeed() degrades to defaults on a corrupt config — no throw, no clobber", async () => {
+    const path = join(dir, "config.json");
+    await writeFile(path, "{ corrupt", "utf-8");
+    const cfg = await store.loadOrSeed();
+    expect(cfg.language).toBe("en"); // ran with defaults instead of crashing
+    // non-destructive: a possibly hand-fixable corrupt file is NOT overwritten
+    expect(await readFile(path, "utf-8")).toBe("{ corrupt");
+  });
+
+  test("loadOrSeed() does not crash when persisting the first-boot seed fails", async () => {
+    // First-boot scenario where the file is absent (ENOENT → seed) but the
+    // persist fails (read-only / full data dir). Stub save() to reject so the
+    // test is deterministic and permission-model independent (root-proof).
+    class FailingSaveStore extends JsonConfigStore {
+      override async save(): Promise<void> {
+        throw Object.assign(new Error("EACCES: read-only"), { code: "EACCES" });
+      }
+    }
+    const path = join(dir, "config.json");
+    const store2 = new FailingSaveStore(path); // no file → ENOENT → seed → save throws
+    const cfg = await store2.loadOrSeed(); // must resolve, not reject
+    expect(["en", "zh-Hant", "zh-Hans"]).toContain(cfg.language); // ran with detected lang
+    // persist failed, so nothing was frozen to disk this session
+    await expect(readFile(path, "utf-8")).rejects.toThrow();
+  });
 });
 
 describe("detectSystemLanguage", () => {
@@ -174,5 +209,13 @@ describe("detectSystemLanguage", () => {
     expect(detectSystemLanguage({ LANG: "zh_CN", LC_MESSAGES: "en_US" })).toBe("en");
     expect(detectSystemLanguage({ LANGUAGE: "zh_TW" })).toBe("zh-Hant");
     expect(detectSystemLanguage({ LANG: "zh_TW", LANGUAGE: "en_US" })).toBe("zh-Hant");
+  });
+
+  // GNU LANGUAGE is a colon-separated priority list — only the first entry counts.
+  test("handles LANGUAGE colon-separated priority lists (first entry wins)", () => {
+    expect(detectSystemLanguage({ LANGUAGE: "zh_TW:en" })).toBe("zh-Hant");
+    expect(detectSystemLanguage({ LANGUAGE: "zh_Hant:zh_CN" })).toBe("zh-Hant");
+    expect(detectSystemLanguage({ LANGUAGE: "en:zh_CN" })).toBe("en");
+    expect(detectSystemLanguage({ LANGUAGE: "zh_CN:zh_TW" })).toBe("zh-Hans");
   });
 });

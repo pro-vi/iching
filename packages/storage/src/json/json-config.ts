@@ -68,8 +68,10 @@ export function detectSystemLanguage(
   env: Record<string, string | undefined> = process.env,
 ): UserConfig["language"] {
   const raw = env.LC_ALL || env.LC_MESSAGES || env.LANG || env.LANGUAGE || "";
-  // "zh_CN.UTF-8@modifier" / "zh-Hant-TW" → normalized parts ["zh","hant","tw"]
-  const parts = raw.split(/[.@]/)[0].replace(/_/g, "-").toLowerCase().split("-");
+  // Strip codeset/modifier and, for GNU LANGUAGE's colon-separated priority
+  // list ("zh_TW:en"), take the first entry. "zh_CN.UTF-8@modifier" /
+  // "zh-Hant-TW" / "zh_TW:en" → normalized parts ["zh","hant","tw"] etc.
+  const parts = raw.split(/[.@:]/)[0].replace(/_/g, "-").toLowerCase().split("-");
   if (parts[0] !== "zh") return "en";
   if (parts.includes("hant")) return "zh-Hant"; // script subtag wins over region
   if (parts.includes("hans")) return "zh-Hans";
@@ -157,16 +159,31 @@ function normalizeConfig(parsed: unknown): UserConfig {
 export class JsonConfigStore implements ConfigStore {
   constructor(private readonly path: string) {}
 
-  async load(): Promise<UserConfig> {
+  /**
+   * Read + parse the config file, tolerating a present-but-corrupt file the
+   * same way `normalizeConfig` tolerates a structurally-invalid one: a
+   * `JSON.parse` failure (truncated / hand-edited / empty) falls back to
+   * defaults rather than crashing every entry point. Returns `null` only when
+   * the file is genuinely absent (ENOENT); real I/O faults (EACCES/EIO) still
+   * propagate so they stay visible.
+   */
+  private async readExisting(): Promise<UserConfig | null> {
+    let raw: string;
     try {
-      const raw = await readFile(this.path, "utf-8");
-      const parsed: unknown = JSON.parse(raw);
-      return normalizeConfig(parsed);
+      raw = await readFile(this.path, "utf-8");
     } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT")
-        return { ...DEFAULT_CONFIG };
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
       throw err;
     }
+    try {
+      return normalizeConfig(JSON.parse(raw) as unknown);
+    } catch {
+      return { ...DEFAULT_CONFIG }; // unparseable on disk → tolerant defaults
+    }
+  }
+
+  async load(): Promise<UserConfig> {
+    return (await this.readExisting()) ?? { ...DEFAULT_CONFIG };
   }
 
   /**
@@ -177,19 +194,21 @@ export class JsonConfigStore implements ConfigStore {
    * subcommands and test fixtures don't write files.
    */
   async loadOrSeed(): Promise<UserConfig> {
+    const existing = await this.readExisting();
+    if (existing) return existing;
+    const seeded: UserConfig = {
+      ...DEFAULT_CONFIG,
+      language: detectSystemLanguage(),
+    };
+    // Best-effort persist: a read-only / full data dir must NOT block startup —
+    // run with the detected language in memory this session and persist (freeze)
+    // on a later launch when the write succeeds.
     try {
-      const raw = await readFile(this.path, "utf-8");
-      const parsed: unknown = JSON.parse(raw);
-      return normalizeConfig(parsed);
-    } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
-      const seeded: UserConfig = {
-        ...DEFAULT_CONFIG,
-        language: detectSystemLanguage(),
-      };
       await this.save(seeded);
-      return seeded;
+    } catch {
+      /* deferred: not writable this session */
     }
+    return seeded;
   }
 
   async save(config: UserConfig): Promise<void> {

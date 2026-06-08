@@ -112,12 +112,14 @@ describe("config command", () => {
     expect(getResult.stdout.trim()).toBe("yarrow");
   }, 20_000);
 
-  test("set language en persists, reload reads en", async () => {
-    const setResult = await runCli(dataDir, ["config", "set", "language", "en"]);
+  // Round-trip a NON-default value (en is DEFAULT_CONFIG.language, so a silent
+  // no-op write would still read back "en" — this would pass green even broken).
+  test("set language zh-Hant persists, reload reads zh-Hant", async () => {
+    const setResult = await runCli(dataDir, ["config", "set", "language", "zh-Hant"]);
     expect(setResult.exitCode).toBe(0);
     const getResult = await runCli(dataDir, ["config", "get", "language"]);
     expect(getResult.exitCode).toBe(0);
-    expect(getResult.stdout.trim()).toBe("en");
+    expect(getResult.stdout.trim()).toBe("zh-Hant");
   }, 20_000);
 
   test("set castMode rejects yarrow (now out of castMode's domain)", async () => {
