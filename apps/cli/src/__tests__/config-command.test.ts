@@ -9,7 +9,7 @@
 // (coin|yarrow) × castMode (auto|manual); both must be reachable.
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -181,5 +181,22 @@ describe("config command", () => {
     expect(exitCode).not.toBe(0);
     expect(stderr.toLowerCase()).toContain("unknown key");
     expect(stderr.toLowerCase()).not.toContain("is not a function");
+  }, 20_000);
+
+  // Regression (Codex P2): `iching dict` is an interactive entry point and must
+  // seed+freeze the display language on first boot like the main TUI — not use a
+  // pure load() that launches English. It seeds before the (non-TTY) render exits.
+  test("`iching dict` seeds the display language on first boot", async () => {
+    const proc = Bun.spawn(["bun", MAIN_TS, "--data-dir", dataDir, "dict"], {
+      cwd: REPO_ROOT,
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env, NO_COLOR: "1", LC_ALL: "zh_CN.UTF-8", LANG: "zh_CN.UTF-8" },
+    });
+    proc.stdin.end();
+    await proc.exited; // exits on its own (no TTY) after loadOrSeed has persisted
+    const cfg = JSON.parse(await readFile(join(dataDir, "config.json"), "utf-8"));
+    expect(cfg.language).toBe("zh-Hans"); // seeded from the locale, not default "en"
   }, 20_000);
 });

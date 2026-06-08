@@ -24,7 +24,10 @@ export function registerDictCommand(program: Command): void {
       const paths = resolvePaths(
         globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
       );
-      const config = await new JsonConfigStore(paths.config).load();
+      // Interactive entry point: seed + freeze the display language on first
+      // boot (same as the main TUI), so `iching dict` honors the system locale
+      // rather than launching English. (config subcommands stay pure load().)
+      const config = await new JsonConfigStore(paths.config).loadOrSeed();
       const journal = new JsonlJournalStore(paths.state);
       const factoryDeps = { journal, language: config.language };
 
