@@ -233,13 +233,21 @@ describe("detectSystemLanguage", () => {
 
   // GNU gettext: LANGUAGE (colon priority list) selects the *display* language
   // and outranks LANG/LC_MESSAGES/LC_ALL when a real locale is active.
-  test("LANGUAGE outranks the locale when localization is on (first list entry wins)", () => {
+  test("LANGUAGE outranks the locale when localization is on (first supported entry wins)", () => {
     // bilingual setup — English locale for formatting, Chinese for messages
     expect(detectSystemLanguage({ LANG: "en_US.UTF-8", LANGUAGE: "zh_TW:en" })).toBe("zh-Hant");
     expect(detectSystemLanguage({ LANG: "en_US.UTF-8", LANGUAGE: "zh_Hant:zh_CN" })).toBe("zh-Hant");
     expect(detectSystemLanguage({ LANG: "zh_TW", LANGUAGE: "zh_CN:zh_TW" })).toBe("zh-Hans");
     expect(detectSystemLanguage({ LANG: "zh_TW", LANGUAGE: "en_US" })).toBe("en");
     expect(detectSystemLanguage({ LC_ALL: "en_US", LANGUAGE: "zh_TW" })).toBe("zh-Hant");
+  });
+
+  // LANGUAGE is a fallback list: scan past entries this app can't honor.
+  test("LANGUAGE scans past unsupported entries to the first supported one", () => {
+    expect(detectSystemLanguage({ LANG: "en_US.UTF-8", LANGUAGE: "ja:zh_CN" })).toBe("zh-Hans"); // ja unsupported → zh_CN
+    expect(detectSystemLanguage({ LANG: "en_US", LANGUAGE: "ja:en:zh_TW" })).toBe("en"); // en before zh_TW wins
+    expect(detectSystemLanguage({ LANG: "zh_CN", LANGUAGE: "ko:fr" })).toBe("zh-Hans"); // none supported → fall to locale
+    expect(detectSystemLanguage({ LANG: "en_US", LANGUAGE: "ja:ko" })).toBe("en"); // none supported → fall to locale
   });
 
   test("LANGUAGE is ignored in the C/POSIX/unset locale (gettext rule)", () => {

@@ -61,12 +61,27 @@ const LANGUAGE_ALIASES: Record<string, UserConfig["language"]> = {
  *
  * Precedence follows GNU gettext for the *display/message* language: the
  * effective locale comes from LC_ALL > LC_MESSAGES > LANG, but a present
- * LANGUAGE (a colon-separated priority list, e.g. "zh_TW:en") OUTRANKS it —
+ * LANGUAGE (a colon-separated PRIORITY LIST, e.g. "ja:zh_CN") OUTRANKS it —
  * EXCEPT in the C/POSIX (or unset) locale, where localization is off and
- * LANGUAGE is ignored. Handles POSIX ("zh_CN.UTF-8", "zh_TW") and BCP-47
- * ("zh-Hant-TW") forms; an explicit script subtag wins over region. Anything
- * non-Chinese — including empty / "C" / "POSIX" — falls back to English.
+ * LANGUAGE is ignored. LANGUAGE entries are tried in order and the first one
+ * this app supports (en / zh-Hant / zh-Hans) wins, falling through to the
+ * locale. Handles POSIX ("zh_CN.UTF-8", "zh_TW") and BCP-47 ("zh-Hant-TW")
+ * forms; an explicit script subtag wins over region. Anything non-Chinese —
+ * including empty / "C" / "POSIX" — falls back to English.
  */
+/** Map one locale token to a supported display language, or null if unsupported. */
+function mapLocaleToken(token: string): UserConfig["language"] | null {
+  const parts = token.split(/[.@]/)[0].replace(/_/g, "-").toLowerCase().split("-");
+  const lang = parts[0];
+  if (lang === "en") return "en"; // app supports English — stop scanning
+  if (lang !== "zh") return null; // unsupported language → try the next candidate
+  if (parts.includes("hant")) return "zh-Hant"; // script subtag wins over region
+  if (parts.includes("hans")) return "zh-Hans";
+  const region = parts[1];
+  if (region === "tw" || region === "hk" || region === "mo") return "zh-Hant";
+  return "zh-Hans"; // zh-CN / zh-SG / zh-MY and bare "zh"
+}
+
 export function detectSystemLanguage(
   env: Record<string, string | undefined> = process.env,
 ): UserConfig["language"] {
@@ -76,18 +91,15 @@ export function detectSystemLanguage(
   // Not localized (C / POSIX / unset): no language intent, and GNU LANGUAGE is
   // disabled in the C locale → English.
   if (localeLang === "" || localeLang === "c" || localeLang === "posix") return "en";
-  // LANGUAGE (colon priority list) chooses the display language and outranks the
-  // locale when localization is on; take its first entry. Strip codeset/modifier;
-  // "zh-Hant-TW" / "zh_TW:en" → normalized parts ["zh","hant","tw"] etc.
-  const raw = env.LANGUAGE || locale;
-  const parts = raw.split(/[.@:]/)[0].replace(/_/g, "-").toLowerCase().split("-");
-  if (parts[0] !== "zh") return "en";
-  if (parts.includes("hant")) return "zh-Hant"; // script subtag wins over region
-  if (parts.includes("hans")) return "zh-Hans";
-  const region = parts[1];
-  if (region === "tw" || region === "hk" || region === "mo") return "zh-Hant";
-  // zh-CN / zh-SG / zh-MY and bare "zh" → Simplified (ICU resolves zh→zh-Hans).
-  return "zh-Hans";
+  // GNU gettext: LANGUAGE is a colon-separated priority list tried in order and
+  // outranks the locale. Honor the first candidate this app supports — LANGUAGE's
+  // entries first, then the locale itself.
+  const candidates = [...(env.LANGUAGE ? env.LANGUAGE.split(":") : []), locale];
+  for (const token of candidates) {
+    const mapped = mapLocaleToken(token);
+    if (mapped) return mapped;
+  }
+  return "en";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
