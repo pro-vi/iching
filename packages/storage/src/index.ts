@@ -15,7 +15,7 @@ export type { ConfigStore } from "./config-store.js";
 // JSON implementations
 export { JsonlJournalStore } from "./json/jsonl-journal.js";
 export { JsonDailyCacheStore } from "./json/json-daily-cache.js";
-export { JsonConfigStore } from "./json/json-config.js";
+export { JsonConfigStore, detectSystemLanguage } from "./json/json-config.js";
 export { atomicWriteJson } from "./json/atomic-write.js";
 
 // Journal query

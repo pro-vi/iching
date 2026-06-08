@@ -40,9 +40,11 @@ async function main() {
     const cacheStore = new JsonDailyCacheStore(paths.cache);
     const today = localToday();
 
-    // Load and apply saved theme
+    // Load and apply saved theme. First boot (no config) seeds the display
+    // language from the system locale and persists it — so a non-English user
+    // is greeted in their language, frozen thereafter.
     const configStore = new JsonConfigStore(paths.config);
-    const savedConfig = await configStore.load();
+    const savedConfig = await configStore.loadOrSeed();
     setTheme(savedConfig.theme);
     let glyphConfig = {
       glyphAnim: savedConfig.glyphAnim,

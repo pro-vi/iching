@@ -53,6 +53,32 @@ const LANGUAGE_ALIASES: Record<string, UserConfig["language"]> = {
   "english": "en",
 };
 
+/**
+ * Best-effort system display-language from the POSIX locale environment. Used
+ * ONLY to seed the first-boot default (see `loadOrSeed`) — it is a one-time
+ * seed, never a live binding: once a config exists, the saved choice wins and
+ * the locale is never consulted again.
+ *
+ * Reads the standard precedence LC_ALL > LC_MESSAGES > LANG > LANGUAGE and maps
+ * to the three supported languages. Handles both POSIX ("zh_CN.UTF-8", "zh_TW")
+ * and BCP-47 ("zh-Hant-TW") forms; an explicit script subtag wins over region.
+ * Anything non-Chinese — including empty / "C" / "POSIX" — falls back to English.
+ */
+export function detectSystemLanguage(
+  env: Record<string, string | undefined> = process.env,
+): UserConfig["language"] {
+  const raw = env.LC_ALL || env.LC_MESSAGES || env.LANG || env.LANGUAGE || "";
+  // "zh_CN.UTF-8@modifier" / "zh-Hant-TW" → normalized parts ["zh","hant","tw"]
+  const parts = raw.split(/[.@]/)[0].replace(/_/g, "-").toLowerCase().split("-");
+  if (parts[0] !== "zh") return "en";
+  if (parts.includes("hant")) return "zh-Hant"; // script subtag wins over region
+  if (parts.includes("hans")) return "zh-Hans";
+  const region = parts[1];
+  if (region === "tw" || region === "hk" || region === "mo") return "zh-Hant";
+  // zh-CN / zh-SG / zh-MY and bare "zh" → Simplified (ICU resolves zh→zh-Hans).
+  return "zh-Hans";
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -140,6 +166,29 @@ export class JsonConfigStore implements ConfigStore {
       if ((err as NodeJS.ErrnoException).code === "ENOENT")
         return { ...DEFAULT_CONFIG };
       throw err;
+    }
+  }
+
+  /**
+   * Like `load()`, but on first boot (no config file yet) it seeds the display
+   * language from the system locale and PERSISTS the config — freezing the
+   * choice so later launches read the saved value and never re-consult the
+   * locale. Used at interactive startup; `load()` stays a pure read so config
+   * subcommands and test fixtures don't write files.
+   */
+  async loadOrSeed(): Promise<UserConfig> {
+    try {
+      const raw = await readFile(this.path, "utf-8");
+      const parsed: unknown = JSON.parse(raw);
+      return normalizeConfig(parsed);
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+      const seeded: UserConfig = {
+        ...DEFAULT_CONFIG,
+        language: detectSystemLanguage(),
+      };
+      await this.save(seeded);
+      return seeded;
     }
   }
 

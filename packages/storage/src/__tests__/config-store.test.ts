@@ -1,9 +1,9 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { UserConfig } from "../types.js";
-import { JsonConfigStore } from "../json/json-config.js";
+import { JsonConfigStore, detectSystemLanguage } from "../json/json-config.js";
 
 describe("JsonConfigStore", () => {
   let dir: string;
@@ -112,5 +112,67 @@ describe("JsonConfigStore", () => {
     await writeFile(join(dir, "config.json"), JSON.stringify({ language: "EN" }), "utf-8");
     const english = await store.load();
     expect(english.language).toBe("en");
+  });
+
+  // ── first-boot system-language seed (loadOrSeed) ──
+
+  test("load() stays pure on first boot — defaults, no detection, no file written", async () => {
+    const cfg = await store.load();
+    expect(cfg.language).toBe("en"); // never the detected locale
+    await expect(readFile(join(dir, "config.json"), "utf-8")).rejects.toThrow(); // no write
+  });
+
+  test("loadOrSeed seeds a valid language and PERSISTS it on first boot", async () => {
+    const seeded = await store.loadOrSeed();
+    expect(["en", "zh-Hant", "zh-Hans"]).toContain(seeded.language);
+    // persisted: the file now exists and a pure load() round-trips the same value
+    const reloaded = await store.load();
+    expect(reloaded).toEqual(seeded);
+  });
+
+  test("loadOrSeed freezes the first-boot language — later locale changes are ignored", async () => {
+    const orig = process.env.LC_ALL;
+    try {
+      process.env.LC_ALL = "zh_CN.UTF-8"; // highest-precedence locale var
+      const first = await store.loadOrSeed();
+      expect(first.language).toBe("zh-Hans"); // seeded Simplified from the locale
+
+      process.env.LC_ALL = "en_US.UTF-8"; // user later moves to an English shell
+      const second = await store.loadOrSeed();
+      expect(second.language).toBe("zh-Hans"); // …but the saved choice is frozen
+    } finally {
+      if (orig === undefined) delete process.env.LC_ALL;
+      else process.env.LC_ALL = orig;
+    }
+  });
+});
+
+describe("detectSystemLanguage", () => {
+  const cases: Array<[Record<string, string | undefined>, UserConfig["language"]]> = [
+    [{ LANG: "en_US.UTF-8" }, "en"],
+    [{}, "en"], // unset
+    [{ LANG: "C" }, "en"],
+    [{ LANG: "POSIX" }, "en"],
+    [{ LANG: "zh_CN.UTF-8" }, "zh-Hans"],
+    [{ LANG: "zh_SG.UTF-8" }, "zh-Hans"],
+    [{ LANG: "zh_TW.UTF-8" }, "zh-Hant"],
+    [{ LANG: "zh_HK.UTF-8" }, "zh-Hant"],
+    [{ LANG: "zh_MO.UTF-8" }, "zh-Hant"],
+    [{ LANG: "zh" }, "zh-Hans"], // bare zh → Simplified
+    [{ LANG: "zh-Hans" }, "zh-Hans"], // BCP-47
+    [{ LANG: "zh-Hant-TW" }, "zh-Hant"], // BCP-47 with script
+    [{ LANG: "zh-Hant-CN" }, "zh-Hant"], // script subtag wins over region
+  ];
+  for (const [env, expected] of cases) {
+    test(`${JSON.stringify(env)} → ${expected}`, () => {
+      expect(detectSystemLanguage(env)).toBe(expected);
+    });
+  }
+
+  test("respects precedence: LC_ALL > LC_MESSAGES > LANG > LANGUAGE", () => {
+    expect(detectSystemLanguage({ LANG: "en_US", LC_ALL: "zh_CN" })).toBe("zh-Hans");
+    expect(detectSystemLanguage({ LANG: "zh_CN", LC_MESSAGES: "en_US" })).toBe("en");
+    expect(detectSystemLanguage({ LANGUAGE: "zh_TW" })).toBe("zh-Hant");
+    expect(detectSystemLanguage({ LANG: "zh_TW", LANGUAGE: "en_US" })).toBe("zh-Hant");
   });
 });
