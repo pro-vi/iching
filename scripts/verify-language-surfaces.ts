@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 /**
  * Language-surface verifier — the deterministic oracle for the I Ching language
- * translation loop (.loop/language/).
+ * translation work. Its default inputs (inventory + consults) are committed
+ * under tests/fixtures/language/ so it runs reproducibly from a fresh clone.
  *
  * Modes (one per acceptance criterion). Only --inventory-only is implemented in
  * this iteration; every other mode (and the no-flag run-all / final-verify mode)
@@ -13,7 +14,7 @@
  *   --cli AC-005 | --simplified AC-006 | --consults AC-007
  *   --self-test AC-008 | --glossary AC-010 | (no flag) AC-009 run-all.
  *
- * Inventory source: .loop/language/TEXT_SURFACES.md (override --inventory <path>).
+ * Inventory source: tests/fixtures/language/TEXT_SURFACES.md (override --inventory <path>).
  *
  * AC-001 oracle = three honest checks:
  *   1. SOURCE -> INVENTORY string-sink: extract user-facing candidate literals
@@ -41,7 +42,7 @@ const optValue = (name: string): string | undefined => {
   const i = argv.indexOf(name);
   return i >= 0 ? argv[i + 1] : undefined;
 };
-const INVENTORY_REL = optValue("--inventory") ?? ".loop/language/TEXT_SURFACES.md";
+const INVENTORY_REL = optValue("--inventory") ?? "tests/fixtures/language/TEXT_SURFACES.md";
 
 // ---------------------------------------------------------------------------
 // Scope
@@ -897,7 +898,7 @@ async function runCoreData(): Promise<void> {
 // AC-007: high-risk groups have reconciled meaning + adversarial consults
 // ---------------------------------------------------------------------------
 function runConsults(): void {
-  const c = readMaybe(".loop/language/CONSULTS.md") ?? "";
+  const c = readMaybe("tests/fixtures/language/CONSULTS.md") ?? "";
   if (!c) {
     fail("CONSULTS.md missing");
     return;
