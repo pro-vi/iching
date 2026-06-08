@@ -112,6 +112,37 @@ describe("SettingsScene — no bilingual stacking", () => {
     expect(text).toContain("設定"); // live-localized title (zh-Hant), not the saved "en"
     expect(text).not.toContain("Settings"); // old language no longer shown
   });
+
+  // Regression (Codex P2): the yarrow preview strip in Settings rendered its
+  // captions in English because renderPreview() called renderYarrowFieldStrip
+  // without the selected language. It now passes vals.language.
+  test("yarrow preview in Settings localizes its captions (zh-Hant, no English leak)", () => {
+    const values: SettingsValues = {
+      theme: "bone",
+      language: "zh-Hant",
+      taijituStyle: "dots",
+      glyphAnim: "dots",
+      glyphFont: "kaiti",
+      castMethod: "yarrow",
+      castMode: "auto",
+    };
+    const scene = new SettingsScene(values);
+    // focus the Cast Method row (index 5) so the preview becomes the yarrow strip
+    for (let i = 0; i < 5; i++) scene.handleKey({ type: "arrow", direction: "down" }, ctx);
+    // tall buffer so the preview pane actually has room to render (it's skipped
+    // when previewAvailRows < MIN_PREVIEW_ROWS, e.g. at 80x24)
+    const buf = CellBuffer.create(80, 44);
+    let text = "";
+    // sample densely across several preview phases (gather / cut / narrate)
+    for (let ms = 0; ms < 6000; ms += 100) {
+      scene.update(ms, 100, ctx);
+      scene.render(buf, ctx);
+      text += bufferText(buf) + "\n";
+    }
+    expect(text).toContain("策"); // localized yarrow caption (策 / 奇策 / 餘策)
+    expect(text).not.toContain("stalks"); // no English caption leak in zh-Hant Settings
+    expect(text).not.toContain("set aside");
+  });
 });
 
 describe("HomeScene — no bilingual stacking", () => {

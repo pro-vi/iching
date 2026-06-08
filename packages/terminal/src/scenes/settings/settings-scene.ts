@@ -333,14 +333,14 @@ export class SettingsScene implements Scene {
       case "cast-yarrow": {
         if (!this.yarrowAuto) this.yarrowAuto = new YarrowAutoPreview();
         const fieldRow = startRow + yarrowFieldOffset(availRows);
-        renderYarrowFieldStrip(frame, this.yarrowAuto.model, fieldRow);
+        renderYarrowFieldStrip(frame, this.yarrowAuto.model, fieldRow, vals.language);
         break;
       }
 
       case "cast-yarrow-manual": {
         if (!this.yarrowManual) this.yarrowManual = new YarrowManualPreview();
         const fieldRow = startRow + yarrowFieldOffset(availRows);
-        renderYarrowFieldStrip(frame, this.yarrowManual.model, fieldRow);
+        renderYarrowFieldStrip(frame, this.yarrowManual.model, fieldRow, vals.language);
         // Aperture overlay only during sweep/snap — during play the runner
         // mutates the bar, and the aperture would smear over the action.
         if (this.yarrowManual.phase !== "playing") {
