@@ -185,12 +185,9 @@ export class JournalScene implements Scene {
   }
 
   private ensureCursorVisible(): void {
-    const viewportH = this.scroll.viewportHeight;
-    if (this.cursor < this.scroll.scrollOffset) {
-      this.scroll.scrollOffset = this.cursor;
-    } else if (this.cursor >= this.scroll.scrollOffset + viewportH) {
-      this.scroll.scrollOffset = this.cursor - viewportH + 1;
-    }
+    // Same cursor-into-view math the dict browse list uses; the ScrollableRegion
+    // this scene already owns exposes it (offsetToShow), so don't re-derive it.
+    this.scroll.ensureVisible(this.cursor);
   }
 }
 
