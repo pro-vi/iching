@@ -218,7 +218,14 @@ export function registerConfigCommand(program: Command): void {
         console.error(`Invalid value "${value}" for ${key}. Valid: ${schema.values?.join(", ") ?? "any string"}`);
         process.exit(1);
       }
-      await store.save(cfg);
+      try {
+        await store.save(cfg);
+      } catch {
+        // A write command must fail when it can't persist — but cleanly, not
+        // with a raw EACCES stack trace (cf. the TUI settings-save hardening).
+        console.error(`Couldn't write config to ${paths.config} (read-only or full data dir?).`);
+        process.exit(1);
+      }
 
       if (globalOpts.json) {
         outputJson(configToJson(key, resolved));
