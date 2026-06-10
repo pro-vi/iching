@@ -1,7 +1,7 @@
 ---
 title: Settings Option-Label Localization
 type: feat
-status: active
+status: completed
 date: 2026-06-10
 origin: PR #5 code-review session — settings-chips analysis (3-analyst workflow) + GPT-Pro second opinion; chat blueprint approved with U2 amendment
 ---
