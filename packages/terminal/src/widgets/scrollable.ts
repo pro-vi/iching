@@ -1,4 +1,7 @@
-// ScrollableRegion — virtual content with viewport windowing
+// ScrollableRegion — virtual content with viewport windowing.
+// Scroll math lives in ./scroll.ts so list views (browse/settings) share it.
+
+import { clampOffset, offsetToShow, pageIndicator } from "./scroll.ts";
 
 export class ScrollableRegion {
   contentLines: string[];
@@ -13,12 +16,12 @@ export class ScrollableRegion {
 
   /** Scroll up by n lines (default 1) */
   scrollUp(n = 1): void {
-    this.scrollOffset = Math.max(0, this.scrollOffset - n);
+    this.scrollOffset = clampOffset(this.scrollOffset - n, this.contentLines.length, this.viewportHeight);
   }
 
   /** Scroll down by n lines (default 1) */
   scrollDown(n = 1): void {
-    this.scrollOffset = Math.min(this.maxOffset(), this.scrollOffset + n);
+    this.scrollOffset = clampOffset(this.scrollOffset + n, this.contentLines.length, this.viewportHeight);
   }
 
   /** Scroll up by one page */
@@ -38,7 +41,12 @@ export class ScrollableRegion {
 
   /** Scroll to the last page */
   scrollToBottom(): void {
-    this.scrollOffset = this.maxOffset();
+    this.scrollOffset = clampOffset(Infinity, this.contentLines.length, this.viewportHeight);
+  }
+
+  /** Adjust the offset to keep a cursor index within the viewport (list navigation). */
+  ensureVisible(cursor: number): void {
+    this.scrollOffset = offsetToShow(cursor, this.scrollOffset, this.viewportHeight);
   }
 
   /** Return the visible slice of content */
@@ -51,15 +59,6 @@ export class ScrollableRegion {
 
   /** Scroll position indicator, e.g. "3/42" */
   scrollIndicator(): string {
-    const total = this.contentLines.length;
-    if (total <= this.viewportHeight) return "1/1";
-    const page = Math.floor(this.scrollOffset / this.viewportHeight) + 1;
-    const totalPages = Math.ceil(total / this.viewportHeight);
-    return `${page}/${totalPages}`;
-  }
-
-  /** Maximum valid scroll offset */
-  private maxOffset(): number {
-    return Math.max(0, this.contentLines.length - this.viewportHeight);
+    return pageIndicator(this.scrollOffset, this.contentLines.length, this.viewportHeight);
   }
 }

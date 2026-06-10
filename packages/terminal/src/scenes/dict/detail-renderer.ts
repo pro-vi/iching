@@ -10,6 +10,7 @@ import { stringWidth, centerPad } from "../../layout/measure.ts";
 import { wordWrap } from "./word-wrap.ts";
 import { GLYPHS } from "../../glyphs.ts";
 import { tr } from "../../i18n/messages.ts";
+import { pageIndicator } from "../../widgets/scroll.ts";
 
 const FOOTER_ROWS = 2;
 const PADDING = 2;
@@ -301,9 +302,10 @@ function renderFooter(
       ? `[↑↓] ${tr(language, "verb.select")}  ·  [enter] ${tr(language, "verb.open")}  ·  [tab] ${tr(language, "verb.scroll")}  ·  [esc] ${tr(language, "verb.back")}`
       : `[↑↓] ${tr(language, "verb.scroll")}  ·  [tab] ${tr(language, "verb.derived")}  ·  [enter] ${tr(language, "verb.open")}  ·  [esc] ${tr(language, "verb.back")}`;
 
+  // Hidden when content fits (vs the region's "1/1"); shows the page otherwise.
   const indicator =
     model.contentHeight > model.viewportHeight
-      ? `${Math.floor(model.scrollOffset / model.viewportHeight) + 1}/${Math.ceil(model.contentHeight / model.viewportHeight)}`
+      ? pageIndicator(model.scrollOffset, model.contentHeight, model.viewportHeight)
       : "";
 
   frame.writeText(footerRow, 1, keys, { fg: t.secondary });

@@ -2,6 +2,7 @@
 
 import type { Hexagram } from "@iching/core";
 import { GUA, searchHexagrams } from "@iching/core";
+import { offsetToShow } from "../../widgets/scroll.ts";
 
 export class BrowseModel {
   /** All 64 hexagrams */
@@ -92,10 +93,6 @@ export class BrowseModel {
 
   /** Ensure cursor is within visible scroll window */
   private ensureCursorVisible(): void {
-    if (this.cursor < this.scrollOffset) {
-      this.scrollOffset = this.cursor;
-    } else if (this.cursor >= this.scrollOffset + this.viewportHeight) {
-      this.scrollOffset = this.cursor - this.viewportHeight + 1;
-    }
+    this.scrollOffset = offsetToShow(this.cursor, this.scrollOffset, this.viewportHeight);
   }
 }

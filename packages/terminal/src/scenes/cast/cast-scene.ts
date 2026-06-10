@@ -147,7 +147,7 @@ export class CastScene implements Scene {
       return { type: "home" };
     }
 
-    // Exploration mode: arrow keys switch focus, scroll commentary
+    // Exploration mode: left/right arrows switch focus
     if (this.model.explorationMode && key.type === "arrow") {
       if (key.direction === "left" && this.model.focusedHex === "becoming") {
         this.setFocusedHex("primary");
@@ -155,14 +155,6 @@ export class CastScene implements Scene {
       }
       if (key.direction === "right" && this.model.focusedHex === "primary" && this.model.cast.becoming !== null) {
         this.setFocusedHex("becoming");
-        return;
-      }
-      if (key.direction === "up") {
-        this.model.commentaryScrollOffset = Math.max(0, this.model.commentaryScrollOffset - 1);
-        return;
-      }
-      if (key.direction === "down") {
-        this.model.commentaryScrollOffset++;
         return;
       }
     }
@@ -199,11 +191,10 @@ export class CastScene implements Scene {
 
   /**
    * Switch focus to a hexagram — updates focusedHex, creates matching
-   * glyph animator, resets scroll. Single method for all focus changes.
+   * glyph animator. Single method for all focus changes.
    */
   private setFocusedHex(hex: "primary" | "becoming"): void {
     this.model.focusedHex = hex;
-    this.model.commentaryScrollOffset = 0;
     const entry = hex === "primary"
       ? this.model.primaryGlyphEntry
       : this.model.becomingGlyphEntry;
