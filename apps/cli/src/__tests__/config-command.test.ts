@@ -240,4 +240,19 @@ describe("config command", () => {
     expect(cfg.theme).toBe("ink"); // the set applied
     expect(cfg.language).toBe("zh-Hans"); // …AND the locale was seeded, not frozen to en
   }, 20_000);
+
+  // Regression (Codex P2): a REJECTED `config set` must not write anything — the
+  // old order ran loadOrSeed() (which persists a seeded config on first boot)
+  // before validation, so `config set language klingon` created config.json and
+  // froze the locale seed even though the command failed.
+  test("failed `config set` on first boot leaves no config file behind", async () => {
+    for (const args of [
+      ["config", "set", "language", "klingon"], // invalid value
+      ["config", "set", "notARealKey", "x"], // unknown key
+    ]) {
+      const { exitCode } = await runCli(dataDir, args);
+      expect(exitCode).not.toBe(0);
+    }
+    expect(await Bun.file(join(dataDir, "config.json")).exists()).toBe(false);
+  }, 20_000);
 });
