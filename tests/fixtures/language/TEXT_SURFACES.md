@@ -1284,6 +1284,21 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   verifier: "--cli"
   notes: "Non-fatal: changes still apply live for the session. English-only diagnostic."
 
+- surface_id: cli-config-save-failed
+  file: apps/cli/src/commands/config.ts
+  code_locator: "config set — guarded store.save()"
+  current_text: "Couldn't write config to <path> (read-only or full data dir?)."
+  surface_class: cli-invalid-paths
+  render_context: "stderr error (exit 1) when a read-only/full data dir blocks `config set`"
+  language_policy: developer-only
+  source_layer: machine-token
+  json_policy: not-json
+  risk: low
+  agentify_required: no
+  status: open
+  verifier: "--cli"
+  notes: "Fatal for the command (a write command must fail when it can't persist). English-only diagnostic, mirrors cli-settings-save-failed."
+
 - surface_id: cli-commander-framework
   file: node_modules/commander (dependency-generated; surfaced by apps/cli/src/program.ts)
   code_locator: "Commander auto-output: Usage/Options/Commands/Arguments headings; unknown-command, missing-argument, excess-argument, invalid-option errors; auto -h/--help"
@@ -2041,6 +2056,12 @@ Default language **en**; settings order **EN → 繁 → 简** (asserted by
   zh_hant_source: n/a — developer-only diagnostic
   zh_hans_strategy: n/a — developer-only diagnostic
   render_context: stderr warning on read-only settings save
+- id: cli-config-save-failed
+  language_policy: developer-only
+  en_source: literal diagnostic
+  zh_hant_source: n/a — developer-only diagnostic
+  zh_hans_strategy: n/a — developer-only diagnostic
+  render_context: stderr error on read-only config set
 - id: cli-commander-framework
   language_policy: developer-only
   en_source: Commander default English (dependency)
