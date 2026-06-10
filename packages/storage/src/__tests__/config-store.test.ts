@@ -253,6 +253,32 @@ describe("JsonConfigStore", () => {
       restore();
     }
   });
+
+  test("loadOrSeed seeds the language for a pre-language upgrade config (no language key)", async () => {
+    const restore = withLocaleEnv({ LC_ALL: "zh_TW.UTF-8" });
+    try {
+      // a config from before the language field existed: settings but no `language`
+      await writeFile(join(dir, "config.json"), JSON.stringify({ theme: "ink", motion: "brisk" }), "utf-8");
+      const cfg = await store.loadOrSeed();
+      expect(cfg.language).toBe("zh-Hant"); // seeded from the locale
+      expect(cfg.theme).toBe("ink"); // existing settings preserved
+      expect(cfg.motion).toBe("brisk");
+      process.env.LC_ALL = "en_US.UTF-8"; // now a language key exists → frozen
+      expect((await store.loadOrSeed()).language).toBe("zh-Hant");
+    } finally {
+      restore();
+    }
+  });
+
+  test("loadOrSeed does NOT re-seed when a language key is already present", async () => {
+    const restore = withLocaleEnv({ LC_ALL: "zh_TW.UTF-8" });
+    try {
+      await writeFile(join(dir, "config.json"), JSON.stringify({ language: "en", theme: "ink" }), "utf-8");
+      expect((await store.loadOrSeed()).language).toBe("en"); // honors the stored choice
+    } finally {
+      restore();
+    }
+  });
 });
 
 describe("detectSystemLanguage", () => {

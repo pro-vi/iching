@@ -49,3 +49,33 @@ describe("SettingsScene language", () => {
     expect(scene.getValues().language).toBe("zh-Hans");
   });
 });
+
+describe("SettingsScene layout", () => {
+  // Regression (review P3): at short heights the 7th row (Cast Mode) was pushed
+  // under the bottom-anchored footer and edited blind. The scene now scrolls a
+  // window of settings so the focused row stays visible above the footer.
+  test("focused last row stays visible (and editable) at h=20", () => {
+    const scene = makeScene("en");
+    const ctx = makeCtx(80, 20);
+    for (let i = 0; i < 6; i++) scene.handleKey({ type: "arrow", direction: "down" }, ctx); // focus Cast Mode
+    const buf = CellBuffer.create(80, 20);
+    scene.render(buf, ctx);
+    const rows = bufferText(buf).split("\n");
+    const footerSepRow = 20 - 3;
+    const labelRow = rows.findIndex((l) => l.includes("Cast Mode"));
+    expect(labelRow).toBeGreaterThanOrEqual(0); // focused row rendered…
+    expect(labelRow + 1).toBeLessThan(footerSepRow); // …above the footer separator…
+    expect(rows[labelRow + 1]).toContain("[auto]"); // …options visible, not blind
+  });
+
+  test("renders all 7 rows without scrolling at h=24", () => {
+    const scene = makeScene("en");
+    const ctx = makeCtx(80, 24);
+    const buf = CellBuffer.create(80, 24);
+    scene.render(buf, ctx);
+    const text = bufferText(buf);
+    for (const label of ["Theme", "Language", "Taijitu", "Font", "Cast Method", "Cast Mode"]) {
+      expect(text).toContain(label);
+    }
+  });
+});

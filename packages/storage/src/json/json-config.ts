@@ -206,14 +206,13 @@ export class JsonConfigStore implements ConfigStore {
   private seededInMemory: UserConfig | null = null;
 
   /**
-   * Read + parse the config file, tolerating a present-but-corrupt file the
-   * same way `normalizeConfig` tolerates a structurally-invalid one: a
-   * `JSON.parse` failure (truncated / hand-edited / empty) falls back to
-   * defaults rather than crashing every entry point. Returns `null` only when
-   * the file is genuinely absent (ENOENT); real I/O faults (EACCES/EIO) still
-   * propagate so they stay visible.
+   * Read + JSON.parse the config file. Returns the parsed object, `null` when the
+   * file is genuinely absent (ENOENT), or `"corrupt"` when it exists but won't
+   * parse — in which case the unreadable file is first copied aside to .corrupt
+   * (best-effort, with a stderr warning) so a later save can't silently clobber
+   * it. Real I/O faults (EACCES/EIO) propagate so they stay visible.
    */
-  private async readExisting(): Promise<UserConfig | null> {
+  private async readRaw(): Promise<Record<string, unknown> | null | "corrupt"> {
     let raw: string;
     try {
       raw = await readFile(this.path, "utf-8");
@@ -221,12 +220,10 @@ export class JsonConfigStore implements ConfigStore {
       if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
       throw err;
     }
+    let parsed: unknown;
     try {
-      return normalizeConfig(JSON.parse(raw) as unknown);
+      parsed = JSON.parse(raw);
     } catch {
-      // Unparseable on disk: preserve the user's (recoverable) file by copying it
-      // aside before falling back to defaults, so a later settings-save can't
-      // silently clobber it. Best-effort — a read-only dir just keeps defaults.
       try {
         await writeFile(`${this.path}.corrupt`, raw, "utf-8");
         console.error(
@@ -235,35 +232,37 @@ export class JsonConfigStore implements ConfigStore {
       } catch {
         /* read-only / full: nothing more we can do */
       }
-      return { ...DEFAULT_CONFIG };
+      return "corrupt";
     }
+    return isRecord(parsed) ? parsed : {};
   }
 
   async load(): Promise<UserConfig> {
-    const existing = await this.readExisting();
-    if (existing) return existing;
-    // No file on disk: fall back to a deferred in-memory seed if first boot
-    // couldn't persist (so the session stays in its detected language), else defaults.
-    return this.seededInMemory ? { ...this.seededInMemory } : { ...DEFAULT_CONFIG };
+    // A deferred in-memory seed (first boot couldn't persist) is authoritative for
+    // the session, so a same-session reload stays in its detected language.
+    if (this.seededInMemory) return { ...this.seededInMemory };
+    const raw = await this.readRaw();
+    if (raw === null || raw === "corrupt") return { ...DEFAULT_CONFIG };
+    return normalizeConfig(raw);
   }
 
   /**
-   * Like `load()`, but on first boot (no config file yet) it seeds the display
-   * language from the system locale and PERSISTS the config — freezing the
-   * choice so later launches read the saved value and never re-consult the
-   * locale. Used at interactive startup; `load()` stays a pure read so config
-   * subcommands and test fixtures don't write files.
+   * Like `load()`, but seeds the display language from the system locale and
+   * PERSISTS it when the user has NOT chosen one — first boot (no file) OR an
+   * upgrade from a pre-language version (a config that exists but has never had a
+   * `language` key). After that the saved choice wins and the locale is never
+   * re-consulted. Used at interactive startup; `load()` stays a pure read so
+   * config subcommands and test fixtures don't write files.
    */
   async loadOrSeed(): Promise<UserConfig> {
-    const existing = await this.readExisting();
-    if (existing) return existing;
-    const seeded: UserConfig = {
-      ...DEFAULT_CONFIG,
-      language: detectSystemLanguage(),
-    };
-    // Best-effort persist: a read-only / full data dir must NOT block startup —
-    // run with the detected language in memory this session and persist (freeze)
-    // on a later launch when the write succeeds.
+    const raw = await this.readRaw();
+    if (raw === "corrupt") return { ...DEFAULT_CONFIG };
+    // The user already has a stored language choice → honor it, don't re-seed.
+    if (raw !== null && Object.hasOwn(raw, "language")) return normalizeConfig(raw);
+    // No choice yet (first boot, or pre-language upgrade): seed from the locale,
+    // preserving any other existing settings, and persist (best-effort).
+    const base = raw === null ? DEFAULT_CONFIG : normalizeConfig(raw);
+    const seeded: UserConfig = { ...base, language: detectSystemLanguage() };
     try {
       await this.save(seeded);
     } catch {

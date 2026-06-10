@@ -201,21 +201,42 @@ export class SettingsScene implements Scene {
     // Setting rows
     const left = Math.max(2, cx - 24);
 
-    // Adaptive spacing: wide layout (3 rows per setting — label + options +
-    // gap) needs `frame.height >= 3N + 7` to keep the last setting clear of
-    // the footer separator at `height - 3`. At 80x24 with 6 settings, that
-    // threshold is 25 — we have 24, so use the compact 2-rows-per-setting
-    // form. Without this guard, Cast Mode options at row 21 got silently
-    // overwritten by the footer separator, leaving users to change the
-    // most important new setting blind.
+    // Adaptive spacing: wide layout is 3 rows per setting (label + options +
+    // gap), compact is 2. When even compact can't fit every row above the
+    // footer (very short terminals, e.g. h<22 with 7 settings), scroll a window
+    // of settings so the FOCUSED row is always visible — otherwise the last rows
+    // render under the bottom-anchored footer and the user edits a setting blind.
     const compact = frame.height < this.rows.length * 3 + 7;
     const interRowGap = compact ? 1 : 2;
+    // Label-to-label row delta: the label row, then the options row, then the
+    // inter-row gap → 1 + interRowGap (the options row is the "+1").
+    const rowsPerSetting = 1 + interRowGap;
 
-    for (let i = 0; i < this.rows.length; i++) {
+    // Footer is anchored to the bottom; settings + preview share the space above.
+    const footerRow = frame.height - 2;
+    const footerSepRow = footerRow - 1;
+
+    const settingsStartRow = row;
+    const availSettingRows = footerSepRow - settingsStartRow;
+    const maxVisible = Math.max(1, Math.floor(availSettingRows / rowsPerSetting));
+    const needsScroll = maxVisible < this.rows.length;
+    // Window that keeps the focused row in view, scrolling no more than needed.
+    const scrollStart = needsScroll
+      ? Math.max(0, Math.min(this.focusedRow - maxVisible + 1, this.rows.length - maxVisible))
+      : 0;
+    const scrollEnd = needsScroll ? scrollStart + maxVisible : this.rows.length;
+
+    for (let i = scrollStart; i < scrollEnd; i++) {
       const setting = this.rows[i];
       const focused = i === this.focusedRow;
 
-      frame.writeText(row, left, tr(lang, setting.key), {
+      // Edge hint when more settings exist above/below the visible window.
+      const hint =
+        i === scrollStart && scrollStart > 0 ? "  ↑"
+        : i === scrollEnd - 1 && scrollEnd < this.rows.length ? "  ↓"
+        : "";
+
+      frame.writeText(row, left, tr(lang, setting.key) + hint, {
         fg: focused ? t.primary : t.secondary,
         bold: focused,
       });
@@ -242,9 +263,6 @@ export class SettingsScene implements Scene {
       row += interRowGap;
     }
 
-    // Footer is anchored to the bottom; preview lives in whatever space is left.
-    const footerRow = frame.height - 2;
-    const footerSepRow = footerRow - 1;
     const footer = `[↑↓] ${tr(lang, "verb.setting")}  ·  [←→] ${tr(lang, "verb.option")}  ·  [esc] ${tr(lang, "verb.saveBack")}`;
 
     const sectionSepRow = row;
