@@ -5,6 +5,22 @@ import { join } from "node:path";
 import type { UserConfig } from "../types.js";
 import { JsonConfigStore, detectSystemLanguage } from "../json/json-config.js";
 
+const LOCALE_VARS = ["LC_ALL", "LC_MESSAGES", "LANG", "LANGUAGE"] as const;
+/** Set locale env vars deterministically (clearing the rest) and return a restorer. */
+function withLocaleEnv(vars: Partial<Record<(typeof LOCALE_VARS)[number], string>>): () => void {
+  const prev = Object.fromEntries(LOCALE_VARS.map((k) => [k, process.env[k]]));
+  for (const k of LOCALE_VARS) {
+    if (vars[k] === undefined) delete process.env[k];
+    else process.env[k] = vars[k];
+  }
+  return () => {
+    for (const k of LOCALE_VARS) {
+      if (prev[k] === undefined) delete process.env[k];
+      else process.env[k] = prev[k];
+    }
+  };
+}
+
 describe("JsonConfigStore", () => {
   let dir: string;
   let store: JsonConfigStore;
@@ -114,6 +130,45 @@ describe("JsonConfigStore", () => {
     expect(english.language).toBe("en");
   });
 
+  // Regression: alias/legacy lookups walked the prototype chain, so inherited
+  // names (constructor/__proto__/toString) resolved to functions on the config.
+  test("inherited prototype names as values do NOT resolve via alias maps", async () => {
+    for (const key of ["language", "theme", "castMode"]) {
+      for (const bad of ["constructor", "__proto__", "toString"]) {
+        await writeFile(join(dir, "config.json"), JSON.stringify({ [key]: bad }), "utf-8");
+        const cfg = await store.load();
+        expect(typeof cfg.language).toBe("string");
+        expect(typeof cfg.theme).toBe("string");
+        expect(cfg.castMethod === "coin" || cfg.castMethod === "yarrow").toBe(true);
+        expect(cfg.castMode === "auto" || cfg.castMode === "manual").toBe(true);
+      }
+    }
+  });
+
+  test("language matching is case-insensitive (BCP-47)", async () => {
+    for (const [raw, want] of [["zh-hans", "zh-Hans"], ["ZH-HANT", "zh-Hant"], ["En", "en"]] as const) {
+      await writeFile(join(dir, "config.json"), JSON.stringify({ language: raw }), "utf-8");
+      expect((await store.load()).language).toBe(want);
+    }
+  });
+
+  test("unknown own-keys survive a load→save round-trip (schemas only expand)", async () => {
+    await writeFile(join(dir, "config.json"), JSON.stringify({ theme: "ink", futureKey: "keepme" }), "utf-8");
+    const cfg = await store.load();
+    expect((cfg as unknown as Record<string, unknown>).futureKey).toBe("keepme");
+    await store.save(cfg);
+    const reloaded = JSON.parse(await readFile(join(dir, "config.json"), "utf-8"));
+    expect(reloaded.futureKey).toBe("keepme"); // not stripped by the whitelist
+  });
+
+  test("a corrupt config is backed up to .corrupt before falling to defaults", async () => {
+    const path = join(dir, "config.json");
+    await writeFile(path, "{ broken json", "utf-8");
+    const cfg = await store.load();
+    expect(cfg.language).toBe("en"); // degraded to defaults
+    expect(await readFile(`${path}.corrupt`, "utf-8")).toBe("{ broken json"); // recoverable
+  });
+
   // ── first-boot system-language seed (loadOrSeed) ──
 
   test("load() stays pure on first boot — defaults, no detection, no file written", async () => {
@@ -131,9 +186,8 @@ describe("JsonConfigStore", () => {
   });
 
   test("loadOrSeed freezes the first-boot language — later locale changes are ignored", async () => {
-    const orig = process.env.LC_ALL;
+    const restore = withLocaleEnv({ LC_ALL: "zh_CN.UTF-8" }); // LANGUAGE/LANG/etc cleared
     try {
-      process.env.LC_ALL = "zh_CN.UTF-8"; // highest-precedence locale var
       const first = await store.loadOrSeed();
       expect(first.language).toBe("zh-Hans"); // seeded Simplified from the locale
 
@@ -141,8 +195,7 @@ describe("JsonConfigStore", () => {
       const second = await store.loadOrSeed();
       expect(second.language).toBe("zh-Hans"); // …but the saved choice is frozen
     } finally {
-      if (orig === undefined) delete process.env.LC_ALL;
-      else process.env.LC_ALL = orig;
+      restore();
     }
   });
 
@@ -189,17 +242,15 @@ describe("JsonConfigStore", () => {
         throw Object.assign(new Error("EACCES"), { code: "EACCES" });
       }
     }
-    const orig = process.env.LC_ALL;
+    const restore = withLocaleEnv({ LC_ALL: "zh_TW.UTF-8" }); // deterministic detected language
     try {
-      process.env.LC_ALL = "zh_TW.UTF-8"; // deterministic detected language
       const store2 = new FailingSaveStore(join(dir, "config.json"));
       const seeded = await store2.loadOrSeed();
       expect(seeded.language).toBe("zh-Hant");
       const reloaded = await store2.load(); // same store, same session
       expect(reloaded.language).toBe("zh-Hant"); // not "en" — seed retained in memory
     } finally {
-      if (orig === undefined) delete process.env.LC_ALL;
-      else process.env.LC_ALL = orig;
+      restore();
     }
   });
 });

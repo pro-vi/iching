@@ -192,11 +192,29 @@ describe("config command", () => {
       stdin: "pipe",
       stdout: "pipe",
       stderr: "pipe",
-      env: { ...process.env, NO_COLOR: "1", LC_ALL: "zh_CN.UTF-8", LANG: "zh_CN.UTF-8" },
+      // clear inherited LANGUAGE/LC_MESSAGES so LC_ALL deterministically wins
+      env: { ...process.env, NO_COLOR: "1", LC_ALL: "zh_CN.UTF-8", LANG: "zh_CN.UTF-8", LC_MESSAGES: "", LANGUAGE: "" },
     });
     proc.stdin.end();
     await proc.exited; // exits on its own (no TTY) after loadOrSeed has persisted
     const cfg = JSON.parse(await readFile(join(dataDir, "config.json"), "utf-8"));
     expect(cfg.language).toBe("zh-Hans"); // seeded from the locale, not default "en"
+  }, 20_000);
+
+  // Regression (review P2): `config set` WRITES, so on first boot it must seed
+  // the language — not persist the defaulted "en" and permanently freeze the seed.
+  test("`config set` on first boot seeds the language (does not freeze en)", async () => {
+    const proc = Bun.spawn(["bun", MAIN_TS, "--data-dir", dataDir, "config", "set", "theme", "ink"], {
+      cwd: REPO_ROOT,
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env, NO_COLOR: "1", LC_ALL: "zh_CN.UTF-8", LANG: "zh_CN.UTF-8", LC_MESSAGES: "", LANGUAGE: "" },
+    });
+    proc.stdin.end();
+    await proc.exited;
+    const cfg = JSON.parse(await readFile(join(dataDir, "config.json"), "utf-8"));
+    expect(cfg.theme).toBe("ink"); // the set applied
+    expect(cfg.language).toBe("zh-Hans"); // …AND the locale was seeded, not frozen to en
   }, 20_000);
 });

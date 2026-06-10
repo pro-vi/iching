@@ -174,7 +174,16 @@ async function main() {
             newConfig.glyphFont = updated.glyphFont;
             newConfig.castMethod = updated.castMethod;
             newConfig.castMode = updated.castMode;
-            await configStore.save(newConfig);
+            // Best-effort persist: a read-only / full data dir must not crash
+            // "save & back" — the deferred-seed session explicitly supports
+            // reopening Settings. Apply the changes live regardless.
+            try {
+              await configStore.save(newConfig);
+            } catch {
+              console.error(
+                "iching: couldn't save settings (read-only data dir?); changes apply for this session only.",
+              );
+            }
             setTheme(updated.theme);
             language = updated.language;
             taijituStyle = updated.taijituStyle;

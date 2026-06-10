@@ -190,7 +190,11 @@ export function registerConfigCommand(program: Command): void {
         globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
       );
       const store = new JsonConfigStore(paths.config);
-      const cfg = await store.load();
+      // `set` WRITES the config, so on first boot it must seed the display
+      // language first — otherwise persisting the defaulted "en" would freeze
+      // the locale seed before the user ever launches the TUI. (get/list stay
+      // pure load() — they don't write.)
+      const cfg = await store.loadOrSeed();
 
       if (!isConfigKey(key)) {
         console.error(`Unknown key "${key}". Valid keys: ${VALID_KEYS.join(", ")}`);

@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import type { UserConfig } from "../types.js";
 import type { ConfigStore } from "../config-store.js";
 import { atomicWriteJson } from "./atomic-write.js";
@@ -128,16 +128,23 @@ function normalizeConfig(parsed: unknown): UserConfig {
   if (isOneOf(MOTION_OPTIONS, parsed.motion)) merged.motion = parsed.motion;
 
   const rawLanguage = stringValue(parsed, "language");
-  if (isOneOf(LANGUAGE_OPTIONS, rawLanguage)) {
-    merged.language = rawLanguage;
-  } else if (rawLanguage && LANGUAGE_ALIASES[rawLanguage]) {
-    merged.language = LANGUAGE_ALIASES[rawLanguage];
+  if (rawLanguage) {
+    // BCP-47 tags are case-insensitive (RFC 5646 §2.1.1): match the canonical
+    // option case-folded so "zh-hans" / "ZH-HANT" / "EN" resolve instead of
+    // silently falling through to English.
+    const folded = rawLanguage.trim().toLowerCase();
+    const canon = LANGUAGE_OPTIONS.find((o) => o.toLowerCase() === folded);
+    if (canon) merged.language = canon;
+    // Aliases (hand-edited files): OWN-property lookup only — never the prototype
+    // chain, so "constructor"/"__proto__"/"toString" can't resolve to a function.
+    else if (Object.hasOwn(LANGUAGE_ALIASES, rawLanguage))
+      merged.language = LANGUAGE_ALIASES[rawLanguage];
   }
 
   const rawTheme = stringValue(parsed, "theme");
   if (isOneOf(THEME_OPTIONS, rawTheme)) {
     merged.theme = rawTheme;
-  } else if (rawTheme && THEME_ALIASES[rawTheme]) {
+  } else if (rawTheme && Object.hasOwn(THEME_ALIASES, rawTheme)) {
     merged.theme = THEME_ALIASES[rawTheme];
   }
 
@@ -156,7 +163,7 @@ function normalizeConfig(parsed: unknown): UserConfig {
   const rawCastMethod = stringValue(parsed, "castMethod");
   const rawCastMode = stringValue(parsed, "castMode");
   if (rawCastMode && rawCastMethod === undefined) {
-    const split = LEGACY_CAST_MODE[rawCastMode];
+    const split = Object.hasOwn(LEGACY_CAST_MODE, rawCastMode) ? LEGACY_CAST_MODE[rawCastMode] : undefined;
     if (split) {
       merged.castMethod = split.method;
       merged.castMode = split.mode;
@@ -166,11 +173,21 @@ function normalizeConfig(parsed: unknown): UserConfig {
     if (isOneOf(CAST_MODE_OPTIONS, rawCastMode)) {
       merged.castMode = rawCastMode;
     } else if (rawCastMode) {
-      const split = LEGACY_CAST_MODE[rawCastMode];
+      const split = Object.hasOwn(LEGACY_CAST_MODE, rawCastMode) ? LEGACY_CAST_MODE[rawCastMode] : undefined;
       if (split) {
         merged.castMethod = split.method;
         merged.castMode = split.mode;
       }
+    }
+  }
+
+  // Forward-compat (schema-keys: "schemas only expand"): carry through unknown
+  // OWN keys written by a newer version / parallel install, so a settings save
+  // from this version doesn't destroy them. `k in DEFAULT_CONFIG` skips both the
+  // known keys and inherited prototype names (constructor/toString/…).
+  for (const k of Object.keys(parsed)) {
+    if (!(k in DEFAULT_CONFIG)) {
+      (merged as unknown as Record<string, unknown>)[k] = parsed[k];
     }
   }
 
@@ -207,7 +224,18 @@ export class JsonConfigStore implements ConfigStore {
     try {
       return normalizeConfig(JSON.parse(raw) as unknown);
     } catch {
-      return { ...DEFAULT_CONFIG }; // unparseable on disk → tolerant defaults
+      // Unparseable on disk: preserve the user's (recoverable) file by copying it
+      // aside before falling back to defaults, so a later settings-save can't
+      // silently clobber it. Best-effort — a read-only dir just keeps defaults.
+      try {
+        await writeFile(`${this.path}.corrupt`, raw, "utf-8");
+        console.error(
+          `iching: config at ${this.path} is unreadable; backed up to ${this.path}.corrupt, using defaults.`,
+        );
+      } catch {
+        /* read-only / full: nothing more we can do */
+      }
+      return { ...DEFAULT_CONFIG };
     }
   }
 
