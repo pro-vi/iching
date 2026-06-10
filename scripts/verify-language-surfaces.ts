@@ -126,6 +126,13 @@ const SENTINELS: Array<[string, string]> = [
   ["EN", "packages/terminal/src/scenes/settings/settings-scene.ts"],
   ["繁", "packages/terminal/src/scenes/settings/settings-scene.ts"],
   ["简", "packages/terminal/src/scenes/settings/settings-scene.ts"],
+  // Option-chip display labels (representative set; full contract in --terminal):
+  ["楷體", "packages/terminal/src/i18n/option-labels.ts"],
+  ["楷体", "packages/terminal/src/i18n/option-labels.ts"],
+  ["銅錢", "packages/terminal/src/i18n/option-labels.ts"],
+  ["铜钱", "packages/terminal/src/i18n/option-labels.ts"],
+  ["噪點", "packages/terminal/src/i18n/option-labels.ts"],
+  ["噪点", "packages/terminal/src/i18n/option-labels.ts"],
   ["Cast", "packages/terminal/src/scenes/home/home-scene.ts"],
   ["Settings", "packages/terminal/src/scenes/home/home-scene.ts"],
   ["No history", "packages/terminal/src/scenes/dict/detail-renderer.ts"],
@@ -656,6 +663,58 @@ async function runTerminal(): Promise<void> {
     const ht = tr("zh-Hant", "menu.settings");
     if (en === ht) fail("tr() does not distinguish en vs zh-Hant for menu.settings");
   }
+  // 1b. Option-label catalog — the SEPARATE display-label layer for enum chips
+  // (glossary §Settings option-chip display labels). Behavioral contract: every
+  // ratified (settingKey, token) resolves to the glossary renderings, en stays
+  // the canonical token, theme tokens fall through verbatim (labels deferred),
+  // and prototype-chain reaches miss. Deleting or mangling an entry fails here.
+  const OPTION_LABEL_CONTRACT: Array<[string, string, string, string]> = [
+    ["settings.font", "kaiti", "楷體", "楷体"],
+    ["settings.font", "libian", "隸變", "隶变"],
+    ["settings.font", "heiti", "黑體", "黑体"],
+    ["settings.castMethod", "coin", "銅錢 (coin)", "铜钱 (coin)"],
+    ["settings.castMethod", "yarrow", "蓍草 (yarrow)", "蓍草 (yarrow)"],
+    ["settings.castMode", "auto", "自動", "自动"],
+    ["settings.castMode", "manual", "手動", "手动"],
+    ["settings.taijitu", "dots", "點陣", "点阵"],
+    ["settings.taijitu", "dense", "密實", "密实"],
+    ["settings.glyphAnimation", "dots", "點陣", "点阵"],
+    ["settings.glyphAnimation", "noise", "噪點", "噪点"],
+    ["settings.glyphAnimation", "radial", "放射", "放射"],
+    ["settings.glyphAnimation", "sand", "沙化", "沙化"],
+  ];
+  let optMod: { optionLabel?: (l: string, s: string, t: string) => string };
+  try {
+    optMod = (await import(
+      resolve(ROOT, "packages/terminal/src/i18n/option-labels.ts")
+    )) as typeof optMod;
+  } catch {
+    fail("option-label catalog packages/terminal/src/i18n/option-labels.ts missing");
+    optMod = {};
+  }
+  const optionLabel = optMod.optionLabel;
+  if (typeof optionLabel !== "function") {
+    fail("option-labels.ts must export optionLabel(language, settingKey, token)");
+  } else {
+    for (const [sk, token, hant, hans] of OPTION_LABEL_CONTRACT) {
+      if (optionLabel("en", sk, token) !== token)
+        fail(`option label ${sk}.${token}: en must equal the canonical token`);
+      if (optionLabel("zh-Hant", sk, token) !== hant)
+        fail(`option label ${sk}.${token}: zh-Hant != ratified ${JSON.stringify(hant)}`);
+      if (optionLabel("zh-Hans", sk, token) !== hans)
+        fail(`option label ${sk}.${token}: zh-Hans != ratified ${JSON.stringify(hans)}`);
+    }
+    for (const theme of ["ink", "bone", "cinnabar", "jade", "river"])
+      if (optionLabel("zh-Hant", "settings.theme", theme) !== theme)
+        fail(`theme chip "${theme}" must stay verbatim (labels deferred per glossary)`);
+    if (optionLabel("zh-Hant", "settings.font", "constructor") !== "constructor")
+      fail("optionLabel resolves prototype-chain keys (must fall back to the token)");
+  }
+  // The settings scene must actually derive chips through the catalog.
+  const settingsSrc =
+    readMaybe("packages/terminal/src/scenes/settings/settings-scene.ts") ?? "";
+  if (!/from "[^"]*i18n\/option-labels/.test(settingsSrc))
+    fail("settings-scene does not consume the option-label catalog");
   // 2. Consumer-side: every translatable scene must consume the catalog (or language).
   for (const rel of SCENE_CONSUMERS) {
     const src = readMaybe(rel);
