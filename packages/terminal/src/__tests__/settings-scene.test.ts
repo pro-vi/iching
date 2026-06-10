@@ -79,3 +79,27 @@ describe("SettingsScene layout", () => {
     }
   });
 });
+
+describe("SettingsScene getValues — identity-bound, not positional", () => {
+  // Contract (plan U2 amendment): field↔row mapping goes through the row KEY.
+  // Pre-refactor, getValues() read this.rows[0]…this.rows[6] positionally, so
+  // reordering rows silently swapped persisted values. White-box: shuffle the
+  // private rows array and assert the mapping still holds.
+  test("reversing row order does not swap persisted values", () => {
+    const scene = makeScene("zh-Hant");
+    const before = scene.getValues();
+    (scene as unknown as { rows: unknown[] }).rows.reverse();
+    expect(scene.getValues()).toEqual(before);
+  });
+
+  test("selections made after a reorder land on the right field", () => {
+    const scene = makeScene("en");
+    (scene as unknown as { rows: unknown[] }).rows.reverse();
+    // After reversal, focused row 0 is Cast Mode (was Theme). Toggle it.
+    const ctx = makeCtx();
+    scene.handleKey({ type: "arrow", direction: "right" }, ctx);
+    const vals = scene.getValues();
+    expect(vals.castMode).toBe("manual"); // the toggled row's field moved…
+    expect(vals.theme).toBe("bone"); // …and theme (old position 0) did not.
+  });
+});

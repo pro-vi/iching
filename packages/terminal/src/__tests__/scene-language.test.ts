@@ -10,6 +10,7 @@ import { CastScene } from "../scenes/cast/cast-scene.ts";
 import { BrowseScene } from "../scenes/dict/browse-scene.ts";
 import { JournalScene } from "../scenes/journal/journal-scene.ts";
 import { renderDetail } from "../scenes/dict/detail-renderer.ts";
+import { stringWidth } from "../layout/measure.ts";
 import { DetailScene } from "../scenes/dict/detail-scene.ts";
 import { DetailModel } from "../scenes/dict/detail-model.ts";
 import { CellBuffer } from "../render/buffer.ts";
@@ -75,8 +76,12 @@ describe("SettingsScene — no bilingual stacking", () => {
     expect(text).toContain("主題"); // Theme
     expect(text).not.toContain("Theme");
     expect(text).not.toContain("Language");
-    // option-value badges remain verbatim (canonical anchors per glossary)
+    // Option-value chips: STORED tokens stay canonical; display labels come from
+    // the option-labels catalog and fall back to the canonical token where no
+    // label is ratified (glossary §Settings option-chip display labels). The
+    // language chips are endonym badges, invariant across display languages.
     expect(text).toContain("繁");
+    expect(text).toContain("ink"); // theme labels deferred → canonical fallback
   });
 
   test("Simplified mode shows 简体 labels, no stray English or Traditional residue", () => {
@@ -111,6 +116,106 @@ describe("SettingsScene — no bilingual stacking", () => {
     const text = bufferText(buf);
     expect(text).toContain("設定"); // live-localized title (zh-Hant), not the saved "en"
     expect(text).not.toContain("Settings"); // old language no longer shown
+  });
+
+  // U3 — font row display labels (glossary-ratified): zh modes show 楷體/隸變/
+  // 黑體 chips while the STORED token stays the pinyin (kaiti/libian/heiti).
+  test("font chips localize in zh-Hant; persisted token stays canonical", () => {
+    const text = settingsText("zh-Hant");
+    // Selected kaiti chip with double-width CJK label, 2-space chip gaps —
+    // contiguous on one row pins bracket/width placement (cf. "[EN]  繁  简").
+    expect(text).toContain("[楷體]  隸變  黑體");
+    expect(text).not.toContain("kaiti"); // label replaces the token in zh
+
+    const values: SettingsValues = {
+      theme: "bone", language: "zh-Hant", taijituStyle: "dots", glyphAnim: "dots",
+      glyphFont: "kaiti", castMethod: "coin", castMode: "auto",
+    };
+    const scene = new SettingsScene(values);
+    expect(scene.getValues().glyphFont).toBe("kaiti");
+    // Toggle the Font row: persisted value is the next TOKEN, never a label.
+    for (let i = 0; i < 4; i++) scene.handleKey({ type: "arrow", direction: "down" }, ctx);
+    scene.handleKey({ type: "arrow", direction: "right" }, ctx);
+    expect(scene.getValues().glyphFont).toBe("libian");
+  });
+
+  test("font chips localize in zh-Hans with Simplified forms", () => {
+    const text = settingsText("zh-Hans");
+    expect(text).toContain("[楷体]  隶变  黑体");
+    expect(text).not.toContain("楷體"); // no Traditional residue
+  });
+
+  test("en mode keeps canonical font tokens", () => {
+    const text = settingsText("en");
+    expect(text).toContain("[kaiti]  libian  heiti");
+    expect(text).not.toContain("楷體");
+  });
+
+  // Live re-localization extends to chips: flipping the Language row swaps the
+  // font labels in the same frame (labels are derived at render, not stored).
+  test("flipping Language re-labels font chips immediately, before save", () => {
+    const values: SettingsValues = {
+      theme: "bone", language: "en", taijituStyle: "dots", glyphAnim: "dots",
+      glyphFont: "kaiti", castMethod: "coin", castMode: "auto",
+    };
+    const scene = new SettingsScene(values);
+    scene.handleKey({ type: "arrow", direction: "down" }, ctx); // focus Language
+    scene.handleKey({ type: "arrow", direction: "right" }, ctx); // en → zh-Hant
+    const buf = CellBuffer.create(ctx.cols, ctx.rows);
+    scene.render(buf, ctx);
+    const text = bufferText(buf);
+    expect(text).toContain("楷體"); // chip re-labeled live
+    expect(text).not.toContain("kaiti");
+    expect(scene.getValues().glyphFont).toBe("kaiti"); // value untouched
+  });
+
+  // U4 — wave-2 chips: castMethod keeps the canonical token as an in-label
+  // hint (no transliteration bridge to the CLI value); castMode/taijitu/anim
+  // are literal words, label-only. Token-keyed: 噪點 = noise, 點陣 = dots.
+  test("wave-2 chips localize in zh-Hant; castMethod carries canonical hint", () => {
+    const text = settingsText("zh-Hant");
+    expect(text).toContain("[銅錢 (coin)]  蓍草 (yarrow)");
+    expect(text).toContain("[自動]  手動");
+    expect(text).toContain("[點陣]  密實"); // taijitu
+    expect(text).toContain("[點陣]  噪點  放射  沙化"); // anim (order = ANIM_OPTIONS)
+  });
+
+  test("wave-2 chips localize in zh-Hans with Simplified forms", () => {
+    const text = settingsText("zh-Hans");
+    expect(text).toContain("[铜钱 (coin)]  蓍草 (yarrow)");
+    expect(text).toContain("[自动]  手动");
+    expect(text).toContain("[点阵]  密实");
+    expect(text).toContain("[点阵]  噪点  放射  沙化");
+    expect(text).not.toContain("銅錢"); // no Traditional residue
+  });
+
+  test("en mode keeps canonical wave-2 tokens", () => {
+    const text = settingsText("en");
+    expect(text).toContain("[coin]  yarrow");
+    expect(text).toContain("[auto]  manual");
+    expect(text).toContain("[dots]  noise  radial  sand");
+    expect(text).not.toContain("銅錢");
+  });
+
+  // Width budget: the widest localized chip row must stay under the en theme
+  // row (36 cols), the proven-to-fit baseline at 80 cols (plan U4 scenario).
+  test("widest zh chip row stays inside the en theme-row width budget", () => {
+    const castMethodRow = "[銅錢 (coin)]  蓍草 (yarrow)";
+    expect(stringWidth(castMethodRow)).toBeLessThan(36);
+  });
+
+  // Persistence: zh-mode selections still write canonical tokens (the chain
+  // CLI tests pin from the other side: `config get castMethod` prints "coin").
+  test("zh-Hant selections persist canonical wave-2 tokens", () => {
+    const values: SettingsValues = {
+      theme: "bone", language: "zh-Hant", taijituStyle: "dots", glyphAnim: "dots",
+      glyphFont: "kaiti", castMethod: "coin", castMode: "auto",
+    };
+    const scene = new SettingsScene(values);
+    for (let i = 0; i < 5; i++) scene.handleKey({ type: "arrow", direction: "down" }, ctx); // Cast Method
+    scene.handleKey({ type: "arrow", direction: "right" }, ctx);
+    expect(scene.getValues().castMethod).toBe("yarrow");
+    expect(scene.getValues().castMode).toBe("auto");
   });
 
   // Regression (Codex P2): the yarrow preview strip in Settings rendered its

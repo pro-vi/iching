@@ -8,7 +8,7 @@
 // uses characters outside the corpus conversion table in @iching/core.
 import type { DisplayLanguage } from "@iching/core";
 
-interface Message {
+export interface Message {
   en: string;
   zhHant: string;
   zhHans: string;
