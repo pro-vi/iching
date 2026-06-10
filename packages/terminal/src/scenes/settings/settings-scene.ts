@@ -137,22 +137,23 @@ export class SettingsScene implements Scene {
   /**
    * Current selections as canonical tokens. Field↔row mapping is by row KEY,
    * not row position — reordering or inserting rows cannot silently swap
-   * persisted values. pick() narrows the stored string back to each field's
-   * union without casts; an unknown value falls back to the field default.
+   * persisted values. selectedValue() finds the row that owns the key and
+   * narrows its selected token back to the field's union without casts; an
+   * unknown value falls back to the field default.
    */
   getValues(): SettingsValues {
     return {
-      theme: this.pick(THEME_NAMES, "settings.theme", "bone"),
-      language: this.pick(LANGUAGE_OPTIONS, "settings.language", "en"),
-      taijituStyle: this.pick(TAIJITU_OPTIONS, "settings.taijitu", "dots"),
-      glyphAnim: this.pick(ANIM_OPTIONS, "settings.glyphAnimation", "dots"),
-      glyphFont: this.pick(FONT_OPTIONS, "settings.font", "kaiti"),
-      castMethod: this.pick(CAST_METHOD_OPTIONS, "settings.castMethod", "coin"),
-      castMode: this.pick(CAST_MODE_OPTIONS, "settings.castMode", "auto"),
+      theme: this.selectedValue(THEME_NAMES, "settings.theme", "bone"),
+      language: this.selectedValue(LANGUAGE_OPTIONS, "settings.language", "en"),
+      taijituStyle: this.selectedValue(TAIJITU_OPTIONS, "settings.taijitu", "dots"),
+      glyphAnim: this.selectedValue(ANIM_OPTIONS, "settings.glyphAnimation", "dots"),
+      glyphFont: this.selectedValue(FONT_OPTIONS, "settings.font", "kaiti"),
+      castMethod: this.selectedValue(CAST_METHOD_OPTIONS, "settings.castMethod", "coin"),
+      castMode: this.selectedValue(CAST_MODE_OPTIONS, "settings.castMode", "auto"),
     };
   }
 
-  private pick<T extends string>(allowed: readonly T[], key: MessageKey, fallback: T): T {
+  private selectedValue<T extends string>(allowed: readonly T[], key: MessageKey, fallback: T): T {
     const row = this.rows.find((r) => r.key === key);
     const raw = row ? row.values[row.selected] : undefined;
     return allowed.find((v) => v === raw) ?? fallback;
