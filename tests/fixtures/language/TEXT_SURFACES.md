@@ -1408,18 +1408,18 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
 
 - surface_id: storage-errors-passthrough
   file: packages/storage/src/json/{json-config,json-daily-cache,jsonl-journal}.ts
-  code_locator: "ENOENT swallow + bare throw err; unguarded JSON.parse"
-  current_text: "(no custom error strings; raw Node ErrnoException / SyntaxError re-thrown)"
+  code_locator: "ENOENT swallow + bare throw err; json-config readRaw corrupt warning"
+  current_text: "iching: config at <path> is unreadable — using defaults. Your old settings are saved at <path>.corrupt; restore them by fixing the JSON and renaming the file back."
   surface_class: storage-errors
-  render_context: "error bubbles to CLI; text is native Node/JSON message"
-  language_policy: not-user-facing
+  render_context: "stderr warning (once per store instance) when the config file won't parse; other storage errors bubble as native Node/JSON messages"
+  language_policy: developer-only
   source_layer: machine-token
   json_policy: not-json
   risk: medium
   agentify_required: no
   status: open
-  verifier: "--cli (error wording originates outside storage)"
-  notes: "Storage defines ZERO custom error strings. Migrations silent. Unguarded JSON.parse surfaces raw SyntaxError on corrupt data."
+  verifier: "--cli (other error wording originates outside storage)"
+  notes: "One custom diagnostic: the corrupt-config warning (English-only, fires once per store; loadOrSeed heals the file after backup). Other storage errors re-throw raw ErrnoException/SyntaxError. Migrations silent."
 ```
 
 ## Group: docs-publish  (`README*.md`, `publish/*`, `package.json`)

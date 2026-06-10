@@ -192,10 +192,14 @@ function normalizeConfig(parsed: unknown): UserConfig {
 
   // Forward-compat (schema-keys: "schemas only expand"): carry through unknown
   // OWN keys written by a newer version / parallel install, so a settings save
-  // from this version doesn't destroy them. `k in DEFAULT_CONFIG` skips both the
-  // known keys and inherited prototype names (constructor/toString/…).
+  // from this version doesn't destroy them. Object.hasOwn, NOT `k in` — the `in`
+  // operator walks the prototype chain, so a legitimate future key that shadows
+  // a prototype name (toString, valueOf, …) would be silently dropped on rewrite.
+  // __proto__/constructor/prototype are explicitly refused instead: assigning
+  // them through a bracket lookup mutates object internals, not data properties.
   for (const k of Object.keys(parsed)) {
-    if (!(k in DEFAULT_CONFIG)) {
+    if (k === "__proto__" || k === "constructor" || k === "prototype") continue;
+    if (!Object.hasOwn(DEFAULT_CONFIG, k)) {
       (merged as unknown as Record<string, unknown>)[k] = parsed[k];
     }
   }
@@ -207,12 +211,22 @@ export class JsonConfigStore implements ConfigStore {
   constructor(private readonly path: string) {}
 
   /**
-   * First-boot seed retained in memory when it could not be persisted (read-only
-   * / full data dir). Lets the rest of THIS session — e.g. reopening Settings,
-   * which reloads config — see the detected language instead of flipping back to
-   * defaults. Shadowed the moment a real config file exists.
+   * The session's live config when it could not be persisted (read-only / full
+   * data dir) — set by a failed save() and by an unpersistable first-boot seed.
+   * Lets the rest of THIS session — e.g. reopening Settings, which reloads
+   * config — see the user's actual edits / detected language instead of stale
+   * disk state. Cleared the moment a write succeeds.
    */
-  private seededInMemory: UserConfig | null = null;
+  private pendingInMemory: UserConfig | null = null;
+
+  /** The corrupt warning fires once per store instance — loads repeat during a
+   * TUI session (startup, open-Settings, save&back) while the terminal owns the
+   * screen in raw mode, and raw stderr would scramble the rendered frame. */
+  private warnedCorrupt = false;
+
+  /** Whether the unreadable original is safely copied to .corrupt — healing the
+   * live file is only allowed when this is true (never destroy the only copy). */
+  private corruptBackupOk = false;
 
   /**
    * Read + JSON.parse the config file. Returns the parsed object, `null` when the
@@ -234,12 +248,21 @@ export class JsonConfigStore implements ConfigStore {
       parsed = JSON.parse(raw);
     } catch {
       try {
-        await writeFile(`${this.path}.corrupt`, raw, "utf-8");
+        // wx: never clobber an existing backup — the FIRST backup is the
+        // recoverable one (a later corruption is usually garbage-on-garbage).
+        await writeFile(`${this.path}.corrupt`, raw, { encoding: "utf-8", flag: "wx" });
+        this.corruptBackupOk = true;
+      } catch (err: unknown) {
+        // EEXIST means a backup is already safe; anything else (read-only /
+        // full) means it isn't — and healing must not run.
+        this.corruptBackupOk = (err as NodeJS.ErrnoException).code === "EEXIST";
+      }
+      if (!this.warnedCorrupt) {
+        this.warnedCorrupt = true;
         console.error(
-          `iching: config at ${this.path} is unreadable; backed up to ${this.path}.corrupt, using defaults.`,
+          `iching: config at ${this.path} is unreadable — using defaults. ` +
+            `Your old settings are saved at ${this.path}.corrupt; restore them by fixing the JSON and renaming the file back.`,
         );
-      } catch {
-        /* read-only / full: nothing more we can do */
       }
       return "corrupt";
     }
@@ -247,9 +270,10 @@ export class JsonConfigStore implements ConfigStore {
   }
 
   async load(): Promise<UserConfig> {
-    // A deferred in-memory seed (first boot couldn't persist) is authoritative for
-    // the session, so a same-session reload stays in its detected language.
-    if (this.seededInMemory) return { ...this.seededInMemory };
+    // Unpersisted live state (failed save, or a first-boot seed that couldn't be
+    // written) is authoritative for the session, so a same-session reload sees
+    // the user's actual edits / detected language — not stale disk.
+    if (this.pendingInMemory) return { ...this.pendingInMemory };
     const raw = await this.readRaw();
     if (raw === null || raw === "corrupt") return { ...DEFAULT_CONFIG };
     return normalizeConfig(raw);
@@ -265,23 +289,46 @@ export class JsonConfigStore implements ConfigStore {
    */
   async loadOrSeed(): Promise<UserConfig> {
     const raw = await this.readRaw();
-    if (raw === "corrupt") return { ...DEFAULT_CONFIG };
     // The user already has a stored language choice → honor it, don't re-seed.
-    if (raw !== null && Object.hasOwn(raw, "language")) return normalizeConfig(raw);
-    // No choice yet (first boot, or pre-language upgrade): seed from the locale,
-    // preserving any other existing settings, and persist (best-effort).
-    const base = raw === null ? DEFAULT_CONFIG : normalizeConfig(raw);
+    // The gate is key PRESENCE, deliberately not value validity: an unrecognized
+    // value (e.g. written by a future version) coerces to "en" in memory but
+    // stays untouched on disk — re-seeding here would PERSIST over it and
+    // destroy the stored choice on a version downgrade.
+    if (raw !== null && raw !== "corrupt" && Object.hasOwn(raw, "language")) {
+      return normalizeConfig(raw);
+    }
+    // Seed cases: first boot (no file), pre-language upgrade (no language key),
+    // or an unreadable config whose bytes are already safe in .corrupt. Seed
+    // from the locale and persist — for the corrupt case this HEALS the live
+    // file (an unreadable config is effectively no config), so the reset is
+    // announced once by readRaw's warning instead of happening silently at a
+    // later save, and every subsequent load parses cleanly.
+    const base = raw === null || raw === "corrupt" ? DEFAULT_CONFIG : normalizeConfig(raw);
     const seeded: UserConfig = { ...base, language: detectSystemLanguage() };
+    if (raw === "corrupt" && !this.corruptBackupOk) {
+      // The backup itself failed (read-only/full dir): never overwrite the only
+      // copy of the user's bytes. Live for the session, disk untouched.
+      this.pendingInMemory = seeded;
+      return seeded;
+    }
     try {
       await this.save(seeded);
     } catch {
-      this.seededInMemory = seeded; // deferred: keep it for this session's reloads
+      this.pendingInMemory = seeded; // deferred: keep it for this session's reloads
     }
     return seeded;
   }
 
   async save(config: UserConfig): Promise<void> {
-    await atomicWriteJson(this.path, config);
-    this.seededInMemory = null; // persisted — the file is now the source of truth
+    try {
+      await atomicWriteJson(this.path, config);
+    } catch (err) {
+      // The write failed (read-only/full data dir): keep the config as the
+      // session's live state so a later reload (e.g. reopening Settings)
+      // returns the user's edits instead of silently reverting them.
+      this.pendingInMemory = { ...config };
+      throw err;
+    }
+    this.pendingInMemory = null; // persisted — the file is now the source of truth
   }
 }

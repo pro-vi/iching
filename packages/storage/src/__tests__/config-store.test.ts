@@ -208,13 +208,92 @@ describe("JsonConfigStore", () => {
     expect(cfg.theme).toBe("bone"); // full defaults, not a crash
   });
 
-  test("loadOrSeed() degrades to defaults on a corrupt config — no throw, no clobber", async () => {
+  // PIN FLIP (review P1/P2): the recoverable copy is .corrupt — leaving the live
+  // file unreadable caused a silent settings-reset at the NEXT save, repeated
+  // warnings every load, and an English session for zh-locale users. loadOrSeed
+  // now treats corrupt like a re-seed: heal the file (locale included) once the
+  // bytes are safely backed up.
+  test("loadOrSeed() re-seeds and heals a corrupt config (original kept in .corrupt)", async () => {
+    const restore = withLocaleEnv({ LC_ALL: "zh_TW.UTF-8" });
+    try {
+      const path = join(dir, "config.json");
+      await writeFile(path, "{ corrupt", "utf-8");
+      const cfg = await store.loadOrSeed();
+      expect(cfg.language).toBe("zh-Hant"); // locale honored, not bare defaults
+      // healed: the live file is valid again and round-trips the seeded language
+      const healed = JSON.parse(await readFile(path, "utf-8"));
+      expect(healed.language).toBe("zh-Hant");
+      // the unreadable original survives for hand-recovery
+      expect(await readFile(`${path}.corrupt`, "utf-8")).toBe("{ corrupt");
+    } finally {
+      restore();
+    }
+  });
+
+  test("a failed save() keeps the live config in memory for session reloads", async () => {
+    // X1 (cross-model finding): when "save & back" can't persist, a later
+    // load() in the same session must return the user's edits, not stale disk.
+    // `blocker` is a FILE, so mkdir/open under it fails with ENOTDIR.
+    await writeFile(join(dir, "blocker"), "not a dir", "utf-8");
+    const store2 = new JsonConfigStore(join(dir, "blocker", "config.json"));
+    const edited: UserConfig = { ...(await store.load()), theme: "jade", language: "zh-Hant" };
+    await expect(store2.save(edited)).rejects.toThrow(); // the write still fails…
+    const reloaded = await store2.load();
+    expect(reloaded.theme).toBe("jade"); // …but the session sees the edits
+    expect(reloaded.language).toBe("zh-Hant");
+  });
+
+  test("unknown keys that shadow prototype names are preserved (hasOwn, not `in`)", async () => {
+    const path = join(dir, "config.json");
+    await writeFile(path, JSON.stringify({ theme: "jade", toString: "future-value" }), "utf-8");
+    const cfg = await store.load();
+    expect(cfg.theme).toBe("jade");
+    // `"toString" in DEFAULT_CONFIG` is true via the prototype chain — the old
+    // guard silently dropped a legitimate future key on rewrite.
+    expect(Object.hasOwn(cfg, "toString")).toBe(true);
+    expect((cfg as unknown as Record<string, unknown>)["toString"]).toBe("future-value");
+  });
+
+  test("prototype-chain keys in the config file are dropped and never pollute", async () => {
+    const path = join(dir, "config.json");
+    await writeFile(
+      path,
+      '{"theme":"jade","__proto__":{"polluted":1},"constructor":{"c":1},"prototype":{"p":1}}',
+      "utf-8",
+    );
+    const cfg = await store.load();
+    expect(cfg.theme).toBe("jade");
+    expect(Object.getPrototypeOf(cfg)).toBe(Object.prototype); // proto not swapped
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined(); // no global pollution
+    for (const k of ["__proto__", "constructor", "prototype"]) {
+      expect(Object.hasOwn(cfg, k)).toBe(false); // explicitly dropped, not carried
+    }
+  });
+
+  test("the .corrupt backup is never clobbered by a later corruption", async () => {
+    const path = join(dir, "config.json");
+    await writeFile(path, "{ original user data", "utf-8");
+    await store.load(); // creates the backup
+    await writeFile(path, "xx", "utf-8"); // a second, worse corruption
+    await new JsonConfigStore(path).load();
+    // the first backup (the recoverable one) survives
+    expect(await readFile(`${path}.corrupt`, "utf-8")).toBe("{ original user data");
+  });
+
+  test("the corrupt warning prints once per store instance, not per load", async () => {
     const path = join(dir, "config.json");
     await writeFile(path, "{ corrupt", "utf-8");
-    const cfg = await store.loadOrSeed();
-    expect(cfg.language).toBe("en"); // ran with defaults instead of crashing
-    // non-destructive: a possibly hand-fixable corrupt file is NOT overwritten
-    expect(await readFile(path, "utf-8")).toBe("{ corrupt");
+    const calls: unknown[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => void calls.push(args);
+    try {
+      await store.load();
+      await store.load(); // e.g. reopening Settings while the TUI owns the screen
+      await store.load();
+    } finally {
+      console.error = original;
+    }
+    expect(calls.length).toBe(1);
   });
 
   test("loadOrSeed() does not crash when persisting the first-boot seed fails", async () => {
