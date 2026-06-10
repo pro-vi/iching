@@ -18,6 +18,7 @@ import { renderYarrowFieldStrip, drawApertureCursor } from "../yarrow/field-rend
 import { YarrowAutoPreview, YarrowManualPreview } from "../yarrow/yarrow-previews.ts";
 import { LINE_WIDTH } from "../../glyphs.ts";
 import { tr, type MessageKey } from "../../i18n/messages.ts";
+import { windowFor } from "../../widgets/scroll.ts";
 
 // ── Setting definitions ──────────────────────────────────────────────
 
@@ -219,12 +220,12 @@ export class SettingsScene implements Scene {
     const settingsStartRow = row;
     const availSettingRows = footerSepRow - settingsStartRow;
     const maxVisible = Math.max(1, Math.floor(availSettingRows / rowsPerSetting));
-    const needsScroll = maxVisible < this.rows.length;
     // Window that keeps the focused row in view, scrolling no more than needed.
-    const scrollStart = needsScroll
-      ? Math.max(0, Math.min(this.focusedRow - maxVisible + 1, this.rows.length - maxVisible))
-      : 0;
-    const scrollEnd = needsScroll ? scrollStart + maxVisible : this.rows.length;
+    const { start: scrollStart, end: scrollEnd } = windowFor(
+      this.focusedRow,
+      maxVisible,
+      this.rows.length,
+    );
 
     for (let i = scrollStart; i < scrollEnd; i++) {
       const setting = this.rows[i];
