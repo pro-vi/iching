@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { mkdtemp, readFile, readdir } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { atomicWriteJson } from "../json/atomic-write.js";
@@ -47,5 +47,16 @@ describe("atomicWriteJson", () => {
 
     const raw = await readFile(path, "utf-8");
     expect(JSON.parse(raw)).toEqual({ version: 2 });
+  });
+
+  test("a failed write does not leak the temp file", async () => {
+    // The target is an existing DIRECTORY, so the temp write succeeds but the
+    // final rename fails — the failure path the review traced (ENOSPC/EIO are
+    // not injectable here; rename-failure exercises the same cleanup).
+    const path = join(dir, "iam-a-dir");
+    await mkdir(path);
+    await expect(atomicWriteJson(path, { v: 1 })).rejects.toThrow();
+    const leftovers = (await readdir(dir)).filter((f) => f.endsWith(".tmp"));
+    expect(leftovers).toEqual([]); // repeated failed saves must not accumulate temps
   });
 });

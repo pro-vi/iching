@@ -15,7 +15,7 @@ export function registerDictCommand(program: Command): void {
         RealClock,
         detectColorSupport,
       } = await import("@iching/terminal");
-      const { resolvePaths, JsonlJournalStore } =
+      const { resolvePaths, JsonConfigStore, JsonlJournalStore } =
         await import("@iching/storage");
       const { makeBrowseFactory, makeDetailScene } =
         await import("../app/scene-factories.js");
@@ -24,8 +24,12 @@ export function registerDictCommand(program: Command): void {
       const paths = resolvePaths(
         globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
       );
+      // Interactive entry point: seed + freeze the display language on first
+      // boot (same as the main TUI), so `iching dict` honors the system locale
+      // rather than launching English. (config subcommands stay pure load().)
+      const config = await new JsonConfigStore(paths.config).loadOrSeed();
       const journal = new JsonlJournalStore(paths.state);
-      const factoryDeps = { journal };
+      const factoryDeps = { journal, language: config.language };
 
       // Determine initial scene
       let initial;
@@ -42,7 +46,9 @@ export function registerDictCommand(program: Command): void {
 
       const session = new TerminalSession();
       const router = new SceneRouter(initial, makeBrowseFactory(factoryDeps));
-      await router.run(session, new RealClock(), detectColorSupport());
+      // Thread config.language into the router so the BROWSE scene honors it too
+      // (not just detail via factoryDeps) — P1-b fix.
+      await router.run(session, new RealClock(), detectColorSupport(), false, config.language);
       process.exit(0);
     });
 }

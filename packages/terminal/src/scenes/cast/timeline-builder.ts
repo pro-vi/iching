@@ -1,6 +1,6 @@
 // timeline-builder.ts — compose the full ritual timeline from DSL primitives
 
-import { type Cast, type GlyphFont, type GlyphSize, GUA } from "@iching/core";
+import { type Cast, type DisplayLanguage, type GlyphFont, type GlyphSize, GUA, toSimplified } from "@iching/core";
 import type { RitualTiming } from "../../animation/presets.ts";
 import type { Step } from "../../animation/timeline.ts";
 import { seq, par, wait, call, tween } from "../../animation/timeline.ts";
@@ -15,6 +15,8 @@ export interface CastGlyphConfig {
   glyphAnim: GlyphAnimStyle;
   glyphFont: GlyphFont;
   glyphSize: GlyphSize;
+  /** zh-Hans composes the glyph from the Simplified name (e.g. 觀→观). */
+  language?: DisplayLanguage;
 }
 
 export interface BuildCastTimelineOpts {
@@ -430,7 +432,9 @@ function buildGlyphReveal(
 ): Step[] {
   return [
     call(() => {
-      const glyph = composeGlyph(hexName, glyphConfig.glyphFont, glyphConfig.glyphSize);
+      // zh-Hans renders the Simplified glyph so it matches the Simplified text.
+      const name = glyphConfig.language === "zh-Hans" ? toSimplified(hexName) : hexName;
+      const glyph = composeGlyph(name, glyphConfig.glyphFont, glyphConfig.glyphSize);
       if (glyph) {
         if (target === "primary") {
           model.primaryGlyphEntry = glyph;

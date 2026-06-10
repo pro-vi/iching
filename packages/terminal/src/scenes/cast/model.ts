@@ -57,7 +57,6 @@ export class CastModel {
   // Interactive exploration (after becoming reveal)
   explorationMode: boolean;
   focusedHex: "primary" | "becoming";
-  commentaryScrollOffset: number;
 
   // Intention text for this cast
   intention?: string;
@@ -107,6 +106,5 @@ export class CastModel {
 
     this.explorationMode = false;
     this.focusedHex = "primary";
-    this.commentaryScrollOffset = 0;
   }
 }

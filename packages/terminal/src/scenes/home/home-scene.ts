@@ -4,10 +4,11 @@ import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
 import type { DailyCache } from "@iching/core";
-import { GUA } from "@iching/core";
+import { GUA, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { renderTaijitu, type TaijituStyle } from "./taijitu-render.ts";
+import { tr, type MessageKey } from "../../i18n/messages.ts";
 
 export interface HomeState {
   todayCast: DailyCache | null;
@@ -33,8 +34,10 @@ export class HomeScene implements Scene {
     this.elapsed = elapsed;
   }
 
-  render(frame: CellBuffer, _ctx: SceneContext): void {
+  render(frame: CellBuffer, ctx: SceneContext): void {
     const t = getTheme();
+    const lang = ctx.language ?? "en";
+    const cn = (s: string): string => (lang === "zh-Hans" ? toSimplified(s) : s);
     const cx = Math.floor(frame.width / 2);
     const titleRow = Math.floor(frame.height / 2) - 6;
     let row = titleRow;
@@ -55,20 +58,21 @@ export class HomeScene implements Scene {
     row += 3;
 
     // Menu items
-    const items = [
-      { key: "c", label: "Cast", fg: t.accent },
-      ...(this.state.devMode ? [{ key: "p", label: "Play", fg: t.secondary }] : []),
-      { key: "d", label: "Dictionary", fg: t.primary },
-      { key: "j", label: "Journal", fg: t.secondary },
-      { key: "s", label: "Settings", fg: t.secondary },
-      { key: "q", label: "Quit", fg: t.tertiary },
+    const items: { key: string; msgKey: MessageKey; fg: string }[] = [
+      { key: "c", msgKey: "menu.cast", fg: t.accent },
+      ...(this.state.devMode ? [{ key: "p", msgKey: "menu.play" as MessageKey, fg: t.secondary }] : []),
+      { key: "d", msgKey: "menu.dictionary", fg: t.primary },
+      { key: "j", msgKey: "menu.journal", fg: t.secondary },
+      { key: "s", msgKey: "menu.settings", fg: t.secondary },
+      { key: "q", msgKey: "menu.quit", fg: t.tertiary },
     ];
 
     for (const item of items) {
-      const text = `[${item.key}]  ${item.label}`;
+      const label = tr(lang, item.msgKey);
+      const text = `[${item.key}]  ${label}`;
       const col = cx - Math.floor(stringWidth(text) / 2);
       frame.writeText(row, col, `[${item.key}]`, { fg: t.tertiary });
-      frame.writeText(row, col + stringWidth(`[${item.key}]`) + 1, ` ${item.label}`, { fg: item.fg });
+      frame.writeText(row, col + stringWidth(`[${item.key}]`) + 1, ` ${label}`, { fg: item.fg });
       row += 2;
     }
 
@@ -76,19 +80,19 @@ export class HomeScene implements Scene {
     row += 1;
     if (this.state.todayCast) {
       const gua = GUA[this.state.todayCast.cast.primary - 1];
-      const status = `Today: ${gua.u} ${gua.n} (${gua.p})`;
+      const status = `${tr(lang, "home.today")} ${gua.u} ${cn(gua.n)} (${gua.p})`;
       const statusCol = cx - Math.floor(stringWidth(status) / 2);
       frame.writeText(row, statusCol, status, { fg: t.secondary, dim: true });
 
       if (this.state.todayCast.cast.becoming !== null) {
         row += 1;
         const bg = GUA[this.state.todayCast.cast.becoming - 1];
-        const becoming = `→ ${bg.u} ${bg.n}`;
+        const becoming = `→ ${bg.u} ${cn(bg.n)}`;
         const bCol = cx - Math.floor(stringWidth(becoming) / 2);
         frame.writeText(row, bCol, becoming, { fg: t.tertiary, dim: true });
       }
     } else {
-      const nocast = "No cast today";
+      const nocast = tr(lang, "home.noCast");
       const ncCol = cx - Math.floor(stringWidth(nocast) / 2);
       frame.writeText(row, ncCol, nocast, { fg: t.tertiary, dim: true });
     }

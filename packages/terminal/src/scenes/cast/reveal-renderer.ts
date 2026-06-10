@@ -2,10 +2,12 @@
 
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { CastModel } from "./model.ts";
-import { GUA, getStructure } from "@iching/core";
+import { GUA, getStructure, toSimplified } from "@iching/core";
+import type { DisplayLanguage } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { anchorRow, TITLE_ROW_OFFSET } from "./hexagram-renderer.ts";
+import { tr } from "../../i18n/messages.ts";
 
 /**
  * Render the title block: Chinese name, pinyin, English, trigram meta.
@@ -15,6 +17,7 @@ export function renderTitle(
   buf: CellBuffer,
   model: CastModel,
   xOffset: number = 0,
+  language: DisplayLanguage = "en",
 ): void {
   if (model.titleProgress <= 0) return;
 
@@ -35,28 +38,35 @@ export function renderTitle(
   const structure = getStructure(focusedKw);
 
   const isSplit = model.layout !== "centered";
+  const english = language === "en";
+  const cn = (s: string): string => (language === "zh-Hans" ? toSimplified(s) : s);
+  // Structure connective: "above" (en) / "上" (zh) — catalog cast.trigramConnective.
+  const structLine = `${structure.upper.sym} ${tr(language, "cast.trigramConnective")} ${structure.lower.sym}`;
 
-  // When glyph is present: skip Chinese name (the glyph IS the name)
-  // Show only pinyin, English, trigram
+  // When glyph is present: skip Chinese name (the glyph IS the name). In Chinese
+  // modes, omit the English ename/image (no bilingual stacking) and convert names.
   let lines: string[];
   if (hasGlyph) {
     if (isSplit) {
       lines = [gua.p];
-    } else {
+    } else if (english) {
       const maxWidth = Math.max(20, buf.width - 8);
       const enLine = stringWidth(gua.en) > maxWidth ? gua.en.slice(0, maxWidth - 1) + "…" : gua.en;
-      lines = [gua.p, gua.ename ?? "", enLine, `${structure.upper.sym} above ${structure.lower.sym}`];
+      lines = [gua.p, gua.ename ?? "", enLine, structLine];
+    } else {
+      lines = [gua.p, structLine];
     }
   } else {
-    const line1 = `${gua.u} ${gua.n}`;
+    const line1 = `${gua.u} ${cn(gua.n)}`;
     const line2 = gua.p;
     if (isSplit) {
       lines = [line1, line2];
-    } else {
+    } else if (english) {
       const maxWidth = Math.max(20, buf.width - 8);
       const line3 = stringWidth(gua.en) > maxWidth ? gua.en.slice(0, maxWidth - 1) + "…" : gua.en;
-      const line4 = `${structure.upper.sym} above ${structure.lower.sym}`;
-      lines = [line1, line2, line3, line4];
+      lines = [line1, line2, line3, structLine];
+    } else {
+      lines = [line1, line2, structLine];
     }
   }
   const progress = model.titleProgress;
@@ -105,6 +115,7 @@ export function renderBecomingTitle(
   buf: CellBuffer,
   model: CastModel,
   xOffset: number = 0,
+  language: DisplayLanguage = "en",
 ): void {
   if (model.becomingTitleProgress <= 0 || model.cast.becoming === null) return;
 
@@ -120,8 +131,9 @@ export function renderBecomingTitle(
   const hexNum = model.cast.becoming;
   const gua = GUA[hexNum - 1];
 
-  // In split mode, drop the arrow prefix
-  const line1 = isSplit ? `${gua.u} ${gua.n}` : `\u2192 ${gua.u} ${gua.n}`;
+  // In split mode, drop the arrow prefix. Convert the name in zh-Hans.
+  const name = language === "zh-Hans" ? toSimplified(gua.n) : gua.n;
+  const line1 = isSplit ? `${gua.u} ${name}` : `\u2192 ${gua.u} ${name}`;
   const line2 = gua.p;
 
   const progress = model.becomingTitleProgress;

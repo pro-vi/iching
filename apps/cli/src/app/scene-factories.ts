@@ -3,7 +3,7 @@
 // (DetailScene + getHexagramHistory hydration, plus the SceneRouter
 // factories used by browse/journal navigation).
 
-import type { HistoryEntry } from "@iching/core";
+import type { DisplayLanguage, HistoryEntry } from "@iching/core";
 import { getHexagramHistory, type JsonlJournalStore } from "@iching/storage";
 import {
   BrowseScene,
@@ -23,6 +23,7 @@ export interface SessionDims {
 export interface DetailDeps {
   /** Optional — interactive home flow passes the saved glyph config; standalone CLI doesn't need it. */
   glyphConfig?: CastGlyphInput;
+  language?: DisplayLanguage;
   journal: JsonlJournalStore;
 }
 
@@ -33,7 +34,7 @@ export interface JournalDeps extends DetailDeps {
 
 /** Construct DetailScene + kick off async history hydration. */
 export function makeDetailScene(kw: number, deps: DetailDeps): DetailScene {
-  const scene = new DetailScene(kw, deps.glyphConfig);
+  const scene = new DetailScene(kw, deps.glyphConfig, deps.language);
   getHexagramHistory(deps.journal, kw).then((h) =>
     scene.setHistory(h.castCount, h.lastCastDate),
   );
@@ -63,6 +64,7 @@ export function makeJournalFactory(deps: JournalDeps): SceneFactory {
         deps.glyphConfig,
         deps.session.rows,
         entry.intention,
+        { language: deps.language },
       );
       cs.skipToComplete(false);
       return cs;

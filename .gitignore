@@ -12,3 +12,7 @@ publish/iching.js
 .prov/
 logs/
 .research/
+# parked corpus-acquisition residue (scraping intermediates + one-off backfill
+# scripts); not part of the shipped packages — kept locally, never committed
+data-acquisition/
+scripts/data-acquisition/

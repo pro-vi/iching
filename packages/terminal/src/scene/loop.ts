@@ -3,6 +3,7 @@
 import type { Clock } from "../clock.ts";
 import type { Scene, SceneContext, SceneSignal } from "./types.ts";
 import type { ColorSupport } from "../color/detect.ts";
+import type { DisplayLanguage } from "@iching/core";
 import { TerminalSession } from "../session/terminal-session.ts";
 import type { KeyEvent } from "../input/key-parser.ts";
 import { KeyParser } from "../input/key-parser.ts";
@@ -28,6 +29,7 @@ export async function runScene(
   clock: Clock,
   colorSupport: ColorSupport,
   devMode = false,
+  language: DisplayLanguage = "en",
 ): Promise<SceneSignal | void> {
   // Enter alt screen, raw mode, hide cursor
   session.enter();
@@ -38,6 +40,7 @@ export async function runScene(
     cols: session.cols,
     rows: session.rows,
     colorSupport,
+    language,
     done: false,
   };
 

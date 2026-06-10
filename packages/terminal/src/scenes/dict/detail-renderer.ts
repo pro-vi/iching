@@ -3,10 +3,14 @@
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { SceneContext } from "../../scene/types.ts";
 import type { DetailModel, DerivedLink } from "./detail-model.ts";
+import type { DisplayLanguage } from "@iching/core";
+import { toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth, centerPad } from "../../layout/measure.ts";
 import { wordWrap } from "./word-wrap.ts";
 import { GLYPHS } from "../../glyphs.ts";
+import { tr } from "../../i18n/messages.ts";
+import { pageIndicator } from "../../widgets/scroll.ts";
 
 const FOOTER_ROWS = 2;
 const PADDING = 2;
@@ -19,12 +23,57 @@ export interface ContentLine {
   dim?: boolean;
 }
 
+export interface DetailRenderOptions {
+  language?: DisplayLanguage;
+}
+
+const DEFAULT_LANGUAGE: DisplayLanguage = "en";
+
+const TRIGRAM_IMAGE_ZH: Record<string, string> = {
+  "乾": "天",
+  "坤": "地",
+  "震": "雷",
+  "坎": "水",
+  "艮": "山",
+  "巽": "風",
+  "離": "火",
+  "兌": "澤",
+};
+
+function activeLanguage(options?: DetailRenderOptions): DisplayLanguage {
+  return options?.language ?? DEFAULT_LANGUAGE;
+}
+
+function zh(text: string, language: DisplayLanguage): string {
+  // Delegate to the audited core Traditional->Simplified converter (no naive
+  // local map). zh-Hant returns text unchanged; only zh-Hans converts.
+  if (language !== "zh-Hans") return text;
+  return toSimplified(text);
+}
+
+function pushWrapped(
+  lines: ContentLine[],
+  text: string,
+  width: number,
+  style: Omit<ContentLine, "text">,
+): void {
+  for (const wl of wordWrap(text, width)) {
+    lines.push({ text: wl, ...style });
+  }
+}
+
 /** Build all content lines for the detail view */
-export function buildContentLines(model: DetailModel, width: number): ContentLine[] {
+export function buildContentLines(
+  model: DetailModel,
+  width: number,
+  options?: DetailRenderOptions,
+): ContentLine[] {
   const t = getTheme();
   const lines: ContentLine[] = [];
   const gua = model.detail.gua;
   const textWidth = width - PADDING * 2;
+  const language = activeLanguage(options);
+  const english = language === "en";
 
   // Large glyph placeholder rows (scrolls with content)
   if (model.glyphEntry) {
@@ -37,17 +86,19 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
 
   // Header — centered name (omit Unicode symbol when glyph present)
   const headerText = model.glyphEntry
-    ? `${gua.n} ${gua.p}`
-    : `${gua.u} ${gua.n} ${gua.p}`;
+    ? english ? gua.ename : `${zh(gua.n, language)} ${gua.p}`
+    : english ? `${gua.u} ${gua.ename}` : `${gua.u} ${zh(gua.n, language)} ${gua.p}`;
   lines.push({
     text: centerPad(headerText, textWidth),
     fg: t.primary,
     bold: true,
   });
-  lines.push({
-    text: centerPad(gua.ename, textWidth),
-    fg: t.accent,
-  });
+  if (english) {
+    lines.push({
+      text: centerPad(`${zh(gua.n, "zh-Hant")} ${gua.p}`, textWidth),
+      fg: t.accent,
+    });
+  }
   lines.push({ text: "" });
 
   // Line diagram (top to bottom: line 6 down to line 1)
@@ -63,7 +114,9 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
 
   // Trigram info
   const s = model.detail.structure;
-  const trigramLine = `${s.upper.sym} ${s.upper.n} ${s.upper.img} above  ${s.lower.sym} ${s.lower.n} ${s.lower.img}`;
+  const trigramLine = english
+    ? `${s.upper.sym} ${s.upper.img} above  ${s.lower.sym} ${s.lower.img}`
+    : `${s.upper.sym} ${zh(s.upper.n, language)} ${zh(TRIGRAM_IMAGE_ZH[s.upper.n] ?? s.upper.img, language)} 上  ${s.lower.sym} ${zh(s.lower.n, language)} ${zh(TRIGRAM_IMAGE_ZH[s.lower.n] ?? s.lower.img, language)} 下`;
   lines.push({
     text: centerPad(trigramLine, textWidth),
     fg: t.secondary,
@@ -75,20 +128,22 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
   lines.push({ text: "" });
 
   // Commentary sections
-  const sections: [string, string][] = [
-    ["大象傳", gua.dx],
-    ["彖傳", gua.tu],
-    ["Image", gua.en],
-    ["Judgment", gua.te],
-    ["Wilhelm", gua.w],
-  ];
+  const sections: [string, string][] = english
+    ? [
+        ["Image", gua.en],
+        ["Judgment", gua.te],
+        // "Wilhelm-inspired" (not bare "Wilhelm"): gua.w is interpretive advice
+        // after Wilhelm, NOT a direct quotation (AC-010 attribution policy; C-005).
+        ["Wilhelm-inspired", gua.w],
+      ]
+    : [
+        [zh("大象傳", language), zh(gua.dx, language)],
+        [zh("彖傳", language), zh(gua.tu, language)],
+      ];
 
   for (const [label, text] of sections) {
     lines.push({ text: label, fg: t.accent, bold: true });
-    const wrapped = wordWrap(text, textWidth);
-    for (const wl of wrapped) {
-      lines.push({ text: wl, fg: t.secondary });
-    }
+    pushWrapped(lines, text, textWidth, { fg: t.secondary });
     lines.push({ text: "" });
   }
 
@@ -96,22 +151,18 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
   if (gua.yao && gua.yao.length === 6) {
     lines.push({ text: "─".repeat(textWidth), fg: t.tertiary });
     lines.push({ text: "" });
-    lines.push({ text: "爻辭 Line Texts", fg: t.accent, bold: true });
+    lines.push({ text: english ? "Line Texts" : zh("爻辭", language), fg: t.accent, bold: true });
     lines.push({ text: "" });
 
     // Display top-to-bottom (line 6 down to line 1) to match visual diagram
     for (let i = 5; i >= 0; i--) {
-      // Chinese line text
-      const wrapped = wordWrap(gua.yao[i], textWidth);
-      for (const wl of wrapped) {
-        lines.push({ text: wl, fg: t.secondary });
-      }
-      // English translation
-      if (gua.yaoEn && gua.yaoEn[i]) {
-        const wrappedEn = wordWrap(gua.yaoEn[i], textWidth);
-        for (const wl of wrappedEn) {
-          lines.push({ text: wl, fg: t.tertiary });
+      if (english) {
+        lines.push({ text: `Line ${i + 1}`, fg: t.secondary, bold: true });
+        if (gua.yaoEn?.[i]) {
+          pushWrapped(lines, gua.yaoEn[i], textWidth, { fg: t.tertiary });
         }
+      } else {
+        pushWrapped(lines, zh(gua.yao[i], language), textWidth, { fg: t.secondary });
       }
       lines.push({ text: "" });
     }
@@ -122,13 +173,16 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
   lines.push({ text: "" });
 
   // Derived hexagrams
-  lines.push({ text: "Derived", fg: t.accent, bold: true });
+  lines.push({ text: english ? "Derived" : zh("衍卦", language), fg: t.accent, bold: true });
   for (let i = 0; i < model.derivedLinks.length; i++) {
     const link = model.derivedLinks[i];
     const isSelected = model.focus === "derived" && model.derivedCursor === i;
     const marker = isSelected ? ">" : " ";
+    const text = english
+      ? `${marker} ${link.label.padEnd(10)} ${link.symbol} ${link.ename}`
+      : `${marker} ${zh(link.labelCn, language)} ${link.symbol} ${zh(link.name, language)}`;
     lines.push({
-      text: `${marker} ${link.labelCn} ${link.label.padEnd(10)} ${link.symbol} ${link.name}  ${link.ename}`,
+      text,
       fg: isSelected ? t.primary : t.secondary,
     });
   }
@@ -136,8 +190,11 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
   // Locked pair
   if (model.detail.isLocked && model.detail.lockedPartner) {
     lines.push({ text: "" });
+    const partner = model.detail.lockedPartner.gua;
     lines.push({
-      text: `🔒 Locked pair: ${model.detail.lockedPartner.gua.n}`,
+      text: english
+        ? `Locked pair: ${partner.ename}`
+        : `${zh("鎖定對卦", language)}: ${zh(partner.n, language)}`,
       fg: t.tertiary,
     });
   }
@@ -150,8 +207,10 @@ export function buildContentLines(model: DetailModel, width: number): ContentLin
   // History
   const historyText =
     model.castCount > 0
-      ? `Cast ${model.castCount} time${model.castCount !== 1 ? "s" : ""} (last: ${model.lastCastDate})`
-      : "No history";
+      ? english
+        ? `Cast ${model.castCount} time${model.castCount !== 1 ? "s" : ""} (last: ${model.lastCastDate})`
+        : `${zh("已占", language)} ${model.castCount} ${zh("次", language)} (${zh("最近", language)}: ${model.lastCastDate})`
+      : english ? "No history" : zh("未有占記", language);
   lines.push({ text: historyText, fg: t.tertiary, dim: true });
 
   return lines;
@@ -162,8 +221,9 @@ export function renderDetail(
   frame: CellBuffer,
   model: DetailModel,
   ctx: SceneContext,
+  options?: DetailRenderOptions,
 ): void {
-  const contentLines = buildContentLines(model, ctx.cols);
+  const contentLines = buildContentLines(model, ctx.cols, options);
   model.contentHeight = contentLines.length;
 
   const visibleRows = ctx.rows - FOOTER_ROWS;
@@ -222,13 +282,14 @@ export function renderDetail(
   }
 
   // Footer
-  renderFooter(frame, model, ctx);
+  renderFooter(frame, model, ctx, activeLanguage(options));
 }
 
 function renderFooter(
   frame: CellBuffer,
   model: DetailModel,
   ctx: SceneContext,
+  language: DisplayLanguage,
 ): void {
   const t = getTheme();
   const sepRow = ctx.rows - 2;
@@ -238,12 +299,13 @@ function renderFooter(
 
   const keys =
     model.focus === "derived"
-      ? "[↑↓] select  ·  [enter] open  ·  [tab] scroll  ·  [esc] back"
-      : "[↑↓] scroll  ·  [tab] derived  ·  [enter] open  ·  [esc] back";
+      ? `[↑↓] ${tr(language, "verb.select")}  ·  [enter] ${tr(language, "verb.open")}  ·  [tab] ${tr(language, "verb.scroll")}  ·  [esc] ${tr(language, "verb.back")}`
+      : `[↑↓] ${tr(language, "verb.scroll")}  ·  [tab] ${tr(language, "verb.derived")}  ·  [enter] ${tr(language, "verb.open")}  ·  [esc] ${tr(language, "verb.back")}`;
 
+  // Hidden when content fits (vs the region's "1/1"); shows the page otherwise.
   const indicator =
     model.contentHeight > model.viewportHeight
-      ? `${Math.floor(model.scrollOffset / model.viewportHeight) + 1}/${Math.ceil(model.contentHeight / model.viewportHeight)}`
+      ? pageIndicator(model.scrollOffset, model.contentHeight, model.viewportHeight)
       : "";
 
   frame.writeText(footerRow, 1, keys, { fg: t.secondary });

@@ -40,9 +40,11 @@ async function main() {
     const cacheStore = new JsonDailyCacheStore(paths.cache);
     const today = localToday();
 
-    // Load and apply saved theme
+    // Load and apply saved theme. First boot (no config) seeds the display
+    // language from the system locale and persists it — so a non-English user
+    // is greeted in their language, frozen thereafter.
     const configStore = new JsonConfigStore(paths.config);
-    const savedConfig = await configStore.load();
+    const savedConfig = await configStore.loadOrSeed();
     setTheme(savedConfig.theme);
     let glyphConfig = {
       glyphAnim: savedConfig.glyphAnim,
@@ -51,6 +53,7 @@ async function main() {
     let taijituStyle = savedConfig.taijituStyle;
     let castMethod = savedConfig.castMethod ?? "coin";
     let castMode = savedConfig.castMode ?? "auto";
+    let language = savedConfig.language;
 
     const session = new TerminalSession();
     const colorSupport = detectColorSupport();
@@ -58,9 +61,9 @@ async function main() {
 
     // Bound runners — every call site uses the same session/clock/color/dev
     const run = (scene: Parameters<typeof runScene>[0]) =>
-      runScene(scene, session, clock, colorSupport, devMode);
+      runScene(scene, session, clock, colorSupport, devMode, language);
     const runRouter = (router: InstanceType<typeof SceneRouter>) =>
-      router.run(session, clock, colorSupport, devMode);
+      router.run(session, clock, colorSupport, devMode, language);
 
     // Home menu loop — keeps returning to home until exit
     let running = true;
@@ -85,6 +88,7 @@ async function main() {
         paths, cacheStore, today,
         session: { cols: session.cols, rows: session.rows },
         glyphConfig,
+        language,
         motion: savedConfig.motion ?? "default",
       };
 
@@ -122,7 +126,7 @@ async function main() {
           const journal = new JsonlJournalStore(paths.state);
           const router = new SceneRouter(
             new BrowseScene(),
-            makeBrowseFactory({ glyphConfig, journal }),
+            makeBrowseFactory({ glyphConfig, language, journal }),
           );
           const result = await runRouter(router);
           if (result.shouldExit) running = false;
@@ -136,6 +140,7 @@ async function main() {
             new JournalScene(entries),
             makeJournalFactory({
               glyphConfig,
+              language,
               journal,
               entries,
               session: { cols: session.cols, rows: session.rows },
@@ -150,6 +155,7 @@ async function main() {
           const config = await configStore.load();
           const settingsScene = new SettingsScene({
             theme: config.theme,
+            language: config.language,
             taijituStyle: config.taijituStyle,
             glyphAnim: config.glyphAnim,
             glyphFont: config.glyphFont,
@@ -162,13 +168,24 @@ async function main() {
             const updated = settingsScene.getValues();
             const newConfig = await configStore.load();
             newConfig.theme = updated.theme;
+            newConfig.language = updated.language;
             newConfig.taijituStyle = updated.taijituStyle;
             newConfig.glyphAnim = updated.glyphAnim;
             newConfig.glyphFont = updated.glyphFont;
             newConfig.castMethod = updated.castMethod;
             newConfig.castMode = updated.castMode;
-            await configStore.save(newConfig);
+            // Best-effort persist: a read-only / full data dir must not crash
+            // "save & back" — the deferred-seed session explicitly supports
+            // reopening Settings. Apply the changes live regardless.
+            try {
+              await configStore.save(newConfig);
+            } catch {
+              console.error(
+                "iching: couldn't save settings (read-only data dir?); changes apply for this session only.",
+              );
+            }
             setTheme(updated.theme);
+            language = updated.language;
             taijituStyle = updated.taijituStyle;
             castMethod = updated.castMethod;
             castMode = updated.castMode;

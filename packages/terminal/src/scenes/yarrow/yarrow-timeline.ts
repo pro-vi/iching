@@ -8,8 +8,9 @@
 import { type Step, seq, call, tween, wait, stepDuration } from "../../animation/timeline.ts";
 import { type EasingFn, linear, easeOut, easeInOut } from "../../animation/easing.ts";
 import type { YarrowTiming, RitualDetail } from "../../animation/yarrow-presets.ts";
-import type { YarrowRound } from "@iching/core";
+import type { YarrowRound, DisplayLanguage } from "@iching/core";
 import type { YarrowModel } from "./model.ts";
+import { tr } from "../../i18n/messages.ts";
 
 /** Stepwise easing — the `expanded` count peels groups in discrete jumps. */
 const staircase: EasingFn = (t) => Math.min(1, Math.ceil(t * 10) / 10);
@@ -28,37 +29,38 @@ interface RoundCaptions {
   carry: string;
 }
 
-const LINE_VALUE_NAMES: Record<6 | 7 | 8 | 9, string> = {
-  6: "old yin",
-  7: "young yang",
-  8: "young yin",
-  9: "old yang",
-};
+/** Localized line-value name (6/7/8/9 -> old yin / young yang / …). */
+function lineValueName(value: 6 | 7 | 8 | 9, language: DisplayLanguage): string {
+  return tr(language, `yarrow.lineValue.${value}` as
+    | "yarrow.lineValue.6" | "yarrow.lineValue.7" | "yarrow.lineValue.8" | "yarrow.lineValue.9");
+}
 
 function buildRoundCaptions(
   roundIdx: number,
   round: { startCount: number; splitAt: number; leftRemainder: number; rightRemainder: number; setAside: number; remaining: number },
+  language: DisplayLanguage,
 ): RoundCaptions {
   const left = round.splitAt;
   const right = round.startCount - round.splitAt;
+  const t = (k: Parameters<typeof tr>[1]) => tr(language, k);
   // Round 1 setAside is 5 ("few", counts 3) or 9 ("many", counts 2);
-  // rounds 2 & 3 are 4 ("few", 3) or 8 ("many", 2).
+  // rounds 2 & 3 are 4 ("few", 3) or 8 ("many", 2). Numbers/operators stay verbatim.
   const fewValue = roundIdx === 0 ? 5 : 4;
-  const meaning = round.setAside === fewValue ? "few = 3" : "many = 2";
-  const nextLabel = roundIdx === 2 ? "fuse" : `round ${roundIdx + 2}`;
+  const meaning = round.setAside === fewValue ? `${t("yarrow.few")} = 3` : `${t("yarrow.many")} = 2`;
+  const nextLabel = roundIdx === 2 ? t("yarrow.fuse") : `${t("yarrow.round")} ${roundIdx + 2}`;
   return {
-    gather: `Round ${roundIdx + 1} · ${round.startCount} stalks`,
-    divide: `Cut at k=${left} · heaps ${left} | ${right}`,
-    takeOne: `One aside · heaps ${left} | ${right - 1}`,
-    count: "Count each heap by fours.",
+    gather: `${t("yarrow.roundTitle")} ${roundIdx + 1} · ${round.startCount} ${t("yarrow.stalks")}`,
+    divide: `${t("yarrow.cutAt")}${left} · ${t("yarrow.heaps")} ${left} | ${right}`,
+    takeOne: `${t("yarrow.oneAside")} · ${t("yarrow.heaps")} ${left} | ${right - 1}`,
+    count: t("yarrow.countByFours"),
     tally: `1 + ${round.leftRemainder} + ${round.rightRemainder} = ${round.setAside} (${meaning})`,
-    carry: `Carry ${round.remaining} → ${nextLabel}`,
+    carry: `${t("yarrow.carry")} ${round.remaining} → ${nextLabel}`,
   };
 }
 
-function buildFuseCaption(remaining: number): string {
+function buildFuseCaption(remaining: number, language: DisplayLanguage): string {
   const value = (remaining / 4) as 6 | 7 | 8 | 9;
-  return `Remaining ${remaining} ÷ 4 = ${value} · ${LINE_VALUE_NAMES[value]}`;
+  return `${tr(language, "yarrow.remaining")} ${remaining} ÷ 4 = ${value} · ${lineValueName(value, language)}`;
 }
 
 export interface YarrowTimeline {
@@ -90,7 +92,7 @@ export function buildYarrowRoundBeats(
   lineIdx: number,
   roundIdx: number,
   round: YarrowRound,
-  opts?: { narrating?: boolean; revealCut?: boolean },
+  opts?: { narrating?: boolean; revealCut?: boolean; language?: DisplayLanguage },
 ): Step[] {
   const beats: Step[] = [];
   const hold = (caption: string): Step[] => (caption ? [wait(timing.captionHoldMs)] : []);
@@ -101,7 +103,7 @@ export function buildYarrowRoundBeats(
   // captions narrate. Auto mode passes revealCut: true so the cut k is named
   // alongside the divide animation.
   const revealCut = opts?.revealCut ?? true;
-  const caps = buildRoundCaptions(roundIdx, round);
+  const caps = buildRoundCaptions(roundIdx, round, opts?.language ?? "en");
   const caption = (key: keyof RoundCaptions): string => {
     if (!narrating) return "";
     if (key === "divide" && !revealCut) return "";
@@ -217,12 +219,12 @@ export function buildYarrowFuseBeat(
   model: YarrowModel,
   timing: YarrowTiming,
   lineIdx: number,
-  opts?: { narrating?: boolean },
+  opts?: { narrating?: boolean; language?: DisplayLanguage },
 ): Step {
   const line = model.transcript[lineIdx].line;
   const narrating = opts?.narrating ?? false;
   const hold = (caption: string): Step[] => (caption ? [wait(timing.captionHoldMs)] : []);
-  const fuseCap = narrating ? buildFuseCaption(model.transcript[lineIdx].rounds[2].remaining) : "";
+  const fuseCap = narrating ? buildFuseCaption(model.transcript[lineIdx].rounds[2].remaining, opts?.language ?? "en") : "";
   return seq(
     call(() => {
       model.beat = "fuse";
@@ -251,7 +253,7 @@ export function buildYarrowFullLineBeats(
   timing: YarrowTiming,
   detail: RitualDetail,
   lineIdx: number,
-  opts?: { narrating?: boolean },
+  opts?: { narrating?: boolean; language?: DisplayLanguage },
 ): Step[] {
   const rounds = model.transcript[lineIdx].rounds;
   return [
@@ -270,6 +272,7 @@ export function buildYarrowTimeline(
   model: YarrowModel,
   timing: YarrowTiming,
   detail: RitualDetail,
+  language: DisplayLanguage = "en",
 ): YarrowTimeline {
   const beats: Step[] = [];
 
@@ -279,7 +282,7 @@ export function buildYarrowTimeline(
     const effectiveDetail: RitualDetail = teach ? "expanded" : detail;
     const narrating = lineIdx === 0;
 
-    beats.push(...buildYarrowFullLineBeats(model, timing, effectiveDetail, lineIdx, { narrating }));
+    beats.push(...buildYarrowFullLineBeats(model, timing, effectiveDetail, lineIdx, { narrating, language }));
 
     // Trigram-recognition pause once the lower trigram (lines 1-3) is complete.
     if (lineIdx === 2) beats.push(wait(timing.afterTrigramMs));

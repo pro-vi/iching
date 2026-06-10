@@ -1,4 +1,4 @@
-import { writeFile, rename, mkdir, open } from "node:fs/promises";
+import { rename, mkdir, open, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { randomBytes } from "node:crypto";
 
@@ -9,6 +9,10 @@ import { randomBytes } from "node:crypto";
  * 2. Write to a temp file in the same directory
  * 3. fsync the temp file
  * 4. rename over the target (atomic on same filesystem)
+ *
+ * The parent directory is NOT fsync'd after the rename, so the rename itself
+ * is not crash-durable — acceptable for a config file (worst case: the
+ * previous config survives a power loss).
  */
 export async function atomicWriteJson(
   path: string,
@@ -22,15 +26,22 @@ export async function atomicWriteJson(
 
   const json = JSON.stringify(data, null, 2) + "\n";
 
-  // Write, fsync, close
-  const handle = await open(tmp, "w");
   try {
-    await handle.writeFile(json, "utf-8");
-    await handle.sync();
-  } finally {
-    await handle.close();
-  }
+    // Write, fsync, close
+    const handle = await open(tmp, "w");
+    try {
+      await handle.writeFile(json, "utf-8");
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
 
-  // Atomic rename
-  await rename(tmp, path);
+    // Atomic rename
+    await rename(tmp, path);
+  } catch (err) {
+    // Mid-write failure (ENOSPC/EIO) or failed rename: don't leak the temp —
+    // repeated failed saves would otherwise accumulate orphans in the data dir.
+    await unlink(tmp).catch(() => {});
+    throw err;
+  }
 }

@@ -11,6 +11,7 @@ import type { Scene, SceneSignal } from "./types.ts";
 import type { TerminalSession } from "../session/terminal-session.ts";
 import type { Clock } from "../clock.ts";
 import type { ColorSupport } from "../color/detect.ts";
+import type { DisplayLanguage } from "@iching/core";
 import { runScene } from "./loop.ts";
 
 export type SceneFactory = (signal: SceneSignal) => Scene | null;
@@ -63,10 +64,11 @@ export class SceneRouter {
     clock: Clock,
     colorSupport: ColorSupport,
     devMode = false,
+    language: DisplayLanguage = "en",
   ): Promise<{ shouldExit: boolean }> {
     while (this.stack.length > 0) {
       const scene = this.current();
-      const signal = await runScene(scene, session, clock, colorSupport, devMode);
+      const signal = await runScene(scene, session, clock, colorSupport, devMode, language);
 
       if (!signal) return { shouldExit: false }; // scene exited normally
 

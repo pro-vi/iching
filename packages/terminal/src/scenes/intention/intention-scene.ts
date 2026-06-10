@@ -6,6 +6,7 @@ import type { KeyEvent } from "../../input/key-parser.ts";
 import { TextInput } from "../../widgets/text-input.ts";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
+import { tr } from "../../i18n/messages.ts";
 
 export class IntentionScene implements Scene {
   private textInput: TextInput;
@@ -23,8 +24,9 @@ export class IntentionScene implements Scene {
 
   update(_elapsed: number, _dt: number, _ctx: SceneContext): void {}
 
-  render(frame: CellBuffer, _ctx: SceneContext): void {
+  render(frame: CellBuffer, ctx: SceneContext): void {
     const t = getTheme();
+    const lang = ctx.language ?? "en";
     const cx = Math.floor(frame.width / 2);
 
     const fieldWidth = Math.min(frame.width - 8, 60);
@@ -42,7 +44,7 @@ export class IntentionScene implements Scene {
     const inputRow = promptRow + 2;
     const hintRow = inputRow + inputRows + 1;
 
-    // Prompt
+    // Prompt — 問 is a canonical anchor, shown in all languages (Policy Matrix)
     const prompt = "問";
     const promptCol = cx - Math.floor(stringWidth(prompt) / 2);
     frame.writeText(promptRow, promptCol, prompt, { fg: t.primary });
@@ -55,7 +57,7 @@ export class IntentionScene implements Scene {
 
     // Hint (only render if it fits)
     if (hintRow < frame.height) {
-      const hint = "[enter] confirm  ·  [esc] back";
+      const hint = `[enter] ${tr(lang, "verb.confirm")}  ·  [esc] ${tr(lang, "verb.back")}`;
       const hintCol = cx - Math.floor(stringWidth(hint) / 2);
       frame.writeText(hintRow, hintCol, hint, { fg: t.tertiary, dim: true });
     }

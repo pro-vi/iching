@@ -4,9 +4,11 @@ import type { CellBuffer } from "../../render/buffer.ts";
 import type { SceneContext } from "../../scene/types.ts";
 import type { BrowseModel } from "./browse-model.ts";
 import type { TextInput } from "../../widgets/text-input.ts";
-import { GUA } from "@iching/core";
+import { GUA, toSimplified } from "@iching/core";
+import type { DisplayLanguage } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
+import { tr } from "../../i18n/messages.ts";
 
 const HEADER_ROWS = 2; // header + separator
 const FOOTER_ROWS = 2; // separator + footer
@@ -35,23 +37,25 @@ function renderHeader(
   ctx: SceneContext,
 ): void {
   const t = getTheme();
+  const lang = ctx.language ?? "en";
   if (model.searchActive) {
     // Search mode header
-    const label = "Search: ";
+    const label = tr(lang, "dict.searchPrompt");
+    const labelW = stringWidth(label);
     frame.writeText(0, 1, label, { fg: t.accent });
     textInput.render(
       frame,
       0,
-      1 + label.length,
-      ctx.cols - 2 - label.length,
+      1 + labelW,
+      ctx.cols - 2 - labelW,
       { fg: t.primary },
     );
   } else {
     // Normal header
-    const title = "I Ching Dictionary";
-    const hint = "[/] search";
+    const title = tr(lang, "dict.title");
+    const hint = `[/] ${tr(lang, "verb.search")}`;
     frame.writeText(0, 1, title, { fg: t.primary, bold: true });
-    frame.writeText(0, ctx.cols - hint.length - 1, hint, {
+    frame.writeText(0, ctx.cols - stringWidth(hint) - 1, hint, {
       fg: t.secondary,
     });
   }
@@ -81,7 +85,7 @@ function renderList(
     const kw = GUA.indexOf(hex) + 1;
     const isSelected = i === model.cursor;
 
-    renderRow(frame, row, kw, hex, isSelected, ctx.cols);
+    renderRow(frame, row, kw, hex, isSelected, ctx.cols, ctx.language ?? "en");
   }
 }
 
@@ -92,11 +96,13 @@ function renderRow(
   hex: { u: string; n: string; p: string; ename: string },
   isSelected: boolean,
   width: number,
+  language: DisplayLanguage,
 ): void {
   const t = getTheme();
   const marker = isSelected ? ">" : " ";
   const kwStr = String(kw).padStart(3, " ");
-  const chinese = hex.n;
+  // Convert the hexagram name for zh-Hans; drop the English name in Chinese modes.
+  const chinese = language === "zh-Hans" ? toSimplified(hex.n) : hex.n;
   const pinyin = hex.p;
 
   // Fixed column layout:
@@ -136,7 +142,8 @@ function renderRow(
     fg: isSelected ? t.accent : t.tertiary,
     ...bgStyle,
   });
-  if (enWidth > 0) {
+  // English name column only in English mode (no stray English in Chinese modes).
+  if (enWidth > 0 && language === "en") {
     frame.writeText(row, enStart, ename, { fg, ...bgStyle });
   }
 }
@@ -155,13 +162,14 @@ function renderFooter(
   frame.writeText(sepRow, 0, sep, { fg: t.tertiary });
 
   // Footer keybindings
-  const count = `${model.filtered.length} hexagrams`;
+  const lang = ctx.language ?? "en";
+  const count = `${model.filtered.length} ${tr(lang, "dict.countSuffix")}`;
   const keys = model.searchActive
-    ? "[↑↓] navigate  ·  [enter] open  ·  [esc] clear search"
-    : "[↑↓] navigate  ·  [enter] open  ·  [/] search  ·  [esc] back";
+    ? `[↑↓] ${tr(lang, "verb.navigate")}  ·  [enter] ${tr(lang, "verb.open")}  ·  [esc] ${tr(lang, "verb.clearSearch")}`
+    : `[↑↓] ${tr(lang, "verb.navigate")}  ·  [enter] ${tr(lang, "verb.open")}  ·  [/] ${tr(lang, "verb.search")}  ·  [esc] ${tr(lang, "verb.back")}`;
 
   frame.writeText(footerRow, 1, keys, { fg: t.secondary });
-  frame.writeText(footerRow, ctx.cols - count.length - 1, count, {
+  frame.writeText(footerRow, ctx.cols - stringWidth(count) - 1, count, {
     fg: t.tertiary,
   });
 }

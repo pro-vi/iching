@@ -2,6 +2,7 @@
 
 import { type HexagramDetail, type GlyphEntry, buildHexagramDetail } from "@iching/core";
 import type { GlyphAnimator } from "../../glyph-anim/types.ts";
+import { clampOffset } from "../../widgets/scroll.ts";
 
 export type DetailFocus = "content" | "derived";
 
@@ -94,12 +95,11 @@ export class DetailModel {
   }
 
   scrollUp(n = 1): void {
-    this.scrollOffset = Math.max(0, this.scrollOffset - n);
+    this.scrollOffset = clampOffset(this.scrollOffset - n, this.contentHeight, this.viewportHeight);
   }
 
   scrollDown(n = 1): void {
-    const max = Math.max(0, this.contentHeight - this.viewportHeight);
-    this.scrollOffset = Math.min(max, this.scrollOffset + n);
+    this.scrollOffset = clampOffset(this.scrollOffset + n, this.contentHeight, this.viewportHeight);
   }
 
   pageUp(): void {

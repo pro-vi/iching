@@ -4,10 +4,11 @@ import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
 import type { HistoryEntry } from "@iching/core";
-import { GUA, buildStructure } from "@iching/core";
+import { GUA, buildStructure, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { ScrollableRegion } from "../../widgets/scrollable.ts";
+import { tr } from "../../i18n/messages.ts";
 
 export class JournalScene implements Scene {
   private entries: HistoryEntry[];
@@ -33,14 +34,15 @@ export class JournalScene implements Scene {
 
   render(frame: CellBuffer, ctx: SceneContext): void {
     const t = getTheme();
+    const lang = ctx.language ?? "en";
     const maxW = ctx.cols;
 
     // Header
-    const title = "Journal";
+    const title = tr(lang, "journal.title");
     const titleCol = Math.max(0, Math.floor((maxW - stringWidth(title)) / 2));
     frame.writeText(0, titleCol, title, { fg: t.primary, bold: true });
 
-    const countText = `${this.entries.length} readings`;
+    const countText = `${this.entries.length} ${tr(lang, "journal.countSuffix")}`;
     frame.writeText(0, maxW - stringWidth(countText) - 1, countText, { fg: t.tertiary });
 
     // Separator
@@ -49,7 +51,7 @@ export class JournalScene implements Scene {
     frame.writeText(1, sepCol, sep, { fg: t.tertiary, dim: true });
 
     if (this.entries.length === 0) {
-      const empty = "No readings yet";
+      const empty = tr(lang, "journal.empty");
       const emptyCol = Math.max(0, Math.floor((maxW - stringWidth(empty)) / 2));
       frame.writeText(Math.floor(ctx.rows / 2), emptyCol, empty, { fg: t.secondary });
       return;
@@ -74,13 +76,14 @@ export class JournalScene implements Scene {
       const time = entry.timestamp ? formatTime(entry.timestamp) : "";
       const dateCol = time ? `${date}  ${time}` : date;
 
-      // Hexagram info
-      let line = `${dateCol}   ${gua.u} ${gua.n} (${gua.p})`;
+      // Hexagram info — convert names for zh-Hans (no English in Chinese modes).
+      const cn = (s: string): string => (lang === "zh-Hans" ? toSimplified(s) : s);
+      let line = `${dateCol}   ${gua.u} ${cn(gua.n)} (${gua.p})`;
 
       // Becoming
       if (entry.cast.becoming !== null) {
         const bg = GUA[entry.cast.becoming - 1];
-        line += ` → ${bg.u} ${bg.n}`;
+        line += ` → ${bg.u} ${cn(bg.n)}`;
         if (entry.cast.changingPositions?.length) {
           line += ` [${entry.cast.changingPositions.join(",")}]`;
         }
@@ -117,7 +120,7 @@ export class JournalScene implements Scene {
     }
 
     // Footer
-    const footer = "[↑↓] navigate  ·  [enter] view  ·  [d] dictionary  ·  [esc] back";
+    const footer = `[↑↓] ${tr(lang, "verb.navigate")}  ·  [enter] ${tr(lang, "verb.view")}  ·  [d] ${tr(lang, "verb.dictionary")}  ·  [esc] ${tr(lang, "verb.back")}`;
     const footerCol = Math.max(0, Math.floor((maxW - stringWidth(footer)) / 2));
     frame.writeText(ctx.rows - 1, footerCol, footer, { fg: t.tertiary });
 
@@ -127,9 +130,9 @@ export class JournalScene implements Scene {
       const gua = GUA[selected.cast.primary - 1];
       const structure = buildStructure(selected.cast);
 
-      // Show English image below the list separator
+      // Image preview: English image in en mode; the 大象傳 (converted for 简) in zh modes
       const detailRow = ctx.rows - 2;
-      const detail = gua.en;
+      const detail = lang === "en" ? gua.en : lang === "zh-Hans" ? toSimplified(gua.dx) : gua.dx;
       if (stringWidth(detail) <= maxW - 4) {
         frame.writeText(detailRow, 2, detail, { fg: t.tertiary, dim: true });
       }
@@ -182,12 +185,9 @@ export class JournalScene implements Scene {
   }
 
   private ensureCursorVisible(): void {
-    const viewportH = this.scroll.viewportHeight;
-    if (this.cursor < this.scroll.scrollOffset) {
-      this.scroll.scrollOffset = this.cursor;
-    } else if (this.cursor >= this.scroll.scrollOffset + viewportH) {
-      this.scroll.scrollOffset = this.cursor - viewportH + 1;
-    }
+    // Same cursor-into-view math the dict browse list uses; the ScrollableRegion
+    // this scene already owns exposes it (offsetToShow), so don't re-derive it.
+    this.scroll.ensureVisible(this.cursor);
   }
 }
 

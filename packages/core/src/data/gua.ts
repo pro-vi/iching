@@ -24,7 +24,7 @@ export const GUA: Hexagram[] = [
     yaoEn: [
       "Hidden dragon. Do not act.",
       "Dragon appearing in the field. It furthers one to see the great man.",
-      "The superior man is active all day; at nightfall his mind is still beset with cares. Danger, but no blame.",
+      "The noble one is active all day; at nightfall his mind is still beset with cares. Danger, but no blame.",
       "Wavering flight over the depths. No blame.",
       "Flying dragon in the heavens. It furthers one to see the great man.",
       "Arrogant dragon will have cause to repent.",
@@ -68,7 +68,7 @@ export const GUA: Hexagram[] = [
     tu: "屯，剛柔始交而難生，動乎險中，大亨貞。",
     en: "Clouds and thunder gather; the noble one brings order from chaos",
     te: "Difficulty: firm and yielding first meet and hardship arises. Movement amid danger — great success through perseverance.",
-    w: "The superior man brings order out of confusion. Avoid premature action — to go only when bidden is clarity.",
+    w: "The noble one brings order out of confusion. Avoid premature action — to go only when bidden is clarity.",
     yao: [
       "初九：磐桓，利居貞，利建侯。",
       "六二：屯如邅如，乘馬班如。匪寇婚媾，女子貞不字，十年乃字。",
@@ -80,7 +80,7 @@ export const GUA: Hexagram[] = [
     yaoEn: [
       "Hesitation and hindrance. It furthers one to remain persevering. It furthers one to appoint helpers.",
       "Difficulties pile up. Horse and wagon part. He is not a robber; he wants to woo. The maiden is chaste and does not yield. Ten years, then she yields.",
-      "Pursuing deer without a forester, one only loses the way in the forest. The superior man senses the situation and prefers to desist. Going on brings humiliation.",
+      "Pursuing deer without a forester, one only loses the way in the forest. The noble one senses the situation and prefers to desist. Going on brings humiliation.",
       "Horse and wagon part. Seek union. Going brings good fortune; everything acts to further.",
       "Difficulties in bestowing his bounty. For small matters, perseverance brings good fortune. For great matters, perseverance brings misfortune.",
       "Horse and wagon part. Tears of blood flow.",
@@ -251,7 +251,7 @@ export const GUA: Hexagram[] = [
       "The spokes burst out of the wagon wheel. Husband and wife look away from each other.",
       "If you are sincere, blood vanishes and fear gives way. No blame.",
       "If you are sincere and loyally attached, you are rich in your neighbor.",
-      "The rain comes, there is rest. This is due to the lasting effect of character. Perseverance is dangerous for the woman. The moon is nearly full. If the superior man persists, misfortune comes.",
+      "The rain comes, there is rest. This is due to the lasting effect of character. Perseverance is dangerous for the woman. The moon is nearly full. If the noble one persists, misfortune comes.",
     ],
   },
   {
@@ -264,7 +264,7 @@ export const GUA: Hexagram[] = [
     tu: "履，柔履剛也。說而應乎乾，是以履虎尾，不咥人，亨。",
     en: "Heaven above, lake below; the noble one distinguishes high and low, settling people's purpose",
     te: "Treading: the soft steps on the firm. Joyous yet responsive to heaven — thus one treads on the tiger's tail and is not bitten.",
-    w: "The superior man discriminates between high and low, and thereby fortifies the minds of the people. Tread carefully; even the tiger does not bite one who knows his place.",
+    w: "The noble one discriminates between high and low, and thereby fortifies the minds of the people. Tread carefully; even the tiger does not bite one who knows his place.",
     yao: [
       "初九：素履往，無咎。",
       "九二：履道坦坦，幽人貞吉。",
@@ -320,7 +320,7 @@ export const GUA: Hexagram[] = [
     tu: "否之匪人，不利君子貞。大往小來，則是天地不交而萬物不通也。",
     en: "Heaven and earth do not unite; the noble one withdraws into frugal virtue to avoid danger",
     te: "Standstill does not favor the noble; the great departs, the small arrives; heaven and earth do not commune",
-    w: "Heaven and earth do not commune; the inferior advances. The superior man falls back upon his inner worth and does not let himself be honored with revenue.",
+    w: "Heaven and earth do not commune; the inferior advances. The noble one falls back upon his inner worth and does not let himself be honored with revenue.",
     yao: [
       "初六：拔茅茹以其彙，貞吉，亨。",
       "六二：包承，小人吉，大人否亨。",
@@ -414,9 +414,9 @@ export const GUA: Hexagram[] = [
       "上六：鳴謙，利用行師，征邑國。",
     ],
     yaoEn: [
-      "A modest superior man may cross the great water. Good fortune.",
+      "A modest noble one may cross the great water. Good fortune.",
       "Modesty that comes to expression. Perseverance brings good fortune.",
-      "A superior man of modesty and merit carries things to conclusion. Good fortune.",
+      "A noble one of modesty and merit carries things to conclusion. Good fortune.",
       "Nothing that would not further modesty in movement.",
       "Not boasting of wealth before one's neighbor. It is favorable to attack with force. Nothing that would not further.",
       "Modesty that comes to expression. It is favorable to set armies marching to chastise one's own city and country.",
@@ -936,7 +936,7 @@ export const GUA: Hexagram[] = [
     tu: "大壯，大者壯也。剛以動，故壯。大壯利貞，大者正也。",
     en: "Thunder in heaven; the noble one does not tread where propriety forbids",
     te: "Great power: the great is strong, the firm moves — hence strength. Great power benefits through constancy; the great must be correct.",
-    w: "The inferior man uses his power; this the superior man does not do. Great power must be governed by restraint.",
+    w: "The inferior man uses his power; this the noble one does not do. Great power must be governed by restraint.",
     yao: [
       "初九，壯于趾，征凶，有孚。",
       "九二，貞吉。",
@@ -1104,7 +1104,7 @@ export const GUA: Hexagram[] = [
     tu: "解，險以動，動而免乎險，解。解利西南，往得眾也。",
     en: "Thunder and rain arise; the noble one pardons mistakes and forgives faults",
     te: "Deliverance: danger spurs movement; moving to escape peril, this is release. Deliverance favors the southwest — going there wins the multitude.",
-    w: "Thunder and rain bring release. The superior man pardons mistakes and forgives misdeeds — when deliverance comes, return swiftly to rest.",
+    w: "Thunder and rain bring release. The noble one pardons mistakes and forgives misdeeds — when deliverance comes, return swiftly to rest.",
     yao: [
       "初六，無咎。",
       "九二，田獲三狐，得黃矢，貞吉。",
@@ -1160,7 +1160,7 @@ export const GUA: Hexagram[] = [
     tu: "益，損上益下，民說無疆。自上下下，其道大光。利有攸往，中正有慶。",
     en: "Wind and thunder increase; the noble one moves toward good and corrects faults",
     te: "Increase: lessening above to increase below — the people rejoice without limit. Descending from on high, its way shines greatly. Advantage in having somewhere to go; centered and correct brings blessing.",
-    w: "When the superior man sees good, he moves toward it. When he has faults, he corrects them. To rule truly is to serve — decrease oneself to increase the people.",
+    w: "When the noble one sees good, he moves toward it. When he has faults, he corrects them. To rule truly is to serve — decrease oneself to increase the people.",
     yao: [
       "初九，利用為大作，元吉，無咎。",
       "六二，或益之十朋之龜，弗克違，永貞吉。王用享于帝，吉。",
@@ -1300,7 +1300,7 @@ export const GUA: Hexagram[] = [
     tu: "困，剛揜也。險以說，困而不失其所亨，其唯君子乎。",
     en: "Lake without water; the noble one risks life to fulfill their purpose",
     te: "Oppression: the firm is eclipsed. Danger meets joy; exhausted yet not losing what brings success — only the noble one can do this.",
-    w: "Outer circumstances press inward, yet the heart remains free. The superior man perseveres with inner cheerfulness that cannot be exhausted.",
+    w: "Outer circumstances press inward, yet the heart remains free. The noble one perseveres with inner cheerfulness that cannot be exhausted.",
     yao: [
       "初六，臀困于株木，入于幽谷，三歲不覿。",
       "九二，困于酒食，朱紱方來，利用享祀，征凶，無咎。",
@@ -1384,7 +1384,7 @@ export const GUA: Hexagram[] = [
     tu: "鼎，象也。以木巽火，亨飪也。聖人亨以享上帝，而大亨以養聖賢。",
     en: "Fire above wood; the noble one rectifies their position and fulfills destiny",
     te: "The cauldron: a symbol. Wood feeds fire for cooking. The sage offers sacrifice to the supreme; great nourishment to cultivate the wise and worthy.",
-    w: "The superior man consolidates fate by making position correct. Personal integrity is an active consolidation of life direction.",
+    w: "The noble one consolidates fate by making position correct. Personal integrity is an active consolidation of life direction.",
     yao: [
       "初六：鼎顛趾，利出否。得妾以其子，無咎。",
       "九二：鼎有實，我仇有疾，不我能即，吉。",
@@ -1412,7 +1412,7 @@ export const GUA: Hexagram[] = [
     tu: "震亨，震來虩虩，恐致福也。笑言啞啞，後有則也。",
     en: "Repeated thunder; the noble one cultivates reverence and self-reflection",
     te: "Thunder and success: the shock arrives with fear and trembling — fear brings blessing. Laughter and talk follow; afterward comes proper measure.",
-    w: "Fear brings good fortune; afterward one has a rule. The superior man uses apprehension as a catalyst for establishing proper principles.",
+    w: "Fear brings good fortune; afterward one has a rule. The noble one uses apprehension as a catalyst for establishing proper principles.",
     yao: [
       "初九：震來虩虩，後笑言啞啞，吉。",
       "六二：震來厲，億喪貝，躋于九陵，勿逐，七日得。",
@@ -1440,7 +1440,7 @@ export const GUA: Hexagram[] = [
     tu: "艮，止也。時止則止，時行則行，動靜不失其時，其道光明。",
     en: "Mountains joined together; the noble one keeps thoughts within their place",
     te: "Keeping still means stopping. When it is time to stop, stop; when time to act, act. Movement and rest do not miss their moment — this way shines bright.",
-    w: "The superior man does not permit thoughts to go beyond the situation. Noble-hearted keeping still leads to complete inner development.",
+    w: "The noble one does not permit thoughts to go beyond the situation. Noble-hearted keeping still leads to complete inner development.",
     yao: [
       "初六：艮其趾，無咎，利永貞。",
       "六二：艮其腓，不拯其隨，其心不快。",
@@ -1468,7 +1468,7 @@ export const GUA: Hexagram[] = [
     tu: "漸之進也，女歸吉也。進得位，往有功也。進以正，可以正邦也。",
     en: "Wood upon the mountain; the noble one dwells in virtue and improves customs",
     te: "Development: gradual progress. The maiden marrying brings fortune — advancing finds its place, going forward brings achievement. Advancing through rightness, one may set the state in order.",
-    w: "The wild goose approaches the shore step by step. The superior man abides in dignity and virtue, and thereby improves the customs of the people.",
+    w: "The wild goose approaches the shore step by step. The noble one abides in dignity and virtue, and thereby improves the customs of the people.",
     yao: [
       "初六：鴻漸于干，小子厲，有言，無咎。",
       "六二：鴻漸于磐，飲食衎衎，吉。",
@@ -1496,7 +1496,7 @@ export const GUA: Hexagram[] = [
     tu: "歸妹，天地之大義也。天地不交而萬物不興。歸妹，人之終始也。",
     en: "Thunder above the lake; the noble one understands flaws by considering the end",
     te: "The marrying maiden: heaven and earth's great meaning. Without their union, nothing flourishes. The maiden's marriage marks the end and beginning of human life.",
-    w: "The superior man understands the transitory in light of eternity. Recognize emerging tendencies early; guide them before they become unmanageable.",
+    w: "The noble one understands the transitory in light of eternity. Recognize emerging tendencies early; guide them before they become unmanageable.",
     yao: [
       "初九：歸妹以娣，跛能履，征吉。",
       "九二：眇能視，利幽人之貞。",
@@ -1524,7 +1524,7 @@ export const GUA: Hexagram[] = [
     tu: "豐，大也。明以動，故豐。王假之，尚大也。勿憂宜日中。",
     en: "Thunder and lightning arrive together; the noble one decides cases and applies consequences",
     te: "Abundance means greatness: clarity with movement, hence fullness. The king reaches this — exalting what is great. Do not worry; be like the sun at noon.",
-    w: "Abundance requires maintaining clarity. The superior man rouses will through trustworthiness — sincerity is the foundation for influence.",
+    w: "Abundance requires maintaining clarity. The noble one rouses will through trustworthiness — sincerity is the foundation for influence.",
     yao: [
       "初九：遇其配主，雖旬無咎，往有尚。",
       "六二：豐其蔀，日中見斗，往得疑疾。有孚發若，吉。",
@@ -1583,11 +1583,11 @@ export const GUA: Hexagram[] = [
     w: "Wind follows upon wind. The gentle penetrates as water wears away stone — not through force, but through quiet persistence in a single direction.",
     yao: [
       "初六：進退，利武人之貞。",
-      "九二：巽在牀下，用史巫紛若，吉，無咎。",
+      "九二：巽在床下，用史巫紛若，吉，無咎。",
       "九三：頻巽，吝。",
       "六四：悔亡，田獲三品。",
       "九五：貞吉，悔亡，無不利。無初有終。先庚三日，後庚三日，吉。",
-      "上九：巽在牀下，喪其資斧，貞凶。",
+      "上九：巽在床下，喪其資斧，貞凶。",
     ],
     yaoEn: [
       "Advancing and retreating in hesitation. The perseverance of a military person is favorable.",
@@ -1695,7 +1695,7 @@ export const GUA: Hexagram[] = [
     w: "True power emerges from internal character. Without central transformative force from within, external unity becomes deception.",
     yao: [
       "初九：虞吉，有他不燕。",
-      "九二：鶴鳴在陰，其子和之。我有好爵，吾與爾靡之。",
+      "九二：鳴鶴在陰，其子和之。我有好爵，吾與爾靡之。",
       "六三：得敵，或鼓或罷，或泣或歌。",
       "六四：月幾望，馬匹亡，無咎。",
       "九五：有孚攣如，無咎。",
@@ -1720,7 +1720,7 @@ export const GUA: Hexagram[] = [
     tu: "小過，小者過而亨也。過以利貞，與時行也。柔得中，是以小事吉也。",
     en: "Thunder above the mountain; the noble one exceeds in reverence",
     te: "Small exceeding: the small exceeds and succeeds. Exceeding benefits through constancy, moving with the season. The yielding finds center — hence fortune in small matters.",
-    w: "The superior man fixes eyes more closely on duty than the ordinary person. Genuine strength lies in meticulous attention to conduct.",
+    w: "The noble one fixes eyes more closely on duty than the ordinary person. Genuine strength lies in meticulous attention to conduct.",
     yao: [
       "初六：飛鳥以凶。",
       "六二：過其祖，遇其妣。不及其君，遇其臣，無咎。",

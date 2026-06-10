@@ -4,7 +4,7 @@ import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
 import type { GlyphAnimator, GlyphAnimStyle } from "../../glyph-anim/types.ts";
-import type { GlyphFont, GlyphSize } from "@iching/core";
+import type { DisplayLanguage, GlyphFont, GlyphSize } from "@iching/core";
 import type { TaijituStyle } from "../home/taijitu-render.ts";
 import { renderTaijitu } from "../home/taijitu-render.ts";
 import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
@@ -17,23 +17,53 @@ import { renderCoinSet, CoinAutoPreview } from "../cast/coin-renderer.ts";
 import { renderYarrowFieldStrip, drawApertureCursor } from "../yarrow/field-renderer.ts";
 import { YarrowAutoPreview, YarrowManualPreview } from "../yarrow/yarrow-previews.ts";
 import { LINE_WIDTH } from "../../glyphs.ts";
+import { tr, type MessageKey } from "../../i18n/messages.ts";
+import { optionLabel } from "../../i18n/option-labels.ts";
+import { windowFor } from "../../widgets/scroll.ts";
 
 // ── Setting definitions ──────────────────────────────────────────────
 
 const ANIM_OPTIONS: GlyphAnimStyle[] = ["dots", "noise", "radial", "sand"];
 const FONT_OPTIONS: GlyphFont[] = ["kaiti", "libian", "heiti"];
+const LANGUAGE_OPTIONS: DisplayLanguage[] = ["en", "zh-Hant", "zh-Hans"];
+const LANGUAGE_LABELS: Record<DisplayLanguage, string> = {
+  en: "EN",
+  "zh-Hans": "简",
+  "zh-Hant": "繁",
+};
 const TAIJITU_OPTIONS: TaijituStyle[] = ["dots", "dense"];
 const CAST_METHOD_OPTIONS = ["coin", "yarrow"] as const;
 const CAST_MODE_OPTIONS = ["auto", "manual"] as const;
 
 interface SettingRow {
-  label: string;
-  options: string[];
+  /** Stable message-catalog key; the visible label is localized at render time. */
+  key: MessageKey;
+  /**
+   * Canonical option tokens — what getValues()/persistence sees. The displayed
+   * chip text is derived per-render via chipLabel(); labels are never stored on
+   * the row, so they can never round-trip into config.
+   */
+  values: readonly string[];
   selected: number;
+}
+
+/**
+ * Display label for an option chip. The Language row uses endonym badges
+ * (EN/繁/简) that are deliberately invariant across display languages; every
+ * other row resolves through the option-label catalog and falls back to the
+ * canonical token when no label is ratified (e.g. theme names, deferred).
+ */
+function chipLabel(lang: DisplayLanguage, key: MessageKey, value: string): string {
+  if (key === "settings.language") {
+    for (const l of LANGUAGE_OPTIONS) if (l === value) return LANGUAGE_LABELS[l];
+    return value;
+  }
+  return optionLabel(lang, key, value);
 }
 
 export interface SettingsValues {
   theme: ThemeName;
+  language: DisplayLanguage;
   glyphAnim: GlyphAnimStyle;
   glyphFont: GlyphFont;
   taijituStyle: TaijituStyle;
@@ -93,25 +123,40 @@ export class SettingsScene implements Scene {
   constructor(initial: SettingsValues) {
     this.values = { ...initial };
     this.rows = [
-      { label: "Theme",           options: [...THEME_NAMES],         selected: Math.max(0, THEME_NAMES.indexOf(initial.theme)) },
-      { label: "Taijitu",         options: [...TAIJITU_OPTIONS],     selected: Math.max(0, TAIJITU_OPTIONS.indexOf(initial.taijituStyle)) },
-      { label: "Glyph Animation", options: [...ANIM_OPTIONS],        selected: Math.max(0, ANIM_OPTIONS.indexOf(initial.glyphAnim)) },
-      { label: "Font",            options: [...FONT_OPTIONS],        selected: Math.max(0, FONT_OPTIONS.indexOf(initial.glyphFont)) },
-      { label: "Cast Method",     options: [...CAST_METHOD_OPTIONS], selected: Math.max(0, CAST_METHOD_OPTIONS.indexOf(initial.castMethod)) },
-      { label: "Cast Mode",       options: [...CAST_MODE_OPTIONS],   selected: Math.max(0, CAST_MODE_OPTIONS.indexOf(initial.castMode)) },
+      { key: "settings.theme",          values: THEME_NAMES,         selected: Math.max(0, THEME_NAMES.indexOf(initial.theme)) },
+      { key: "settings.language",       values: LANGUAGE_OPTIONS,    selected: Math.max(0, LANGUAGE_OPTIONS.indexOf(initial.language)) },
+      { key: "settings.taijitu",        values: TAIJITU_OPTIONS,     selected: Math.max(0, TAIJITU_OPTIONS.indexOf(initial.taijituStyle)) },
+      { key: "settings.glyphAnimation", values: ANIM_OPTIONS,        selected: Math.max(0, ANIM_OPTIONS.indexOf(initial.glyphAnim)) },
+      { key: "settings.font",           values: FONT_OPTIONS,        selected: Math.max(0, FONT_OPTIONS.indexOf(initial.glyphFont)) },
+      { key: "settings.castMethod",     values: CAST_METHOD_OPTIONS, selected: Math.max(0, CAST_METHOD_OPTIONS.indexOf(initial.castMethod)) },
+      { key: "settings.castMode",       values: CAST_MODE_OPTIONS,   selected: Math.max(0, CAST_MODE_OPTIONS.indexOf(initial.castMode)) },
     ];
-    this.previewKind = this.previewKindForLabel(this.rows[0]?.label);
+    this.previewKind = this.previewKindForKey(this.rows[0]?.key);
   }
 
+  /**
+   * Current selections as canonical tokens. Field↔row mapping is by row KEY,
+   * not row position — reordering or inserting rows cannot silently swap
+   * persisted values. selectedValue() finds the row that owns the key and
+   * narrows its selected token back to the field's union without casts; an
+   * unknown value falls back to the field default.
+   */
   getValues(): SettingsValues {
     return {
-      theme: THEME_NAMES[this.rows[0].selected] ?? "bone",
-      taijituStyle: TAIJITU_OPTIONS[this.rows[1].selected] ?? "dots",
-      glyphAnim: ANIM_OPTIONS[this.rows[2].selected] ?? "dots",
-      glyphFont: FONT_OPTIONS[this.rows[3].selected] ?? "kaiti",
-      castMethod: CAST_METHOD_OPTIONS[this.rows[4].selected] ?? "coin",
-      castMode: CAST_MODE_OPTIONS[this.rows[5].selected] ?? "auto",
+      theme: this.selectedValue(THEME_NAMES, "settings.theme", "bone"),
+      language: this.selectedValue(LANGUAGE_OPTIONS, "settings.language", "en"),
+      taijituStyle: this.selectedValue(TAIJITU_OPTIONS, "settings.taijitu", "dots"),
+      glyphAnim: this.selectedValue(ANIM_OPTIONS, "settings.glyphAnimation", "dots"),
+      glyphFont: this.selectedValue(FONT_OPTIONS, "settings.font", "kaiti"),
+      castMethod: this.selectedValue(CAST_METHOD_OPTIONS, "settings.castMethod", "coin"),
+      castMode: this.selectedValue(CAST_MODE_OPTIONS, "settings.castMode", "auto"),
     };
+  }
+
+  private selectedValue<T extends string>(allowed: readonly T[], key: MessageKey, fallback: T): T {
+    const row = this.rows.find((r) => r.key === key);
+    const raw = row ? row.values[row.selected] : undefined;
+    return allowed.find((v) => v === raw) ?? fallback;
   }
 
   enter(_ctx: SceneContext): void {}
@@ -172,8 +217,12 @@ export class SettingsScene implements Scene {
     const cx = Math.floor(frame.width / 2);
     let row = 2;
 
-    // Title
-    const title = "Settings";
+    // Title. Localize from the LIVE selection (getValues), not the saved
+    // snapshot (this.values, refreshed only on Escape) — so moving the Language
+    // row with ←/→ re-localizes the scene immediately, matching how Theme already
+    // previews live via onOptionChanged.
+    const lang = this.getValues().language;
+    const title = tr(lang, "settings.title");
     frame.writeText(row, cx - Math.floor(stringWidth(title) / 2), title, { fg: t.primary, bold: true });
     row += 1;
 
@@ -186,21 +235,42 @@ export class SettingsScene implements Scene {
     // Setting rows
     const left = Math.max(2, cx - 24);
 
-    // Adaptive spacing: wide layout (3 rows per setting — label + options +
-    // gap) needs `frame.height >= 3N + 7` to keep the last setting clear of
-    // the footer separator at `height - 3`. At 80x24 with 6 settings, that
-    // threshold is 25 — we have 24, so use the compact 2-rows-per-setting
-    // form. Without this guard, Cast Mode options at row 21 got silently
-    // overwritten by the footer separator, leaving users to change the
-    // most important new setting blind.
+    // Adaptive spacing: wide layout is 3 rows per setting (label + options +
+    // gap), compact is 2. When even compact can't fit every row above the
+    // footer (very short terminals, e.g. h<22 with 7 settings), scroll a window
+    // of settings so the FOCUSED row is always visible — otherwise the last rows
+    // render under the bottom-anchored footer and the user edits a setting blind.
     const compact = frame.height < this.rows.length * 3 + 7;
     const interRowGap = compact ? 1 : 2;
+    // Label-to-label row delta: the label row, then the options row, then the
+    // inter-row gap → 1 + interRowGap (the options row is the "+1").
+    const rowsPerSetting = 1 + interRowGap;
 
-    for (let i = 0; i < this.rows.length; i++) {
+    // Footer is anchored to the bottom; settings + preview share the space above.
+    const footerRow = frame.height - 2;
+    const footerSepRow = footerRow - 1;
+
+    const settingsStartRow = row;
+    const availSettingRows = footerSepRow - settingsStartRow;
+    const maxVisible = Math.max(1, Math.floor(availSettingRows / rowsPerSetting));
+    // Window that keeps the focused row in view, scrolling no more than needed.
+    const { start: scrollStart, end: scrollEnd } = windowFor(
+      this.focusedRow,
+      maxVisible,
+      this.rows.length,
+    );
+
+    for (let i = scrollStart; i < scrollEnd; i++) {
       const setting = this.rows[i];
       const focused = i === this.focusedRow;
 
-      frame.writeText(row, left, setting.label, {
+      // Edge hint when more settings exist above/below the visible window.
+      const hint =
+        i === scrollStart && scrollStart > 0 ? "  ↑"
+        : i === scrollEnd - 1 && scrollEnd < this.rows.length ? "  ↓"
+        : "";
+
+      frame.writeText(row, left, tr(lang, setting.key) + hint, {
         fg: focused ? t.primary : t.secondary,
         bold: focused,
       });
@@ -210,8 +280,8 @@ export class SettingsScene implements Scene {
       frame.writeText(row, left, prefix, { fg: t.tertiary });
 
       let col = left + stringWidth(prefix);
-      for (let j = 0; j < setting.options.length; j++) {
-        const opt = setting.options[j];
+      for (let j = 0; j < setting.values.length; j++) {
+        const opt = chipLabel(lang, setting.key, setting.values[j] ?? "");
         const sel = j === setting.selected;
         if (sel) {
           const text = `[${opt}]`;
@@ -221,16 +291,13 @@ export class SettingsScene implements Scene {
           frame.writeText(row, col, opt, { fg: t.tertiary });
           col += stringWidth(opt);
         }
-        if (j < setting.options.length - 1) col += 2;
+        if (j < setting.values.length - 1) col += 2;
       }
 
       row += interRowGap;
     }
 
-    // Footer is anchored to the bottom; preview lives in whatever space is left.
-    const footerRow = frame.height - 2;
-    const footerSepRow = footerRow - 1;
-    const footer = "[↑↓] setting  ·  [←→] option  ·  [esc] save & back";
+    const footer = `[↑↓] ${tr(lang, "verb.setting")}  ·  [←→] ${tr(lang, "verb.option")}  ·  [esc] ${tr(lang, "verb.saveBack")}`;
 
     const sectionSepRow = row;
     const previewLabelRow = row + 2;
@@ -240,7 +307,7 @@ export class SettingsScene implements Scene {
 
     if (previewAvailRows >= MIN_PREVIEW_ROWS) {
       frame.writeText(sectionSepRow, sepCol, sep, { fg: t.border });
-      frame.writeText(previewLabelRow, left, "Preview:", { fg: t.secondary });
+      frame.writeText(previewLabelRow, left, tr(lang, "settings.preview"), { fg: t.secondary });
       this.renderPreview(frame, cx, previewContentRow, previewAvailRows);
     }
 
@@ -318,14 +385,14 @@ export class SettingsScene implements Scene {
       case "cast-yarrow": {
         if (!this.yarrowAuto) this.yarrowAuto = new YarrowAutoPreview();
         const fieldRow = startRow + yarrowFieldOffset(availRows);
-        renderYarrowFieldStrip(frame, this.yarrowAuto.model, fieldRow);
+        renderYarrowFieldStrip(frame, this.yarrowAuto.model, fieldRow, vals.language);
         break;
       }
 
       case "cast-yarrow-manual": {
         if (!this.yarrowManual) this.yarrowManual = new YarrowManualPreview();
         const fieldRow = startRow + yarrowFieldOffset(availRows);
-        renderYarrowFieldStrip(frame, this.yarrowManual.model, fieldRow);
+        renderYarrowFieldStrip(frame, this.yarrowManual.model, fieldRow, vals.language);
         // Aperture overlay only during sweep/snap — during play the runner
         // mutates the bar, and the aperture would smear over the action.
         if (this.yarrowManual.phase !== "playing") {
@@ -358,13 +425,13 @@ export class SettingsScene implements Scene {
           break;
         case "left": {
           const r = this.rows[this.focusedRow];
-          r.selected = (r.selected - 1 + r.options.length) % r.options.length;
+          r.selected = (r.selected - 1 + r.values.length) % r.values.length;
           this.onOptionChanged();
           break;
         }
         case "right": {
           const r = this.rows[this.focusedRow];
-          r.selected = (r.selected + 1) % r.options.length;
+          r.selected = (r.selected + 1) % r.values.length;
           this.onOptionChanged();
           break;
         }
@@ -376,9 +443,9 @@ export class SettingsScene implements Scene {
     }
   }
 
-  private previewKindForLabel(label: string | undefined): PreviewKind {
-    if (label === "Taijitu") return "taijitu";
-    if (label === "Cast Method" || label === "Cast Mode") {
+  private previewKindForKey(key: MessageKey | undefined): PreviewKind {
+    if (key === "settings.taijitu") return "taijitu";
+    if (key === "settings.castMethod" || key === "settings.castMode") {
       const { castMethod, castMode } = this.getValues();
       if (castMethod === "yarrow") {
         return castMode === "manual" ? "cast-yarrow-manual" : "cast-yarrow";
@@ -397,22 +464,22 @@ export class SettingsScene implements Scene {
   }
 
   private onFocusChanged(): void {
-    const label = this.rows[this.focusedRow]?.label;
+    const key = this.rows[this.focusedRow]?.key;
     this.resetCastPreview();
     this.previewActive = false;
-    this.previewKind = this.previewKindForLabel(label);
-    if (label === "Glyph Animation" || label === "Font") this.startPreview();
+    this.previewKind = this.previewKindForKey(key);
+    if (key === "settings.glyphAnimation" || key === "settings.font") this.startPreview();
   }
 
   private onOptionChanged(): void {
     const vals = this.getValues();
     setTheme(vals.theme);
-    const label = this.rows[this.focusedRow]?.label;
-    if (label === "Glyph Animation" || label === "Font") {
+    const key = this.rows[this.focusedRow]?.key;
+    if (key === "settings.glyphAnimation" || key === "settings.font") {
       this.startPreview();
-    } else if (label === "Cast Method" || label === "Cast Mode") {
+    } else if (key === "settings.castMethod" || key === "settings.castMode") {
       this.resetCastPreview();
-      this.previewKind = this.previewKindForLabel(label);
+      this.previewKind = this.previewKindForKey(key);
     }
   }
 

@@ -3,7 +3,8 @@
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
-import type { GlyphFont } from "@iching/core";
+import type { DisplayLanguage, GlyphFont } from "@iching/core";
+import { toSimplified } from "@iching/core";
 import type { GlyphAnimStyle } from "../../glyph-anim/types.ts";
 import { composeGlyph } from "../../glyph-anim/compose.ts";
 import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
@@ -21,10 +22,16 @@ const FOOTER_ROWS = 2;
 export class DetailScene implements Scene {
   private model: DetailModel;
   private glyphConfig?: DetailGlyphConfig;
+  private language: DisplayLanguage;
 
-  constructor(kw: number, glyphConfig?: DetailGlyphConfig) {
+  constructor(
+    kw: number,
+    glyphConfig?: DetailGlyphConfig,
+    language: DisplayLanguage = "en",
+  ) {
     this.model = new DetailModel(kw);
     this.glyphConfig = glyphConfig;
+    this.language = language;
   }
 
   enter(ctx: SceneContext): void {
@@ -32,7 +39,11 @@ export class DetailScene implements Scene {
 
     // Create glyph animator on entry (skip if already completed from prior visit)
     if (this.glyphConfig && !this.model.glyphAnimDone) {
-      const name = this.model.detail.gua.n;
+      // zh-Hans composes the glyph from the Simplified name so it matches the
+      // Simplified header text (e.g. 兑 above "兑 Duì"), not the Traditional 兌.
+      const name = this.language === "zh-Hans"
+        ? toSimplified(this.model.detail.gua.n)
+        : this.model.detail.gua.n;
       const charCount = Math.max(1, [...name].length);
       const size = autoGlyphSize(ctx.rows - FOOTER_ROWS, ctx.cols, charCount);
       const glyph = composeGlyph(
@@ -50,7 +61,9 @@ export class DetailScene implements Scene {
     }
 
     // Pre-compute content height so scroll bounds work before first render
-    this.model.contentHeight = buildContentLines(this.model, ctx.cols).length;
+    this.model.contentHeight = buildContentLines(this.model, ctx.cols, {
+      language: this.language,
+    }).length;
   }
 
   update(elapsed: number, _dt: number, _ctx: SceneContext): void {
@@ -64,7 +77,7 @@ export class DetailScene implements Scene {
   }
 
   render(frame: CellBuffer, ctx: SceneContext): void {
-    renderDetail(frame, this.model, ctx);
+    renderDetail(frame, this.model, ctx, { language: this.language });
   }
 
   resize(_cols: number, rows: number): void {

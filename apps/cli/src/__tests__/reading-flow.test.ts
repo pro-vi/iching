@@ -27,6 +27,7 @@ function makeDeps(dataDir: string, run: RunImpl): ReadingFlowDeps {
     today: "2026-05-20",
     session: { cols: 80, rows: 24 },
     glyphConfig: { glyphAnim: "dots", glyphFont: "kaiti" },
+    language: "zh-Hant",
     motion: "default",
   };
 }

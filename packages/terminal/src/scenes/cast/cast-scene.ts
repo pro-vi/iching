@@ -21,6 +21,8 @@ import { SPLIT_ARROW } from "../../glyphs.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
 import { autoGlyphSize } from "../../glyph-anim/auto-size.ts";
+import { tr } from "../../i18n/messages.ts";
+import type { DisplayLanguage } from "@iching/core";
 
 export type CastGlyphInput = Omit<CastGlyphConfig, "glyphSize">;
 
@@ -38,7 +40,7 @@ export class CastScene implements Scene {
     glyphConfig?: CastGlyphInput,
     termRows: number = 24,
     intention?: string,
-    opts?: { skipLineDrawing?: boolean },
+    opts?: { skipLineDrawing?: boolean; language?: DisplayLanguage },
   ) {
     this.model = new CastModel(cast);
     this.model.intention = intention;
@@ -58,6 +60,7 @@ export class CastScene implements Scene {
       this.glyphConfig = {
         ...glyphConfig,
         glyphSize: autoGlyphSize(availRows, termWidth, maxChars),
+        language: opts?.language,
       };
     }
     const timing = getPreset(preset);
@@ -81,8 +84,9 @@ export class CastScene implements Scene {
     }
   }
 
-  render(frame: CellBuffer, _ctx: SceneContext): void {
+  render(frame: CellBuffer, ctx: SceneContext): void {
     const model = this.model;
+    const lang = ctx.language ?? "en";
     const isSplit = model.layout !== "centered";
     const leftOffset = hexColOffset(isSplit ? "left" : "center", model.splitProgress);
     const rightOffset = hexColOffset("right", model.splitProgress);
@@ -119,11 +123,11 @@ export class CastScene implements Scene {
     if (hasGlyph) {
       renderLargeGlyph(frame, model);
       // Single centered title for the focused hexagram (no split offset)
-      renderTitle(frame, model, 0);
+      renderTitle(frame, model, 0, lang);
     } else {
       // No glyph: use split title layout as before
-      renderTitle(frame, model, leftOffset);
-      renderBecomingTitle(frame, model, isSplit ? rightOffset : 0);
+      renderTitle(frame, model, leftOffset, lang);
+      renderBecomingTitle(frame, model, isSplit ? rightOffset : 0, lang);
     }
 
     // Render intention (after reveal)
@@ -133,7 +137,7 @@ export class CastScene implements Scene {
 
     // Render prompt
     if (model.showPrompt) {
-      renderPrompt(frame, model);
+      renderPrompt(frame, model, lang);
     }
   }
 
@@ -143,7 +147,7 @@ export class CastScene implements Scene {
       return { type: "home" };
     }
 
-    // Exploration mode: arrow keys switch focus, scroll commentary
+    // Exploration mode: left/right arrows switch focus
     if (this.model.explorationMode && key.type === "arrow") {
       if (key.direction === "left" && this.model.focusedHex === "becoming") {
         this.setFocusedHex("primary");
@@ -151,14 +155,6 @@ export class CastScene implements Scene {
       }
       if (key.direction === "right" && this.model.focusedHex === "primary" && this.model.cast.becoming !== null) {
         this.setFocusedHex("becoming");
-        return;
-      }
-      if (key.direction === "up") {
-        this.model.commentaryScrollOffset = Math.max(0, this.model.commentaryScrollOffset - 1);
-        return;
-      }
-      if (key.direction === "down") {
-        this.model.commentaryScrollOffset++;
         return;
       }
     }
@@ -195,11 +191,10 @@ export class CastScene implements Scene {
 
   /**
    * Switch focus to a hexagram — updates focusedHex, creates matching
-   * glyph animator, resets scroll. Single method for all focus changes.
+   * glyph animator. Single method for all focus changes.
    */
   private setFocusedHex(hex: "primary" | "becoming"): void {
     this.model.focusedHex = hex;
-    this.model.commentaryScrollOffset = 0;
     const entry = hex === "primary"
       ? this.model.primaryGlyphEntry
       : this.model.becomingGlyphEntry;
@@ -263,15 +258,15 @@ function renderSplitArrow(buf: CellBuffer, model: CastModel): void {
 }
 
 /** Render the prompt bar at the bottom of the hexagram area. */
-function renderPrompt(buf: CellBuffer, model: CastModel): void {
+function renderPrompt(buf: CellBuffer, model: CastModel, language: DisplayLanguage): void {
   const t = getTheme();
   // Footer only shows contextual actions. j/d still work as silent shortcuts
   // to journal/dictionary — they live on the home menu, accessible via esc.
   const text = model.explorationMode
     ? (model.cast.becoming !== null
-        ? "[←→] switch  ·  [enter] detail  ·  [esc] back"
-        : "[enter] detail  ·  [esc] back")
-    : "[enter] explore  ·  [esc] back";
+        ? `[←→] ${tr(language, "verb.switch")}  ·  [enter] ${tr(language, "verb.detail")}  ·  [esc] ${tr(language, "verb.back")}`
+        : `[enter] ${tr(language, "verb.detail")}  ·  [esc] ${tr(language, "verb.back")}`)
+    : `[enter] ${tr(language, "verb.explore")}  ·  [esc] ${tr(language, "verb.back")}`;
   const row = buf.height - 2;
   if (row < 0) return;
   const w = stringWidth(text);

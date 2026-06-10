@@ -1,6 +1,6 @@
 // Scene interface — lifecycle contract for terminal scenes
 
-import type { Cast } from "@iching/core";
+import type { Cast, DisplayLanguage } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
 import type { KeyEvent } from "../input/key-parser.ts";
 import type { ColorSupport } from "../color/detect.ts";
@@ -9,6 +9,12 @@ export interface SceneContext {
   cols: number;
   rows: number;
   colorSupport: ColorSupport;
+  /**
+   * Active display language for UI text. Set once from config when the scene
+   * loop starts (defaults to "en" when unset, e.g. in tests). Scenes route
+   * product-ui strings through the message catalog with this value.
+   */
+  language?: DisplayLanguage;
   /**
    * Runner-managed exit flag. Production scenes should return a SceneSignal
    * instead; this is exposed primarily for test scenes that need to terminate
