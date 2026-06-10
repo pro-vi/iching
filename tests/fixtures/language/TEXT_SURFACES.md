@@ -992,7 +992,7 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   agentify_required: no
   status: open
   verifier: "--terminal"
-  notes: "English. 'Taijitu' romanized proper name. Options are enum chips shown verbatim (theme names, dots/dense, kaiti/libian/heiti, coin/yarrow, auto/manual)."
+  notes: "English. 'Taijitu' romanized proper name. Option chips: display-label catalog layer per term-settings-option-chips (font/castMethod/castMode/taijitu/anim); theme chips verbatim per term-theme-names deferral; language chips are endonym badges per term-settings-lang-options. Stored tokens preserved everywhere."
 
 - surface_id: term-settings-lang-options
   file: packages/terminal/src/scenes/settings/settings-scene.ts
@@ -1008,6 +1008,21 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   status: open
   verifier: "--policy default-order EN->繁->简; --terminal"
   notes: "Order matches spec EN->繁->简. Labels are abbreviations EN/繁/简 (not English/繁體/简体). Drives DisplayLanguage everywhere."
+
+- surface_id: term-settings-option-chips
+  file: packages/terminal/src/i18n/option-labels.ts
+  code_locator: "OPTION_LABELS (token-keyed); settings-scene render loop derives labels per token"
+  current_text: 'font kaiti/libian/heiti → 楷體/隸變/黑體 (楷体/隶变/黑体); castMethod coin/yarrow → 銅錢 (coin)/蓍草 (yarrow) (铜钱 (coin)); castMode auto/manual → 自動/手動 (自动/手动); taijitu dots/dense → 點陣/密實 (点阵/密实); anim noise/dots/radial/sand → 噪點/點陣/放射/沙化 (噪点/点阵/放射/沙化)'
+  surface_class: terminal-settings
+  render_context: "settings option-value chips — display labels derived at render; stored tokens preserved"
+  language_policy: translate
+  source_layer: product-ui
+  token_policy: preserve
+  risk: medium
+  agentify_required: no
+  status: open
+  verifier: "--terminal (option-label coverage); --policy"
+  notes: "Display-label catalog layer per glossary §Settings option-chip display labels — labels never mutate stored tokens; NO input aliases (config set + hand-edit stay canonical-only). 點陣 ratified once for BOTH taijitu.dots and anim.dots; 噪點 = noise (transposition hazard). Theme chips excluded — deferred per term-theme-names. Language chips excluded — endonym badges per term-settings-lang-options. zh-Hans authored explicitly, not derived."
 
 - surface_id: term-settings-preview-char
   file: packages/terminal/src/scenes/settings/settings-scene.ts
@@ -1056,7 +1071,7 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   agentify_required: no
   status: open
   verifier: "--terminal; --policy (enum-as-chip)"
-  notes: "Machine tokens shown as chips + persisted config keys; translating in place would break setTheme(). 'bone' default. Localization needs separate display-label map."
+  notes: "Machine tokens shown as chips + persisted config keys; translating in place would break setTheme(). 'bone' default. Display labels DEFERRED (plan 2026-06-10-001): theme-name semantics unresolved (brand vs literal — 墨/骨/硃砂/玉/河 candidates not ratified); chips stay verbatim until the glossary records the ruling. No input aliases."
 
 - surface_id: term-motion-preset
   file: packages/terminal/src/animation/presets.ts
@@ -1953,6 +1968,12 @@ Default language **en**; settings order **EN → 繁 → 简** (asserted by
   zh_hant_source: 繁
   zh_hans_strategy: 简
   render_context: language selector chips (order EN→繁→简)
+- id: term-settings-option-chips
+  language_policy: translate
+  en_source: canonical enum tokens shown as-is (kaiti/coin/auto/dots…)
+  zh_hant_source: option-label catalog 楷體/隸變/黑體/銅錢 (coin)/蓍草 (yarrow)/自動/手動/點陣/密實/噪點/放射/沙化 — stored tokens preserved
+  zh_hans_strategy: authored explicitly 楷体/隶变/黑体/铜钱 (coin)/自动/手动/点阵/密实/噪点 — never derived via toSimplified
+  render_context: settings option-value chips (theme + language rows excluded)
 - id: term-settings-preview-char
   language_policy: canonical-anchor
   en_source: 乾 (preserve)
@@ -1968,8 +1989,8 @@ Default language **en**; settings order **EN → 繁 → 简** (asserted by
 - id: term-theme-names
   language_policy: canonical-anchor
   en_source: enum chip values ink/bone/cinnabar/jade/river (preserve stored tokens)
-  zh_hant_source: optional display-label map (catalog) — stored token preserved
-  zh_hans_strategy: convert display labels only
+  zh_hant_source: display-label map deferred (semantics ruling pending, brand vs literal) — chips render stored tokens
+  zh_hans_strategy: deferred with zh-Hant ruling; stored tokens render meanwhile
   render_context: Theme settings chips
 - id: term-motion-preset
   language_policy: developer-only

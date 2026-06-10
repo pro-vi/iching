@@ -107,6 +107,40 @@ and Unicode hexagram/trigram/taijitu symbols. Localized **display labels** for e
 (e.g. a Chinese chip for `coin`) are a SEPARATE catalog layer that never mutates the stored
 token. JSON output stays locale-neutral (stable keys; all five commentary styles emitted).
 
+## Settings option-chip display labels (separate catalog layer)
+
+The display-label layer sanctioned above, ratified per token. Lives in
+`packages/terminal/src/i18n/option-labels.ts`; consumed only by the Settings render
+path. The table is **token-keyed** — renderings attach to tokens, never to list
+positions. zh-Hans labels are authored explicitly in the same literary register,
+never derived via `toSimplified()`.
+
+**Input-alias policy: none.** These labels are display-only. `config set` and
+hand-edited config files accept canonical tokens only; `LANGUAGE_ALIASES` is a
+language-row-specific bridge, not a precedent to extend. Revisit only on observed
+user friction, as a designed opt-in per enum.
+
+| Token (key) | Setting | EN chip | 繁 | 简 | Class |
+| --- | --- | --- | --- | --- | --- |
+| `kaiti` | font | kaiti | 楷體 | 楷体 | literal — token is the pinyin of the label |
+| `libian` | font | libian | 隸變 | 隶变 | literal — pinyin pair |
+| `heiti` | font | heiti | 黑體 | 黑体 | literal — pinyin pair |
+| `coin` | castMethod | coin | 銅錢 (coin) | 铜钱 (coin) | domain term — canonical hint kept in label (no transliteration bridge to the CLI token) |
+| `yarrow` | castMethod | yarrow | 蓍草 (yarrow) | 蓍草 (yarrow) | domain term — canonical hint kept in label |
+| `auto` | castMode | auto | 自動 | 自动 | literal |
+| `manual` | castMode | manual | 手動 | 手动 | literal |
+| `dots` | taijitu + glyphAnim | dots | 點陣 | 点阵 | literal — ratified ONCE, cross-referenced to BOTH `taijitu.dots` and `anim.dots` |
+| `dense` | taijitu | dense | 密實 | 密实 | literal |
+| `noise` | glyphAnim | noise | 噪點 | 噪点 | literal — 噪點 = `noise`, NOT `dots` (transposition hazard) |
+| `radial` | glyphAnim | radial | 放射 | 放射 | literal |
+| `sand` | glyphAnim | sand | 沙化 | 沙化 | literal |
+
+**Theme chips (`ink`/`bone`/`cinnabar`/`jade`/`river`): labels deferred.** Whether the
+names are literal material/color words (墨/骨/硃砂/玉/河 would follow) or semi-branded
+palette names is an unresolved semantics question; until this glossary records that
+ruling, theme chips render the canonical tokens verbatim. The candidates here are
+noted for the future pass, **not ratified**.
+
 ## The "Wilhelm" label (attribution)
 
 The `w` field and the detail-section header are **Wilhelm-inspired / interpretive
