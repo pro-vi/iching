@@ -19,8 +19,13 @@ import type { Message } from "./messages.ts";
  * inherited Object.prototype member — unknown keys miss, they don't alias.
  */
 const OPTION_LABELS = new Map<string, Message>([
-  // Populated per glossary ratification (U3/U4); ships empty so the refactor
-  // is behavior-neutral — every chip falls back to its canonical token.
+  // Entries per glossary ratification — en is ALWAYS the canonical token
+  // (the en UI shows tokens; labels exist for the zh modes).
+  // Font: tokens are the pinyin of the labels, so the CLI mental bridge
+  // (config set glyphFont kaiti) survives without a canonical hint.
+  ["settings.font.kaiti", { en: "kaiti", zhHant: "楷體", zhHans: "楷体" }],
+  ["settings.font.libian", { en: "libian", zhHant: "隸變", zhHans: "隶变" }],
+  ["settings.font.heiti", { en: "heiti", zhHant: "黑體", zhHans: "黑体" }],
 ]);
 
 /**
