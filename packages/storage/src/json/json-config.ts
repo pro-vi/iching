@@ -41,8 +41,9 @@ const THEME_ALIASES: Record<string, UserConfig["theme"]> = {
   "dawn": "bone",
 };
 
-// User-visible aliases are accepted for hand-edited config files; the CLI
-// writes stable BCP-47-ish values.
+// User-visible aliases / UI labels (繁/简/EN, english, …). Accepted on BOTH the
+// file-load path and `config set language` (via canonicalLanguage); the persisted
+// value is always the canonical BCP-47-ish form.
 const LANGUAGE_ALIASES: Record<string, UserConfig["language"]> = {
   "简": "zh-Hans",
   "簡": "zh-Hans",
@@ -52,6 +53,22 @@ const LANGUAGE_ALIASES: Record<string, UserConfig["language"]> = {
   "EN": "en",
   "english": "en",
 };
+
+/**
+ * Resolve a raw language string to a supported display language, or `undefined`
+ * if unrecognized. Accepts the canonical values (en / zh-Hant / zh-Hans), any
+ * case variant (BCP-47 is case-insensitive — "zh-hans", "EN"), and the hand-edit
+ * aliases / UI labels (繁 / 简 / english). Shared by the config file loader AND
+ * the `config set language` CLI so both accept the same inputs.
+ */
+export function canonicalLanguage(raw: string): UserConfig["language"] | undefined {
+  const folded = raw.trim().toLowerCase();
+  const byCase = LANGUAGE_OPTIONS.find((o) => o.toLowerCase() === folded);
+  if (byCase) return byCase;
+  // OWN-property lookup only — never the prototype chain.
+  if (Object.hasOwn(LANGUAGE_ALIASES, raw)) return LANGUAGE_ALIASES[raw];
+  return undefined;
+}
 
 /**
  * Best-effort system display-language from the POSIX locale environment. Used
@@ -129,16 +146,8 @@ function normalizeConfig(parsed: unknown): UserConfig {
 
   const rawLanguage = stringValue(parsed, "language");
   if (rawLanguage) {
-    // BCP-47 tags are case-insensitive (RFC 5646 §2.1.1): match the canonical
-    // option case-folded so "zh-hans" / "ZH-HANT" / "EN" resolve instead of
-    // silently falling through to English.
-    const folded = rawLanguage.trim().toLowerCase();
-    const canon = LANGUAGE_OPTIONS.find((o) => o.toLowerCase() === folded);
+    const canon = canonicalLanguage(rawLanguage);
     if (canon) merged.language = canon;
-    // Aliases (hand-edited files): OWN-property lookup only — never the prototype
-    // chain, so "constructor"/"__proto__"/"toString" can't resolve to a function.
-    else if (Object.hasOwn(LANGUAGE_ALIASES, rawLanguage))
-      merged.language = LANGUAGE_ALIASES[rawLanguage];
   }
 
   const rawTheme = stringValue(parsed, "theme");

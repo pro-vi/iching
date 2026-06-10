@@ -122,6 +122,29 @@ describe("config command", () => {
     expect(getResult.stdout.trim()).toBe("zh-Hant");
   }, 20_000);
 
+  // `set language` accepts the labels the Settings UI displays (繁/简/EN) and
+  // case variants, normalizing to the canonical value the file loader also accepts.
+  test("set language accepts UI labels + case variants, persists canonical", async () => {
+    for (const [input, want] of [
+      ["繁", "zh-Hant"],
+      ["简", "zh-Hans"],
+      ["EN", "en"],
+      ["zh-hant", "zh-Hant"],
+    ] as const) {
+      const setResult = await runCli(dataDir, ["config", "set", "language", input]);
+      expect(setResult.exitCode).toBe(0);
+      expect(setResult.stdout.trim()).toBe(`language = ${want}`); // canonical, not the raw label
+      const getResult = await runCli(dataDir, ["config", "get", "language"]);
+      expect(getResult.stdout.trim()).toBe(want);
+    }
+  }, 20_000);
+
+  test("set language still rejects genuinely invalid values", async () => {
+    const { exitCode, stderr } = await runCli(dataDir, ["config", "set", "language", "klingon"]);
+    expect(exitCode).not.toBe(0);
+    expect(stderr.toLowerCase()).toContain("invalid value");
+  }, 20_000);
+
   test("set castMode rejects yarrow (now out of castMode's domain)", async () => {
     const { exitCode, stderr } = await runCli(dataDir, ["config", "set", "castMode", "yarrow"]);
     expect(exitCode).not.toBe(0);

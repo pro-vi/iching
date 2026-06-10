@@ -1,11 +1,13 @@
 import { Command } from "commander";
-import { resolvePaths, JsonConfigStore } from "@iching/storage";
+import { resolvePaths, JsonConfigStore, canonicalLanguage } from "@iching/storage";
 import type { UserConfig } from "@iching/storage";
 import { outputJson, configToJson } from "../output/json.js";
 
 type ConfigEntry = {
   values?: readonly string[];
   description: string;
+  /** Canonicalize a raw CLI value before validation (e.g. accept 繁/EN/zh-hant for language). */
+  normalize?: (value: string) => string;
   set: (cfg: UserConfig, value: string) => boolean;
 };
 
@@ -48,6 +50,8 @@ const CONFIG_SCHEMA: Record<keyof UserConfig, ConfigEntry> = {
   language: {
     values: LANGUAGE_VALUES,
     description: "Display language (English, 繁, or 简)",
+    // Accept the UI labels (繁/简/EN) and case variants, matching the file loader.
+    normalize: (value) => canonicalLanguage(value) ?? value,
     set: (cfg, value) => {
       if (!isOneOf(LANGUAGE_VALUES, value)) return false;
       cfg.language = value;
@@ -201,23 +205,25 @@ export function registerConfigCommand(program: Command): void {
         process.exit(1);
       }
 
-      // Validate value against allowed values
+      // Canonicalize the raw value (e.g. the 繁/简/EN labels the Settings UI
+      // shows for `language`), then validate against allowed values.
       const schema = CONFIG_SCHEMA[key];
-      if (schema.values && !schema.values.includes(value)) {
+      const resolved = schema.normalize ? schema.normalize(value) : value;
+      if (schema.values && !schema.values.includes(resolved)) {
         console.error(`Invalid value "${value}" for ${key}. Valid: ${schema.values.join(", ")}`);
         process.exit(1);
       }
 
-      if (!schema.set(cfg, value)) {
+      if (!schema.set(cfg, resolved)) {
         console.error(`Invalid value "${value}" for ${key}. Valid: ${schema.values?.join(", ") ?? "any string"}`);
         process.exit(1);
       }
       await store.save(cfg);
 
       if (globalOpts.json) {
-        outputJson(configToJson(key, value));
+        outputJson(configToJson(key, resolved));
       } else {
-        console.log(`${key} = ${value}`);
+        console.log(`${key} = ${resolved}`);
       }
     });
 
