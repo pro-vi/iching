@@ -10,6 +10,7 @@ import { CastScene } from "../scenes/cast/cast-scene.ts";
 import { BrowseScene } from "../scenes/dict/browse-scene.ts";
 import { JournalScene } from "../scenes/journal/journal-scene.ts";
 import { renderDetail } from "../scenes/dict/detail-renderer.ts";
+import { stringWidth } from "../layout/measure.ts";
 import { DetailScene } from "../scenes/dict/detail-scene.ts";
 import { DetailModel } from "../scenes/dict/detail-model.ts";
 import { CellBuffer } from "../render/buffer.ts";
@@ -166,6 +167,55 @@ describe("SettingsScene — no bilingual stacking", () => {
     expect(text).toContain("楷體"); // chip re-labeled live
     expect(text).not.toContain("kaiti");
     expect(scene.getValues().glyphFont).toBe("kaiti"); // value untouched
+  });
+
+  // U4 — wave-2 chips: castMethod keeps the canonical token as an in-label
+  // hint (no transliteration bridge to the CLI value); castMode/taijitu/anim
+  // are literal words, label-only. Token-keyed: 噪點 = noise, 點陣 = dots.
+  test("wave-2 chips localize in zh-Hant; castMethod carries canonical hint", () => {
+    const text = settingsText("zh-Hant");
+    expect(text).toContain("[銅錢 (coin)]  蓍草 (yarrow)");
+    expect(text).toContain("[自動]  手動");
+    expect(text).toContain("[點陣]  密實"); // taijitu
+    expect(text).toContain("[點陣]  噪點  放射  沙化"); // anim (order = ANIM_OPTIONS)
+  });
+
+  test("wave-2 chips localize in zh-Hans with Simplified forms", () => {
+    const text = settingsText("zh-Hans");
+    expect(text).toContain("[铜钱 (coin)]  蓍草 (yarrow)");
+    expect(text).toContain("[自动]  手动");
+    expect(text).toContain("[点阵]  密实");
+    expect(text).toContain("[点阵]  噪点  放射  沙化");
+    expect(text).not.toContain("銅錢"); // no Traditional residue
+  });
+
+  test("en mode keeps canonical wave-2 tokens", () => {
+    const text = settingsText("en");
+    expect(text).toContain("[coin]  yarrow");
+    expect(text).toContain("[auto]  manual");
+    expect(text).toContain("[dots]  noise  radial  sand");
+    expect(text).not.toContain("銅錢");
+  });
+
+  // Width budget: the widest localized chip row must stay under the en theme
+  // row (36 cols), the proven-to-fit baseline at 80 cols (plan U4 scenario).
+  test("widest zh chip row stays inside the en theme-row width budget", () => {
+    const castMethodRow = "[銅錢 (coin)]  蓍草 (yarrow)";
+    expect(stringWidth(castMethodRow)).toBeLessThan(36);
+  });
+
+  // Persistence: zh-mode selections still write canonical tokens (the chain
+  // CLI tests pin from the other side: `config get castMethod` prints "coin").
+  test("zh-Hant selections persist canonical wave-2 tokens", () => {
+    const values: SettingsValues = {
+      theme: "bone", language: "zh-Hant", taijituStyle: "dots", glyphAnim: "dots",
+      glyphFont: "kaiti", castMethod: "coin", castMode: "auto",
+    };
+    const scene = new SettingsScene(values);
+    for (let i = 0; i < 5; i++) scene.handleKey({ type: "arrow", direction: "down" }, ctx); // Cast Method
+    scene.handleKey({ type: "arrow", direction: "right" }, ctx);
+    expect(scene.getValues().castMethod).toBe("yarrow");
+    expect(scene.getValues().castMode).toBe("auto");
   });
 
   // Regression (Codex P2): the yarrow preview strip in Settings rendered its

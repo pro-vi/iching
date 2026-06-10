@@ -26,6 +26,21 @@ const OPTION_LABELS = new Map<string, Message>([
   ["settings.font.kaiti", { en: "kaiti", zhHant: "楷體", zhHans: "楷体" }],
   ["settings.font.libian", { en: "libian", zhHant: "隸變", zhHans: "隶变" }],
   ["settings.font.heiti", { en: "heiti", zhHant: "黑體", zhHans: "黑体" }],
+  // Cast method: domain terms with no transliteration bridge — the canonical
+  // token rides in the label as a hint back to the CLI value (glossary).
+  ["settings.castMethod.coin", { en: "coin", zhHant: "銅錢 (coin)", zhHans: "铜钱 (coin)" }],
+  ["settings.castMethod.yarrow", { en: "yarrow", zhHant: "蓍草 (yarrow)", zhHans: "蓍草 (yarrow)" }],
+  // Cast mode / taijitu / glyph anim: literal common words, label-only.
+  ["settings.castMode.auto", { en: "auto", zhHant: "自動", zhHans: "自动" }],
+  ["settings.castMode.manual", { en: "manual", zhHant: "手動", zhHans: "手动" }],
+  ["settings.taijitu.dots", { en: "dots", zhHant: "點陣", zhHans: "点阵" }],
+  ["settings.taijitu.dense", { en: "dense", zhHant: "密實", zhHans: "密实" }],
+  // Token-keyed on purpose: 噪點 = noise, 點陣 = dots (transposition hazard —
+  // 點陣 is ratified once for BOTH taijitu.dots and glyphAnimation.dots).
+  ["settings.glyphAnimation.dots", { en: "dots", zhHant: "點陣", zhHans: "点阵" }],
+  ["settings.glyphAnimation.noise", { en: "noise", zhHant: "噪點", zhHans: "噪点" }],
+  ["settings.glyphAnimation.radial", { en: "radial", zhHant: "放射", zhHans: "放射" }],
+  ["settings.glyphAnimation.sand", { en: "sand", zhHant: "沙化", zhHans: "沙化" }],
 ]);
 
 /**
