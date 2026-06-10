@@ -18,6 +18,7 @@ import { renderYarrowFieldStrip, drawApertureCursor } from "../yarrow/field-rend
 import { YarrowAutoPreview, YarrowManualPreview } from "../yarrow/yarrow-previews.ts";
 import { LINE_WIDTH } from "../../glyphs.ts";
 import { tr, type MessageKey } from "../../i18n/messages.ts";
+import { optionLabel } from "../../i18n/option-labels.ts";
 import { windowFor } from "../../widgets/scroll.ts";
 
 // ── Setting definitions ──────────────────────────────────────────────
@@ -37,8 +38,27 @@ const CAST_MODE_OPTIONS = ["auto", "manual"] as const;
 interface SettingRow {
   /** Stable message-catalog key; the visible label is localized at render time. */
   key: MessageKey;
-  options: string[];
+  /**
+   * Canonical option tokens — what getValues()/persistence sees. The displayed
+   * chip text is derived per-render via chipLabel(); labels are never stored on
+   * the row, so they can never round-trip into config.
+   */
+  values: readonly string[];
   selected: number;
+}
+
+/**
+ * Display label for an option chip. The Language row uses endonym badges
+ * (EN/繁/简) that are deliberately invariant across display languages; every
+ * other row resolves through the option-label catalog and falls back to the
+ * canonical token when no label is ratified (e.g. theme names, deferred).
+ */
+function chipLabel(lang: DisplayLanguage, key: MessageKey, value: string): string {
+  if (key === "settings.language") {
+    for (const l of LANGUAGE_OPTIONS) if (l === value) return LANGUAGE_LABELS[l];
+    return value;
+  }
+  return optionLabel(lang, key, value);
 }
 
 export interface SettingsValues {
@@ -103,27 +123,39 @@ export class SettingsScene implements Scene {
   constructor(initial: SettingsValues) {
     this.values = { ...initial };
     this.rows = [
-      { key: "settings.theme",          options: [...THEME_NAMES],         selected: Math.max(0, THEME_NAMES.indexOf(initial.theme)) },
-      { key: "settings.language",       options: LANGUAGE_OPTIONS.map((lang) => LANGUAGE_LABELS[lang]), selected: Math.max(0, LANGUAGE_OPTIONS.indexOf(initial.language)) },
-      { key: "settings.taijitu",        options: [...TAIJITU_OPTIONS],     selected: Math.max(0, TAIJITU_OPTIONS.indexOf(initial.taijituStyle)) },
-      { key: "settings.glyphAnimation", options: [...ANIM_OPTIONS],        selected: Math.max(0, ANIM_OPTIONS.indexOf(initial.glyphAnim)) },
-      { key: "settings.font",           options: [...FONT_OPTIONS],        selected: Math.max(0, FONT_OPTIONS.indexOf(initial.glyphFont)) },
-      { key: "settings.castMethod",     options: [...CAST_METHOD_OPTIONS], selected: Math.max(0, CAST_METHOD_OPTIONS.indexOf(initial.castMethod)) },
-      { key: "settings.castMode",       options: [...CAST_MODE_OPTIONS],   selected: Math.max(0, CAST_MODE_OPTIONS.indexOf(initial.castMode)) },
+      { key: "settings.theme",          values: THEME_NAMES,         selected: Math.max(0, THEME_NAMES.indexOf(initial.theme)) },
+      { key: "settings.language",       values: LANGUAGE_OPTIONS,    selected: Math.max(0, LANGUAGE_OPTIONS.indexOf(initial.language)) },
+      { key: "settings.taijitu",        values: TAIJITU_OPTIONS,     selected: Math.max(0, TAIJITU_OPTIONS.indexOf(initial.taijituStyle)) },
+      { key: "settings.glyphAnimation", values: ANIM_OPTIONS,        selected: Math.max(0, ANIM_OPTIONS.indexOf(initial.glyphAnim)) },
+      { key: "settings.font",           values: FONT_OPTIONS,        selected: Math.max(0, FONT_OPTIONS.indexOf(initial.glyphFont)) },
+      { key: "settings.castMethod",     values: CAST_METHOD_OPTIONS, selected: Math.max(0, CAST_METHOD_OPTIONS.indexOf(initial.castMethod)) },
+      { key: "settings.castMode",       values: CAST_MODE_OPTIONS,   selected: Math.max(0, CAST_MODE_OPTIONS.indexOf(initial.castMode)) },
     ];
     this.previewKind = this.previewKindForKey(this.rows[0]?.key);
   }
 
+  /**
+   * Current selections as canonical tokens. Field↔row mapping is by row KEY,
+   * not row position — reordering or inserting rows cannot silently swap
+   * persisted values. pick() narrows the stored string back to each field's
+   * union without casts; an unknown value falls back to the field default.
+   */
   getValues(): SettingsValues {
     return {
-      theme: THEME_NAMES[this.rows[0].selected] ?? "bone",
-      language: LANGUAGE_OPTIONS[this.rows[1].selected] ?? "en",
-      taijituStyle: TAIJITU_OPTIONS[this.rows[2].selected] ?? "dots",
-      glyphAnim: ANIM_OPTIONS[this.rows[3].selected] ?? "dots",
-      glyphFont: FONT_OPTIONS[this.rows[4].selected] ?? "kaiti",
-      castMethod: CAST_METHOD_OPTIONS[this.rows[5].selected] ?? "coin",
-      castMode: CAST_MODE_OPTIONS[this.rows[6].selected] ?? "auto",
+      theme: this.pick(THEME_NAMES, "settings.theme", "bone"),
+      language: this.pick(LANGUAGE_OPTIONS, "settings.language", "en"),
+      taijituStyle: this.pick(TAIJITU_OPTIONS, "settings.taijitu", "dots"),
+      glyphAnim: this.pick(ANIM_OPTIONS, "settings.glyphAnimation", "dots"),
+      glyphFont: this.pick(FONT_OPTIONS, "settings.font", "kaiti"),
+      castMethod: this.pick(CAST_METHOD_OPTIONS, "settings.castMethod", "coin"),
+      castMode: this.pick(CAST_MODE_OPTIONS, "settings.castMode", "auto"),
     };
+  }
+
+  private pick<T extends string>(allowed: readonly T[], key: MessageKey, fallback: T): T {
+    const row = this.rows.find((r) => r.key === key);
+    const raw = row ? row.values[row.selected] : undefined;
+    return allowed.find((v) => v === raw) ?? fallback;
   }
 
   enter(_ctx: SceneContext): void {}
@@ -247,8 +279,8 @@ export class SettingsScene implements Scene {
       frame.writeText(row, left, prefix, { fg: t.tertiary });
 
       let col = left + stringWidth(prefix);
-      for (let j = 0; j < setting.options.length; j++) {
-        const opt = setting.options[j];
+      for (let j = 0; j < setting.values.length; j++) {
+        const opt = chipLabel(lang, setting.key, setting.values[j] ?? "");
         const sel = j === setting.selected;
         if (sel) {
           const text = `[${opt}]`;
@@ -258,7 +290,7 @@ export class SettingsScene implements Scene {
           frame.writeText(row, col, opt, { fg: t.tertiary });
           col += stringWidth(opt);
         }
-        if (j < setting.options.length - 1) col += 2;
+        if (j < setting.values.length - 1) col += 2;
       }
 
       row += interRowGap;
@@ -392,13 +424,13 @@ export class SettingsScene implements Scene {
           break;
         case "left": {
           const r = this.rows[this.focusedRow];
-          r.selected = (r.selected - 1 + r.options.length) % r.options.length;
+          r.selected = (r.selected - 1 + r.values.length) % r.values.length;
           this.onOptionChanged();
           break;
         }
         case "right": {
           const r = this.rows[this.focusedRow];
-          r.selected = (r.selected + 1) % r.options.length;
+          r.selected = (r.selected + 1) % r.values.length;
           this.onOptionChanged();
           break;
         }

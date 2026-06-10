@@ -75,7 +75,10 @@ describe("SettingsScene — no bilingual stacking", () => {
     expect(text).toContain("主題"); // Theme
     expect(text).not.toContain("Theme");
     expect(text).not.toContain("Language");
-    // option-value badges remain verbatim (canonical anchors per glossary)
+    // Option-value chips: STORED tokens stay canonical; display labels come from
+    // the option-labels catalog and fall back to the canonical token where no
+    // label is ratified (glossary §Settings option-chip display labels). The
+    // language chips are endonym badges, invariant across display languages.
     expect(text).toContain("繁");
   });
 
