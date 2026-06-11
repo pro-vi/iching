@@ -1058,9 +1058,9 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
 - surface_id: term-journal-chrome
   file: packages/terminal/src/scenes/journal/journal-scene.ts
   code_locator: "L39,43,52,120"
-  current_text: '"Journal" / "${n} readings" / "No readings yet" / "[↑↓] navigate  ·  [enter] view  ·  [d] dictionary  ·  [esc] back"'
+  current_text: '"Journal" / "${n} readings" / "No readings yet" / "[enter] view · [n] note · [g] detail · [/] search · [p] patterns · [esc] back" (catalog: verb.note/verb.patterns, journal.noteMarker/journal.notePrompt, journal.patterns.*)'
   surface_class: terminal-journal
-  render_context: "journal title/count/empty-state/footer"
+  render_context: "journal title/count/empty-state/footer + note input + patterns pane (all via tr())"
   language_policy: translate
   source_layer: product-ui
   risk: low
@@ -1290,7 +1290,7 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
 - surface_id: cli-command-descriptions
   file: apps/cli/src/commands/{cast,config,dict,doctor,hexagram,journal,paths,today}.ts
   code_locator: ".description()/.argument()/.option() across commands"
-  current_text: '"Perform an I Ching casting" / "question for the oracle" / "Browse the I Ching dictionary" / "hexagram number (1-64) to view directly" / "Verify environment and configuration" / "Look up hexagram by King Wen number (1-64)" / "commentary style: dx|tu|en|te|w" / "--style <style>" / "View reading journal" / "List recent readings (most recent first)" / "show readings since date (YYYY-MM-DD)" / "--since <date>" / "maximum entries to show" / "--limit <n>" / "show all entries (no limit)" / "--hexagram <n>" / "only readings where hexagram <n> is primary or becoming" / "Show a specific day''s reading" / "date (YYYY-MM-DD), ''today'', or ''latest''" / "Show today''s reading (cast in the TUI)" / "Manage configuration" / "Show all configuration values" / "Read a config value" / "Write a config value" / "config key" / "config value" / "config key (shorthand for get; with a value, for set)" / "config value (shorthand for set)" / "Show config file location" / "Show all resolved file locations"
+  current_text: '"Perform an I Ching casting" / "question for the oracle" / "Browse the I Ching dictionary" / "hexagram number (1-64) to view directly" / "Verify environment and configuration" / "Look up hexagram by King Wen number (1-64)" / "commentary style: dx|tu|en|te|w" / "--style <style>" / "View reading journal" / "List recent readings (most recent first)" / "show readings since date (YYYY-MM-DD)" / "--since <date>" / "maximum entries to show" / "--limit <n>" / "show all entries (no limit)" / "Show a specific day''s reading" / "date (YYYY-MM-DD), ''today'', or ''latest''" / "Show today''s reading (cast in the TUI)" / "Manage configuration" / "Show all configuration values" / "Read a config value" / "Write a config value" / "config key" / "config value" / "Show config file location" / "Show all resolved file locations" / "--hexagram <n>" / "only readings where hexagram <n> is primary or becoming" / "config key (shorthand for get; with a value, for set)" / "config value (shorthand for set)" / "Attach a reflection note to the latest reading" / "note text" / "--date <date>" / "annotate the reading of a specific day (YYYY-MM-DD)"
     # verbatim (real punctuation) for verifier fragment-coverage:
     # Show a specific day's reading
     # Show today's reading (cast in the TUI)
@@ -1354,7 +1354,7 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
 - surface_id: cli-journal-errors-empty
   file: apps/cli/src/commands/journal.ts, output/plain.ts
   code_locator: "journal L46,88; plain L113"
-  current_text: '"No readings found." / "No reading found for ${label}"'
+  current_text: '"No readings found." / "No reading found for ${label}" / "No reading found to annotate." / "Note text is empty." / "Note added to ${date}  ${u} ${n} (${p})"'
   surface_class: cli-invalid-paths
   render_context: "stdout empty-state + stderr not-found (exit 1)"
   language_policy: translate
@@ -1493,7 +1493,7 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
 - surface_id: cli-plain-labels
   file: apps/cli/src/output/plain.ts
   code_locator: "L20–159"
-  current_text: '"Question: " / "Hexagram ${n}" / "Lines (bottom to top):" / "old yang ⚊→⚋" / "old yin ⚋→⚊" / "yang ⚊" / "yin ⚋" / "Upper: " / "Lower: " / "Becoming: " / "[lines …]" / "Commentary:" / "  大象 (dx): " / "  彖傳 (tu): " / "  Image (en): " / "  Judgment (te): " / "  Wilhelm (w): " / "Date: " / "Intention: " / "Method: " — method provenance labels: "coins" / "coins, by hand" / "yarrow stalks" / "yarrow stalks, by hand"'
+  current_text: '"Question: " / "Hexagram ${n}" / "Lines (bottom to top):" / "old yang ⚊→⚋" / "old yin ⚋→⚊" / "yang ⚊" / "yin ⚋" / "Upper: " / "Lower: " / "Becoming: " / "[lines …]" / "Commentary:" / "  大象 (dx): " / "  彖傳 (tu): " / "  Image (en): " / "  Judgment (te): " / "  Wilhelm (w): " / "Date: " / "Intention: " / "Method: " / "coins" / "coins, by hand" / "yarrow stalks" / "yarrow stalks, by hand" / "Notes:"'
   surface_class: cli-commands
   render_context: "cast/hexagram/journal plain stdout"
   language_policy: translate

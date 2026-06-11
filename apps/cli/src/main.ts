@@ -27,12 +27,12 @@ async function main() {
   if (!hasSubcommand && process.stdin.isTTY) {
     const { resolvePaths, JsonDailyCacheStore, JsonlJournalStore, JsonConfigStore } = await import("@iching/storage");
     const {
-      HomeScene, BrowseScene, JournalScene, SettingsScene,
+      HomeScene, BrowseScene, SettingsScene,
       SceneRouter, TerminalSession, RealClock, runScene, detectColorSupport,
       setTheme,
     } = await import("@iching/terminal");
     const { runReadingFlow } = await import("./app/reading-flow.js");
-    const { makeBrowseFactory, makeJournalFactory, loadJournalEntries } = await import("./app/scene-factories.js");
+    const { makeBrowseFactory, makeJournalFactory, makeJournalScene, loadJournalEntries } = await import("./app/scene-factories.js");
 
     const opts = program.opts();
     const devMode = !!opts.dev;
@@ -172,15 +172,16 @@ async function main() {
           case "openJournal": {
             const journal = new JsonlJournalStore(paths.state);
             const entries = await loadJournalEntries(journal);
+            const journalDeps = {
+              glyphConfig,
+              language,
+              journal,
+              entries,
+              session: { cols: session.cols, rows: session.rows },
+            };
             const router = new SceneRouter(
-              new JournalScene(entries),
-              makeJournalFactory({
-                glyphConfig,
-                language,
-                journal,
-                entries,
-                session: { cols: session.cols, rows: session.rows },
-              }),
+              makeJournalScene(journalDeps),
+              makeJournalFactory(journalDeps),
             );
             const result = await runRouter(router);
             if (result.shouldExit) running = false;

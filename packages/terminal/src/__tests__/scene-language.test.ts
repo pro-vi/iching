@@ -449,20 +449,23 @@ describe("JournalScene rows — name conversion (KW20 觀)", () => {
 
   test("English footer uses English nav verbs", () => {
     const text = journalText("en");
-    expect(text).toContain("navigate");
     expect(text).toContain("view");
-    expect(text).toContain("dictionary");
+    expect(text).toContain("note");
+    expect(text).toContain("search");
+    expect(text).toContain("patterns");
   });
 
   test("Simplified footer localizes nav verbs, no English leak", () => {
     const text = journalText("zh-Hans");
-    expect(text).toContain("导览"); // navigate
-    expect(text).toContain("检视"); // view
-    expect(text).toContain("卦典"); // dictionary
+    expect(text).toContain("检视"); // view (檢視→检视; 导览/navigate left the footer for width)
+    expect(text).toContain("注记"); // note
+    expect(text).toContain("搜寻"); // search
+    expect(text).toContain("观象"); // patterns
     expect(text).toContain("返回"); // back
-    expect(text).not.toContain("navigate");
     expect(text).not.toContain("view");
-    expect(text).not.toContain("dictionary");
+    expect(text).not.toContain("note");
+    expect(text).not.toContain("search");
+    expect(text).not.toContain("patterns");
   });
 });
 

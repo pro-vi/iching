@@ -10,9 +10,11 @@ import { join } from "node:path";
 import { JsonlJournalStore } from "@iching/storage";
 import { BrowseScene, DetailScene, JournalScene } from "@iching/terminal";
 import {
+  loadJournalEntries,
   makeBrowseFactory,
   makeDetailScene,
   makeJournalFactory,
+  makeJournalScene,
 } from "../app/scene-factories.ts";
 
 describe("makeBrowseFactory", () => {
@@ -130,5 +132,67 @@ describe("cast context (changedPositions) pass-through", () => {
     const factory = makeBrowseFactory({ journal });
     const scene = factory({ type: "openDetail", kw: 21 });
     expect((scene as DetailScene).getModel().changedPositions).toEqual([]);
+  });
+});
+
+describe("makeJournalScene — reflection-note persistence wiring", () => {
+  let dir: string;
+  let journal: JsonlJournalStore;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "journal-scene-factory-test-"));
+    journal = new JsonlJournalStore(join(dir, "history.jsonl"));
+  });
+
+  test("a note committed in the scene lands in the JSONL as kind:note", async () => {
+    await journal.append({
+      date: "2026-01-02",
+      cast: {
+        lines: [
+          { value: 7, isYang: true, isChanging: false },
+          { value: 8, isYang: false, isChanging: false },
+          { value: 7, isYang: true, isChanging: false },
+          { value: 8, isYang: false, isChanging: false },
+          { value: 7, isYang: true, isChanging: false },
+          { value: 8, isYang: false, isChanging: false },
+        ],
+        primary: 39,
+        becoming: null,
+        changingPositions: [],
+        nuclear: 1,
+        polarity: 2,
+        mirror: 1,
+        diagonal: 2,
+      },
+      timestamp: "2026-01-02T09:00:00.000Z",
+    });
+    const entries = await loadJournalEntries(journal);
+    const scene = makeJournalScene({
+      journal,
+      entries,
+      session: { cols: 80, rows: 24 },
+    });
+    const ctx = { cols: 80, rows: 24, colorSupport: "truecolor", done: false } as const;
+    scene.enter(ctx);
+
+    scene.handleKey({ type: "char", char: "n" }, ctx);
+    for (const ch of "noted at night") {
+      scene.handleKey({ type: "char", char: ch }, ctx);
+    }
+    scene.handleKey({ type: "enter" }, ctx);
+
+    // The append is fire-and-forget; poll the store until it lands.
+    let texts: string[] = [];
+    for (let i = 0; i < 40 && texts.length === 0; i++) {
+      texts = [];
+      for await (const note of journal.streamNotes()) texts.push(note.text);
+      if (texts.length === 0) await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    expect(texts).toEqual(["noted at night"]);
+
+    // And a reload sees the note attached to its reading.
+    const reloaded = await loadJournalEntries(journal);
+    expect(reloaded[0].notes.map((n) => n.text)).toEqual(["noted at night"]);
+    expect(reloaded[0].notes[0].ref).toBe("2026-01-02T09:00:00.000Z");
   });
 });

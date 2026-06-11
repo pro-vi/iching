@@ -114,3 +114,17 @@ export interface HistoryEntry {
   timestamp?: string;
   method?: CastMethod; // absent in entries written before provenance landed
 }
+
+/**
+ * Reflection note — the journal's other half. A reading is cast in the
+ * morning and understood at night; a note records what happened, appended
+ * later as its own JSONL line (kind:"note"). Lines without a kind remain
+ * readings, so old journals stay readable unchanged.
+ */
+export interface ReflectionNote {
+  kind: "note";
+  ref: string; // timestamp of the reading it annotates (date for entries without one)
+  date: string; // local YYYY-MM-DD the note was written
+  timestamp: string; // ISO timestamp the note was written
+  text: string;
+}

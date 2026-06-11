@@ -188,8 +188,11 @@ export function formatJournalListPlain(
   return lines.join("\n");
 }
 
-/** Format a single journal entry (show) as plain text */
-export function formatJournalShowPlain(entry: HistoryEntry): string {
+/** Format a single journal entry (show) as plain text, reflection notes beneath */
+export function formatJournalShowPlain(
+  entry: HistoryEntry,
+  notes?: ReadonlyArray<{ date: string; text: string }>,
+): string {
   const g = GUA[entry.cast.primary - 1];
   const structure = getStructure(entry.cast.primary);
   const lines: string[] = [];
@@ -222,6 +225,15 @@ export function formatJournalShowPlain(entry: HistoryEntry): string {
   lines.push("");
   lines.push(`大象 (dx): ${g.dx}`);
   lines.push(`Image (en): ${g.en}`);
+
+  // Reflection notes — what happened after, written later.
+  if (notes && notes.length > 0) {
+    lines.push("");
+    lines.push("Notes:");
+    for (const note of notes) {
+      lines.push(`  ${note.date}  ${note.text}`);
+    }
+  }
 
   return lines.join("\n");
 }

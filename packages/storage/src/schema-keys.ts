@@ -35,4 +35,10 @@ export const SCHEMA_KEYS = {
     required: ["date", "cast"],
     optional: ["intention", "timestamp", "method"],
   },
+  // Reflection notes share the journal file as a second record shape; the
+  // `kind` discriminator is what keeps them out of entry reads.
+  note: {
+    required: ["kind", "ref", "date", "timestamp", "text"],
+    optional: [],
+  },
 } as const satisfies Record<string, Shape>;

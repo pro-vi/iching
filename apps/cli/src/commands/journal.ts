@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { GUA } from "@iching/core";
-import type { HistoryEntry } from "@iching/core";
-import { resolvePaths, JsonlJournalStore } from "@iching/storage";
+import type { HistoryEntry, ReflectionNote } from "@iching/core";
+import { resolvePaths, JsonlJournalStore, noteMatchesEntry } from "@iching/storage";
 import {
   formatJournalListPlain,
   formatJournalShowPlain,
@@ -60,7 +60,7 @@ export function registerJournalCommand(program: Command): void {
       const entries = allEntries.slice(0, limit);
 
       if (globalOpts.json) {
-        outputJson(entries.map(journalEntryToJson));
+        outputJson(entries.map((entry) => journalEntryToJson(entry)));
       } else {
         if (entries.length === 0) {
           console.log("No readings found.");
@@ -109,10 +109,73 @@ export function registerJournalCommand(program: Command): void {
         process.exit(1);
       }
 
+      // Reflection notes attached to this reading (matched by ref).
+      const notes: ReflectionNote[] = [];
+      for await (const note of store.streamNotes()) {
+        if (noteMatchesEntry(note, found)) notes.push(note);
+      }
+
       if (globalOpts.json) {
-        outputJson(journalEntryToJson(found));
+        outputJson(journalEntryToJson(found, notes));
       } else {
-        console.log(formatJournalShowPlain(found));
+        console.log(formatJournalShowPlain(found, notes));
+      }
+    });
+
+  journal
+    .command("note")
+    .description("Attach a reflection note to the latest reading")
+    .argument("<text>", "note text")
+    .option("--date <date>", "annotate the reading of a specific day (YYYY-MM-DD)")
+    .action(async (text: string, cmdOpts) => {
+      const globalOpts = program.opts();
+      const paths = resolvePaths(
+        globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
+      );
+      const store = new JsonlJournalStore(paths.state);
+
+      const trimmed = text.trim();
+      if (!trimmed) {
+        console.error("Note text is empty.");
+        process.exit(1);
+      }
+
+      let target: HistoryEntry | null = null;
+      if (cmdOpts.date !== undefined) {
+        // Last reading of that day (same rule the TUI uses for date refs).
+        for await (const entry of store.stream()) {
+          if (entry.date === cmdOpts.date) target = entry;
+        }
+      } else {
+        target = await store.latest();
+      }
+
+      if (!target) {
+        if (cmdOpts.date !== undefined) {
+          console.error(`No reading found for ${cmdOpts.date}`);
+        } else {
+          console.error("No reading found to annotate.");
+        }
+        process.exit(1);
+      }
+
+      const note: ReflectionNote = {
+        kind: "note",
+        ref: target.timestamp ?? target.date,
+        date: localToday(),
+        timestamp: new Date().toISOString(),
+        text: trimmed,
+      };
+      await store.appendNote(note);
+
+      if (globalOpts.json) {
+        outputJson({
+          noted: { ref: note.ref, date: note.date, timestamp: note.timestamp, text: note.text },
+          reading: journalEntryToJson(target),
+        });
+      } else {
+        const g = GUA[target.cast.primary - 1];
+        console.log(`Note added to ${target.date}  ${g.u} ${g.n} (${g.p})`);
       }
     });
 }

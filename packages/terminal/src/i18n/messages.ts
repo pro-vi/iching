@@ -57,6 +57,8 @@ export const MESSAGES = {
   "verb.beginCutting": { en: "begin cutting", zhHant: "開始分蓍", zhHans: "开始分蓍" },
   "verb.cut": { en: "cut", zhHant: "分蓍", zhHans: "分蓍" },
   "verb.cutAroundHere": { en: "cut around here", zhHant: "約此處分", zhHans: "约此处分" },
+  "verb.note": { en: "note", zhHant: "註記", zhHans: "注记" },
+  "verb.patterns": { en: "patterns", zhHant: "觀象", zhHans: "观象" },
 
   // ── loop-level notices ──
   // Shown (calm, centered) when the terminal is too small for honest layout.
@@ -91,6 +93,15 @@ export const MESSAGES = {
   "journal.title": { en: "Journal", zhHant: "占記", zhHans: "占记" },
   "journal.countSuffix": { en: "readings", zhHant: "則", zhHans: "则" },
   "journal.empty": { en: "No readings yet", zhHant: "尚無占記", zhHans: "尚无占记" },
+  // Reflection notes — the quiet marker on annotated rows + the input prompt.
+  "journal.noteMarker": { en: "note", zhHant: "註", zhHans: "注" },
+  "journal.notePrompt": { en: "Note: ", zhHant: "註記：", zhHans: "注记：" },
+  // Patterns pane — observation over the loaded entries, never a score.
+  // 觀象 from 繫辭傳's 觀象玩辭 (observe the images, savor the words).
+  "journal.patterns.title": { en: "Patterns", zhHant: "觀象", zhHans: "观象" },
+  "journal.patterns.thisMonth": { en: "this month", zhHant: "本月", zhHans: "本月" },
+  "journal.patterns.mostSeen": { en: "most seen", zhHant: "最常見", zhHans: "最常见" },
+  "journal.patterns.movingLine": { en: "moving line most often", zhHant: "動爻最常在", zhHans: "动爻最常在" },
 
   // ── settings labels ──
   "settings.title": { en: "Settings", zhHant: "設定", zhHans: "设定" },

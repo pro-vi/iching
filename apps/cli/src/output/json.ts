@@ -1,4 +1,4 @@
-import type { Cast, DailyCache, Hexagram, HistoryEntry, Style } from "@iching/core";
+import type { Cast, DailyCache, Hexagram, HistoryEntry, ReflectionNote, Style } from "@iching/core";
 import { GUA } from "@iching/core";
 import type { UserConfig } from "@iching/storage";
 
@@ -141,13 +141,27 @@ function hexagramNames(kw: number): Record<string, unknown> {
 /**
  * Structure a journal entry for JSON output — the raw HistoryEntry fields
  * plus resolved primary/becoming names, so scripts don't need the data table.
- * Additive: every original key is preserved unchanged.
+ * Additive: every original key is preserved unchanged; `notes` appears only
+ * when the caller supplies reflection notes.
  */
-export function journalEntryToJson(entry: HistoryEntry): Record<string, unknown> {
+export function journalEntryToJson(
+  entry: HistoryEntry,
+  notes?: ReadonlyArray<ReflectionNote>,
+): Record<string, unknown> {
   return {
     ...entry,
     primary: hexagramNames(entry.cast.primary),
     becoming: entry.cast.becoming !== null ? hexagramNames(entry.cast.becoming) : null,
+    ...(notes !== undefined
+      ? {
+          notes: notes.map((n) => ({
+            ref: n.ref,
+            date: n.date,
+            timestamp: n.timestamp,
+            text: n.text,
+          })),
+        }
+      : {}),
   };
 }
 

@@ -416,3 +416,41 @@ describe("CastScene openDetail cast context", () => {
     expect(result).toEqual({ type: "openDetail", kw: 63 });
   });
 });
+
+describe("CastScene journal replay (skipToComplete(false))", () => {
+  // The journal factory replays a past entry as a static CastScene. The
+  // wave-A reading panel must be there: a replay without the texts the
+  // reading turns on would be an empty ritual.
+  test("replayed changing cast shows the reading panel and intention", () => {
+    const scene = new CastScene(
+      makeChangingCast(),
+      "reduced",
+      80,
+      undefined,
+      24,
+      "the launch question",
+      { language: "en" },
+    );
+    scene.skipToComplete(false);
+    const ctx = makeCtx();
+    scene.enter(ctx);
+
+    const text = frameText(scene, ctx).join("\n");
+    expect(scene.getModel().showPrompt).toBe(true);
+    expect(text).toContain("two lines move — the upper governs");
+    expect(text).toContain("1 · His feet are fastened");
+    expect(text).toContain("the launch question");
+  });
+
+  test("replayed still cast shows the judgment as the reading", () => {
+    const scene = new CastScene(makeCast(), "reduced", 80, undefined, 24, undefined, {
+      language: "en",
+    });
+    scene.skipToComplete(false);
+    const ctx = makeCtx();
+    scene.enter(ctx);
+
+    const text = frameText(scene, ctx).join("\n");
+    expect(text).toContain("Judgment · ");
+  });
+});
