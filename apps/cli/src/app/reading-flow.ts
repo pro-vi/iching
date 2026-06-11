@@ -25,7 +25,6 @@ import {
   CastScene,
   type CastGlyphInput,
   IntentionScene,
-  JournalScene,
   type MotionPreset,
   type Scene,
   SceneRouter,
@@ -39,6 +38,7 @@ import {
   makeBrowseFactory,
   makeDetailScene,
   makeJournalFactory,
+  makeJournalScene,
   type SessionDims,
 } from "./scene-factories.ts";
 
@@ -210,7 +210,7 @@ async function runPostCastNavigation(
       session: deps.session,
     };
     const router = new SceneRouter(
-      new JournalScene(entries),
+      makeJournalScene(factoryDeps),
       makeJournalFactory(factoryDeps),
     );
     return await deps.runRouter(router);

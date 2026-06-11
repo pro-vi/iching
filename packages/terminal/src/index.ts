@@ -129,8 +129,18 @@ export { type TaijituStyle } from "./scenes/home/taijitu-render.ts";
 export { IntentionScene } from "./scenes/intention/intention-scene.ts";
 
 
-// Scenes: journal (placeholder)
-export { JournalScene } from "./scenes/journal/journal-scene.ts";
+// Scenes: journal
+export {
+  JournalScene,
+  type JournalEntryView,
+  type JournalNoteView,
+  type JournalSceneOptions,
+} from "./scenes/journal/journal-scene.ts";
+export {
+  computeJournalPatterns,
+  type JournalPatterns,
+  type HexagramFrequency,
+} from "./scenes/journal/journal-patterns.ts";
 
 // Scenes: toss playground
 export { TossScene } from "./scenes/toss/toss-scene.ts";

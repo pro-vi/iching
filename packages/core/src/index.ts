@@ -15,6 +15,7 @@ export type {
   Structure,
   DailyCache,
   HistoryEntry,
+  ReflectionNote,
   CastMethod,
 } from "./types.js";
 

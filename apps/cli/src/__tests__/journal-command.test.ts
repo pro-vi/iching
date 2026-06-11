@@ -184,3 +184,139 @@ describe("journal command", () => {
     expect(show.stdout).toContain("2026-01-01");
   }, 20_000);
 });
+
+// Reflection notes — `journal note` appends a kind:"note" line; `journal show`
+// prints notes beneath the reading; JSON stays additive.
+describe("journal note command", () => {
+  let dataDir: string;
+
+  beforeEach(async () => {
+    dataDir = await mkdtemp(join(tmpdir(), "iching-journal-note-test-"));
+  });
+
+  afterEach(async () => {
+    await rm(dataDir, { recursive: true, force: true });
+  });
+
+  test("note annotates the latest reading and show prints it beneath", async () => {
+    await seedJournal(dataDir, [
+      makeEntry("2026-01-01", 1, null),
+      makeEntry("2026-01-02", 39, null),
+    ]);
+
+    const noted = await runCli(dataDir, ["journal", "note", "it resolved itself"]);
+    expect(noted.exitCode).toBe(0);
+    expect(noted.stdout).toContain("Note added to 2026-01-02");
+    expect(noted.stdout).toContain("蹇");
+
+    const show = await runCli(dataDir, ["journal", "show", "2026-01-02"]);
+    expect(show.exitCode).toBe(0);
+    expect(show.stdout).toContain("Notes:");
+    expect(show.stdout).toContain("it resolved itself");
+
+    // The other reading stays unannotated
+    const other = await runCli(dataDir, ["journal", "show", "2026-01-01"]);
+    expect(other.stdout).not.toContain("Notes:");
+  }, 20_000);
+
+  test("note --date annotates a past day's reading", async () => {
+    await seedJournal(dataDir, [
+      makeEntry("2026-01-01", 1, null),
+      makeEntry("2026-01-02", 2, null),
+    ]);
+
+    const noted = await runCli(dataDir, [
+      "journal", "note", "what happened after", "--date", "2026-01-01",
+    ]);
+    expect(noted.exitCode).toBe(0);
+    expect(noted.stdout).toContain("Note added to 2026-01-01");
+
+    const show = await runCli(dataDir, ["journal", "show", "2026-01-01"]);
+    expect(show.stdout).toContain("what happened after");
+  }, 20_000);
+
+  test("note record on disk matches the schema shape", async () => {
+    await seedJournal(dataDir, [makeEntry("2026-01-01", 1, null)]);
+    await runCli(dataDir, ["journal", "note", "shape check"]);
+
+    const { readFile } = await import("node:fs/promises");
+    const raw = await readFile(join(dataDir, "history.jsonl"), "utf-8");
+    const lines = raw.trim().split("\n");
+    const note = JSON.parse(lines[lines.length - 1]);
+    expect(Object.keys(note).sort()).toEqual(["date", "kind", "ref", "text", "timestamp"]);
+    expect(note.kind).toBe("note");
+    expect(note.ref).toBe("2026-01-01T09:00:00.000Z");
+    expect(note.text).toBe("shape check");
+  }, 20_000);
+
+  test("note errors calmly when there is nothing to annotate", async () => {
+    const empty = await runCli(dataDir, ["journal", "note", "into the void"]);
+    expect(empty.exitCode).toBe(1);
+    expect(empty.stderr).toContain("No reading found to annotate.");
+
+    await seedJournal(dataDir, [makeEntry("2026-01-01", 1, null)]);
+    const missing = await runCli(dataDir, [
+      "journal", "note", "wrong day", "--date", "2026-02-02",
+    ]);
+    expect(missing.exitCode).toBe(1);
+    expect(missing.stderr).toContain("No reading found for 2026-02-02");
+
+    const blank = await runCli(dataDir, ["journal", "note", "   "]);
+    expect(blank.exitCode).toBe(1);
+    expect(blank.stderr).toContain("Note text is empty.");
+  }, 20_000);
+
+  test("show --json carries notes additively; list stays note-free", async () => {
+    await seedJournal(dataDir, [makeEntry("2026-01-01", 1, null)]);
+    await runCli(dataDir, ["journal", "note", "json check"]);
+
+    const show = await runCli(dataDir, ["--json", "journal", "show", "latest"]);
+    expect(show.exitCode).toBe(0);
+    const entry = JSON.parse(show.stdout);
+    // Raw fields intact
+    expect(entry.date).toBe("2026-01-01");
+    expect(entry.cast.primary).toBe(1);
+    // Additive notes array
+    expect(entry.notes).toHaveLength(1);
+    expect(entry.notes[0].text).toBe("json check");
+    expect(entry.notes[0].ref).toBe("2026-01-01T09:00:00.000Z");
+    expect(typeof entry.notes[0].date).toBe("string");
+    expect(typeof entry.notes[0].timestamp).toBe("string");
+
+    // list JSON keeps its existing shape (no notes key)
+    const list = await runCli(dataDir, ["--json", "journal", "list"]);
+    const entries = JSON.parse(list.stdout);
+    expect(entries).toHaveLength(1);
+    expect("notes" in entries[0]).toBe(false);
+  }, 20_000);
+
+  test("note --json reports the note and the annotated reading", async () => {
+    await seedJournal(dataDir, [makeEntry("2026-01-02", 39, null)]);
+    const noted = await runCli(dataDir, ["--json", "journal", "note", "machine readable"]);
+    expect(noted.exitCode).toBe(0);
+    const out = JSON.parse(noted.stdout);
+    expect(out.noted.text).toBe("machine readable");
+    expect(out.noted.ref).toBe("2026-01-02T09:00:00.000Z");
+    expect(out.reading.date).toBe("2026-01-02");
+    expect(out.reading.primary.n).toBe("蹇");
+  }, 20_000);
+
+  test("readings written after a note still stream and show correctly", async () => {
+    await seedJournal(dataDir, [makeEntry("2026-01-01", 1, null)]);
+    await runCli(dataDir, ["journal", "note", "interleaved"]);
+    await appendFile(
+      join(dataDir, "history.jsonl"),
+      JSON.stringify(makeEntry("2026-01-03", 2, null)) + "\n",
+      "utf-8",
+    );
+
+    const list = await runCli(dataDir, ["journal", "list"]);
+    expect(list.exitCode).toBe(0);
+    expect(list.stdout).toContain("2026-01-01");
+    expect(list.stdout).toContain("2026-01-03");
+    expect(list.stdout).not.toContain("interleaved");
+
+    const latest = await runCli(dataDir, ["journal", "show", "latest"]);
+    expect(latest.stdout).toContain("2026-01-03");
+  }, 20_000);
+});

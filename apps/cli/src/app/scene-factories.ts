@@ -3,17 +3,24 @@
 // (DetailScene + getHexagramHistory hydration, plus the SceneRouter
 // factories used by browse/journal navigation).
 
-import type { DisplayLanguage, HistoryEntry } from "@iching/core";
-import { getHexagramHistory, type JsonlJournalStore } from "@iching/storage";
+import type { DisplayLanguage, ReflectionNote } from "@iching/core";
+import {
+  getHexagramHistory,
+  loadEntriesWithNotes,
+  type AnnotatedEntry,
+  type JsonlJournalStore,
+} from "@iching/storage";
 import {
   BrowseScene,
   CastScene,
   type CastGlyphInput,
   DetailScene,
   JournalScene,
+  type JournalEntryView,
   type Scene,
   type SceneFactory,
 } from "@iching/terminal";
+import { localToday } from "../util/today.js";
 
 export interface SessionDims {
   cols: number;
@@ -28,7 +35,7 @@ export interface DetailDeps {
 }
 
 export interface JournalDeps extends DetailDeps {
-  entries: HistoryEntry[];
+  entries: JournalEntryView[];
   session: SessionDims;
 }
 
@@ -59,6 +66,28 @@ export function makeBrowseFactory(deps: DetailDeps): SceneFactory {
   };
 }
 
+/**
+ * Construct the journal list scene with reflection-note persistence wired in.
+ * Committed notes are appended to the journal JSONL fire-and-forget — a write
+ * failure must not crash the scene loop (the note stays visible in-session
+ * and the journal file remains intact).
+ */
+export function makeJournalScene(deps: JournalDeps): JournalScene {
+  return new JournalScene(deps.entries, {
+    today: localToday,
+    onNote: (entry, text) => {
+      const note: ReflectionNote = {
+        kind: "note",
+        ref: entry.timestamp ?? entry.date,
+        date: localToday(),
+        timestamp: new Date().toISOString(),
+        text,
+      };
+      deps.journal.appendNote(note).catch(() => {});
+    },
+  });
+}
+
 /** SceneRouter factory for the journal path: handles openJournalReading, openDetail, openDictionary, openJournal. */
 export function makeJournalFactory(deps: JournalDeps): SceneFactory {
   return (signal): Scene | null => {
@@ -66,7 +95,7 @@ export function makeJournalFactory(deps: JournalDeps): SceneFactory {
       const entry = deps.entries.find(
         (e) => e.timestamp === signal.key || e.date === signal.key,
       );
-      if (!entry) return new JournalScene(deps.entries);
+      if (!entry) return makeJournalScene(deps);
       const cs = new CastScene(
         entry.cast,
         "reduced",
@@ -84,18 +113,14 @@ export function makeJournalFactory(deps: JournalDeps): SceneFactory {
     }
     if (signal.type === "openDictionary") return new BrowseScene();
     // `j` from a replayed CastScene inside the journal router → reset to the journal list.
-    if (signal.type === "openJournal") return new JournalScene(deps.entries);
+    if (signal.type === "openJournal") return makeJournalScene(deps);
     return null;
   };
 }
 
-/** Drain the journal stream into an array of entries. */
+/** Drain the journal stream into an array of entries, notes attached. */
 export async function loadJournalEntries(
   journal: JsonlJournalStore,
-): Promise<HistoryEntry[]> {
-  const entries: HistoryEntry[] = [];
-  for await (const entry of journal.stream()) {
-    entries.push(entry);
-  }
-  return entries;
+): Promise<AnnotatedEntry[]> {
+  return loadEntriesWithNotes(journal);
 }

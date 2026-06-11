@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach } from "bun:test";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { HistoryEntry, Cast, Line } from "@iching/core";
+import type { HistoryEntry, Cast, Line, ReflectionNote } from "@iching/core";
 import { JsonlJournalStore } from "../json/jsonl-journal.js";
 
 function makeLine(value: 7 | 8): Line {
@@ -223,5 +223,125 @@ describe("JsonlJournalStore", () => {
       }
       expect(clean.skippedLines).toBe(0);
     });
+  });
+});
+
+// Reflection notes — the second record shape sharing the journal file.
+// kind:"note" lines must never surface as readings, must not count as
+// damage, and must stream back in append order.
+describe("JsonlJournalStore reflection notes", () => {
+  let dir: string;
+  let store: JsonlJournalStore;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "journal-notes-test-"));
+    store = new JsonlJournalStore(join(dir, "history.jsonl"));
+  });
+
+  function makeNote(ref: string, text: string): ReflectionNote {
+    return {
+      kind: "note",
+      ref,
+      date: "2025-01-20",
+      timestamp: "2025-01-20T21:00:00.000Z",
+      text,
+    };
+  }
+
+  test("appendNote writes exactly one JSON line + newline", async () => {
+    const note = makeNote("2025-01-15", "it resolved itself");
+    await store.appendNote(note);
+
+    const raw = await readFile(join(dir, "history.jsonl"), "utf-8");
+    const lines = raw.split("\n");
+    expect(lines).toHaveLength(2);
+    expect(lines[1]).toBe("");
+    expect(JSON.parse(lines[0])).toEqual(note);
+  });
+
+  test("stream skips note records without counting them as damage", async () => {
+    await store.append(makeEntry("2025-01-01"));
+    await store.appendNote(makeNote("2025-01-01", "noted"));
+    await store.append(makeEntry("2025-01-02"));
+
+    const results: HistoryEntry[] = [];
+    for await (const entry of store.stream()) {
+      results.push(entry);
+    }
+
+    expect(results.map((e) => e.date)).toEqual(["2025-01-01", "2025-01-02"]);
+    expect(store.skippedLines).toBe(0);
+  });
+
+  test("unknown kinds are skipped gracefully (forward compatibility)", async () => {
+    const { appendFile } = await import("node:fs/promises");
+    await store.append(makeEntry("2025-01-01"));
+    await appendFile(
+      join(dir, "history.jsonl"),
+      '{"kind":"future-record","payload":42}\n',
+      "utf-8",
+    );
+
+    const results: HistoryEntry[] = [];
+    for await (const entry of store.stream()) {
+      results.push(entry);
+    }
+
+    expect(results.map((e) => e.date)).toEqual(["2025-01-01"]);
+    expect(store.skippedLines).toBe(0);
+  });
+
+  test("latest passes over trailing note records to the last reading", async () => {
+    await store.append(makeEntry("2025-01-01"));
+    await store.append(makeEntry("2025-01-02"));
+    await store.appendNote(makeNote("2025-01-02", "written at night"));
+    await store.appendNote(makeNote("2025-01-01", "second thought"));
+
+    const last = await store.latest();
+    expect(last).not.toBeNull();
+    expect(last!.date).toBe("2025-01-02");
+    expect(store.skippedLines).toBe(0);
+  });
+
+  test("streamNotes yields notes in append order, skipping readings and damage", async () => {
+    const { appendFile } = await import("node:fs/promises");
+    await store.append(makeEntry("2025-01-01"));
+    await store.appendNote(makeNote("2025-01-01", "first"));
+    await appendFile(join(dir, "history.jsonl"), '{"date":"2025-01-0', "utf-8");
+    await appendFile(join(dir, "history.jsonl"), "\n", "utf-8");
+    await store.appendNote(makeNote("2025-01-01", "second"));
+
+    const notes: ReflectionNote[] = [];
+    for await (const note of store.streamNotes()) {
+      notes.push(note);
+    }
+
+    expect(notes.map((n) => n.text)).toEqual(["first", "second"]);
+  });
+
+  test("streamNotes drops malformed note records (missing ref/text)", async () => {
+    const { appendFile } = await import("node:fs/promises");
+    await appendFile(
+      join(dir, "history.jsonl"),
+      '{"kind":"note","ref":"2025-01-01"}\n{"kind":"note","text":"no ref"}\n',
+      "utf-8",
+    );
+    await store.appendNote(makeNote("2025-01-01", "kept"));
+
+    const notes: ReflectionNote[] = [];
+    for await (const note of store.streamNotes()) {
+      notes.push(note);
+    }
+
+    expect(notes.map((n) => n.text)).toEqual(["kept"]);
+  });
+
+  test("streamNotes on a missing file yields nothing", async () => {
+    const missing = new JsonlJournalStore(join(dir, "nonexistent.jsonl"));
+    const notes: ReflectionNote[] = [];
+    for await (const note of missing.streamNotes()) {
+      notes.push(note);
+    }
+    expect(notes).toHaveLength(0);
   });
 });
