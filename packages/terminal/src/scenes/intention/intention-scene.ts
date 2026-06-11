@@ -90,8 +90,21 @@ export class IntentionScene implements Scene {
       return;
     }
 
+    if (key.type === "delete") {
+      this.textInput.delete();
+      return;
+    }
+
     if (key.type === "char") {
       this.textInput.insert(key.char);
+      return;
+    }
+
+    if (key.type === "paste") {
+      // A pasted reflection arrives as one block: fold newlines/tabs to
+      // spaces (enter must not submit mid-paste) and drop control chars.
+      const text = key.text.replace(/[\n\t]+/g, " ").replace(/[\x00-\x1f\x7f]/g, "");
+      if (text.length > 0) this.textInput.insert(text);
       return;
     }
 

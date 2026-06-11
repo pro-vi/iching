@@ -24,7 +24,7 @@ function makeDeps(dataDir: string, run: RunImpl): ReadingFlowDeps {
     runRouter: async () => ({ shouldExit: false }),
     paths,
     cacheStore: new JsonDailyCacheStore(paths.cache),
-    today: "2026-05-20",
+    today: () => "2026-05-20",
     session: { cols: 80, rows: 24 },
     glyphConfig: { glyphAnim: "dots", glyphFont: "kaiti" },
     language: "zh-Hant",
