@@ -1,4 +1,4 @@
-import type { Cast, DailyCache, Hexagram, HistoryEntry, ReflectionNote, Style } from "@iching/core";
+import type { Cast, DailyCache, Hexagram, HistoryEntry, ReflectionNote, RngProvenance, Style } from "@iching/core";
 import { GUA } from "@iching/core";
 import type { UserConfig } from "@iching/storage";
 
@@ -13,6 +13,8 @@ export function castToJson(
   primary: Hexagram,
   becoming: Hexagram | null,
   question?: string,
+  rng?: RngProvenance,
+  seed?: number,
 ): Record<string, unknown> {
   // Changing lines carry their oracle texts — the texts a reading turns on.
   // All six moving on hexagram 1/2 additionally reads 用九/用六 (extra).
@@ -66,6 +68,16 @@ export function castToJson(
       te: primary.te,
       w: primary.w,
     },
+    // Entropy provenance (additive; schemas only expand). An honest source
+    // story — "bound" means the intention/moment participated as salt in
+    // local machine entropy; never a claim of metaphysical efficacy.
+    rng: rng
+      ? {
+          source: rng.source,
+          intentionBound: rng.intentionBound,
+          ...(rng.source === "seed" && seed !== undefined ? { seed } : {}),
+        }
+      : null,
   };
 }
 

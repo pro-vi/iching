@@ -116,6 +116,7 @@ export const MESSAGES = {
   "settings.font": { en: "Font", zhHant: "字體", zhHans: "字体" },
   "settings.castMethod": { en: "Cast Method", zhHant: "起卦法", zhHans: "起卦法" },
   "settings.castMode": { en: "Cast Mode", zhHant: "起卦模式", zhHans: "起卦模式" },
+  "settings.entropy": { en: "Entropy", zhHant: "隨機源", zhHans: "随机源" },
   "settings.preview": { en: "Preview:", zhHant: "預覽：", zhHans: "预览：" },
 
   // ── yarrow ritual captions + line-values (classical terms, Agentify C-003) ──

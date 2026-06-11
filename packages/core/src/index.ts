@@ -17,11 +17,14 @@ export type {
   HistoryEntry,
   ReflectionNote,
   CastMethod,
+  EntropySource,
+  RngProvenance,
 } from "./types.js";
 
 // RandomSource
-export type { RandomSource } from "./random.js";
+export type { RandomSource, BindingContext } from "./random.js";
 export {
+  BoundRandomSource,
   CryptoRandomSource,
   SeededRandomSource,
   TapeRandomSource,

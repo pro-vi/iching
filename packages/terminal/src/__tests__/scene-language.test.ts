@@ -50,6 +50,7 @@ function settingsText(language: DisplayLanguage): string {
     glyphFont: "kaiti",
     castMethod: "coin",
     castMode: "auto",
+    entropy: "crypto",
   };
   const scene = new SettingsScene(values);
   const buf = CellBuffer.create(ctx.cols, ctx.rows);
@@ -107,6 +108,7 @@ describe("SettingsScene — no bilingual stacking", () => {
       glyphFont: "kaiti",
       castMethod: "coin",
       castMode: "auto",
+      entropy: "crypto",
     };
     const scene = new SettingsScene(values);
     scene.handleKey({ type: "arrow", direction: "down" }, ctx); // focus Language row
@@ -129,7 +131,7 @@ describe("SettingsScene — no bilingual stacking", () => {
 
     const values: SettingsValues = {
       theme: "bone", language: "zh-Hant", taijituStyle: "dots", glyphAnim: "dots",
-      glyphFont: "kaiti", castMethod: "coin", castMode: "auto",
+      glyphFont: "kaiti", castMethod: "coin", castMode: "auto", entropy: "crypto",
     };
     const scene = new SettingsScene(values);
     expect(scene.getValues().glyphFont).toBe("kaiti");
@@ -156,7 +158,7 @@ describe("SettingsScene — no bilingual stacking", () => {
   test("flipping Language re-labels font chips immediately, before save", () => {
     const values: SettingsValues = {
       theme: "bone", language: "en", taijituStyle: "dots", glyphAnim: "dots",
-      glyphFont: "kaiti", castMethod: "coin", castMode: "auto",
+      glyphFont: "kaiti", castMethod: "coin", castMode: "auto", entropy: "crypto",
     };
     const scene = new SettingsScene(values);
     scene.handleKey({ type: "arrow", direction: "down" }, ctx); // focus Language
@@ -209,7 +211,7 @@ describe("SettingsScene — no bilingual stacking", () => {
   test("zh-Hant selections persist canonical wave-2 tokens", () => {
     const values: SettingsValues = {
       theme: "bone", language: "zh-Hant", taijituStyle: "dots", glyphAnim: "dots",
-      glyphFont: "kaiti", castMethod: "coin", castMode: "auto",
+      glyphFont: "kaiti", castMethod: "coin", castMode: "auto", entropy: "crypto",
     };
     const scene = new SettingsScene(values);
     for (let i = 0; i < 5; i++) scene.handleKey({ type: "arrow", direction: "down" }, ctx); // Cast Method
@@ -230,6 +232,7 @@ describe("SettingsScene — no bilingual stacking", () => {
       glyphFont: "kaiti",
       castMethod: "yarrow",
       castMode: "auto",
+      entropy: "crypto",
     };
     const scene = new SettingsScene(values);
     // focus the Cast Method row (index 5) so the preview becomes the yarrow strip

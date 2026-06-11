@@ -96,6 +96,24 @@ export interface Structure {
  */
 export type CastMethod = "coin" | "coin-manual" | "yarrow" | "yarrow-manual";
 
+/**
+ * Where a cast's bytes came from: "crypto" is local machine entropy, "bound"
+ * is the same local entropy with the intention and moment mixed in as salt
+ * (chance stays primary), "seed" is deterministic replay. An honest source
+ * story only — never a claim of metaphysical efficacy.
+ */
+export type EntropySource = "crypto" | "bound" | "seed";
+
+/**
+ * Entropy provenance recorded with a cast. Provenance only; it never changes
+ * how a cast is read.
+ */
+export interface RngProvenance {
+  source: EntropySource;
+  /** True when a non-empty intention participated as salt in the seed. */
+  intentionBound: boolean;
+}
+
 /** Cache structure for daily reading */
 export interface DailyCache {
   date: string;
@@ -104,6 +122,7 @@ export interface DailyCache {
   structure: Structure;
   intention?: string;
   method?: CastMethod; // absent in records written before provenance landed
+  rng?: RngProvenance; // absent in records written before entropy provenance landed
 }
 
 /** History entry (one per line in JSONL) */
@@ -113,6 +132,7 @@ export interface HistoryEntry {
   intention?: string;
   timestamp?: string;
   method?: CastMethod; // absent in entries written before provenance landed
+  rng?: RngProvenance; // absent in entries written before entropy provenance landed
 }
 
 /**

@@ -1308,8 +1308,8 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
 
 - surface_id: cli-config-key-descriptions
   file: apps/cli/src/commands/config.ts
-  code_locator: "L31–111 ConfigEntry.description (×10)"
-  current_text: 'Color theme / Casting animation speed / Display language (English, 繁, or 简) / ANSI color mode / Timezone ("system" or IANA name) / Glyph reveal animation / Glyph font / Home-screen taijitu style / Cast method (coin or yarrow stalk ritual) / Cast mode (auto or operator-guided)'
+  code_locator: "L31–131 ConfigEntry.description (×11)"
+  current_text: 'Color theme / Casting animation speed / Display language (English, 繁, or 简) / ANSI color mode / Timezone ("system" or IANA name) / Glyph reveal animation / Glyph font / Home-screen taijitu style / Cast method (coin or yarrow stalk ritual) / Cast mode (auto or operator-guided) / Entropy source (machine entropy, or bound to the intention and moment)'
   surface_class: cli-commands
   render_context: "DEAD — never printed (config list shows key/value/values only)"
   language_policy: translate
@@ -1525,6 +1525,66 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   verifier: "--cli"
   notes: "Fatal for the command (a write command must fail when it can't persist). English-only diagnostic, mirrors cli-settings-save-failed."
 
+- surface_id: cli-cast-entropy-flag
+  file: apps/cli/src/commands/cast.ts
+  code_locator: ".option(\"--bound\", …) on the cast command"
+  current_text: '"--bound" "bind the cast to the question and moment (local entropy)"'
+  surface_class: cli-commands
+  render_context: "--help (cast command option description)"
+  language_policy: translate
+  source_layer: product-ui
+  json_policy: not-json
+  risk: low
+  agentify_required: no
+  status: open
+  verifier: "--cli help coverage"
+  notes: "Entropy-binding opt-in (B4). Flag token --bound = machine token (preserve); description English Commander help like its siblings. Honest-provenance wording: question/moment participation, no efficacy claim."
+
+- surface_id: cli-cast-seed-error
+  file: apps/cli/src/commands/cast.ts
+  code_locator: "--seed validation guard (exit 1)"
+  current_text: 'Invalid --seed "…": expected a number.'
+  surface_class: cli-invalid-paths
+  render_context: "stderr, exit 1 (typo-proofing the deterministic seed path)"
+  language_policy: translate
+  source_layer: product-ui
+  json_policy: not-json
+  risk: medium
+  agentify_required: no
+  status: open
+  verifier: "--cli invalid-path (asserted by cast.test.ts subprocess suite)"
+  notes: "Regression guard: Number(\"abc\") is NaN and NaN|0 collapsed the PRNG. Mirrors cli-range-errors disposition."
+
+- surface_id: cli-config-positional-args
+  file: apps/cli/src/commands/config.ts
+  code_locator: "config [key] [value] positional shorthand .argument() descriptions"
+  current_text: '"config key (shorthand for get; with a value, for set)" / "config value (shorthand for set)"'
+  surface_class: cli-commands
+  render_context: "--help (git-style `config <key> [value]` shorthand args)"
+  language_policy: translate
+  source_layer: product-ui
+  json_policy: not-json
+  risk: low
+  agentify_required: no
+  status: open
+  verifier: "--cli help coverage"
+  notes: "Companion to cli-command-descriptions; routes through the same runGet/runSet bodies so validation surfaces are unchanged."
+
+- surface_id: cli-journal-hexagram-filter
+  file: apps/cli/src/commands/journal.ts
+  code_locator: "list --hexagram <n> option + validation guard"
+  current_text: '"--hexagram <n>" "only readings where hexagram <n> is primary or becoming" / error: Invalid --hexagram "…": expected a number 1-64.'
+  surface_class: cli-commands
+  render_context: "--help option description + stderr validation (exit 1)"
+  language_policy: translate
+  source_layer: product-ui
+  json_policy: not-json
+  risk: low
+  agentify_required: no
+  status: open
+  verifier: "--cli invalid-path (asserted by journal-command.test.ts)"
+  notes: "Journal filter by hexagram number; option/flag tokens preserve, prose follows cli-command-descriptions disposition."
+
 - surface_id: cli-commander-framework
   file: node_modules/commander (dependency-generated; surfaced by apps/cli/src/program.ts)
   code_locator: "Commander auto-output: Usage/Options/Commands/Arguments headings; unknown-command, missing-argument, excess-argument, invalid-option errors; auto -h/--help"
@@ -1580,25 +1640,40 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   verifier: "--inventory-only; apps/cli/src/__tests__/cast.test.ts + hexagram-output.test.ts"
   notes: "Labels follow the existing parenthetical field-code convention (dx/tu/en/te/w); gc/gcEn values are canonical-anchor + verbatim Legge."
 
-- surface_id: cli-plain-cast-method-labels
+- surface_id: cli-plain-method-labels
   file: apps/cli/src/output/plain.ts
-  code_locator: "castMethod display labels (coin/yarrow × auto/manual)"
-  current_text: '"coins" / "coins, by hand" / "yarrow stalks" / "yarrow stalks, by hand"'
+  code_locator: "methodLabel() + Method:/list-note call sites"
+  current_text: '"coins" / "coins, by hand" / "yarrow stalks" / "yarrow stalks, by hand" / "Method: " prefix / "  · " list note'
   surface_class: cli-commands
-  render_context: "journal/cast plain stdout — how a reading was produced"
+  render_context: "journal list (quiet non-coin note) + journal show Method line"
   language_policy: translate
   source_layer: product-ui
   json_policy: not-json
   risk: low
   agentify_required: no
   status: open
-  verifier: "--cli"
-  notes: "Method provenance labels (storage `method` field rendered for humans); enum values stay machine tokens."
+  verifier: "--cli (asserted by journal-command.test.ts method-provenance tests)"
+  notes: "Cast-method provenance labels (wave A2). A note, not a badge: coins (the ambient default) stays unmarked in lists. JSON carries the raw method token instead."
+
+- surface_id: cli-plain-entropy-provenance
+  file: apps/cli/src/output/plain.ts
+  code_locator: "entropyLine() — quiet closing note in formatCastPlain/formatJournalShowPlain"
+  current_text: '"Entropy: local machine entropy, bound to the intention and moment." / "Entropy: local machine entropy, bound to the moment." / "Entropy: deterministic replay from seed …."'
+  surface_class: cli-commands
+  render_context: "cast/journal-show plain output — printed ONLY for bound/seed; plain crypto stays silent"
+  language_policy: translate
+  source_layer: product-ui
+  json_policy: not-json
+  risk: low
+  agentify_required: no
+  status: open
+  verifier: "--cli (asserted by cast.test.ts + journal-command.test.ts entropy tests)"
+  notes: "Honest provenance labels per docs/vision/entropy-sources-vision.md §Provenance Labels — local participation, never metaphysical efficacy. JSON twin is the rng block (stable keys: source/intentionBound/seed)."
 
 - surface_id: cli-json-output
   file: apps/cli/src/output/json.ts
   code_locator: "L5–81"
-  current_text: 'keys: question/primary/number/name/pinyin/ename/symbol/judgment/gc/gcEn/lines/value/yang/changing/becoming/changingPositions/changingLines/position/yao/yaoEn/extra/lineTexts/yaoXiao/derived/nuclear/polarity/mirror/diagonal/commentary/dx/tu/en/te/w/key/value/path — today adds date/intention/method (todayToJson/noTodayToJson)'
+  current_text: 'keys: question/primary/number/name/pinyin/ename/symbol/judgment/gc/gcEn/lines/value/yang/changing/becoming/changingPositions/changingLines/position/yao/yaoEn/extra/lineTexts/yaoXiao/derived/nuclear/polarity/mirror/diagonal/commentary/dx/tu/en/te/w/key/value/path/rng/source/intentionBound/seed — today adds date/intention/method (todayToJson/noTodayToJson)'
   surface_class: json-api-output
   render_context: "all --json output (2-space pretty)"
   language_policy: developer-only
@@ -1828,6 +1903,12 @@ classified as developer-only with rationale." The config `language` value round-
 | `cli-doctor-output` | developer-only (exempt) | diagnostic tool |
 | `cli-paths-output` | developer-only (exempt) | diagnostic tool |
 | `cli-plain-labels` | developer-only (exempt) | `cast`/`hexagram`/`journal` plain output is a COMPLETE bilingual reference dump (大象傳 + Image + 彖傳 + Judgment + Wilhelm); corpus content (canonical names + Chinese commentary) is shown to all; only the English scaffolding labels (Question:/Commentary:…) are not localized |
+| `cli-cast-entropy-flag` | developer-only (exempt) | Commander option help for `--bound` — dev/scripting, sibling of `cli-command-descriptions` |
+| `cli-cast-seed-error` | developer-only (exempt) | `--seed` validation error — power-user, sibling of `cli-range-errors` |
+| `cli-config-positional-args` | developer-only (exempt) | Commander argument help for the config shorthand — dev/scripting |
+| `cli-journal-hexagram-filter` | developer-only (exempt) | `--hexagram` option help + validation — power-user |
+| `cli-plain-method-labels` | developer-only (exempt) | quiet method-provenance notes in plain journal output; token rides in JSON |
+| `cli-plain-entropy-provenance` | developer-only (exempt) | quiet entropy-provenance note (bound/seed only); JSON twin is the stable `rng` block |
 | `cli-hook-output` | developer-only (exempt) | Claude Code hook integration; daily fragment via core `selectDisplay` (locale behavior tracked under AC-003) |
 
 **Reopen** (AR-004 rollback): if the project ships a localized single-language CLI reading mode,
@@ -2416,6 +2497,42 @@ Default language **en**; settings order **EN → 繁 → 简** (asserted by
   zh_hant_source: preserve (exempt dependency English)
   zh_hans_strategy: preserve (exempt dependency English)
   render_context: --help/error framework text
+- id: cli-cast-entropy-flag
+  language_policy: translate
+  en_source: Commander option description (hardcoded English, AC-005 dev-exempt)
+  zh_hant_source: catalog if the CLI reading mode ships (AC-005 reopen)
+  zh_hans_strategy: catalog (authored)
+  render_context: cast --help option description
+- id: cli-cast-seed-error
+  language_policy: translate
+  en_source: hardcoded validation error (AC-005 dev-exempt)
+  zh_hant_source: catalog if the CLI reading mode ships (AC-005 reopen)
+  zh_hans_strategy: catalog (authored)
+  render_context: cast --seed stderr validation (exit 1)
+- id: cli-config-positional-args
+  language_policy: translate
+  en_source: Commander argument descriptions (hardcoded English, AC-005 dev-exempt)
+  zh_hant_source: catalog if the CLI reading mode ships (AC-005 reopen)
+  zh_hans_strategy: catalog (authored)
+  render_context: config shorthand --help argument descriptions
+- id: cli-journal-hexagram-filter
+  language_policy: translate
+  en_source: Commander option description + validation error (AC-005 dev-exempt)
+  zh_hant_source: catalog if the CLI reading mode ships (AC-005 reopen)
+  zh_hans_strategy: catalog (authored)
+  render_context: journal list --hexagram help + stderr validation
+- id: cli-plain-method-labels
+  language_policy: translate
+  en_source: methodLabel() hardcoded labels (AC-005 dev-exempt); method token preserved in JSON
+  zh_hant_source: catalog if the CLI reading mode ships (AC-005 reopen)
+  zh_hans_strategy: catalog (authored)
+  render_context: journal list note + journal show Method line
+- id: cli-plain-entropy-provenance
+  language_policy: translate
+  en_source: entropyLine() labels — vision-doc provenance wording (AC-005 dev-exempt)
+  zh_hant_source: catalog if the CLI reading mode ships (AC-005 reopen)
+  zh_hans_strategy: catalog (authored)
+  render_context: cast/journal-show quiet entropy note (bound/seed only)
 - id: cli-plain-labels
   language_policy: translate
   en_source: hardcoded labels + Chinese wing titles (大象/彖傳 canonical) + data

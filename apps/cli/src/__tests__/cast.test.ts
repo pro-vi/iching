@@ -207,6 +207,94 @@ describe("cast output oracle texts", () => {
   });
 });
 
+describe("cast entropy provenance output", () => {
+  function makeSeededCast() {
+    const cast = castHexagram(new SeededRandomSource(7));
+    const primary = GUA[cast.primary - 1];
+    const becoming = cast.becoming !== null ? GUA[cast.becoming - 1] : null;
+    return { cast, primary, becoming };
+  }
+
+  test("castToJson carries the rng block (bound)", () => {
+    const { cast, primary, becoming } = makeSeededCast();
+    const json = castToJson(cast, primary, becoming, "q", {
+      source: "bound",
+      intentionBound: true,
+    });
+    expect(json.rng).toEqual({ source: "bound", intentionBound: true });
+  });
+
+  test("castToJson carries the rng block (crypto)", () => {
+    const { cast, primary, becoming } = makeSeededCast();
+    const json = castToJson(cast, primary, becoming, undefined, {
+      source: "crypto",
+      intentionBound: false,
+    });
+    expect(json.rng).toEqual({ source: "crypto", intentionBound: false });
+  });
+
+  test("castToJson echoes the seed for deterministic replays", () => {
+    const { cast, primary, becoming } = makeSeededCast();
+    const json = castToJson(
+      cast,
+      primary,
+      becoming,
+      undefined,
+      { source: "seed", intentionBound: false },
+      42,
+    );
+    expect(json.rng).toEqual({ source: "seed", intentionBound: false, seed: 42 });
+  });
+
+  test("castToJson rng is null when no provenance is supplied (back-compat)", () => {
+    const { cast, primary, becoming } = makeSeededCast();
+    const json = castToJson(cast, primary, becoming);
+    expect(json.rng).toBeNull();
+  });
+
+  test("formatCastPlain prints the quiet bound line only when bound", () => {
+    const { cast, primary } = makeSeededCast();
+    const structure = buildStructure(cast);
+
+    const bound = formatCastPlain(cast, primary, structure, "q", {
+      source: "bound",
+      intentionBound: true,
+    });
+    expect(bound).toContain(
+      "Entropy: local machine entropy, bound to the intention and moment.",
+    );
+
+    const boundNoIntention = formatCastPlain(cast, primary, structure, undefined, {
+      source: "bound",
+      intentionBound: false,
+    });
+    expect(boundNoIntention).toContain(
+      "Entropy: local machine entropy, bound to the moment.",
+    );
+
+    // Plain crypto is the unremarkable default — silence is calmer.
+    const crypto = formatCastPlain(cast, primary, structure, undefined, {
+      source: "crypto",
+      intentionBound: false,
+    });
+    expect(crypto).not.toContain("Entropy:");
+  });
+
+  test("formatCastPlain names the seed for deterministic replays", () => {
+    const { cast, primary } = makeSeededCast();
+    const structure = buildStructure(cast);
+    const text = formatCastPlain(
+      cast,
+      primary,
+      structure,
+      undefined,
+      { source: "seed", intentionBound: false },
+      42,
+    );
+    expect(text).toContain("Entropy: deterministic replay from seed 42.");
+  });
+});
+
 // Regression: Number("abc") is NaN and NaN|0 collapsed the PRNG to a constant
 // state — `cast --seed abc` exited 0 with the same plausible-looking cast
 // forever. Non-numeric seeds must fail loudly.
@@ -249,5 +337,73 @@ describe("cast --seed validation (subprocess)", () => {
     const b = await runCast("42");
     expect(a.exitCode).toBe(0);
     expect(a.stdout).toBe(b.stdout);
+  }, 20_000);
+});
+
+// One-shot `iching cast` honors the entropy config and the --bound flag,
+// binding the question argument as the intention. Provenance lands in the
+// JSON rng block; --seed remains its own deterministic path.
+describe("cast --bound / entropy config (subprocess)", () => {
+  const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
+  const MAIN_TS = resolve(REPO_ROOT, "apps/cli/src/main.ts");
+
+  async function runCli(args: string[]): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+    const proc = Bun.spawn(["bun", MAIN_TS, "--data-dir", dataDir, ...args], {
+      cwd: REPO_ROOT,
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env, NO_COLOR: "1" },
+    });
+    proc.stdin.end();
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    const exitCode = await proc.exited;
+    return { exitCode, stdout, stderr };
+  }
+
+  test("default cast reports crypto provenance in --json", async () => {
+    const { exitCode, stdout } = await runCli(["--json", "cast"]);
+    expect(exitCode).toBe(0);
+    const json = JSON.parse(stdout);
+    expect(json.rng).toEqual({ source: "crypto", intentionBound: false });
+  }, 20_000);
+
+  test("--bound with a question reports intention-bound provenance", async () => {
+    const { exitCode, stdout } = await runCli(["--json", "cast", "should I?", "--bound"]);
+    expect(exitCode).toBe(0);
+    const json = JSON.parse(stdout);
+    expect(json.rng).toEqual({ source: "bound", intentionBound: true });
+    expect(json.question).toBe("should I?");
+  }, 20_000);
+
+  test("--bound without a question binds the moment only", async () => {
+    const { exitCode, stdout } = await runCli(["--json", "cast", "--bound"]);
+    expect(exitCode).toBe(0);
+    const json = JSON.parse(stdout);
+    expect(json.rng).toEqual({ source: "bound", intentionBound: false });
+  }, 20_000);
+
+  test("entropy=bound in config binds without the flag; plain output gets the quiet line", async () => {
+    const set = await runCli(["config", "set", "entropy", "bound"]);
+    expect(set.exitCode).toBe(0);
+
+    const json = await runCli(["--json", "cast", "still water?"]);
+    expect(JSON.parse(json.stdout).rng).toEqual({ source: "bound", intentionBound: true });
+
+    const plain = await runCli(["cast", "still water?"]);
+    expect(plain.stdout).toContain(
+      "Entropy: local machine entropy, bound to the intention and moment.",
+    );
+  }, 20_000);
+
+  test("--seed overrides the bound config — deterministic replay provenance", async () => {
+    const set = await runCli(["config", "set", "entropy", "bound"]);
+    expect(set.exitCode).toBe(0);
+    const { exitCode, stdout } = await runCli(["--json", "--seed", "42", "cast", "q"]);
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(stdout).rng).toEqual({ source: "seed", intentionBound: false, seed: 42 });
   }, 20_000);
 });
