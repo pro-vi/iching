@@ -25,7 +25,11 @@ function makeLine(value: 6 | 7 | 8 | 9): Line {
 
 function makeCast(primary: number, becoming: number | null = null, changing: number[] = []): Cast {
   return {
-    lines: [makeLine(7), makeLine(8), makeLine(7), makeLine(8), makeLine(7), makeLine(8)],
+    lines: [1, 2, 3, 4, 5, 6].map((pos) =>
+      changing.includes(pos)
+        ? makeLine(pos % 2 === 0 ? 6 : 9)
+        : makeLine(pos % 2 === 0 ? 8 : 7),
+    ),
     primary,
     becoming,
     changingPositions: changing,
@@ -586,30 +590,70 @@ describe("JournalScene dictionary jump ([g])", () => {
 
 describe("JournalScene patterns pane ([p])", () => {
   const entries = [
-    makeEntry("2026-03-01", 39, { cast: makeCast(39, 8, [5]) }),
-    makeEntry("2026-03-08", 39, { cast: makeCast(39, 15, [5]) }),
+    makeEntry("2026-03-01", 39, { cast: makeCast(39, 8, [5]), method: "coin" }),
+    makeEntry("2026-03-08", 39, { cast: makeCast(39, 15, [5]), method: "yarrow" }),
     makeEntry("2026-03-20", 1),
-    makeEntry("2026-04-02", 39),
+    makeEntry("2026-04-02", 39, { method: "coin-manual" }),
   ];
 
-  test("p toggles a quiet observatory over the loaded entries", () => {
-    const ctx = ctxFor();
+  test("p opens the field of sixty-four with ruled sections", () => {
+    const ctx = ctxFor(45, 80);
     const scene = new JournalScene(entries, { today: () => "2026-04-15" });
     scene.enter(ctx);
 
     press(scene, ctx, "p");
     const text = renderText(scene, ctx);
-    expect(text).toContain("Patterns");
-    expect(text).toContain("4 readings");
-    expect(text).toContain("this month 1");
-    expect(text).toContain("most seen");
-    expect(text).toContain("蹇 (Jiǎn)   ×3 · 2026-04-02");
-    expect(text).toContain("moving line most often · 5 (×2)");
+
+    // S1 — the field: every glyph present, day facts annotate it, legend below
+    expect(text).toContain("觀象 · patterns");
+    expect(text).toContain("䷀");
+    expect(text).toContain("䷿");
+    expect(text).toContain("4 readings · 33d · active days 4");
+    expect(text).toContain("seen 2 of 64");
+    expect(text).toContain("recurrence ×2");
+    expect(text).toContain("this month 1 · 30d 2 · idle 13d");
+    expect(text).toContain("coin 2 · yarrow 1 · unmarked 1");
+    expect(text).toContain("○ not yet  ◦ once  ◐ a few  ● often");
+
+    // 3 method-marked readings < 8: observed-vs-chance is withheld, honestly.
+    expect(text).toContain("too few readings yet to weigh against chance");
+    expect(text).not.toContain("chance would say");
+
+    // S2 — faces seen: aligned labels, bars, counts, last dates
+    expect(text).toContain("卦象 · faces seen");
+    expect(text).toContain("䷦ 蹇 Jiǎn");
+    expect(text).toContain("████████████ ×3 · last 04-02");
+    expect(text).toContain("䷀ 乾 Qián");
+
+    // S3 — movement, read top-down like a hexagram
+    expect(text).toContain("爻象 · where movement falls");
+    expect(text).toContain("line 5 · 五");
+    expect(text).toContain("× 2");
+    expect(text).toContain("moved per cast");
+    expect(text).toContain("0 ×2");
+    expect(text).toContain("1 ×2");
+
+    // S4 — trigrams with upper/lower roles (坎 is 蹇's upper trigram, 3 casts)
+    expect(text).toContain("八卦 · trigrams");
+    expect(text).toContain("☵ 坎 water");
+    expect(text).toContain("upper/lower 3/0");
+
+    // S5 — succession drift sparkline (no transition repeats in this fixture)
+    expect(text).toContain("次第 · one cast to the next");
+    expect(text).toContain("cast to cast");
+    expect(text).toContain("lines differing");
+
+    // S6 — turnings & echoes (every fixture cast shares nuclear/polarity/mirror)
+    expect(text).toContain("卦變 · turnings & echoes");
+    expect(text).toContain("nuclear");
+    expect(text).toContain("䷀ 乾 Qián ×4");
+
+    expect(text).toContain("[↑↓] scroll");
 
     // esc closes the pane (does not pop the scene)
     const signal = press(scene, ctx, "escape");
     expect(signal).toBeUndefined();
-    expect(renderText(scene, ctx)).not.toContain("most seen");
+    expect(renderText(scene, ctx)).not.toContain("卦象");
   });
 
   test("p closes the pane too, and list keys are inert while it is open", () => {
@@ -620,7 +664,92 @@ describe("JournalScene patterns pane ([p])", () => {
     press(scene, ctx, "p");
     expect(press(scene, ctx, "n", "g", "enter")).toBeUndefined();
     press(scene, ctx, "p");
-    expect(renderText(scene, ctx)).not.toContain("most seen");
+    expect(renderText(scene, ctx)).not.toContain("卦象");
+  });
+
+  test("patterns pane scrolls through overflow and resets when closed", () => {
+    const ctx = ctxFor(10, 80);
+    const scene = new JournalScene(entries, { today: () => "2026-04-15" });
+    scene.enter(ctx);
+
+    // 36 content rows over a 5-row viewport: 8 pages.
+    press(scene, ctx, "p");
+    let text = renderText(scene, ctx);
+    expect(text).toContain("觀象 · patterns");
+    expect(text).toContain("1/8");
+    expect(text).not.toContain("卦象 · faces seen");
+
+    scene.handleKey({ type: "page", direction: "down" }, ctx);
+    text = renderText(scene, ctx);
+    expect(text).toContain("2/8");
+
+    scene.handleKey({ type: "end" }, ctx);
+    text = renderText(scene, ctx);
+    expect(text).toContain("卦變 · turnings & echoes");
+    expect(text).toContain("nuclear");
+    expect(text).toContain("7/8");
+
+    scene.handleKey({ type: "home" }, ctx);
+    expect(renderText(scene, ctx)).toContain("觀象 · patterns");
+
+    press(scene, ctx, "p"); // close and reset
+    press(scene, ctx, "p"); // reopen
+    text = renderText(scene, ctx);
+    expect(text).toContain("觀象 · patterns");
+    expect(text).toContain("1/8");
+  });
+
+  test("every row fits the column budget — no ellipsis at 80 or 100 cols", () => {
+    // A gate-on journal (8+ method-marked casts) exercises the widest rows:
+    // chance clauses, old-line rows, last dates, and the bin chance table.
+    const rich = [
+      makeEntry("2026-03-01", 61, { cast: makeCast(61, 62, [1, 4]), method: "coin" }),
+      makeEntry("2026-03-02", 61, { cast: makeCast(61, 8, [5]), method: "coin" }),
+      makeEntry("2026-03-05", 62, { cast: makeCast(62, 61, [2, 3, 6]), method: "yarrow" }),
+      makeEntry("2026-03-09", 64, { cast: makeCast(64, 63, [1, 2, 3, 4, 5, 6]), method: "coin" }),
+      makeEntry("2026-03-12", 14, { cast: makeCast(14, 1, [5]), method: "yarrow" }),
+      makeEntry("2026-03-15", 61, { cast: makeCast(61, 62, [1, 4]), method: "coin-manual" }),
+      makeEntry("2026-03-20", 1, { cast: makeCast(1, 2, [1, 2, 3, 4, 5, 6]), method: "coin" }),
+      makeEntry("2026-03-25", 64, { cast: makeCast(64, 50, [3]), method: "yarrow-manual" }),
+      makeEntry("2026-04-01", 61, { method: "coin" }),
+    ];
+    const gateMarks = {
+      en: ["chance would say", "old yang"],
+      "zh-Hant": ["理數約", "老陽九"],
+      "zh-Hans": ["理数约", "老阳九"],
+    } as const;
+    for (const cols of [80, 100]) {
+      for (const language of ["en", "zh-Hant", "zh-Hans"] as const) {
+        const ctx: SceneContext = { cols, rows: 50, colorSupport: "truecolor", language, done: false };
+        const scene = new JournalScene(rich, { today: () => "2026-04-15" });
+        scene.enter(ctx);
+        press(scene, ctx, "p");
+        const text = renderText(scene, ctx);
+        // 中孚 (Zhōng Fú, KW 61) is the widest label class; the gate is on.
+        for (const mark of gateMarks[language]) expect(text).toContain(mark);
+        // An ellipsis means a row crossed the budget and was clipped.
+        expect(text).not.toContain("…");
+      }
+    }
+  });
+
+  test("narrow terminals reflow the field annotations below the grid", () => {
+    const ctx = ctxFor(40, 60);
+    const scene = new JournalScene(entries, { today: () => "2026-04-15" });
+    scene.enter(ctx);
+
+    press(scene, ctx, "p");
+    const text = renderText(scene, ctx);
+    const lines = text.split("\n");
+    const gridLine = lines.findIndex((line) => line.includes("䷀"));
+    // 'active days' lives in the a1 annotation, never the journal header.
+    const factsLine = lines.findIndex((line) => line.includes("active days 4"));
+    expect(gridLine).toBeGreaterThanOrEqual(0);
+    // Facts reflow beneath the grid instead of clipping beside it…
+    expect(factsLine).toBeGreaterThan(gridLine + 7);
+    // …and the most expendable spans (last dates) are dropped outright.
+    expect(text).not.toContain("last 0");
+    expect(text).not.toContain("…");
   });
 });
 
@@ -703,29 +832,94 @@ describe("JournalScene CJK display-width truncation", () => {
 });
 
 describe("computeJournalPatterns", () => {
-  test("derives totals, month count, frequency, and moving-line mode", () => {
+  test("derives totals, cadence, diversity, frequency, and line distributions", () => {
     const entries = [
-      makeEntry("2026-03-01", 39, { cast: makeCast(39, 8, [5, 2]) }),
-      makeEntry("2026-03-08", 39, { cast: makeCast(39, 15, [5]) }),
+      makeEntry("2026-03-01", 39, { cast: makeCast(39, 8, [5, 2]), method: "coin" }),
+      makeEntry("2026-03-08", 39, { cast: makeCast(39, 15, [5]), method: "yarrow" }),
       makeEntry("2026-04-02", 1),
     ];
     const p = computeJournalPatterns(entries, "2026-04-15");
     expect(p.total).toBe(3);
     expect(p.thisMonth).toBe(1);
-    expect(p.topHexagrams[0]).toEqual({ kw: 39, count: 2, lastDate: "2026-03-08" });
-    expect(p.topHexagrams[1]).toEqual({ kw: 1, count: 1, lastDate: "2026-04-02" });
+    expect(p.baseline.methods).toEqual({ coin: 1, yarrow: 1, unknown: 1, known: 2, total: 3 });
+    expect(p.baseline.oldYin.observed).toBe(1);
+    expect(p.baseline.oldYin.expected).toBeCloseTo(1.125, 4);
+    expect(p.baseline.oldYang.observed).toBe(2);
+    expect(p.baseline.oldYang.expected).toBeCloseTo(1.875, 4);
+    expect(p.cadence).toMatchObject({
+      firstDate: "2026-03-01",
+      lastDate: "2026-04-02",
+      spanDays: 33,
+      activeDays: 3,
+      recent30: 1,
+      medianGapDays: 16,
+      longestGapDays: 25,
+      idleDays: 13,
+    });
+    expect(p.cadence?.castsPerActiveDay).toBe(1);
+    expect(p.diversity.distinctHexagrams).toBe(2);
+    expect(p.diversity.entropyBits).toBeCloseTo(0.918, 3);
+    expect(p.diversity.normalizedEntropy).toBeCloseTo(0.579, 3);
+    expect(p.diversity.topShare).toBeCloseTo(2 / 3, 3);
+    expect(p.diversity.knownDistinctHexagrams).toBe(1);
+    expect(p.diversity.observedRepeats).toBe(1);
+    expect(p.diversity.expectedRepeats).toBeCloseTo(0.0156, 4);
+    expect(p.topHexagrams[0]).toMatchObject({ kw: 39, count: 2, lastDate: "2026-03-08" });
+    expect(p.topHexagrams[0].knownCount).toBe(2);
+    expect(p.topHexagrams[0].share).toBeCloseTo(2 / 3, 3);
+    expect(p.topHexagrams[0].lift).toBeCloseTo(64, 3);
+    expect(p.topHexagrams[1]).toMatchObject({ kw: 1, count: 1, lastDate: "2026-04-02" });
+    expect(p.topHexagrams[1].knownCount).toBe(0);
+    expect(p.movingLines.map((line) => line.count)).toEqual([0, 1, 0, 0, 2, 0]);
+    expect(p.movingLines.map((line) => line.knownCount)).toEqual([0, 1, 0, 0, 2, 0]);
+    expect(p.movingLineCounts.map((bin) => bin.count)).toEqual([1, 1, 1, 0, 0, 0, 0]);
+    expect(p.movingLineCounts.map((bin) => bin.knownCount)).toEqual([0, 1, 1, 0, 0, 0, 0]);
     expect(p.movingLine).toEqual({ position: 5, count: 2 });
+    expect(p.topTransformations.map((pair) => [pair.from, pair.to, pair.count])).toEqual([
+      [39, 8, 1],
+      [39, 15, 1],
+    ]);
+    expect(p.topTransitions.map((pair) => [pair.from, pair.to, pair.count])).toEqual([
+      [39, 1, 1],
+      [39, 39, 1],
+    ]);
+    expect(p.topTrigrams.length).toBeGreaterThan(0);
+    expect(p.topTrigrams[0].expected).toBeCloseTo(6 / 8, 4);
+    expect(p.topStructuralEchoes.length).toBeGreaterThan(0);
+    expect(p.hammingDrift?.transitions).toBe(2);
+    // The dense field behind the 8×8 grid: every KW slot, all methods counted.
+    expect(p.field.counts).toHaveLength(64);
+    expect(p.field.counts[38]).toBe(2); // KW 39
+    expect(p.field.counts[0]).toBe(1); // KW 1
+    expect(p.field.counts.reduce((sum, c) => sum + c, 0)).toBe(3);
+    expect(p.field.maxCount).toBe(2);
   });
 
   test("empty journal and no moving lines stay calm", () => {
-    expect(computeJournalPatterns([], "2026-04-15")).toEqual({
-      total: 0,
-      thisMonth: 0,
-      topHexagrams: [],
-      movingLine: null,
+    const empty = computeJournalPatterns([], "2026-04-15");
+    expect(empty.total).toBe(0);
+    expect(empty.thisMonth).toBe(0);
+    expect(empty.cadence).toBeNull();
+    expect(empty.diversity).toEqual({
+      distinctHexagrams: 0,
+      knownDistinctHexagrams: 0,
+      entropyBits: 0,
+      maxEntropyBits: 0,
+      normalizedEntropy: 0,
+      topShare: 0,
+      concentration: 0,
+      expectedDistinctHexagrams: null,
+      observedRepeats: 0,
+      expectedRepeats: null,
+      repeatLift: null,
     });
+    expect(empty.topHexagrams).toEqual([]);
+    expect(empty.movingLine).toBeNull();
+    expect(empty.field.counts).toHaveLength(64);
+    expect(empty.field.maxCount).toBe(0);
     const p = computeJournalPatterns([makeEntry("2026-04-01", 2)], "2026-04-15");
     expect(p.movingLine).toBeNull();
+    expect(p.movingLineCounts[0]).toMatchObject({ movingLines: 0, count: 1, share: 1 });
   });
 
   test("frequency ties break by lower KW; top list caps at five", () => {

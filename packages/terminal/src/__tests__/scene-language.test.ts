@@ -419,6 +419,7 @@ describe("BrowseScene rows — name conversion + no English in Chinese modes (KW
 describe("JournalScene rows — name conversion (KW20 觀)", () => {
   const entry: HistoryEntry = {
     date: "2026-06-02",
+    method: "coin",
     cast: {
       lines: [makeLine(8), makeLine(8), makeLine(8), makeLine(8), makeLine(7), makeLine(7)],
       primary: 20, // 觀 / Contemplation
@@ -469,6 +470,27 @@ describe("JournalScene rows — name conversion (KW20 觀)", () => {
     expect(text).not.toContain("note");
     expect(text).not.toContain("search");
     expect(text).not.toContain("patterns");
+  });
+
+  test("Simplified patterns pane localizes seals and labels, no Traditional residue", () => {
+    const scene = new JournalScene([entry], { today: () => "2026-06-11" });
+    const language: DisplayLanguage = "zh-Hans";
+    const tallCtx = { ...ctxFor(language), rows: 40 };
+    scene.enter(tallCtx);
+    scene.handleKey({ type: "char", char: "p" }, tallCtx);
+    const buf = CellBuffer.create(80, 40);
+    scene.render(buf, tallCtx);
+    const text = bufferText(buf);
+    expect(text).toContain("观象"); // head seal (觀象 → 观象)
+    expect(text).toContain("卦象"); // faces section seal
+    expect(text).toContain("铜钱"); // method count label
+    expect(text).toContain("未有动爻"); // stillness line (a single quiet cast)
+    expect(text).toContain("占记尚少"); // too-few footnote (1 < 8 known casts)
+    expect(text).toContain("未见"); // field legend tier
+    expect(text).not.toContain("patterns");
+    expect(text).not.toContain("coin");
+    expect(text).not.toContain("chance");
+    expect(text).not.toContain("觀"); // no Traditional residue anywhere in the pane
   });
 });
 

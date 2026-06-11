@@ -8,13 +8,43 @@ import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
 import type { DisplayLanguage, HistoryEntry } from "@iching/core";
-import { GUA, stripTerminalControls, toSimplified } from "@iching/core";
+import { GUA, TRIGRAMS, stripTerminalControls, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { ScrollableRegion } from "../../widgets/scrollable.ts";
 import { TextInput } from "../../widgets/text-input.ts";
 import { tr } from "../../i18n/messages.ts";
-import { computeJournalPatterns } from "./journal-patterns.ts";
+import { computeJournalPatterns, type StructuralEcho } from "./journal-patterns.ts";
+
+type TextStyle = Parameters<CellBuffer["writeText"]>[3];
+
+/** One styled span of a patterns-pane row. */
+interface PatternSegment {
+  text: string;
+  style: TextStyle;
+}
+
+/** A patterns-pane row: styled spans written left-to-right from the margin. */
+interface PatternRow {
+  segments: PatternSegment[];
+}
+
+// Patterns pane geometry/policy (see the 觀象 sections in patternRows):
+// chance/expected figures render only once this many method-marked readings
+// exist — below that, observed-vs-expected is statistical theatre.
+const CHANCE_MIN_KNOWN = 8;
+// The single label column every section aligns to (display columns).
+const LABEL_W = 16;
+// Eighth-block ramp for the cast-to-cast drift sparkline.
+const SPARK_BLOCKS = "▁▂▃▄▅▆▇█";
+const LINE_KEYS = [
+  "journal.patterns.line1",
+  "journal.patterns.line2",
+  "journal.patterns.line3",
+  "journal.patterns.line4",
+  "journal.patterns.line5",
+  "journal.patterns.line6",
+] as const;
 
 /** A reflection note as the journal renders it (storage records carry more). */
 export interface JournalNoteView {
@@ -114,6 +144,7 @@ export class JournalScene implements Scene {
   private filtered: JournalEntryView[];
   private cursor: number;
   private scroll: ScrollableRegion;
+  private patternsScroll: ScrollableRegion;
   private opts: JournalSceneOptions;
 
   // [/] incremental search
@@ -139,6 +170,7 @@ export class JournalScene implements Scene {
     this.filtered = this.entries;
     this.cursor = 0;
     this.scroll = new ScrollableRegion(20, []);
+    this.patternsScroll = new ScrollableRegion(20, []);
     this.opts = opts;
     this.searchInput = new TextInput();
     this.noteInput = new TextInput();
@@ -146,6 +178,7 @@ export class JournalScene implements Scene {
 
   enter(ctx: SceneContext): void {
     this.scroll.viewportHeight = ctx.rows - 4; // header(2) + preview + footer
+    this.patternsScroll.viewportHeight = Math.max(1, ctx.rows - 5); // header + footer + scroll hint
   }
 
   exit(): Promise<void> {
@@ -166,6 +199,8 @@ export class JournalScene implements Scene {
 
   resize(cols: number, rows: number): void {
     this.scroll.viewportHeight = rows - 4;
+    this.patternsScroll.viewportHeight = Math.max(1, rows - 5);
+    this.patternsScroll.scrollDown(0);
   }
 
   render(frame: CellBuffer, ctx: SceneContext): void {
@@ -322,45 +357,481 @@ export class JournalScene implements Scene {
     }
   }
 
-  /** The quiet observatory: counts and dates over the loaded entries. */
+  /** The quiet observatory: the field of 64, then ruled sections of observation. */
   private renderPatterns(frame: CellBuffer, ctx: SceneContext, lang: DisplayLanguage): void {
+    const t = getTheme();
+    const rows = this.patternRows(ctx, lang);
+    this.patternsScroll.viewportHeight = Math.max(1, ctx.rows - 5);
+    // ScrollableRegion only needs row count for its math; joined text suffices.
+    this.patternsScroll.contentLines = rows.map((row) =>
+      row.segments.map((seg) => seg.text).join(""),
+    );
+    this.patternsScroll.scrollDown(0);
+
+    const top = 3;
+    const budget = Math.max(0, ctx.cols - 3);
+    const visibleEnd = Math.min(
+      rows.length,
+      this.patternsScroll.scrollOffset + this.patternsScroll.viewportHeight,
+    );
+
+    for (let i = this.patternsScroll.scrollOffset; i < visibleEnd; i++) {
+      const screenRow = top + (i - this.patternsScroll.scrollOffset);
+      if (screenRow >= ctx.rows - 2) break;
+      // Write segments left-to-right tracking display width; the segment that
+      // crosses the budget is ellipsis-truncated, anything after it drops.
+      // Rows keep their most expendable spans rightmost so clipping degrades
+      // gracefully (last-date first, then chance clauses).
+      let used = 0;
+      for (const seg of rows[i].segments) {
+        if (used >= budget) break;
+        const w = stringWidth(seg.text);
+        if (used + w > budget) {
+          frame.writeText(screenRow, 2 + used, truncateToWidth(seg.text, budget - used), seg.style);
+          break;
+        }
+        frame.writeText(screenRow, 2 + used, seg.text, seg.style);
+        used += w;
+      }
+    }
+
+    if (rows.length > this.patternsScroll.viewportHeight) {
+      const indicator = this.patternsScroll.scrollIndicator();
+      frame.writeText(ctx.rows - 2, ctx.cols - stringWidth(indicator) - 1, indicator, {
+        fg: t.tertiary,
+        dim: true,
+      });
+    }
+  }
+
+  private patternRows(ctx: SceneContext, lang: DisplayLanguage): PatternRow[] {
     const t = getTheme();
     const today = this.opts.today ? this.opts.today() : localToday();
     const patterns = computeJournalPatterns(this.entries, today);
     const cn = (s: string): string => (lang === "zh-Hans" ? toSimplified(s) : s);
+    const rows: PatternRow[] = [];
 
-    const top = 3;
-    const col = 4;
-    let row = top;
-    const put = (text: string, style: Parameters<CellBuffer["writeText"]>[3]): void => {
-      if (row < ctx.rows - 2) frame.writeText(row, col, text, style);
-      row++;
+    // ── span vocabulary ──
+    const stLabel: TextStyle = { fg: t.tertiary };
+    const stNum: TextStyle = { fg: t.primary };
+    const stName: TextStyle = { fg: t.primary };
+    const stSep: TextStyle = { fg: t.tertiary, dim: true };
+    const stQuiet: TextStyle = { fg: t.tertiary, dim: true };
+    const stBar: TextStyle = { fg: t.secondary };
+    const stRest: TextStyle = { fg: t.dimmed };
+
+    const lab = (text: string): PatternSegment => ({ text, style: stLabel });
+    const num = (text: string): PatternSegment => ({ text, style: stNum });
+    const quiet = (text: string): PatternSegment => ({ text, style: stQuiet });
+    const sep = (): PatternSegment => ({ text: " · ", style: stSep });
+
+    const row = (...segments: PatternSegment[]): void => {
+      rows.push({ segments: segments.filter((seg) => seg.text.length > 0) });
+    };
+    const blank = (): void => {
+      rows.push({ segments: [] });
     };
 
-    put(tr(lang, "journal.patterns.title"), { fg: t.primary, bold: true });
-    row++;
+    // ── geometry & policy ──
+    const inner = Math.max(8, ctx.cols - 4);
+    const narrow = ctx.cols < 64;
+    const barW = Math.max(4, Math.min(12, ctx.cols - 56));
+    const gate = patterns.baseline.methods.known >= CHANCE_MIN_KNOWN;
 
-    put(
-      `${patterns.total} ${tr(lang, "journal.countSuffix")}  ·  ${tr(lang, "journal.patterns.thisMonth")} ${patterns.thisMonth}`,
-      { fg: t.secondary },
-    );
-    row++;
-
-    if (patterns.topHexagrams.length > 0) {
-      put(tr(lang, "journal.patterns.mostSeen"), { fg: t.tertiary, dim: true });
-      for (const hex of patterns.topHexagrams) {
-        const gua = GUA[hex.kw - 1];
-        put(`${gua.u} ${cn(gua.n)} (${gua.p})   ×${hex.count} · ${hex.lastDate}`, { fg: t.secondary });
+    /** Section rule: '── title ────…' with an optional right-set quiet note. */
+    const rule = (title: string, titleStyle: TextStyle, note?: string): void => {
+      const titleW = stringWidth(title);
+      let noteText = note;
+      let fill = inner - 3 - titleW - 1 - (noteText !== undefined ? stringWidth(noteText) + 4 : 0);
+      if (noteText !== undefined && fill < 2) {
+        noteText = undefined;
+        fill = inner - 3 - titleW - 1;
       }
-      row++;
+      fill = Math.max(0, fill);
+      const segs: PatternSegment[] = [
+        { text: "── ", style: stSep },
+        { text: title, style: titleStyle },
+        { text: ` ${"─".repeat(fill)}`, style: stSep },
+      ];
+      if (noteText !== undefined) segs.push({ text: ` ${noteText} ──`, style: stSep });
+      row(...segs);
+    };
+
+    /** Pad a label group to the shared column so values align pane-wide. */
+    const label = (segs: PatternSegment[]): PatternSegment[] => {
+      const w = segs.reduce((sum, seg) => sum + stringWidth(seg.text), 0);
+      return [...segs, { text: " ".repeat(Math.max(1, LABEL_W - w + 1)), style: stLabel }];
+    };
+
+    const bar = (count: number, max: number): PatternSegment[] => {
+      const filled = count <= 0 || max <= 0 ? 0 : Math.max(1, Math.round((count / max) * barW));
+      return [
+        { text: "█".repeat(Math.min(barW, filled)), style: stBar },
+        { text: "░".repeat(Math.max(0, barW - filled)), style: stRest },
+      ];
+    };
+
+    const chanceNum = (v: number): string => formatNumber(v, v < 10 ? 1 : 0);
+    /** ' · chance would say ~N' — only once enough method-marked casts exist. */
+    const chance = (v: number | null): PatternSegment[] =>
+      gate && v !== null
+        ? [sep(), lab(`${tr(lang, "journal.patterns.chanceSays")}${chanceNum(v)}`)]
+        : [];
+    /** ' · last MM-DD', the most expendable span — dropped outright when narrow. */
+    const lastSeg = (date: string): PatternSegment[] =>
+      narrow || !date
+        ? []
+        : [sep(), quiet(`${tr(lang, "journal.patterns.last")} ${date.slice(5)}`)];
+
+    const joinClauses = (clauses: PatternSegment[][]): PatternSegment[] => {
+      const out: PatternSegment[] = [];
+      for (const clause of clauses) {
+        if (clause.length === 0) continue;
+        if (out.length > 0) out.push(sep());
+        out.push(...clause);
+      }
+      return out;
+    };
+
+    // ── S1 觀象 — the field of sixty-four ──
+    rule(tr(lang, "journal.patterns.head"), { fg: t.primary, bold: true });
+    if (patterns.total === 0 || !patterns.cadence) {
+      blank();
+      row({ text: tr(lang, "journal.patterns.noData"), style: { fg: t.secondary } });
+      return rows;
     }
 
-    if (patterns.movingLine) {
-      put(
-        `${tr(lang, "journal.patterns.movingLine")} · ${patterns.movingLine.position} (×${patterns.movingLine.count})`,
-        { fg: t.tertiary, dim: true },
+    const cadence = patterns.cadence;
+    const div = patterns.diversity;
+    const methods = patterns.baseline.methods;
+
+    const a1 = joinClauses([
+      [num(String(patterns.total)), lab(` ${tr(lang, "journal.countSuffix")}`)],
+      [num(String(cadence.spanDays)), lab(tr(lang, "journal.patterns.days"))],
+      [lab(`${tr(lang, "journal.patterns.activeDays")} `), num(String(cadence.activeDays))],
+    ]);
+    const a2 = [
+      lab(`${tr(lang, "journal.patterns.seenOf")} `),
+      num(String(div.distinctHexagrams)),
+      lab(` ${tr(lang, "journal.patterns.ofSixtyFour")}`),
+      ...chance(div.expectedDistinctHexagrams),
+    ];
+    const a3 =
+      patterns.total < 2
+        ? []
+        : [
+            lab(`${tr(lang, "journal.patterns.recurrence")} `),
+            num(`×${div.observedRepeats}`),
+            ...chance(div.expectedRepeats),
+          ];
+    const a4 = joinClauses([
+      [lab(`${tr(lang, "journal.patterns.thisMonth")} `), num(String(patterns.thisMonth))],
+      [lab(`${tr(lang, "journal.patterns.recent30")} `), num(String(cadence.recent30))],
+      cadence.idleDays !== null
+        ? [
+            lab(`${tr(lang, "journal.patterns.idle")} `),
+            num(String(cadence.idleDays)),
+            lab(tr(lang, "journal.patterns.days")),
+          ]
+        : [],
+    ]);
+    const a5 = joinClauses([
+      [
+        num(formatNumber(cadence.castsPerActiveDay, 1)),
+        lab(tr(lang, "journal.patterns.perActiveDay")),
+      ],
+      cadence.medianGapDays !== null
+        ? [
+            lab(`${tr(lang, "journal.patterns.usualGap")} `),
+            num(formatNumber(cadence.medianGapDays, cadence.medianGapDays % 1 === 0 ? 0 : 1)),
+            lab(tr(lang, "journal.patterns.days")),
+          ]
+        : [],
+      cadence.longestGapDays !== null
+        ? [
+            lab(`${tr(lang, "journal.patterns.longestGap")} `),
+            num(String(cadence.longestGapDays)),
+            lab(tr(lang, "journal.patterns.days")),
+          ]
+        : [],
+    ]);
+    const a6 = joinClauses([
+      [lab(`${tr(lang, "journal.patterns.coin")} `), num(String(methods.coin))],
+      [lab(`${tr(lang, "journal.patterns.yarrow")} `), num(String(methods.yarrow))],
+      methods.unknown > 0
+        ? [lab(`${tr(lang, "journal.patterns.methodUnmarked")} `), num(String(methods.unknown))]
+        : [],
+    ]);
+    // Legend marks mirror the grid's tier styles exactly.
+    const legend: PatternSegment[] = [
+      { text: "○", style: { fg: t.dimmed } },
+      lab(` ${tr(lang, "journal.patterns.legendNever")}  `),
+      { text: "◦", style: { fg: t.tertiary } },
+      lab(` ${tr(lang, "journal.patterns.legendOnce")}  `),
+      { text: "◐", style: { fg: t.secondary } },
+      lab(` ${tr(lang, "journal.patterns.legendFew")}  `),
+      { text: "●", style: { fg: t.primary, bold: true } },
+      lab(` ${tr(lang, "journal.patterns.legendOften")}`),
+    ];
+    const annotations: PatternSegment[][] = [a1, a2, a3, a4, a5, a6, [], legend];
+
+    const tierStyle = (count: number): TextStyle => {
+      if (count === 0) return { fg: t.dimmed };
+      if (count === patterns.field.maxCount && patterns.field.maxCount >= 2) {
+        return { fg: t.accent, bold: true };
+      }
+      if (count === 1) return { fg: t.tertiary };
+      if (count <= 3) return { fg: t.secondary };
+      return { fg: t.primary, bold: true };
+    };
+
+    for (let r = 0; r < 8; r++) {
+      const segs: PatternSegment[] = [];
+      for (let c = 0; c < 8; c++) {
+        const kw = r * 8 + c + 1;
+        segs.push({ text: GUA[kw - 1].u, style: tierStyle(patterns.field.counts[kw - 1]) });
+        if (c < 7) segs.push({ text: "  ", style: stSep });
+      }
+      // At width, the day's facts annotate the field; when narrow they reflow
+      // to full rows beneath it instead of clipping mid-clause.
+      if (!narrow && annotations[r].length > 0) {
+        segs.push({ text: "    ", style: stLabel }, ...annotations[r]);
+      }
+      rows.push({ segments: segs });
+    }
+    if (narrow) {
+      for (const ann of annotations) rows.push({ segments: ann });
+    }
+
+    // One quiet footnote names what the chance figures rest on (or why
+    // they are withheld). Aligned to the value column at width.
+    const footPad = narrow ? "" : " ".repeat(LABEL_W + 1);
+    if (methods.known === 0) {
+      row(quiet(footPad + tr(lang, "journal.patterns.noBaseline")));
+    } else if (!gate) {
+      row(quiet(footPad + tr(lang, "journal.patterns.tooFew")));
+    } else if (methods.unknown > 0) {
+      row(
+        quiet(
+          footPad +
+            `${tr(lang, "journal.patterns.baselineRestPre")}${methods.known}${tr(lang, "journal.patterns.baselineRestPost")}`,
+        ),
       );
     }
+
+    // ── S2 卦象 — faces seen ──
+    if (patterns.topHexagrams.length > 0) {
+      blank();
+      rule(tr(lang, "journal.patterns.sectionFaces"), { fg: t.secondary, bold: true });
+      const maxFace = Math.max(...patterns.topHexagrams.map((hex) => hex.count));
+      for (const hex of patterns.topHexagrams.slice(0, 5)) {
+        const gua = GUA[hex.kw - 1];
+        if (!gua) continue;
+        const labelSegs: PatternSegment[] = [{ text: `${gua.u} ${cn(gua.n)}`, style: stName }];
+        if (lang === "en") labelSegs.push(lab(` ${gua.p}`));
+        row(
+          ...label(labelSegs),
+          ...bar(hex.count, maxFace),
+          lab(" "),
+          num(`×${hex.count}`),
+          ...chance(hex.expected > 0 ? hex.expected : null),
+          ...lastSeg(hex.lastDate),
+        );
+      }
+    }
+
+    // ── S3 爻象 — where movement falls ──
+    blank();
+    rule(
+      tr(lang, "journal.patterns.sectionLines"),
+      { fg: t.secondary, bold: true },
+      gate
+        ? `${tr(lang, "journal.patterns.eachLine")} · ${tr(lang, "journal.patterns.chanceSays")}${formatNumber(methods.known / 4, 1)}`
+        : undefined,
+    );
+    const totalMoving = patterns.movingLines.reduce((sum, line) => sum + line.count, 0);
+    if (totalMoving === 0) {
+      row(lab(" ".repeat(LABEL_W + 1)), {
+        text: tr(lang, "journal.patterns.noMovement"),
+        style: { fg: t.secondary },
+      });
+      if (gate) {
+        // Stillness weighed against chance is itself the observation.
+        row(
+          ...label([lab(tr(lang, "journal.patterns.still"))]),
+          num(`×${patterns.total}`),
+          sep(),
+          lab(
+            `${tr(lang, "journal.patterns.chanceSays")}${formatNumber(patterns.movingLineCounts[0].expected, 1)}`,
+          ),
+        );
+      }
+    } else {
+      const maxLine = Math.max(...patterns.movingLines.map((line) => line.count));
+      // Top-down, the way a hexagram is read: line 6 first.
+      for (let pos = 6; pos >= 1; pos--) {
+        const line = patterns.movingLines[pos - 1];
+        row(
+          ...label([lab(tr(lang, LINE_KEYS[pos - 1]))]),
+          ...bar(line.count, maxLine),
+          lab(" "),
+          num(`×${String(line.count).padStart(2)}`),
+        );
+      }
+      const shownBins = patterns.movingLineCounts.filter((bin) => bin.count > 0);
+      row(
+        ...label([lab(tr(lang, "journal.patterns.movedPerCast"))]),
+        ...shownBins.flatMap((bin) => [
+          lab(`${bin.movingLines} `),
+          num(padToWidth(`×${bin.count}`, 6)),
+        ]),
+      );
+      if (gate) {
+        row(
+          ...label([quiet(tr(lang, "journal.patterns.chance"))]),
+          ...shownBins.map((bin) => quiet(padToWidth(`~${formatNumber(bin.expected, 1)}`, 8))),
+        );
+      }
+    }
+    if (gate) {
+      row(
+        ...label([lab(tr(lang, "journal.patterns.oldYangLabel"))]),
+        num(`×${patterns.baseline.oldYang.observed}`),
+        sep(),
+        lab(
+          `${tr(lang, "journal.patterns.chanceSays")}${chanceNum(patterns.baseline.oldYang.expected)}`,
+        ),
+      );
+      row(
+        ...label([lab(tr(lang, "journal.patterns.oldYinLabel"))]),
+        num(`×${patterns.baseline.oldYin.observed}`),
+        sep(),
+        lab(
+          `${tr(lang, "journal.patterns.chanceSays")}${chanceNum(patterns.baseline.oldYin.expected)}`,
+        ),
+      );
+    }
+
+    // ── S4 八卦 — trigrams ──
+    if (patterns.topTrigrams.length > 0) {
+      blank();
+      rule(
+        tr(lang, "journal.patterns.sectionTrigrams"),
+        { fg: t.secondary, bold: true },
+        // Uniform geometry, not method probability — survives a missing baseline.
+        patterns.total >= 8
+          ? `${tr(lang, "journal.patterns.eachByChance")} ~${formatNumber(patterns.topTrigrams[0].expected, 1)}`
+          : undefined,
+      );
+      const maxTri = Math.max(...patterns.topTrigrams.map((tri) => tri.count));
+      for (const tri of patterns.topTrigrams.slice(0, 3)) {
+        const info = TRIGRAMS[tri.index];
+        if (!info) continue;
+        const labelSegs: PatternSegment[] = [{ text: `${info.sym} ${cn(info.n)}`, style: stName }];
+        if (lang === "en") labelSegs.push({ text: ` ${info.img}`, style: { fg: t.secondary } });
+        row(
+          ...label(labelSegs),
+          ...bar(tri.count, maxTri),
+          lab(" "),
+          num(`×${tri.count}`),
+          sep(),
+          lab(`${tr(lang, "journal.patterns.role")} ${tri.upperCount}/${tri.lowerCount}`),
+        );
+      }
+    }
+
+    // ── shared pair grammar for S5/S6 ──
+    const pairLabel = (from: number, to: number): PatternSegment[] => {
+      const a = GUA[from - 1];
+      const b = GUA[to - 1];
+      if (!a || !b) return [lab(`${from}→${to}`)];
+      return [
+        { text: `${a.u}${cn(a.n)}`, style: stName },
+        { text: " → ", style: stLabel },
+        { text: `${b.u}${cn(b.n)}`, style: stName },
+      ];
+    };
+    const repeated = (pairs: typeof patterns.topTransitions): typeof patterns.topTransitions =>
+      pairs.filter((pair) => pair.count >= 2).slice(0, 2);
+
+    // ── S5 次第 — one cast to the next ──
+    const transitions = repeated(patterns.topTransitions);
+    if (patterns.total >= 2 && (transitions.length > 0 || patterns.hammingDrift)) {
+      blank();
+      rule(tr(lang, "journal.patterns.sectionSuccession"), { fg: t.secondary, bold: true });
+      for (const pair of transitions) {
+        row(...label(pairLabel(pair.from, pair.to)), num(`×${pair.count}`), ...lastSeg(pair.lastDate));
+      }
+      const drift = patterns.hammingDrift;
+      if (drift) {
+        const maxBin = Math.max(...drift.distribution.map((bin) => bin.count));
+        const spark = drift.distribution.flatMap((bin, i): PatternSegment[] => [
+          ...(i > 0 ? [lab(" ")] : []),
+          quiet(String(bin.distance)),
+          bin.count > 0
+            ? {
+                text: SPARK_BLOCKS[
+                  Math.max(0, Math.min(7, Math.round((bin.count / maxBin) * 8) - 1))
+                ],
+                style: stBar,
+              }
+            : { text: "·", style: { fg: t.dimmed } },
+        ]);
+        row(
+          ...label([lab(tr(lang, "journal.patterns.castToCast"))]),
+          ...spark,
+          sep(),
+          lab(tr(lang, "journal.patterns.linesDiffer")),
+          sep(),
+          lab(`${tr(lang, "journal.patterns.mean")} `),
+          num(formatNumber(drift.mean, 1)),
+          lab("/6"),
+        );
+      }
+    }
+
+    // ── S6 卦變 — turnings & echoes ──
+    const transformations = repeated(patterns.topTransformations);
+    const echoes = patterns.topStructuralEchoes.filter((echo) => echo.count >= 2).slice(0, 3);
+    if (transformations.length > 0 || echoes.length > 0) {
+      blank();
+      rule(tr(lang, "journal.patterns.sectionTurnings"), { fg: t.secondary, bold: true });
+      for (const pair of transformations) {
+        row(...label(pairLabel(pair.from, pair.to)), num(`×${pair.count}`), ...lastSeg(pair.lastDate));
+      }
+      for (const echo of echoes) {
+        const valueSegs: PatternSegment[] = [];
+        if (echo.kind === "kingWenPair" && echo.pairStart !== undefined && echo.pairEnd !== undefined) {
+          const a = GUA[echo.pairStart - 1];
+          const b = GUA[echo.pairEnd - 1];
+          if (a && b) {
+            valueSegs.push({ text: `${a.u}${cn(a.n)}`, style: stName }, sep(), {
+              text: `${b.u}${cn(b.n)}`,
+              style: stName,
+            });
+          } else {
+            valueSegs.push(lab(`${echo.pairStart}/${echo.pairEnd}`));
+          }
+        } else if (echo.kw !== undefined) {
+          const gua = GUA[echo.kw - 1];
+          if (gua) {
+            valueSegs.push({ text: `${gua.u} ${cn(gua.n)}`, style: stName });
+            if (lang === "en") valueSegs.push(lab(` ${gua.p}`));
+          } else {
+            valueSegs.push(lab(String(echo.kw)));
+          }
+        }
+        row(
+          ...label([lab(structuralEchoLabel(echo.kind, lang))]),
+          ...valueSegs,
+          lab(" "),
+          num(`×${echo.count}`),
+          ...lastSeg(echo.lastDate),
+        );
+      }
+    }
+
+    return rows;
   }
 
   private renderFooter(frame: CellBuffer, ctx: SceneContext, lang: DisplayLanguage): void {
@@ -372,7 +843,7 @@ export class JournalScene implements Scene {
       footer = `[enter] ${tr(lang, "verb.confirm")} · [esc] ${tr(lang, "verb.back")}`;
     } else if (this.patternsOpen) {
       // p also closes (a quiet toggle); only the universal key is advertised.
-      footer = `[esc] ${tr(lang, "verb.back")}`;
+      footer = `[↑↓] ${tr(lang, "verb.scroll")} · [esc] ${tr(lang, "verb.back")}`;
     } else if (this.searchActive) {
       footer = `[↑↓] ${tr(lang, "verb.navigate")} · [enter] ${tr(lang, "verb.view")} · [esc] ${tr(lang, "verb.clearSearch")}`;
     } else {
@@ -567,8 +1038,35 @@ export class JournalScene implements Scene {
   }
 
   private handlePatternsKey(key: KeyEvent): SceneSignal | void {
+    if (key.type === "char" && key.char === "k") {
+      this.patternsScroll.scrollUp();
+      return;
+    }
+    if (key.type === "char" && key.char === "j") {
+      this.patternsScroll.scrollDown();
+      return;
+    }
+    if (key.type === "arrow") {
+      if (key.direction === "up") this.patternsScroll.scrollUp();
+      if (key.direction === "down") this.patternsScroll.scrollDown();
+      return;
+    }
+    if (key.type === "page") {
+      if (key.direction === "up") this.patternsScroll.pageUp();
+      if (key.direction === "down") this.patternsScroll.pageDown();
+      return;
+    }
+    if (key.type === "home") {
+      this.patternsScroll.scrollToTop();
+      return;
+    }
+    if (key.type === "end") {
+      this.patternsScroll.scrollToBottom();
+      return;
+    }
     if (key.type === "escape" || (key.type === "char" && (key.char === "p" || key.char === "q"))) {
       this.patternsOpen = false;
+      this.patternsScroll.scrollToTop();
       return;
     }
   }
@@ -647,6 +1145,34 @@ function formatTime(iso: string): string {
   const h = String(d.getHours()).padStart(2, "0");
   const m = String(d.getMinutes()).padStart(2, "0");
   return `${h}:${m}`;
+}
+
+function formatNumber(value: number, digits: number): string {
+  if (!Number.isFinite(value)) return "0";
+  return value.toFixed(digits).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+}
+
+/**
+ * Pad to a display-column width. String.padEnd counts UTF-16 code units, so a
+ * label holding a hexagram glyph or CJK name would land 1–2 columns short and
+ * break the pane's shared value column — pad by stringWidth instead.
+ */
+function padToWidth(text: string, width: number): string {
+  const w = stringWidth(text);
+  return w >= width ? text : text + " ".repeat(width - w);
+}
+
+function structuralEchoLabel(kind: StructuralEcho["kind"], lang: DisplayLanguage): string {
+  switch (kind) {
+    case "nuclear":
+      return tr(lang, "journal.patterns.nuclear");
+    case "polarity":
+      return tr(lang, "journal.patterns.polarity");
+    case "mirror":
+      return tr(lang, "journal.patterns.mirror");
+    case "kingWenPair":
+      return tr(lang, "journal.patterns.kingWenPair");
+  }
 }
 
 /** Local YYYY-MM-DD (default for the injected `today`). */
