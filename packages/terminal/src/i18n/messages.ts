@@ -100,6 +100,10 @@ export const MESSAGES = {
   // Reflection notes — the quiet marker on annotated rows + the input prompt.
   "journal.noteMarker": { en: "note", zhHant: "註", zhHans: "注" },
   "journal.notePrompt": { en: "Note: ", zhHant: "註記：", zhHans: "注记：" },
+  // One calm line when a note's append never reached disk (the marker is
+  // withdrawn rather than rendering an unsaved note as kept). 儲存 follows
+  // the ratified save register (verb.saveBack).
+  "journal.noteSaveFailed": { en: "the note could not be saved", zhHant: "註記未能儲存", zhHans: "注记未能储存" },
   // Patterns pane — observation over the loaded entries, never a score.
   // 觀象 from 繫辭傳's 觀象玩辭 (observe the images, savor the words).
   "journal.patterns.title": { en: "Patterns", zhHant: "觀象", zhHans: "观象" },

@@ -9,6 +9,7 @@ import type { SceneContext } from "../scene/types.ts";
 import {
   JournalScene,
   entryMatchesQuery,
+  sanitizeFieldText,
   truncateToWidth,
   type JournalEntryView,
 } from "../scenes/journal/journal-scene.ts";
@@ -215,6 +216,19 @@ describe("JournalScene search ([/])", () => {
     scene.enter(ctx);
     expect(renderText(scene, ctx)).toContain("[/] search");
   });
+
+  test("pasted search text strips C1 controls before filtering", () => {
+    const ctx = ctxFor();
+    const scene = new JournalScene(entries);
+    scene.enter(ctx);
+
+    press(scene, ctx, "/");
+    // A C1 byte inside the pasted query must not poison the filter.
+    scene.handleKey({ type: "paste", text: "lau\u009bnch" }, ctx);
+    const text = renderText(scene, ctx);
+    expect(text).toContain("1 readings");
+    expect(text).toContain("the launch question");
+  });
 });
 
 describe("JournalScene reflection notes ([n])", () => {
@@ -247,7 +261,11 @@ describe("JournalScene reflection notes ([n])", () => {
     const ctx = ctxFor();
     const entries = [makeEntry("2026-03-01", 1)];
     let called = 0;
-    const scene = new JournalScene(entries, { onNote: () => called++ });
+    const scene = new JournalScene(entries, {
+      onNote: () => {
+        called++;
+      },
+    });
     scene.enter(ctx);
 
     press(scene, ctx, "n");
@@ -282,7 +300,9 @@ describe("JournalScene reflection notes ([n])", () => {
     const texts: string[] = [];
     const scene = new JournalScene(entries, {
       today: () => "2026-03-05",
-      onNote: (_e, t) => texts.push(t),
+      onNote: (_e, t) => {
+        texts.push(t);
+      },
     });
     scene.enter(ctx);
 
@@ -290,6 +310,45 @@ describe("JournalScene reflection notes ([n])", () => {
     scene.handleKey({ type: "paste", text: "line one\nline two\x07" }, ctx);
     press(scene, ctx, "enter");
     expect(texts).toEqual(["line one line two"]);
+  });
+
+  test("pasted note text strips C1 controls and raw ESC, not just C0", () => {
+    const ctx = ctxFor();
+    const entries = [makeEntry("2026-03-01", 1)];
+    const texts: string[] = [];
+    const scene = new JournalScene(entries, {
+      today: () => "2026-03-05",
+      onNote: (_e, t) => {
+        texts.push(t);
+      },
+    });
+    scene.enter(ctx);
+
+    press(scene, ctx, "n");
+    // \x1b (ESC) and the C1 controls \x85 (NEL) / \u009b (CSI) must all be
+    // stripped — the printable remainder of an ANSI sequence stays as text.
+    scene.handleKey({ type: "paste", text: "before\x1b[31m after\x85\u009btail" }, ctx);
+    press(scene, ctx, "enter");
+    expect(texts).toEqual(["before[31m aftertail"]);
+  });
+
+  test("a decoded C1 control arriving as a char event is dropped", () => {
+    const ctx = ctxFor();
+    const entries = [makeEntry("2026-03-01", 1)];
+    const texts: string[] = [];
+    const scene = new JournalScene(entries, {
+      today: () => "2026-03-05",
+      onNote: (_e, t) => {
+        texts.push(t);
+      },
+    });
+    scene.enter(ctx);
+
+    press(scene, ctx, "n");
+    scene.handleKey({ type: "char", char: "\u0085" }, ctx);
+    type(scene, ctx, "ok");
+    press(scene, ctx, "enter");
+    expect(texts).toEqual(["ok"]);
   });
 
   test("annotated entries keep their marker in the list", () => {
@@ -309,6 +368,188 @@ describe("JournalScene reflection notes ([n])", () => {
 
     press(scene, ctx, "j");
     expect(renderText(scene, ctx)).toContain("2026-03-02  already noted");
+  });
+});
+
+describe("JournalScene note persistence honesty", () => {
+  /** The preview row's first written cell (row rows-2, col 2). */
+  function previewCell(scene: JournalScene, ctx: SceneContext) {
+    const buf = CellBuffer.create(ctx.cols, ctx.rows);
+    scene.render(buf, ctx);
+    return buf.getCell(ctx.rows - 2, 2);
+  }
+
+  test("a promise-backed note renders dim while pending, settles to saved", async () => {
+    const ctx = ctxFor();
+    const entries = [makeEntry("2026-03-01", 1)];
+    let resolveSave!: () => void;
+    const scene = new JournalScene(entries, {
+      today: () => "2026-03-05",
+      onNote: () =>
+        new Promise<void>((resolve) => {
+          resolveSave = resolve;
+        }),
+    });
+    scene.enter(ctx);
+
+    press(scene, ctx, "n");
+    type(scene, ctx, "still in flight");
+    press(scene, ctx, "enter");
+
+    // Pending: visible immediately, but dim — not yet presented as durable.
+    expect(renderText(scene, ctx)).toContain("still in flight");
+    expect(previewCell(scene, ctx).dim).toBe(true);
+
+    resolveSave();
+    await scene.notesSettled();
+    expect(renderText(scene, ctx)).toContain("still in flight");
+    expect(previewCell(scene, ctx).dim ?? false).toBe(false);
+  });
+
+  test("a failed append withdraws the marker and shows one calm line", async () => {
+    const ctx = ctxFor();
+    const entries = [makeEntry("2026-03-01", 1)];
+    const scene = new JournalScene(entries, {
+      today: () => "2026-03-05",
+      onNote: () => Promise.reject(new Error("ENOSPC")),
+    });
+    scene.enter(ctx);
+
+    press(scene, ctx, "n");
+    type(scene, ctx, "lost to the disk");
+    press(scene, ctx, "enter");
+    await scene.notesSettled();
+
+    const text = renderText(scene, ctx);
+    expect(text).not.toContain("·note");
+    expect(text).not.toContain("lost to the disk");
+    expect(text).toContain("the note could not be saved");
+    expect(previewCell(scene, ctx).dim).toBe(true);
+  });
+
+  test("a retried note clears the failure line on success", async () => {
+    const ctx = ctxFor();
+    const entries = [makeEntry("2026-03-01", 1)];
+    let fail = true;
+    const scene = new JournalScene(entries, {
+      today: () => "2026-03-05",
+      onNote: () => (fail ? Promise.reject(new Error("EACCES")) : Promise.resolve()),
+    });
+    scene.enter(ctx);
+
+    press(scene, ctx, "n");
+    type(scene, ctx, "first try");
+    press(scene, ctx, "enter");
+    await scene.notesSettled();
+    expect(renderText(scene, ctx)).toContain("the note could not be saved");
+
+    fail = false;
+    press(scene, ctx, "n");
+    type(scene, ctx, "second try");
+    press(scene, ctx, "enter");
+    await scene.notesSettled();
+
+    const text = renderText(scene, ctx);
+    expect(text).not.toContain("the note could not be saved");
+    expect(text).toContain("second try");
+    expect(text).toContain("·note");
+  });
+
+  test("exit() awaits in-flight appends so teardown cannot lose the write", async () => {
+    const ctx = ctxFor();
+    const entries = [makeEntry("2026-03-01", 1)];
+    let landed = false;
+    const scene = new JournalScene(entries, {
+      today: () => "2026-03-05",
+      onNote: () =>
+        new Promise<void>((resolve) =>
+          setTimeout(() => {
+            landed = true;
+            resolve();
+          }, 15),
+        ),
+    });
+    scene.enter(ctx);
+
+    press(scene, ctx, "n");
+    type(scene, ctx, "enter then leave");
+    press(scene, ctx, "enter");
+    // esc right after committing — the scene is being torn down.
+    expect(press(scene, ctx, "escape")).toEqual({ type: "back" });
+
+    await scene.exit();
+    expect(landed).toBe(true);
+  });
+
+  test("a synchronous onNote is saved immediately (no pending dim)", () => {
+    const ctx = ctxFor();
+    const entries = [makeEntry("2026-03-01", 1)];
+    const scene = new JournalScene(entries, {
+      today: () => "2026-03-05",
+      onNote: () => {},
+    });
+    scene.enter(ctx);
+
+    press(scene, ctx, "n");
+    type(scene, ctx, "sync save");
+    press(scene, ctx, "enter");
+    expect(previewCell(scene, ctx).dim ?? false).toBe(false);
+  });
+});
+
+describe("JournalScene page up/down keeps the selection visible", () => {
+  // 30 entries, newest first after reversal: index 0 = 2026-01-30.
+  const entries = Array.from({ length: 30 }, (_, i) =>
+    makeEntry(`2026-01-${String(i + 1).padStart(2, "0")}`, (i % 64) + 1),
+  );
+
+  test("pageDown lands the cursor inside the rendered window", () => {
+    const ctx = ctxFor(10, 80); // viewport = rows - 4 = 6
+    const scene = new JournalScene(entries);
+    scene.enter(ctx);
+
+    // One page down: cursor 0 → 6 (entry 2026-01-24). The ScrollableRegion
+    // holds no content lines, so without ensureCursorVisible the offset
+    // stayed 0 and the selected row left the viewport entirely.
+    scene.handleKey({ type: "page", direction: "down" }, ctx);
+    expect(renderText(scene, ctx)).toMatch(/ > .*2026-01-24/);
+
+    // A second page keeps tracking.
+    scene.handleKey({ type: "page", direction: "down" }, ctx);
+    expect(renderText(scene, ctx)).toMatch(/ > .*2026-01-18/);
+  });
+
+  test("pageUp from the end scrolls the selection back into view", () => {
+    const ctx = ctxFor(10, 80);
+    const scene = new JournalScene(entries);
+    scene.enter(ctx);
+
+    press(scene, ctx, "end"); // cursor 29 → 2026-01-01
+    expect(renderText(scene, ctx)).toMatch(/ > .*2026-01-01/);
+
+    scene.handleKey({ type: "page", direction: "up" }, ctx);
+    expect(renderText(scene, ctx)).toMatch(/ > .*2026-01-07/);
+  });
+
+  test("pageDown clamps at the last entry and stays visible", () => {
+    const ctx = ctxFor(10, 80);
+    const scene = new JournalScene(entries);
+    scene.enter(ctx);
+
+    for (let i = 0; i < 10; i++) {
+      scene.handleKey({ type: "page", direction: "down" }, ctx);
+    }
+    expect(renderText(scene, ctx)).toMatch(/ > .*2026-01-01/);
+  });
+});
+
+describe("sanitizeFieldText", () => {
+  test("folds newlines/tabs and strips C0, DEL, C1, and ESC", () => {
+    expect(sanitizeFieldText("a\nb\tc")).toBe("a b c");
+    expect(sanitizeFieldText("a\x07b\x7fc")).toBe("abc");
+    expect(sanitizeFieldText("a\x1b[2Jb")).toBe("a[2Jb");
+    expect(sanitizeFieldText("a\u0085b\u009bc\u0090d")).toBe("abcd");
+    expect(sanitizeFieldText("漢字 ok")).toBe("漢字 ok");
   });
 });
 

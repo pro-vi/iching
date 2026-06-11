@@ -275,6 +275,25 @@ describe("CastScene escape key", () => {
   });
 });
 
+describe("CastScene exitSignal option", () => {
+  test("default esc/q exit to home — the standalone cast flow is unchanged", () => {
+    const scene = new CastScene(makeCast(), "reduced");
+    expect(scene.handleKey({ type: "escape" }, makeCtx())).toEqual({ type: "home" });
+    expect(scene.handleKey({ type: "char", char: "q" }, makeCtx())).toEqual({ type: "home" });
+  });
+
+  test("exitSignal 'back' routes esc/q to a router pop (journal replay)", () => {
+    // The journal factory builds replays with exitSignal "back" so esc pops
+    // to the ORIGINAL journal list instead of unwinding the router to Home.
+    const scene = new CastScene(makeCast(), "reduced", 80, undefined, 24, undefined, {
+      exitSignal: "back",
+    });
+    scene.skipToComplete(false);
+    expect(scene.handleKey({ type: "escape" }, makeCtx())).toEqual({ type: "back" });
+    expect(scene.handleKey({ type: "char", char: "q" }, makeCtx())).toEqual({ type: "back" });
+  });
+});
+
 describe("CastScene pace control", () => {
   test("space toggles pause during the reveal", () => {
     const scene = new CastScene(makeCast(), "reduced");
