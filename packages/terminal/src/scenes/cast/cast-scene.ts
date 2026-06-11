@@ -40,6 +40,8 @@ export class CastScene implements Scene {
   // this advances relative to the loop's elapsed time.
   private virtualElapsed = 0;
   private lastElapsed = 0;
+  // Motion-preset time dilation for glyph reveals on focus changes (0 = static).
+  private glyphAnimScale = 1;
 
   constructor(
     cast: Cast,
@@ -72,6 +74,7 @@ export class CastScene implements Scene {
       };
     }
     const timing = getPreset(preset);
+    this.glyphAnimScale = timing.glyphAnimScale;
     const step = buildCastTimeline(cast, this.model, timing, termWidth, this.glyphConfig, opts);
     this.timeline = new TimelineRunner(step);
   }
@@ -248,8 +251,18 @@ export class CastScene implements Scene {
       ? this.model.primaryGlyphEntry
       : this.model.becomingGlyphEntry;
     if (entry && this.glyphConfig) {
-      this.model.glyphAnimator = createGlyphAnimator(this.glyphConfig.glyphAnim, entry);
-      this.model.glyphAnimDone = false;
+      if (this.glyphAnimScale > 0) {
+        this.model.glyphAnimator = createGlyphAnimator(
+          this.glyphConfig.glyphAnim,
+          entry,
+          this.glyphAnimScale,
+        );
+        this.model.glyphAnimDone = false;
+      } else {
+        // Reduced motion: no animation — show the settled glyph immediately.
+        this.model.glyphAnimator = null;
+        this.model.glyphAnimDone = true;
+      }
     }
   }
 
