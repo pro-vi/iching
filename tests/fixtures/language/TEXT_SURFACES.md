@@ -1445,7 +1445,7 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   file: apps/cli/src/commands/doctor.ts
   code_locator: "L21–161"
   current_text: |
-    "Glyphs"/"Data"/"Color"/"Terminal"/"Paths" check names; "I Ching Doctor"; "OK"/"WARN"/"FAIL";
+    "Glyphs"/"Data"/"Color"/"Terminal"/"Paths"/"Journal" check names; "I Ching Doctor"; "OK"/"WARN"/"FAIL";
     "Config:"/"State:"/"Cache:" + "[exists]"/"[not found]"; "truecolor (24-bit)"/"256-color"/"basic (16-color)"/"unknown";
     "Some trigram glyphs may not render correctly"; "${n} check(s) failed. Please review the output above.";
     "All checks passed with ${n} warning(s)."; "All checks passed.";
@@ -1453,7 +1453,9 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
     "GUA: ${guaCount} entries, BINARY_TO_KW: ${binaryCount} entries, alignment verified";
     "GUA: ${guaCount}/64, BINARY_TO_KW: ${binaryCount}/64, valid=${allValid}, unique=${unique}";
     "NO_COLOR is set — color output disabled"; "COLORTERM=${colorterm}, TERM=${term} → ${level}";
-    "(< 80 columns — some output may wrap)"
+    "(< 80 columns — some output may wrap)";
+    journal integrity check: "no journal yet — cast in the TUI to begin";
+    "${entryCount} reading(s) recorded"; "${counts}, ${skipped} unreadable line(s) skipped"
   surface_class: cli-commands
   render_context: "doctor stdout + (--json name/detail values)"
   language_policy: translate

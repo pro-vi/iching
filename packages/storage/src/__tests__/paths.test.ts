@@ -38,6 +38,9 @@ describe("resolvePaths", () => {
     expect(paths.state).toBe(
       join(home, ".local", "state", "iching", "history.jsonl"),
     );
+    expect(paths.notes).toBe(
+      join(home, ".local", "state", "iching", "notes.jsonl"),
+    );
     expect(paths.cache).toBe(join(home, ".cache", "iching", "daily-cache.json"));
   });
 
@@ -54,6 +57,9 @@ describe("resolvePaths", () => {
     expect(paths.state).toBe(
       join("/tmp/xdg-state", "iching", "history.jsonl"),
     );
+    expect(paths.notes).toBe(
+      join("/tmp/xdg-state", "iching", "notes.jsonl"),
+    );
     expect(paths.cache).toBe(
       join("/tmp/xdg-cache", "iching", "daily-cache.json"),
     );
@@ -66,6 +72,7 @@ describe("resolvePaths", () => {
 
     expect(paths.config).toBe(join("/tmp/iching-home", "config.json"));
     expect(paths.state).toBe(join("/tmp/iching-home", "history.jsonl"));
+    expect(paths.notes).toBe(join("/tmp/iching-home", "notes.jsonl"));
     expect(paths.cache).toBe(join("/tmp/iching-home", "daily-cache.json"));
   });
 
@@ -75,6 +82,7 @@ describe("resolvePaths", () => {
 
     expect(paths.config).toBe(join("/tmp/override", "config.json"));
     expect(paths.state).toBe(join("/tmp/override", "history.jsonl"));
+    expect(paths.notes).toBe(join("/tmp/override", "notes.jsonl"));
     expect(paths.cache).toBe(join("/tmp/override", "daily-cache.json"));
   });
 

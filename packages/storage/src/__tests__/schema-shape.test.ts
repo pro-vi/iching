@@ -176,11 +176,12 @@ describe("schema shape — note", () => {
       text: "what happened after",
     };
     await store.appendNote(note);
-    const text = await readFile(join(dir, "history.jsonl"), "utf-8");
+    // Notes land in the notes.jsonl sidecar, never in history.jsonl.
+    const text = await readFile(join(dir, "notes.jsonl"), "utf-8");
     const onDisk = JSON.parse(text.trim());
     assertShape(Object.keys(onDisk), SCHEMA_KEYS.note);
     expect(Object.keys(onDisk).sort()).toEqual([...SCHEMA_KEYS.note.required].sort());
-    // The discriminator is what keeps notes out of entry reads
+    // The discriminator is what keeps legacy in-journal notes out of entry reads
     expect(onDisk.kind).toBe("note");
   });
 });

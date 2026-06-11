@@ -207,6 +207,51 @@ describe("JsonlJournalStore", () => {
       expect(store.skippedLines).toBe(2);
     });
 
+    // Self-healing append: a torn final line (no trailing newline) must not
+    // glue the NEXT record onto the fragment — that silently loses a real
+    // reading, not just the already-damaged bytes.
+    test("append after a torn final line starts a fresh line", async () => {
+      const { appendFile } = await import("node:fs/promises");
+      await store.append(makeEntry("2025-01-01"));
+      // Torn append: no trailing newline, truncated mid-object.
+      await appendFile(join(dir, "history.jsonl"), '{"date":"2025-01-0', "utf-8");
+
+      await store.append(makeEntry("2025-01-02"));
+
+      const results: HistoryEntry[] = [];
+      for await (const entry of store.stream()) {
+        results.push(entry);
+      }
+      // The new entry survives on its own line; only the fragment is damage.
+      expect(results.map((e) => e.date)).toEqual(["2025-01-01", "2025-01-02"]);
+      expect(store.skippedLines).toBe(1);
+
+      const raw = await readFile(join(dir, "history.jsonl"), "utf-8");
+      expect(raw).toContain('{"date":"2025-01-0\n');
+      expect(raw.endsWith("\n")).toBe(true);
+    });
+
+    test("appendNote after a torn sidecar line starts a fresh line", async () => {
+      const { appendFile, mkdir } = await import("node:fs/promises");
+      await mkdir(dir, { recursive: true });
+      await appendFile(join(dir, "notes.jsonl"), '{"kind":"note","re', "utf-8");
+
+      const note: ReflectionNote = {
+        kind: "note",
+        ref: "2025-01-01",
+        date: "2025-01-20",
+        timestamp: "2025-01-20T21:00:00.000Z",
+        text: "survives the tear",
+      };
+      await store.appendNote(note);
+
+      const notes: ReflectionNote[] = [];
+      for await (const n of store.streamNotes()) {
+        notes.push(n);
+      }
+      expect(notes.map((n) => n.text)).toEqual(["survives the tear"]);
+    });
+
     test("skippedLines resets between reads", async () => {
       const { appendFile } = await import("node:fs/promises");
       await store.append(makeEntry("2025-01-01"));
@@ -226,9 +271,11 @@ describe("JsonlJournalStore", () => {
   });
 });
 
-// Reflection notes — the second record shape sharing the journal file.
+// Reflection notes — the second record shape, written to the notes.jsonl
+// sidecar beside the journal so pre-note binaries never meet them.
 // kind:"note" lines must never surface as readings, must not count as
-// damage, and must stream back in append order.
+// damage, and must stream back in append order (legacy in-journal notes
+// first, then the sidecar).
 describe("JsonlJournalStore reflection notes", () => {
   let dir: string;
   let store: JsonlJournalStore;
@@ -248,15 +295,52 @@ describe("JsonlJournalStore reflection notes", () => {
     };
   }
 
-  test("appendNote writes exactly one JSON line + newline", async () => {
+  test("appendNote writes exactly one JSON line + newline to the sidecar", async () => {
     const note = makeNote("2025-01-15", "it resolved itself");
     await store.appendNote(note);
 
-    const raw = await readFile(join(dir, "history.jsonl"), "utf-8");
+    const raw = await readFile(join(dir, "notes.jsonl"), "utf-8");
     const lines = raw.split("\n");
     expect(lines).toHaveLength(2);
     expect(lines[1]).toBe("");
     expect(JSON.parse(lines[0])).toEqual(note);
+  });
+
+  // The one-way-door regression: a 0.4.0 binary reads history.jsonl with bare
+  // JSON.parse and no kind discrimination — a note record in that file crashes
+  // it permanently. Notes must therefore never land in history.jsonl.
+  test("appendNote never touches history.jsonl (old binaries stay calm)", async () => {
+    const { stat } = await import("node:fs/promises");
+    await store.append(makeEntry("2025-01-01"));
+    const before = await readFile(join(dir, "history.jsonl"), "utf-8");
+
+    await store.appendNote(makeNote("2025-01-01", "nightly reflection"));
+
+    const after = await readFile(join(dir, "history.jsonl"), "utf-8");
+    expect(after).toBe(before);
+    // Every history line still parses as a plain reading (no kind records).
+    for (const line of after.trim().split("\n")) {
+      const record = JSON.parse(line);
+      expect(record.kind).toBeUndefined();
+    }
+    expect((await stat(join(dir, "notes.jsonl"))).size).toBeGreaterThan(0);
+  });
+
+  test("streamNotes merges legacy in-journal notes before sidecar notes", async () => {
+    const { appendFile } = await import("node:fs/promises");
+    // Legacy: a note written into history.jsonl by a pre-sidecar binary.
+    const legacy = makeNote("2025-01-01", "legacy note");
+    await store.append(makeEntry("2025-01-01"));
+    await appendFile(join(dir, "history.jsonl"), JSON.stringify(legacy) + "\n", "utf-8");
+    // Current: a note appended through the sidecar path.
+    await store.appendNote(makeNote("2025-01-01", "sidecar note"));
+
+    const notes: ReflectionNote[] = [];
+    for await (const note of store.streamNotes()) {
+      notes.push(note);
+    }
+
+    expect(notes.map((n) => n.text)).toEqual(["legacy note", "sidecar note"]);
   });
 
   test("stream skips note records without counting them as damage", async () => {

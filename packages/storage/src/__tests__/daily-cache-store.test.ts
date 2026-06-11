@@ -106,6 +106,41 @@ describe("JsonDailyCacheStore", () => {
       expect(await store.read()).toBeNull();
     });
 
+    // Shape validation: valid JSON that is missing the keys readers
+    // dereference (cast.lines / cast.primary) must be treated exactly like
+    // corrupt bytes — null + sidecar — never returned for today/hook to
+    // crash on.
+    test("read returns null + sidecar for valid JSON missing cast", async () => {
+      const { writeFile, readFile } = await import("node:fs/promises");
+      const path = join(dir, "daily-cache.json");
+      const damaged = '{"date":"2025-01-15","shown":true}';
+      await writeFile(path, damaged, "utf-8");
+
+      expect(await store.read()).toBeNull();
+
+      const backup = await readFile(`${path}.corrupt`, "utf-8");
+      expect(backup).toBe(damaged);
+    });
+
+    test("read returns null for a cast missing lines/primary", async () => {
+      const { writeFile } = await import("node:fs/promises");
+      const path = join(dir, "daily-cache.json");
+      await writeFile(
+        path,
+        '{"date":"2025-01-15","cast":{"becoming":null},"shown":true}',
+        "utf-8",
+      );
+      expect(await store.read()).toBeNull();
+    });
+
+    test("read returns null when date is not a string", async () => {
+      const { writeFile } = await import("node:fs/promises");
+      const record = makeCache("2025-01-15") as unknown as Record<string, unknown>;
+      record.date = 20250115;
+      await writeFile(join(dir, "daily-cache.json"), JSON.stringify(record), "utf-8");
+      expect(await store.read()).toBeNull();
+    });
+
     test("a fresh write after corruption recovers normal round-trips", async () => {
       const { writeFile } = await import("node:fs/promises");
       const path = join(dir, "daily-cache.json");

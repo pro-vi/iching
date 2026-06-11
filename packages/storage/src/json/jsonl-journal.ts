@@ -1,5 +1,5 @@
-import { appendFile, readFile, mkdir, stat } from "node:fs/promises";
-import { dirname } from "node:path";
+import { appendFile, readFile, mkdir, open, stat } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { createReadStream } from "node:fs";
 import { createInterface } from "node:readline";
 import type { HistoryEntry, ReflectionNote } from "@iching/core";
@@ -10,9 +10,10 @@ import type { JournalStore } from "../journal-store.js";
  * Classify one JSONL line:
  * - a HistoryEntry (lines without a `kind` discriminator — every record
  *   written before reflection notes landed, and every reading since);
- * - a known non-entry record (`kind` present — notes today, anything a
- *   future version appends tomorrow). Skipped by entry reads WITHOUT being
- *   counted as damage: an old binary reading a newer journal must stay calm.
+ * - a known non-entry record (`kind` present — legacy notes written into
+ *   history.jsonl before the notes.jsonl sidecar landed, anything a future
+ *   version appends tomorrow). Skipped by entry reads WITHOUT being counted
+ *   as damage: an old binary reading a newer journal must stay calm.
  * - torn (invalid JSON from a partial append) or malformed (hand-edit
  *   damage) — skipped and counted, never fatal.
  */
@@ -53,6 +54,26 @@ function parseNoteRecord(record: Record<string, unknown>): ReflectionNote | null
   };
 }
 
+/** True when `path` exists, is non-empty, and its last byte is not "\n". */
+async function endsMidLine(path: string): Promise<boolean> {
+  let handle;
+  try {
+    handle = await open(path, "r");
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw err;
+  }
+  try {
+    const { size } = await handle.stat();
+    if (size === 0) return false;
+    const tail = Buffer.alloc(1);
+    await handle.read(tail, 0, 1, size - 1);
+    return tail[0] !== 0x0a; // "\n"
+  } finally {
+    await handle.close();
+  }
+}
+
 export class JsonlJournalStore implements JournalStore {
   /**
    * Malformed lines skipped by the most recent stream() or latest() call.
@@ -61,23 +82,41 @@ export class JsonlJournalStore implements JournalStore {
    */
   skippedLines = 0;
 
-  constructor(private readonly path: string) {}
+  /**
+   * Reflection notes live in a sidecar file beside the journal (notes.jsonl
+   * next to history.jsonl) so a pre-note binary streaming history.jsonl never
+   * meets a record shape it cannot parse. Defaults to the journal's own
+   * directory; callers with a ResolvedPaths may pass paths.notes explicitly.
+   */
+  private readonly notesPath: string;
+
+  constructor(private readonly path: string, notesPath?: string) {
+    this.notesPath = notesPath ?? join(dirname(path), "notes.jsonl");
+  }
 
   async append(entry: HistoryEntry): Promise<void> {
-    await mkdir(dirname(this.path), { recursive: true });
-    const line = JSON.stringify(entry) + "\n";
-    await appendFile(this.path, line, "utf-8");
+    await this.appendLine(this.path, JSON.stringify(entry));
   }
 
   async appendNote(note: ReflectionNote): Promise<void> {
-    await mkdir(dirname(this.path), { recursive: true });
-    const line = JSON.stringify(note) + "\n";
-    await appendFile(this.path, line, "utf-8");
+    await this.appendLine(this.notesPath, JSON.stringify(note));
+  }
+
+  /**
+   * Append one record as its own JSONL line, self-healing a torn final line:
+   * if the file's last byte is not "\n" (a previous append was interrupted
+   * mid-record), lead with a newline so the new record starts a fresh line
+   * instead of gluing onto the fragment and being silently lost with it.
+   */
+  private async appendLine(path: string, json: string): Promise<void> {
+    await mkdir(dirname(path), { recursive: true });
+    const heal = (await endsMidLine(path)) ? "\n" : "";
+    await appendFile(path, heal + json + "\n", "utf-8");
   }
 
   async *stream(query?: HistoryQuery): AsyncIterable<HistoryEntry> {
     this.skippedLines = 0;
-    if (!(await this.exists())) return;
+    if (!(await this.exists(this.path))) return;
 
     const rl = createInterface({
       input: createReadStream(this.path, { encoding: "utf-8" }),
@@ -114,10 +153,18 @@ export class JsonlJournalStore implements JournalStore {
   }
 
   async *streamNotes(): AsyncIterable<ReflectionNote> {
-    if (!(await this.exists())) return;
+    // Legacy first: notes written into history.jsonl before the sidecar
+    // landed predate everything in notes.jsonl, so yielding the journal's
+    // own kind:"note" lines before the sidecar preserves append order.
+    yield* this.notesIn(this.path);
+    yield* this.notesIn(this.notesPath);
+  }
+
+  private async *notesIn(path: string): AsyncIterable<ReflectionNote> {
+    if (!(await this.exists(path))) return;
 
     const rl = createInterface({
-      input: createReadStream(this.path, { encoding: "utf-8" }),
+      input: createReadStream(path, { encoding: "utf-8" }),
       crlfDelay: Infinity,
     });
 
@@ -133,7 +180,7 @@ export class JsonlJournalStore implements JournalStore {
 
   async latest(): Promise<HistoryEntry | null> {
     this.skippedLines = 0;
-    if (!(await this.exists())) return null;
+    if (!(await this.exists(this.path))) return null;
 
     const content = await readFile(this.path, "utf-8");
     const lines = content.trimEnd().split("\n");
@@ -156,9 +203,9 @@ export class JsonlJournalStore implements JournalStore {
     return null;
   }
 
-  private async exists(): Promise<boolean> {
+  private async exists(path: string): Promise<boolean> {
     try {
-      await stat(this.path);
+      await stat(path);
       return true;
     } catch {
       return false;

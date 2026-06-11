@@ -5,6 +5,7 @@ import { join } from "node:path";
 export interface ResolvedPaths {
   config: string; // config.json
   state: string; // history.jsonl
+  notes: string; // notes.jsonl — reflection-note sidecar, beside history.jsonl
   cache: string; // daily-cache.json
 }
 
@@ -24,6 +25,7 @@ export function resolvePaths(overrides?: { dataDir?: string }): ResolvedPaths {
     return {
       config: join(overrides.dataDir, "config.json"),
       state: join(overrides.dataDir, "history.jsonl"),
+      notes: join(overrides.dataDir, "notes.jsonl"),
       cache: join(overrides.dataDir, "daily-cache.json"),
     };
   }
@@ -34,6 +36,7 @@ export function resolvePaths(overrides?: { dataDir?: string }): ResolvedPaths {
     return {
       config: join(ichingHome, "config.json"),
       state: join(ichingHome, "history.jsonl"),
+      notes: join(ichingHome, "notes.jsonl"),
       cache: join(ichingHome, "daily-cache.json"),
     };
   }
@@ -46,6 +49,7 @@ export function resolvePaths(overrides?: { dataDir?: string }): ResolvedPaths {
   return {
     config: join(xdgConfig, "iching", "config.json"),
     state: join(xdgState, "iching", "history.jsonl"),
+    notes: join(xdgState, "iching", "notes.jsonl"),
     cache: join(xdgCache, "iching", "daily-cache.json"),
   };
 }

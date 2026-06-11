@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { existsSync } from "node:fs";
 import { GUA, BINARY_TO_KW, TRIGRAMS } from "@iching/core";
-import { resolvePaths } from "@iching/storage";
+import { resolvePaths, JsonlJournalStore } from "@iching/storage";
 import { outputJson } from "../output/json.js";
 
 interface CheckResult {
@@ -113,6 +113,38 @@ function checkPaths(dataDir?: string): CheckResult {
   };
 }
 
+async function checkJournal(dataDir?: string): Promise<CheckResult> {
+  const paths = resolvePaths(dataDir ? { dataDir } : undefined);
+  if (!existsSync(paths.state)) {
+    return {
+      name: "Journal",
+      status: "pass",
+      detail: "no journal yet — cast in the TUI to begin",
+    };
+  }
+
+  // Stream the whole journal so torn/malformed lines surface as a count —
+  // path existence alone says nothing about whether the entries still read.
+  const journal = new JsonlJournalStore(paths.state);
+  let entryCount = 0;
+  for await (const _entry of journal.stream()) {
+    entryCount++;
+  }
+
+  const skipped = journal.skippedLines;
+  const counts = `${entryCount} reading(s) recorded`;
+  if (skipped > 0) {
+    // Damage is a warning, not a failure: the surrounding readings remain
+    // intact and every reader skips torn lines without crashing.
+    return {
+      name: "Journal",
+      status: "warn",
+      detail: `${counts}, ${skipped} unreadable line(s) skipped`,
+    };
+  }
+  return { name: "Journal", status: "pass", detail: counts };
+}
+
 const STATUS_ICONS: Record<string, string> = {
   pass: "OK",
   warn: "WARN",
@@ -123,7 +155,7 @@ export function registerDoctorCommand(program: Command): void {
   program
     .command("doctor")
     .description("Verify environment and configuration")
-    .action(() => {
+    .action(async () => {
       const globalOpts = program.opts();
       const checks: CheckResult[] = [
         checkGlyphs(),
@@ -131,6 +163,7 @@ export function registerDoctorCommand(program: Command): void {
         checkColor(),
         checkTerminal(),
         checkPaths(globalOpts.dataDir),
+        await checkJournal(globalOpts.dataDir),
       ];
 
       if (globalOpts.json) {
