@@ -110,6 +110,19 @@ describe("makeJournalFactory", () => {
     const scene = factory({ type: "openJournal" });
     expect(scene).toBeInstanceOf(JournalScene);
   });
+
+  test("typed home (esc-from-replay) returns to the journal list, not the home loop", () => {
+    // A replayed CastScene's esc emits { type: "home" }. Unhandled, the
+    // journal router exits all the way to Home — but the replay footer says
+    // "back", so esc must land on the journal list again.
+    const factory = makeJournalFactory({
+      journal,
+      entries: [],
+      session: { cols: 80, rows: 24 },
+    });
+    const scene = factory({ type: "home" });
+    expect(scene).toBeInstanceOf(JournalScene);
+  });
 });
 
 describe("cast context (changedPositions) pass-through", () => {

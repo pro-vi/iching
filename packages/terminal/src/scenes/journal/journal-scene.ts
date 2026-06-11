@@ -46,6 +46,27 @@ function normalize(str: string): string {
     .toLowerCase();
 }
 
+/**
+ * Truncate to a display-width budget with a trailing one-column ellipsis.
+ * List rows and previews must clip by terminal columns, not UTF-16 code
+ * units — a CJK string sliced by code units keeps up to twice its budget
+ * and runs off the right edge (taking the ellipsis with it).
+ */
+export function truncateToWidth(text: string, maxWidth: number): string {
+  if (maxWidth <= 0) return "";
+  if (stringWidth(text) <= maxWidth) return text;
+  const budget = maxWidth - 1; // reserve one column for the ellipsis
+  let out = "";
+  let used = 0;
+  for (const ch of text) {
+    const w = stringWidth(ch);
+    if (used + w > budget) break;
+    out += ch;
+    used += w;
+  }
+  return out + "…";
+}
+
 /** Does this hexagram match the query (name / simplified / pinyin / ename / number)? */
 function hexagramMatches(kw: number, q: string): boolean {
   const gua = GUA[kw - 1];
@@ -185,13 +206,9 @@ export class JournalScene implements Scene {
         }
       }
 
-      // Intention
+      // Intention — a 30-column budget (CJK counts double)
       if (entry.intention) {
-        const maxLen = 30;
-        const truncated = entry.intention.length > maxLen
-          ? entry.intention.slice(0, maxLen - 1) + "…"
-          : entry.intention;
-        line += `  “${truncated}”`;
+        line += `  “${truncateToWidth(entry.intention, 30)}”`;
       }
 
       // Quiet marker for annotated entries (·註 / ·note)
@@ -199,10 +216,8 @@ export class JournalScene implements Scene {
         line += `  ·${tr(lang, "journal.noteMarker")}`;
       }
 
-      // Truncate to width
-      if (stringWidth(line) > maxW - 4) {
-        line = line.slice(0, maxW - 5) + "…";
-      }
+      // Truncate to the viewport's column budget
+      line = truncateToWidth(line, maxW - 4);
 
       const col = 3;
       const cursor = isSelected ? " > " : "   ";
@@ -240,10 +255,10 @@ export class JournalScene implements Scene {
 
     const latestNote = selected.notes?.[selected.notes.length - 1];
     if (latestNote) {
-      let text = `·${tr(lang, "journal.noteMarker")} ${latestNote.date}  ${latestNote.text}`;
-      if (stringWidth(text) > maxW - 4) {
-        text = text.slice(0, maxW - 5) + "…";
-      }
+      const text = truncateToWidth(
+        `·${tr(lang, "journal.noteMarker")} ${latestNote.date}  ${latestNote.text}`,
+        maxW - 4,
+      );
       frame.writeText(detailRow, 2, text, { fg: t.tertiary, dim: true });
       return;
     }

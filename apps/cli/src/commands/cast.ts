@@ -12,6 +12,7 @@ import {
 import { resolvePaths, JsonConfigStore } from "@iching/storage";
 import { formatCastPlain } from "../output/plain.js";
 import { outputJson, castToJson } from "../output/json.js";
+import { parseSeed } from "../util/parse-seed.js";
 
 export function registerCastCommand(program: Command): void {
   program
@@ -21,18 +22,10 @@ export function registerCastCommand(program: Command): void {
     .option("--bound", "bind the cast to the question and moment (local entropy)")
     .action(async (question: string | undefined, cmdOpts: { bound?: boolean }) => {
       const opts = program.opts();
-      // Validate --seed: Number("abc") is NaN, and NaN|0 collapses the PRNG
-      // state to a constant — a typo'd seed would silently yield the same
-      // "random" cast forever. Reject anything non-numeric loudly instead.
-      let seed: number | undefined;
-      const rawSeed = opts.seed as string | undefined;
-      if (rawSeed !== undefined) {
-        seed = Number(rawSeed);
-        if (rawSeed.trim() === "" || !Number.isFinite(seed)) {
-          console.error(`Invalid --seed "${rawSeed}": expected a number.`);
-          process.exit(1);
-        }
-      }
+      // --seed validation (stderr + exit 1 on garbage) lives in the shared
+      // util/parse-seed.ts helper so the TUI entry refuses a bad seed the
+      // same way this command does.
+      const seed = parseSeed(opts.seed as string | undefined);
 
       // Entropy: an explicit --seed is its own deterministic path; otherwise
       // --bound (or the saved entropy config) mixes the question and moment

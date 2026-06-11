@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
 import { program } from "./program.js";
+import { parseSeed } from "./util/parse-seed.js";
 import { localToday } from "./util/today.js";
+import { readTodayCache } from "./util/today-cache.js";
 
 async function main() {
   // Operands are non-option args — i.e. actual subcommand names.
@@ -16,6 +18,13 @@ async function main() {
     await program.parseAsync(process.argv);
     return;
   }
+
+  // Validate the global --seed before either no-subcommand mode runs: a
+  // typo'd seed must exit 1 here — before the TUI enters the alt screen or
+  // the hook touches storage — not collapse the PRNG into a constant cast
+  // (see util/parse-seed.ts). Command mode revalidates via the same helper
+  // in commands/cast.ts.
+  const seed = hasSubcommand ? undefined : parseSeed(program.opts().seed);
 
   // Hook mode: no subcommand + stdin is piped (not a TTY) → Claude Code hook
   if (!hasSubcommand && !process.stdin.isTTY) {
@@ -84,12 +93,10 @@ async function main() {
     let running = true;
     try {
       while (running) {
-        // Computed per iteration (not once at startup) so a session left open
+        // Resolved per iteration (not once at startup) so a session left open
         // past midnight rolls over to the new day's reading.
-        const today = localToday();
-        const currentCache = await cacheStore.read();
         const homeScene = new HomeScene({
-          todayCast: currentCache?.date === today ? currentCache : null,
+          todayCast: await readTodayCache(cacheStore, localToday),
           taijituStyle,
           devMode: !!opts.dev,
         });
@@ -120,7 +127,7 @@ async function main() {
           }
           return castMode === "manual"
             ? { type: "manual" }
-            : { type: "auto", seed: opts.seed ? Number(opts.seed) : undefined };
+            : { type: "auto", seed };
         };
 
         switch (signal.type) {
@@ -144,15 +151,19 @@ async function main() {
 
           case "openToday": {
             // Reopen today's reading: replay the cached cast (static reveal,
-            // no persistence). HomeScene only emits this when a cast exists
-            // for today; re-check here so a stale signal can't replay yesterday.
-            if (currentCache?.date === today) {
+            // no persistence). HomeScene only emits this when a cast existed
+            // for today — but [t] may land hours after that render (the home
+            // scene blocks across midnight), so re-resolve clock AND cache at
+            // dispatch time. Stale → fall through; the loop re-renders home
+            // with current data.
+            const todayCache = await readTodayCache(cacheStore, localToday);
+            if (todayCache) {
               const result = await runReadingFlow(flowDeps, {
                 purpose: "replay",
                 source: {
                   type: "existing",
-                  cast: currentCache.cast,
-                  intention: currentCache.intention,
+                  cast: todayCache.cast,
+                  intention: todayCache.intention,
                 },
               });
               if (result.shouldExit) running = false;

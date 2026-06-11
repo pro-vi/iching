@@ -1367,8 +1367,8 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   notes: "Name/pinyin/trigram lookup via core searchHexagrams (resolveHexagramQuery shared by hexagram+dict). --json shortlist uses stable keys number/name/pinyin/ename/symbol."
 
 - surface_id: cli-cast-seed-error
-  file: apps/cli/src/commands/cast.ts
-  code_locator: "--seed validation"
+  file: apps/cli/src/util/parse-seed.ts (called from apps/cli/src/commands/cast.ts + main.ts)
+  code_locator: "parseSeed() shared --seed validation"
   current_text: '"Invalid --seed \"${rawSeed}\": expected a number."'
   surface_class: cli-invalid-paths
   render_context: "stderr, exit 1"
@@ -1543,8 +1543,8 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   notes: "Entropy-binding opt-in (B4). Flag token --bound = machine token (preserve); description English Commander help like its siblings. Honest-provenance wording: question/moment participation, no efficacy claim."
 
 - surface_id: cli-cast-seed-error
-  file: apps/cli/src/commands/cast.ts
-  code_locator: "--seed validation guard (exit 1)"
+  file: apps/cli/src/util/parse-seed.ts (shared by apps/cli/src/commands/cast.ts + main.ts no-subcommand modes)
+  code_locator: "parseSeed() — the shared --seed validation guard (exit 1)"
   current_text: 'Invalid --seed "…": expected a number.'
   surface_class: cli-invalid-paths
   render_context: "stderr, exit 1 (typo-proofing the deterministic seed path)"
@@ -1554,8 +1554,8 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   risk: medium
   agentify_required: no
   status: open
-  verifier: "--cli invalid-path (asserted by cast.test.ts subprocess suite)"
-  notes: "Regression guard: Number(\"abc\") is NaN and NaN|0 collapsed the PRNG. Mirrors cli-range-errors disposition."
+  verifier: "--cli invalid-path (asserted by cast.test.ts + main-mode-routing.test.ts subprocess suites)"
+  notes: "Regression guard: Number(\"abc\") is NaN and NaN|0 collapsed the PRNG. Mirrors cli-range-errors disposition. Hoisted into util/parse-seed.ts so the TUI/hook entry refuses a bad seed before the alt screen — `iching --seed abc` previously fell through and persisted the NaN-collapsed constant cast."
 
 - surface_id: cli-config-positional-args
   file: apps/cli/src/commands/config.ts

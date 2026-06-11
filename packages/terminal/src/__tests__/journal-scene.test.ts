@@ -4,10 +4,12 @@
 import { describe, test, expect } from "bun:test";
 import type { Cast, Line } from "@iching/core";
 import { CellBuffer } from "../render/buffer.ts";
+import { stringWidth } from "../layout/measure.ts";
 import type { SceneContext } from "../scene/types.ts";
 import {
   JournalScene,
   entryMatchesQuery,
+  truncateToWidth,
   type JournalEntryView,
 } from "../scenes/journal/journal-scene.ts";
 import { computeJournalPatterns } from "../scenes/journal/journal-patterns.ts";
@@ -378,6 +380,84 @@ describe("JournalScene patterns pane ([p])", () => {
     expect(press(scene, ctx, "n", "g", "enter")).toBeUndefined();
     press(scene, ctx, "p");
     expect(renderText(scene, ctx)).not.toContain("most seen");
+  });
+});
+
+describe("truncateToWidth", () => {
+  test("returns strings within budget unchanged", () => {
+    expect(truncateToWidth("short", 30)).toBe("short");
+    expect(truncateToWidth("漢字", 4)).toBe("漢字");
+  });
+
+  test("truncates Latin text to budget with a one-column ellipsis", () => {
+    expect(truncateToWidth("abcdef", 5)).toBe("abcd…");
+    expect(stringWidth(truncateToWidth("abcdef", 5))).toBe(5);
+  });
+
+  test("truncates CJK text by display width, not code units", () => {
+    // 漢字漢字 is 4 code units but 8 columns.
+    expect(truncateToWidth("漢字漢字", 5)).toBe("漢字…");
+    // A wide char that would straddle the budget is dropped, not split.
+    expect(truncateToWidth("漢字漢字", 6)).toBe("漢字…");
+    expect(stringWidth(truncateToWidth("漢字漢字", 6))).toBeLessThanOrEqual(6);
+  });
+
+  test("degenerate budgets stay safe", () => {
+    expect(truncateToWidth("漢字", 0)).toBe("");
+    expect(truncateToWidth("漢字", 1)).toBe("…");
+  });
+});
+
+describe("JournalScene CJK display-width truncation", () => {
+  // 21 CJK characters — 42 columns, well past the 30-column intention budget.
+  const cjkIntention = "關於工作的問題與未來方向的一次深長思考啊";
+
+  test("intention preview truncates by display width, not code units", () => {
+    const ctx = ctxFor(24, 80);
+    const scene = new JournalScene([
+      makeEntry("2026-03-01", 1, { intention: cjkIntention }),
+    ]);
+    scene.enter(ctx);
+
+    // Code-unit slicing kept 29 CJK chars (58 columns) and ran the row off
+    // the right edge — the closing quote never rendered at 80 cols.
+    const text = renderText(scene, ctx);
+    const m = text.match(/“([^”\n]*)”/);
+    expect(m).not.toBeNull();
+    expect(m![1]!.endsWith("…")).toBe(true);
+    expect(stringWidth(m![1]!)).toBeLessThanOrEqual(30);
+  });
+
+  test("row line truncates to the viewport with a visible ellipsis", () => {
+    const ctx = ctxFor(24, 40);
+    const scene = new JournalScene([
+      makeEntry("2026-03-01", 1, { intention: cjkIntention }),
+    ]);
+    scene.enter(ctx);
+
+    const buf = CellBuffer.create(ctx.cols, ctx.rows);
+    scene.render(buf, ctx);
+    const painted = buf.getRow(2).map((c) => c.char).join("").trimEnd();
+    // The ellipsis must be on screen (code-unit slicing pushed it past the
+    // edge, where writeText clipped it) and the row must fit its columns.
+    expect(painted.endsWith("…")).toBe(true);
+    expect(stringWidth(painted)).toBeLessThanOrEqual(40);
+  });
+
+  test("note preview truncates by display width with a visible ellipsis", () => {
+    const ctx = ctxFor(24, 40);
+    const scene = new JournalScene([
+      makeEntry("2026-03-01", 1, {
+        notes: [{ text: "這是一條很長的反思註記".repeat(3), date: "2026-03-05" }],
+      }),
+    ]);
+    scene.enter(ctx);
+
+    const buf = CellBuffer.create(ctx.cols, ctx.rows);
+    scene.render(buf, ctx);
+    const painted = buf.getRow(ctx.rows - 2).map((c) => c.char).join("").trimEnd();
+    expect(painted.endsWith("…")).toBe(true);
+    expect(stringWidth(painted)).toBeLessThanOrEqual(40);
   });
 });
 
