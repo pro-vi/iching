@@ -16,6 +16,11 @@ export class CryptoRandomSource implements RandomSource {
  * Test-injectable binding context for BoundRandomSource. Production callers
  * pass nothing; every field defaults to the live value (fresh crypto bytes,
  * the current ISO timestamp, a per-process sequence number).
+ *
+ * `entropy` exists ONLY so tests can pin the stream. Supplying it from
+ * product code forfeits the fresh-chance guarantee — the constructor
+ * rejects anything shorter than 32 bytes so a weak override cannot quietly
+ * make bound mode deterministic.
  */
 export interface BindingContext {
   entropy?: Uint8Array;
@@ -35,10 +40,17 @@ let processNonce = 0;
  * layouts can collide. Cast bytes are expanded from the seed by a
  * hash-counter DRBG: block_i = SHA-256(seed ‖ i).
  *
- * Chance stays primary: the fresh crypto bytes guarantee that the same
- * intention can NEVER force the same cast. The intention and moment
- * participate as salt — context mixed into chance, not a hash oracle.
- * Deterministic replay remains SeededRandomSource's separate path.
+ * Chance stays primary: with fresh crypto bytes in the seed, the intention
+ * can never deterministically reproduce or steer a cast. (Two casts may
+ * still coincide by ordinary chance — six lines have only 4^6 visible
+ * states — and conditioned on a fixed entropy draw the intention does
+ * select the stream; marginally, over fresh draws, it cannot shift the
+ * outcome distribution.) The intention and moment participate as salt —
+ * context mixed into chance, not a hash oracle. Deterministic replay
+ * remains SeededRandomSource's separate path.
+ *
+ * The expansion is designed to be computationally indistinguishable from
+ * direct OS randomness for this use — not mathematically identical to it.
  */
 export class BoundRandomSource implements RandomSource {
   private readonly seed: Uint8Array;
@@ -47,9 +59,14 @@ export class BoundRandomSource implements RandomSource {
   private offset = 0;
 
   constructor(intention: string, context: BindingContext = {}) {
+    if (context.entropy && context.entropy.byteLength < 32) {
+      throw new Error("BindingContext.entropy override must be at least 32 bytes");
+    }
     const fields: Uint8Array[] = [
       context.entropy ?? new Uint8Array(randomBytes(32)),
-      new TextEncoder().encode(intention),
+      // NFC so visually identical intentions are the same byte string —
+      // ritual semantics, not a randomness requirement.
+      new TextEncoder().encode(intention.normalize("NFC")),
       new TextEncoder().encode(context.timestamp ?? new Date().toISOString()),
       new TextEncoder().encode(String(context.nonce ?? processNonce++)),
     ];
@@ -68,6 +85,11 @@ export class BoundRandomSource implements RandomSource {
     let filled = 0;
     while (filled < count) {
       if (this.offset >= this.block.length) {
+        // A cast consumes a few dozen bytes; reaching the u32 ceiling means a
+        // runaway caller. Fail closed rather than silently repeating blocks.
+        if (this.counter > 0xffffffff) {
+          throw new Error("BoundRandomSource block counter exhausted");
+        }
         const ctr = new Uint8Array(4);
         new DataView(ctr.buffer).setUint32(0, this.counter++);
         this.block = new Uint8Array(

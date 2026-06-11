@@ -113,3 +113,40 @@ describe("BoundRandomSource — DRBG stream behavior", () => {
     expect(new Set(streams).size).toBe(streams.length);
   });
 });
+
+describe("BoundRandomSource — hardening (second-opinion review)", () => {
+  const ctx = (entropy: Uint8Array): BindingContext => ({
+    entropy,
+    timestamp: "2026-06-11T00:00:00.000Z",
+    nonce: 0,
+  });
+
+  test("rejects an entropy override shorter than 32 bytes", () => {
+    expect(() => new BoundRandomSource("q", ctx(new Uint8Array(16)))).toThrow(
+      "at least 32 bytes",
+    );
+    expect(() => new BoundRandomSource("q", ctx(new Uint8Array(0)))).toThrow();
+    // 32 bytes exactly is the floor and remains valid.
+    expect(() => new BoundRandomSource("q", ctx(new Uint8Array(32)))).not.toThrow();
+  });
+
+  test("NFC-equivalent intentions produce the same stream", () => {
+    const entropy = new Uint8Array(32).fill(7);
+    // é as a single code point (NFC) vs e + combining acute (NFD)
+    const nfc = new BoundRandomSource("café", ctx(entropy));
+    const nfd = new BoundRandomSource("café", ctx(entropy));
+    expect(nfc.nextBytes(32)).toEqual(nfd.nextBytes(32));
+    // …while a genuinely different intention still diverges.
+    const other = new BoundRandomSource("cafe", ctx(entropy));
+    expect(other.nextBytes(32)).not.toEqual(
+      new BoundRandomSource("caf\u00e9", ctx(entropy)).nextBytes(32),
+    );
+  });
+
+  test("block counter exhaustion fails closed instead of repeating blocks", () => {
+    const src = new BoundRandomSource("q", ctx(new Uint8Array(32)));
+    // Reach the ceiling without hashing 4 billion blocks.
+    (src as unknown as { counter: number }).counter = 0x100000000;
+    expect(() => src.nextBytes(33)).toThrow("counter exhausted");
+  });
+});
