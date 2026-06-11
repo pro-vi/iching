@@ -111,6 +111,7 @@ describe("schema shape — cache", () => {
       shown: true,
       structure: FIXTURE_STRUCTURE,
       intention: "ship it?",
+      method: "yarrow",
     };
     await store.write(record);
     const onDisk = JSON.parse(await readFile(join(dir, "cache.json"), "utf-8"));
@@ -144,6 +145,7 @@ describe("schema shape — history", () => {
       cast: FIXTURE_CAST,
       intention: "ship it?",
       timestamp: "2026-04-26T09:30:00.000Z",
+      method: "coin-manual",
     };
     await store.append(entry);
     const text = await readFile(join(dir, "history.jsonl"), "utf-8");

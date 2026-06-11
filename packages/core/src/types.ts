@@ -89,6 +89,13 @@ export interface Structure {
   becoming: { upper: TrigramInfo; lower: TrigramInfo } | null;
 }
 
+/**
+ * How a cast's lines were obtained — instant coins, operator-guided coins,
+ * or the yarrow-stalk ritual (auto / operator-guided). Provenance only; it
+ * never changes how a cast is read.
+ */
+export type CastMethod = "coin" | "coin-manual" | "yarrow" | "yarrow-manual";
+
 /** Cache structure for daily reading */
 export interface DailyCache {
   date: string;
@@ -96,6 +103,7 @@ export interface DailyCache {
   shown: boolean;
   structure: Structure;
   intention?: string;
+  method?: CastMethod; // absent in records written before provenance landed
 }
 
 /** History entry (one per line in JSONL) */
@@ -104,4 +112,5 @@ export interface HistoryEntry {
   cast: Cast;
   intention?: string;
   timestamp?: string;
+  method?: CastMethod; // absent in entries written before provenance landed
 }

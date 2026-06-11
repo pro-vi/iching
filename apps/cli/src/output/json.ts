@@ -1,4 +1,5 @@
-import type { Cast, Hexagram, Style } from "@iching/core";
+import type { Cast, Hexagram, HistoryEntry, Style } from "@iching/core";
+import { GUA } from "@iching/core";
 import type { UserConfig } from "@iching/storage";
 
 /** Output any value as clean JSON (no ANSI) and exit */
@@ -95,6 +96,25 @@ export function hexagramToJson(
       te: hex.te,
       w: hex.w,
     },
+  };
+}
+
+/** Resolved name block for one hexagram by KW number */
+function hexagramNames(kw: number): Record<string, unknown> {
+  const hex = GUA[kw - 1];
+  return { kw, n: hex.n, p: hex.p, ename: hex.ename, u: hex.u };
+}
+
+/**
+ * Structure a journal entry for JSON output — the raw HistoryEntry fields
+ * plus resolved primary/becoming names, so scripts don't need the data table.
+ * Additive: every original key is preserved unchanged.
+ */
+export function journalEntryToJson(entry: HistoryEntry): Record<string, unknown> {
+  return {
+    ...entry,
+    primary: hexagramNames(entry.cast.primary),
+    becoming: entry.cast.becoming !== null ? hexagramNames(entry.cast.becoming) : null,
   };
 }
 

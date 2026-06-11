@@ -29,10 +29,10 @@ export const SCHEMA_KEYS = {
   },
   cache: {
     required: ["date", "cast", "shown", "structure"],
-    optional: ["intention"],
+    optional: ["intention", "method"],
   },
   history: {
     required: ["date", "cast"],
-    optional: ["intention", "timestamp"],
+    optional: ["intention", "timestamp", "method"],
   },
 } as const satisfies Record<string, Shape>;

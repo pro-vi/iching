@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import {
   castHexagram,
   buildStructure,
@@ -84,4 +84,32 @@ describe("hook adapter", () => {
     expect(cached!.shown).toBe(true);
     expect(cached!.cast.primary).toBe(cast.primary);
   });
+
+  // End-to-end: bare `iching` with piped stdin enters hook mode (main.ts).
+  // A fresh hook cast must record coin provenance in the journal and cache.
+  test("hook mode records method 'coin' in journal and cache", async () => {
+    const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
+    const MAIN_TS = resolve(REPO_ROOT, "apps/cli/src/main.ts");
+
+    const proc = Bun.spawn(["bun", MAIN_TS], {
+      cwd: REPO_ROOT,
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+      // The adapter resolves paths without a --data-dir override; collapse
+      // all storage into the temp dir via ICHING_HOME.
+      env: { ...process.env, NO_COLOR: "1", ICHING_HOME: dataDir },
+    });
+    proc.stdin.write("{}");
+    proc.stdin.end();
+    const exitCode = await proc.exited;
+    expect(exitCode).toBe(0);
+
+    const journalLine = (await readFile(join(dataDir, "history.jsonl"), "utf-8")).trim();
+    const entry = JSON.parse(journalLine);
+    expect(entry.method).toBe("coin");
+
+    const cache = JSON.parse(await readFile(join(dataDir, "daily-cache.json"), "utf-8"));
+    expect(cache.method).toBe("coin");
+  }, 20_000);
 });

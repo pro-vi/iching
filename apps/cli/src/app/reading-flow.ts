@@ -10,6 +10,7 @@ import {
   buildStructure,
   castHexagram,
   type Cast,
+  type CastMethod,
   CryptoRandomSource,
   type DisplayLanguage,
   SeededRandomSource,
@@ -49,6 +50,15 @@ export type ReadingSource =
   | { type: "existing"; cast: Cast; intention?: string };
 
 export type ReadingPurpose = "cast" | "play" | "replay";
+
+// Cast-method provenance recorded at persist time — replays ("existing")
+// never persist, so they carry no method.
+const METHOD_BY_SOURCE: Record<Exclude<ReadingSource["type"], "existing">, CastMethod> = {
+  "auto": "coin",
+  "manual": "coin-manual",
+  "yarrow": "yarrow",
+  "yarrow-manual": "yarrow-manual",
+};
 
 export interface ReadingFlowDeps {
   run: (scene: Scene) => Promise<SceneSignal | void>;
@@ -130,9 +140,11 @@ export async function runReadingFlow(
     const timestamp = new Date().toISOString();
     // One call so journal and cache agree even at a midnight boundary.
     const date = deps.today();
+    const method =
+      opts.source.type === "existing" ? undefined : METHOD_BY_SOURCE[opts.source.type];
     if (!usedSeed) {
       const journal = new JsonlJournalStore(deps.paths.state);
-      await journal.append({ date, cast, intention, timestamp });
+      await journal.append({ date, cast, intention, timestamp, method });
     }
     await deps.cacheStore.write({
       date,
@@ -140,6 +152,7 @@ export async function runReadingFlow(
       shown: true,
       structure,
       intention,
+      method,
     });
   }
 

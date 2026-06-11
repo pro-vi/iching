@@ -5,7 +5,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Cast } from "@iching/core";
-import { resolvePaths, JsonDailyCacheStore } from "@iching/storage";
+import { resolvePaths, JsonDailyCacheStore, JsonlJournalStore } from "@iching/storage";
 import {
   IntentionScene,
   CastScene,
@@ -79,6 +79,31 @@ describe("runReadingFlow — yarrow source", () => {
     const cache = await deps.cacheStore.read();
     expect(cache?.cast).toEqual(yarrowCast);
     expect(cache?.shown).toBe(true);
+    // Cast-method provenance is recorded at persist time
+    expect(cache?.method).toBe("yarrow");
+    const journal = new JsonlJournalStore(deps.paths.state);
+    const entry = await journal.latest();
+    expect(entry?.method).toBe("yarrow");
+  });
+
+  test("auto (coin) casts record method provenance too", async () => {
+    const run: RunImpl = async (scene) => {
+      if (scene instanceof IntentionScene) return { type: "intentionConfirmed" };
+      if (scene instanceof CastScene) return { type: "home" };
+    };
+
+    const deps = makeDeps(dataDir, run);
+    const result = await runReadingFlow(deps, {
+      purpose: "cast",
+      source: { type: "auto" },
+    });
+
+    expect(result.shouldExit).toBe(false);
+    const cache = await deps.cacheStore.read();
+    expect(cache?.method).toBe("coin");
+    const journal = new JsonlJournalStore(deps.paths.state);
+    const entry = await journal.latest();
+    expect(entry?.method).toBe("coin");
   });
 
   test("quitting the ritual early persists nothing and does not reveal", async () => {

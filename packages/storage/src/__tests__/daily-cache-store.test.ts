@@ -68,4 +68,53 @@ describe("JsonDailyCacheStore", () => {
     const loaded = await deepStore.read();
     expect(loaded).toEqual(record);
   });
+
+  // Corrupt-cache tolerance: a torn write or disk fault must not crash
+  // interactive startup forever — read() treats the file as absent and
+  // sidecars the bytes (cf. JsonConfigStore's corrupt handling).
+  describe("corrupt cache file", () => {
+    test("read returns null on unparseable JSON and sidecars the bytes", async () => {
+      const { writeFile, readFile } = await import("node:fs/promises");
+      const path = join(dir, "daily-cache.json");
+      await writeFile(path, '{"date":"2025-01-15","cas', "utf-8"); // torn write
+
+      const result = await store.read();
+      expect(result).toBeNull();
+
+      const backup = await readFile(`${path}.corrupt`, "utf-8");
+      expect(backup).toBe('{"date":"2025-01-15","cas');
+    });
+
+    test("a later corruption never clobbers the first backup", async () => {
+      const { writeFile, readFile } = await import("node:fs/promises");
+      const path = join(dir, "daily-cache.json");
+      await writeFile(path, "first-garbage", "utf-8");
+      expect(await store.read()).toBeNull();
+
+      await writeFile(path, "second-garbage", "utf-8");
+      expect(await store.read()).toBeNull();
+
+      // wx flag: the FIRST backup is the recoverable one
+      const backup = await readFile(`${path}.corrupt`, "utf-8");
+      expect(backup).toBe("first-garbage");
+    });
+
+    test("read returns null for valid JSON that is not a record", async () => {
+      const { writeFile } = await import("node:fs/promises");
+      const path = join(dir, "daily-cache.json");
+      await writeFile(path, "42", "utf-8");
+      expect(await store.read()).toBeNull();
+    });
+
+    test("a fresh write after corruption recovers normal round-trips", async () => {
+      const { writeFile } = await import("node:fs/promises");
+      const path = join(dir, "daily-cache.json");
+      await writeFile(path, "garbage", "utf-8");
+      expect(await store.read()).toBeNull();
+
+      const record = makeCache("2025-01-16");
+      await store.write(record);
+      expect(await store.read()).toEqual(record);
+    });
+  });
 });

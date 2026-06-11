@@ -4,7 +4,7 @@ import {
   selectDisplay,
   CryptoRandomSource,
 } from "@iching/core";
-import type { Cast, Structure } from "@iching/core";
+import type { Cast, CastMethod, Structure } from "@iching/core";
 import {
   resolvePaths,
   JsonDailyCacheStore,
@@ -55,6 +55,7 @@ export async function runHookAdapter(): Promise<void> {
   let structure: Structure;
   let shown: boolean;
   let intention: string | undefined;
+  let method: CastMethod | undefined;
 
   // Check cache
   const cached = await cacheStore.read();
@@ -63,11 +64,13 @@ export async function runHookAdapter(): Promise<void> {
     structure = cached.structure;
     shown = cached.shown;
     intention = cached.intention;
+    method = cached.method;
   } else {
-    // Fresh cast
+    // Fresh cast — instant coins, recorded as such
     cast = castHexagram(source);
     structure = buildStructure(cast);
     shown = false;
+    method = "coin";
   }
 
   // Select display
@@ -77,16 +80,17 @@ export async function runHookAdapter(): Promise<void> {
   // (vs cache-first where journal entry is permanently lost)
   if (!shown) {
     const timestamp = new Date().toISOString();
-    await journal.append({ date: today, cast, timestamp });
+    await journal.append({ date: today, cast, timestamp, method });
   }
 
-  // Then update cache (preserve intention from TUI if present)
+  // Then update cache (preserve intention/method from TUI if present)
   await cacheStore.write({
     date: today,
     cast,
     shown: true,
     structure,
     intention,
+    method,
   });
 
   // Output
