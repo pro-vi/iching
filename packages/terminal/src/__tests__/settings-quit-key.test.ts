@@ -19,6 +19,7 @@ function makeScene(): SettingsScene {
     glyphFont: "kaiti",
     castMethod: "coin",
     castMode: "auto",
+    entropy: "crypto",
   });
 }
 
