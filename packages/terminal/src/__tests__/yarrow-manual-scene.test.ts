@@ -89,7 +89,10 @@ describe("YarrowManualScene — 18-cut full manual", () => {
     pumpThroughSnap(s);
     expect(s.getPhase()).toBe("playing");
     expect(s.getModel().transcript[0].rounds[0]).toBeDefined();
-    const k = s.getModel().transcript[0].rounds[0].splitAt;
+    const round = s.getModel().currentRound();
+    expect(round).not.toBeNull();
+    if (round === null) throw new Error("expected round 0 to be current");
+    const k = round.splitAt;
     expect(k).toBeGreaterThanOrEqual(left);
     expect(k).toBeLessThanOrEqual(left + 3);
     expect(s.getCommittedK()).toBe(k);

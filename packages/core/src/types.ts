@@ -25,6 +25,17 @@ export interface Hexagram {
   w: string; // Inspired by Wilhelm — experimental, not direct quotes
   yao: string[]; // 爻辭 — 6 classical Chinese line texts (line 1 through 6)
   yaoEn: string[]; // 6 English line interpretations (line 1 through 6)
+  gc: string; // 卦辭 — canonical judgment (classical Chinese)
+  gcEn: string; // English judgment (Legge, public domain — glosses kept)
+  yaoXiao: string[]; // 小象傳 — 6 classical per-line commentaries (line 1 through 6)
+  extra?: HexagramExtra; // 用九/用六 — hexagrams 1 and 2 only
+}
+
+/** 用九/用六 extra text (all-lines-moving reading for hexagrams 1 and 2) */
+export interface HexagramExtra {
+  name: string; // 用九 or 用六
+  text: string; // classical Chinese
+  textEn: string; // Legge English
 }
 
 /** Line value from 3-coin toss: 6=old yin, 7=young yang, 8=young yin, 9=old yang */
@@ -78,6 +89,31 @@ export interface Structure {
   becoming: { upper: TrigramInfo; lower: TrigramInfo } | null;
 }
 
+/**
+ * How a cast's lines were obtained — instant coins, operator-guided coins,
+ * or the yarrow-stalk ritual (auto / operator-guided). Provenance only; it
+ * never changes how a cast is read.
+ */
+export type CastMethod = "coin" | "coin-manual" | "yarrow" | "yarrow-manual";
+
+/**
+ * Where a cast's bytes came from: "crypto" is local machine entropy, "bound"
+ * is the same local entropy with the intention and moment mixed in as salt
+ * (chance stays primary), "seed" is deterministic replay. An honest source
+ * story only — never a claim of metaphysical efficacy.
+ */
+export type EntropySource = "crypto" | "bound" | "seed";
+
+/**
+ * Entropy provenance recorded with a cast. Provenance only; it never changes
+ * how a cast is read.
+ */
+export interface RngProvenance {
+  source: EntropySource;
+  /** True when a non-empty intention participated as salt in the seed. */
+  intentionBound: boolean;
+}
+
 /** Cache structure for daily reading */
 export interface DailyCache {
   date: string;
@@ -85,6 +121,8 @@ export interface DailyCache {
   shown: boolean;
   structure: Structure;
   intention?: string;
+  method?: CastMethod; // absent in records written before provenance landed
+  rng?: RngProvenance; // absent in records written before entropy provenance landed
 }
 
 /** History entry (one per line in JSONL) */
@@ -93,4 +131,22 @@ export interface HistoryEntry {
   cast: Cast;
   intention?: string;
   timestamp?: string;
+  method?: CastMethod; // absent in entries written before provenance landed
+  rng?: RngProvenance; // absent in entries written before entropy provenance landed
+}
+
+/**
+ * Reflection note — the journal's other half. A reading is cast in the
+ * morning and understood at night; a note records what happened, appended
+ * later as its own JSONL line (kind:"note") in the notes.jsonl sidecar
+ * beside history.jsonl — so binaries that predate notes never meet one.
+ * Legacy note lines written into history.jsonl itself remain readable;
+ * lines without a kind remain readings, so old journals stay intact.
+ */
+export interface ReflectionNote {
+  kind: "note";
+  ref: string; // timestamp of the reading it annotates (date for entries without one)
+  date: string; // local YYYY-MM-DD the note was written
+  timestamp: string; // ISO timestamp the note was written
+  text: string;
 }

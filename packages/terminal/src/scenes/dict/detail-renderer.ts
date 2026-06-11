@@ -4,7 +4,7 @@ import type { CellBuffer } from "../../render/buffer.ts";
 import type { SceneContext } from "../../scene/types.ts";
 import type { DetailModel, DerivedLink } from "./detail-model.ts";
 import type { DisplayLanguage } from "@iching/core";
-import { toSimplified } from "@iching/core";
+import { SEQUENCE, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth, centerPad } from "../../layout/measure.ts";
 import { wordWrap } from "./word-wrap.ts";
@@ -101,10 +101,25 @@ export function buildContentLines(
   }
   lines.push({ text: "" });
 
-  // Line diagram (top to bottom: line 6 down to line 1)
+  // Line diagram (top to bottom: line 6 down to line 1). Cast context marks
+  // the moving lines with the same gutter markers the cast ritual uses.
   for (let i = 5; i >= 0; i--) {
     const lineChar = gua.l[i] === 1 ? GLYPHS.yangFinal : GLYPHS.yinFinal;
-    lines.push({ text: centerPad(lineChar, textWidth), fg: t.primary });
+    const changed = model.changedPositions.includes(i + 1);
+    let text = centerPad(lineChar, textWidth);
+    if (changed) {
+      const marker = gua.l[i] === 1 ? GLYPHS.changingMarkerYang : GLYPHS.changingMarkerYin;
+      // Marker 2 cols right of the line's end, like the cast hexagram gutter
+      const markerCol =
+        Math.floor(textWidth / 2) + Math.floor(stringWidth(lineChar) / 2) + 2;
+      if (markerCol < text.length) {
+        text = text.slice(0, markerCol) + marker + text.slice(markerCol + 1);
+      }
+    }
+    lines.push({
+      text,
+      fg: changed ? (gua.l[i] === 1 ? t.accent : t.changingYin) : t.primary,
+    });
     // Add gap between upper and lower trigrams (after line 4, before line 3)
     if (i === 3) {
       lines.push({ text: "" });
@@ -127,11 +142,29 @@ export function buildContentLines(
   lines.push({ text: "─".repeat(textWidth), fg: t.tertiary });
   lines.push({ text: "" });
 
-  // Commentary sections
+  // Commentary sections — the 卦辭 (the hexagram's own judgment) comes first;
+  // the Wings follow. In en mode the canonical classical text rides dim
+  // beneath the Legge translation; "Judgment" now labels the actual 卦辭,
+  // so the 彖傳 translation is labeled as the commentary it is.
+  lines.push({
+    text: english ? "Judgment" : zh("卦辭", language),
+    fg: t.accent,
+    bold: true,
+  });
+  if (english) {
+    pushWrapped(lines, gua.gcEn, textWidth, { fg: t.secondary });
+    pushWrapped(lines, gua.gc, textWidth, { fg: t.tertiary, dim: true });
+  } else {
+    pushWrapped(lines, zh(gua.gc, language), textWidth, { fg: t.secondary });
+  }
+  lines.push({ text: "" });
+
   const sections: [string, string][] = english
     ? [
         ["Image", gua.en],
-        ["Judgment", gua.te],
+        // 彖傳 EN name per docs/language-glossary.md (the old bare "Judgment"
+        // label now belongs to the 卦辭 section above).
+        ["Tuan (Commentary on the Decision)", gua.te],
         // "Wilhelm-inspired" (not bare "Wilhelm"): gua.w is interpretive advice
         // after Wilhelm, NOT a direct quotation (AC-010 attribution policy; C-005).
         ["Wilhelm-inspired", gua.w],
@@ -147,7 +180,9 @@ export function buildContentLines(
     lines.push({ text: "" });
   }
 
-  // Line interpretations (爻辭)
+  // Line interpretations (爻辭), each with its 小象傳 dim beneath — the Yi
+  // commenting on its own lines. Moving lines from the cast are marked and
+  // their texts emphasized.
   if (gua.yao && gua.yao.length === 6) {
     lines.push({ text: "─".repeat(textWidth), fg: t.tertiary });
     lines.push({ text: "" });
@@ -156,13 +191,35 @@ export function buildContentLines(
 
     // Display top-to-bottom (line 6 down to line 1) to match visual diagram
     for (let i = 5; i >= 0; i--) {
+      const changed = model.changedPositions.includes(i + 1);
+      const marker = changed
+        ? ` ${gua.l[i] === 1 ? GLYPHS.changingMarkerYang : GLYPHS.changingMarkerYin}`
+        : "";
+      const changedFg = gua.l[i] === 1 ? t.accent : t.changingYin;
       if (english) {
-        lines.push({ text: `Line ${i + 1}`, fg: t.secondary, bold: true });
+        lines.push({
+          text: `Line ${i + 1}${marker}`,
+          fg: changed ? changedFg : t.secondary,
+          bold: true,
+        });
         if (gua.yaoEn?.[i]) {
-          pushWrapped(lines, gua.yaoEn[i], textWidth, { fg: t.tertiary });
+          pushWrapped(lines, gua.yaoEn[i], textWidth, {
+            fg: changed ? t.secondary : t.tertiary,
+            bold: changed || undefined,
+          });
         }
       } else {
-        pushWrapped(lines, zh(gua.yao[i], language), textWidth, { fg: t.secondary });
+        // Marker prefixes the text (a trailing marker could wrap alone)
+        pushWrapped(lines, `${marker ? marker.trimStart() + " " : ""}${zh(gua.yao[i], language)}`, textWidth, {
+          fg: changed ? changedFg : t.secondary,
+          bold: changed || undefined,
+        });
+      }
+      if (gua.yaoXiao?.[i]) {
+        pushWrapped(lines, zh(gua.yaoXiao[i], language), textWidth, {
+          fg: t.tertiary,
+          dim: true,
+        });
       }
       lines.push({ text: "" });
     }
@@ -174,6 +231,8 @@ export function buildContentLines(
 
   // Derived hexagrams
   lines.push({ text: english ? "Derived" : zh("衍卦", language), fg: t.accent, bold: true });
+  // Record where the links start so focus changes can scroll them into view
+  model.derivedStartLine = lines.length;
   for (let i = 0; i < model.derivedLinks.length; i++) {
     const link = model.derivedLinks[i];
     const isSelected = model.focus === "derived" && model.derivedCursor === i;
@@ -200,6 +259,36 @@ export function buildContentLines(
   }
 
   lines.push({ text: "" });
+
+  // Where this hexagram sits in the sequence (序卦) and its paired epigram
+  // (雜卦) — a quiet closing section, all dim. The 序卦 shows the classical
+  // snippet in every mode (Legge's translation is paragraph-segmented, not
+  // per-hexagram); the 雜卦 couplet has a pair-aligned Legge rendering.
+  const seq = SEQUENCE[model.detail.kw - 1];
+  if (seq) {
+    lines.push({ text: "─".repeat(textWidth), fg: t.tertiary });
+    lines.push({ text: "" });
+    lines.push({
+      text: english ? "Xugua (Sequence of the Hexagrams)" : zh("序卦", language),
+      fg: t.tertiary,
+      bold: true,
+    });
+    pushWrapped(lines, zh(seq.xu, language), textWidth, {
+      fg: t.tertiary,
+      dim: true,
+    });
+    lines.push({ text: "" });
+    lines.push({
+      text: english ? "Zagua (Miscellaneous Notes)" : zh("雜卦", language),
+      fg: t.tertiary,
+      bold: true,
+    });
+    pushWrapped(lines, english ? seq.zaEn : zh(seq.za, language), textWidth, {
+      fg: t.tertiary,
+      dim: true,
+    });
+    lines.push({ text: "" });
+  }
 
   // Separator before history
   lines.push({ text: "─".repeat(textWidth), fg: t.tertiary });
@@ -297,10 +386,12 @@ function renderFooter(
 
   frame.writeText(sepRow, 0, "─".repeat(ctx.cols), { fg: t.tertiary });
 
+  // Content focus omits [enter] (it only acts on the derived links, where the
+  // focused footer documents it) — the freed width carries the ←→ walk hint.
   const keys =
     model.focus === "derived"
       ? `[↑↓] ${tr(language, "verb.select")}  ·  [enter] ${tr(language, "verb.open")}  ·  [tab] ${tr(language, "verb.scroll")}  ·  [esc] ${tr(language, "verb.back")}`
-      : `[↑↓] ${tr(language, "verb.scroll")}  ·  [tab] ${tr(language, "verb.derived")}  ·  [enter] ${tr(language, "verb.open")}  ·  [esc] ${tr(language, "verb.back")}`;
+      : `[↑↓] ${tr(language, "verb.scroll")}  ·  [←→] ${tr(language, "verb.adjacent")}  ·  [tab] ${tr(language, "verb.derived")}  ·  [esc] ${tr(language, "verb.back")}`;
 
   // Hidden when content fits (vs the region's "1/1"); shows the page otherwise.
   const indicator =

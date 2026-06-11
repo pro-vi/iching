@@ -3,6 +3,7 @@
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
+import { stripTerminalControls } from "@iching/core";
 import { BrowseModel } from "./browse-model.ts";
 import { TextInput } from "../../widgets/text-input.ts";
 import { renderBrowse, listViewportHeight } from "./browse-renderer.ts";
@@ -11,9 +12,19 @@ export class BrowseScene implements Scene {
   private model: BrowseModel;
   private textInput: TextInput;
 
-  constructor() {
+  /**
+   * `initialQuery` opens the browser with the search already active and
+   * filtered (e.g. `iching dict tai` lands on the matching shortlist).
+   */
+  constructor(initialQuery?: string) {
     this.model = new BrowseModel();
     this.textInput = new TextInput();
+    if (initialQuery && initialQuery.trim().length > 0) {
+      this.textInput.value = initialQuery;
+      this.textInput.moveToEnd();
+      this.model.searchActive = true;
+      this.model.setQuery(initialQuery);
+    }
   }
 
   enter(ctx: SceneContext): void {
@@ -104,6 +115,20 @@ export class BrowseScene implements Scene {
     if (key.type === "backspace" && this.model.searchActive) {
       this.textInput.backspace();
       this.model.setQuery(this.textInput.value);
+      return;
+    }
+
+    // Paste — a pasted query lands in the search like typed characters:
+    // fold newlines/tabs to spaces, drop control chars, filter live.
+    if (key.type === "paste") {
+      const text = stripTerminalControls(key.text);
+      if (text.length > 0) {
+        if (!this.model.searchActive) {
+          this.model.searchActive = true;
+        }
+        this.textInput.insert(text);
+        this.model.setQuery(this.textInput.value);
+      }
       return;
     }
 

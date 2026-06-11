@@ -1,4 +1,5 @@
-import type { Cast, Hexagram, Style } from "@iching/core";
+import type { Cast, DailyCache, Hexagram, HistoryEntry, ReflectionNote, RngProvenance, Style } from "@iching/core";
+import { GUA } from "@iching/core";
 import type { UserConfig } from "@iching/storage";
 
 /** Output any value as clean JSON (no ANSI) and exit */
@@ -12,14 +13,26 @@ export function castToJson(
   primary: Hexagram,
   becoming: Hexagram | null,
   question?: string,
+  rng?: RngProvenance,
+  seed?: number,
 ): Record<string, unknown> {
+  // Changing lines carry their oracle texts — the texts a reading turns on.
+  // All six moving on hexagram 1/2 additionally reads 用九/用六 (extra).
+  const changingLines = cast.changingPositions.map((pos) => ({
+    position: pos,
+    yao: primary.yao[pos - 1],
+    yaoEn: primary.yaoEn[pos - 1],
+  }));
+
   return {
     question: question ?? null,
     primary: {
       number: cast.primary,
       name: primary.n,
       pinyin: primary.p,
+      ename: primary.ename,
       symbol: primary.u,
+      judgment: { gc: primary.gc, gcEn: primary.gcEn },
       lines: cast.lines.map((l) => ({
         value: l.value,
         yang: l.isYang,
@@ -31,10 +44,17 @@ export function castToJson(
           number: cast.becoming,
           name: becoming.n,
           pinyin: becoming.p,
+          ename: becoming.ename,
           symbol: becoming.u,
+          judgment: { gc: becoming.gc, gcEn: becoming.gcEn },
         }
       : null,
     changingPositions: cast.changingPositions,
+    changingLines,
+    extra:
+      cast.changingPositions.length === 6 && primary.extra
+        ? primary.extra
+        : null,
     derived: {
       nuclear: cast.nuclear,
       polarity: cast.polarity,
@@ -48,6 +68,56 @@ export function castToJson(
       te: primary.te,
       w: primary.w,
     },
+    // Entropy provenance (additive; schemas only expand). An honest source
+    // story — "bound" means the intention/moment participated as salt in
+    // local machine entropy; never a claim of metaphysical efficacy.
+    rng: rng
+      ? {
+          source: rng.source,
+          intentionBound: rng.intentionBound,
+          ...(rng.source === "seed" && seed !== undefined ? { seed } : {}),
+        }
+      : null,
+  };
+}
+
+/**
+ * Structure today's cached reading for JSON output (`iching today --json`):
+ * the full castToJson payload plus the day's context (date/intention/method).
+ * This is the one-call integration surface — an assistant can read the whole
+ * reading without touching the cache file or the data tables.
+ */
+export function todayToJson(cache: DailyCache): Record<string, unknown> {
+  const cast = cache.cast;
+  const primary = GUA[cast.primary - 1];
+  const becoming = cast.becoming !== null ? GUA[cast.becoming - 1] : null;
+  return {
+    date: cache.date,
+    intention: cache.intention ?? null,
+    method: cache.method ?? null,
+    ...castToJson(cast, primary, becoming, cache.intention, cache.rng),
+  };
+}
+
+/**
+ * JSON shape for `iching today --json` when no reading exists yet today.
+ * A state, not an error: the SAME key set as todayToJson with null (or [])
+ * values, exit 0 — scripts never branch on key presence, only on values.
+ */
+export function noTodayToJson(date: string): Record<string, unknown> {
+  return {
+    date,
+    intention: null,
+    method: null,
+    question: null,
+    primary: null,
+    becoming: null,
+    changingPositions: [],
+    changingLines: [],
+    extra: null,
+    derived: null,
+    commentary: null,
+    rng: null,
   };
 }
 
@@ -60,8 +130,17 @@ export function hexagramToJson(
     number: kw,
     name: hex.n,
     pinyin: hex.p,
+    ename: hex.ename,
     symbol: hex.u,
     lines: hex.l,
+    judgment: { gc: hex.gc, gcEn: hex.gcEn },
+    lineTexts: hex.yao.map((yao, i) => ({
+      position: i + 1,
+      yao,
+      yaoEn: hex.yaoEn[i],
+      yaoXiao: hex.yaoXiao[i],
+    })),
+    extra: hex.extra ?? null,
     commentary: {
       dx: hex.dx,
       tu: hex.tu,
@@ -69,6 +148,39 @@ export function hexagramToJson(
       te: hex.te,
       w: hex.w,
     },
+  };
+}
+
+/** Resolved name block for one hexagram by KW number */
+function hexagramNames(kw: number): Record<string, unknown> {
+  const hex = GUA[kw - 1];
+  return { kw, n: hex.n, p: hex.p, ename: hex.ename, u: hex.u };
+}
+
+/**
+ * Structure a journal entry for JSON output — the raw HistoryEntry fields
+ * plus resolved primary/becoming names, so scripts don't need the data table.
+ * Additive: every original key is preserved unchanged; `notes` appears only
+ * when the caller supplies reflection notes.
+ */
+export function journalEntryToJson(
+  entry: HistoryEntry,
+  notes?: ReadonlyArray<ReflectionNote>,
+): Record<string, unknown> {
+  return {
+    ...entry,
+    primary: hexagramNames(entry.cast.primary),
+    becoming: entry.cast.becoming !== null ? hexagramNames(entry.cast.becoming) : null,
+    ...(notes !== undefined
+      ? {
+          notes: notes.map((n) => ({
+            ref: n.ref,
+            date: n.date,
+            timestamp: n.timestamp,
+            text: n.text,
+          })),
+        }
+      : {}),
   };
 }
 

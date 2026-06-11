@@ -19,6 +19,7 @@ export const MESSAGES = {
   // ── home menu ──
   "menu.cast": { en: "Cast", zhHant: "起卦", zhHans: "起卦" },
   "menu.play": { en: "Play", zhHant: "演練", zhHans: "演练" },
+  "menu.today": { en: "Today", zhHant: "今日", zhHans: "今日" },
   "menu.dictionary": { en: "Dictionary", zhHant: "卦典", zhHans: "卦典" },
   "menu.journal": { en: "Journal", zhHant: "占記", zhHans: "占记" },
   "menu.settings": { en: "Settings", zhHant: "設定", zhHans: "设定" },
@@ -41,6 +42,8 @@ export const MESSAGES = {
   "verb.clearSearch": { en: "clear search", zhHant: "清除搜尋", zhHans: "清除搜寻" },
   "verb.scroll": { en: "scroll", zhHant: "捲動", zhHans: "卷动" },
   "verb.derived": { en: "derived", zhHant: "衍卦", zhHans: "衍卦" },
+  // Detail-view ←/→ walk of the King Wen sequence (KW ±1, wrapping).
+  "verb.adjacent": { en: "adjacent", zhHant: "鄰卦", zhHans: "邻卦" },
   "verb.select": { en: "select", zhHant: "選擇", zhHans: "选择" },
   "verb.view": { en: "view", zhHant: "檢視", zhHans: "检视" },
   "verb.dictionary": { en: "dictionary", zhHant: "卦典", zhHans: "卦典" },
@@ -56,6 +59,12 @@ export const MESSAGES = {
   "verb.beginCutting": { en: "begin cutting", zhHant: "開始分蓍", zhHans: "开始分蓍" },
   "verb.cut": { en: "cut", zhHant: "分蓍", zhHans: "分蓍" },
   "verb.cutAroundHere": { en: "cut around here", zhHant: "約此處分", zhHans: "约此处分" },
+  "verb.note": { en: "note", zhHant: "註記", zhHans: "注记" },
+  "verb.patterns": { en: "patterns", zhHant: "觀象", zhHans: "观象" },
+
+  // ── loop-level notices ──
+  // Shown (calm, centered) when the terminal is too small for honest layout.
+  "notice.tooSmall": { en: "the window is too small", zhHant: "視窗過小", zhHans: "窗口过小" },
 
   // ── counters / structure (ritual chrome) ──
   "chrome.line": { en: "line", zhHant: "爻", zhHans: "爻" },
@@ -63,15 +72,47 @@ export const MESSAGES = {
   // Connective joining the upper/lower trigram in the structure line ("X above Y").
   "cast.trigramConnective": { en: "above", zhHant: "上", zhHans: "上" },
 
+  // ── reading panel (exploration phase) ──
+  // Label prefixed to the 卦辭 when no lines move (the judgment IS the reading).
+  "cast.judgment": { en: "Judgment", zhHant: "卦辭", zhHans: "卦辞" },
+  // Label prefixed to the becoming hexagram's 卦辭 when four or five lines
+  // move (or all six off hex 1/2) — the becoming's judgment is the reading.
+  "cast.becomingJudgment": { en: "Becoming · Judgment", zhHant: "之卦卦辭", zhHans: "之卦卦辞" },
+  // One-line reading-method hints — the classical rule for which text governs,
+  // stated observationally (one dim line, never a lecture).
+  "cast.hint.one": { en: "one line moves — it speaks", zhHant: "一爻動，以動爻為占", zhHans: "一爻动，以动爻为占" },
+  "cast.hint.two": { en: "two lines move — the upper governs", zhHant: "二爻動，以上爻為占", zhHans: "二爻动，以上爻为占" },
+  "cast.hint.three": { en: "three lines move — the upper governs", zhHant: "三爻動，以上爻為占", zhHans: "三爻动，以上爻为占" },
+  "cast.hint.four": { en: "four lines move — the becoming speaks", zhHant: "四爻動，以之卦為占", zhHans: "四爻动，以之卦为占" },
+  "cast.hint.five": { en: "five lines move — the becoming speaks", zhHant: "五爻動，以之卦為占", zhHans: "五爻动，以之卦为占" },
+  "cast.hint.all": { en: "all six lines move — the becoming speaks", zhHant: "六爻皆動，以之卦為占", zhHans: "六爻皆动，以之卦为占" },
+  "cast.hint.allYong9": { en: "all six lines move — 用九 speaks", zhHant: "六爻皆動，以用九為占", zhHans: "六爻皆动，以用九为占" },
+  "cast.hint.allYong6": { en: "all six lines move — 用六 speaks", zhHant: "六爻皆動，以用六為占", zhHans: "六爻皆动，以用六为占" },
+
   // ── dictionary chrome ──
   "dict.title": { en: "I Ching Dictionary", zhHant: "易經卦典", zhHans: "易经卦典" },
   "dict.searchPrompt": { en: "Search: ", zhHant: "搜尋：", zhHans: "搜寻：" },
   "dict.countSuffix": { en: "hexagrams", zhHant: "卦", zhHans: "卦" },
+  // Quiet centered hint when a search matches nothing (instead of a blank list).
+  "dict.emptyHint": { en: "nothing answers · esc to clear", zhHant: "無所應 · esc 清除", zhHans: "无所应 · esc 清除" },
 
   // ── journal chrome ──
   "journal.title": { en: "Journal", zhHant: "占記", zhHans: "占记" },
   "journal.countSuffix": { en: "readings", zhHant: "則", zhHans: "则" },
   "journal.empty": { en: "No readings yet", zhHant: "尚無占記", zhHans: "尚无占记" },
+  // Reflection notes — the quiet marker on annotated rows + the input prompt.
+  "journal.noteMarker": { en: "note", zhHant: "註", zhHans: "注" },
+  "journal.notePrompt": { en: "Note: ", zhHant: "註記：", zhHans: "注记：" },
+  // One calm line when a note's append never reached disk (the marker is
+  // withdrawn rather than rendering an unsaved note as kept). 儲存 follows
+  // the ratified save register (verb.saveBack).
+  "journal.noteSaveFailed": { en: "the note could not be saved", zhHant: "註記未能儲存", zhHans: "注记未能储存" },
+  // Patterns pane — observation over the loaded entries, never a score.
+  // 觀象 from 繫辭傳's 觀象玩辭 (observe the images, savor the words).
+  "journal.patterns.title": { en: "Patterns", zhHant: "觀象", zhHans: "观象" },
+  "journal.patterns.thisMonth": { en: "this month", zhHant: "本月", zhHans: "本月" },
+  "journal.patterns.mostSeen": { en: "most seen", zhHant: "最常見", zhHans: "最常见" },
+  "journal.patterns.movingLine": { en: "moving line most often", zhHant: "動爻最常在", zhHans: "动爻最常在" },
 
   // ── settings labels ──
   "settings.title": { en: "Settings", zhHant: "設定", zhHans: "设定" },
@@ -82,7 +123,14 @@ export const MESSAGES = {
   "settings.font": { en: "Font", zhHant: "字體", zhHans: "字体" },
   "settings.castMethod": { en: "Cast Method", zhHant: "起卦法", zhHans: "起卦法" },
   "settings.castMode": { en: "Cast Mode", zhHant: "起卦模式", zhHans: "起卦模式" },
+  "settings.entropy": { en: "Entropy", zhHant: "隨機源", zhHans: "随机源" },
   "settings.preview": { en: "Preview:", zhHant: "預覽：", zhHans: "预览：" },
+  // Entropy-preview tributary labels — the seed recipe's ingredients. Register
+  // follows the ratified provenance language ("bound to the intention and
+  // moment"); 機器/心念 echo the option chips (機器 / 繫於心念).
+  "settings.entropyLane.machine": { en: "machine", zhHant: "機器", zhHans: "机器" },
+  "settings.entropyLane.intention": { en: "intention", zhHant: "心念", zhHans: "心念" },
+  "settings.entropyLane.moment": { en: "moment", zhHant: "此刻", zhHans: "此刻" },
 
   // ── yarrow ritual captions + line-values (classical terms, Agentify C-003) ──
   "yarrow.roundTitle": { en: "Round", zhHant: "變", zhHans: "变" },

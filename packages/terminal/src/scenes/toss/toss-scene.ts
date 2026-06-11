@@ -10,6 +10,7 @@ import {
 } from "@iching/core";
 import type { Line, Cast } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
+import { lerpColor } from "../../color/lerp.ts";
 import { renderLine } from "../cast/line-renderer.ts";
 import { anchorRow, LINE_ROW_OFFSETS } from "../cast/hexagram-renderer.ts";
 import {
@@ -28,6 +29,10 @@ import {
 
 const POST_LAND_DELAY = 0.55;
 const LINE_DRAW_DURATION = 0.3;
+/** Half-width (cells) of the ground line the coins land on. */
+const GROUND_HALF_WIDTH = 13;
+/** How long (seconds) a touchdown softly brightens the ground. */
+const IMPACT_FLASH_SEC = 0.35;
 
 type ScenePhase = "waiting" | "tossing" | "complete";
 
@@ -44,6 +49,8 @@ export class TossScene implements Scene {
   private coinsLaunched = 0;
   private pendingResults: [boolean, boolean, boolean] | null = null;
   private completedCast: Cast | null = null;
+  /** Recent coin touchdowns; each softly brightens the ground while young. */
+  private impacts: { col: number; ageSec: number }[] = [];
 
   private get round() { return this.lines.length; }
 
@@ -70,11 +77,20 @@ export class TossScene implements Scene {
       }
     }
 
+    // Age out landing flashes regardless of phase so none linger
+    for (const im of this.impacts) im.ageSec += dtSec;
+    this.impacts = this.impacts.filter((im) => im.ageSec < IMPACT_FLASH_SEC);
+
     if (this.phase !== "tossing") return;
 
     let anyFlying = false;
     for (const coin of this.coins) {
+      const phaseBefore = coin.phase;
       stepCoin(coin, dt);
+      // Touchdown: airborne → bounce/spin transition marks the impact frame
+      if (phaseBefore !== coin.phase && (coin.phase === "bouncing" || coin.phase === "spinning")) {
+        this.impacts.push({ col: Math.round(coin.x), ageSec: 0 });
+      }
       if (coin.phase !== "settled") anyFlying = true;
     }
 
@@ -101,6 +117,23 @@ export class TossScene implements Scene {
       writeChromeFooter(frame, `[space] ${tr(lang, "verb.toss")}  ·  [esc] ${tr(lang, "verb.back")}`);
     } else if (this.phase === "complete") {
       writeChromeFooter(frame, `[space] ${tr(lang, "verb.reveal")}  ·  [esc] ${tr(lang, "verb.discard")}`);
+    }
+
+    // Casting surface: a dim ground line under the coins so the bounce
+    // reads against something. Touchdowns brighten it briefly, then fade.
+    const groundRow = this.landRow() + 1;
+    if (groundRow >= 0 && groundRow < h) {
+      const cx = Math.floor(this.cols / 2);
+      const left = Math.max(0, cx - GROUND_HALF_WIDTH);
+      const right = Math.min(frame.width - 1, cx + GROUND_HALF_WIDTH);
+      for (let c = left; c <= right; c++) {
+        frame.writeText(groundRow, c, "─", { fg: t.tertiary, dim: true });
+      }
+      for (const im of this.impacts) {
+        if (im.col < left || im.col > right) continue;
+        const fade = Math.min(1, im.ageSec / IMPACT_FLASH_SEC);
+        frame.writeText(groundRow, im.col, "─", { fg: lerpColor(t.secondary, t.tertiary, fade) });
+      }
     }
 
     // Physics coins

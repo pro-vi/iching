@@ -5,7 +5,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Cast } from "@iching/core";
-import { resolvePaths, JsonDailyCacheStore } from "@iching/storage";
+import { resolvePaths, JsonDailyCacheStore, JsonlJournalStore } from "@iching/storage";
 import {
   IntentionScene,
   CastScene,
@@ -24,7 +24,7 @@ function makeDeps(dataDir: string, run: RunImpl): ReadingFlowDeps {
     runRouter: async () => ({ shouldExit: false }),
     paths,
     cacheStore: new JsonDailyCacheStore(paths.cache),
-    today: "2026-05-20",
+    today: () => "2026-05-20",
     session: { cols: 80, rows: 24 },
     glyphConfig: { glyphAnim: "dots", glyphFont: "kaiti" },
     language: "zh-Hant",
@@ -79,6 +79,100 @@ describe("runReadingFlow — yarrow source", () => {
     const cache = await deps.cacheStore.read();
     expect(cache?.cast).toEqual(yarrowCast);
     expect(cache?.shown).toBe(true);
+    // Cast-method provenance is recorded at persist time
+    expect(cache?.method).toBe("yarrow");
+    const journal = new JsonlJournalStore(deps.paths.state);
+    const entry = await journal.latest();
+    expect(entry?.method).toBe("yarrow");
+  });
+
+  test("auto (coin) casts record method provenance too", async () => {
+    const run: RunImpl = async (scene) => {
+      if (scene instanceof IntentionScene) return { type: "intentionConfirmed" };
+      if (scene instanceof CastScene) return { type: "home" };
+    };
+
+    const deps = makeDeps(dataDir, run);
+    const result = await runReadingFlow(deps, {
+      purpose: "cast",
+      source: { type: "auto" },
+    });
+
+    expect(result.shouldExit).toBe(false);
+    const cache = await deps.cacheStore.read();
+    expect(cache?.method).toBe("coin");
+    const journal = new JsonlJournalStore(deps.paths.state);
+    const entry = await journal.latest();
+    expect(entry?.method).toBe("coin");
+  });
+
+  test("crypto (default) casts record rng provenance as plain crypto", async () => {
+    const run: RunImpl = async (scene) => {
+      if (scene instanceof IntentionScene) return { type: "intentionConfirmed" };
+      if (scene instanceof CastScene) return { type: "home" };
+    };
+
+    const deps = makeDeps(dataDir, run); // no entropy key → crypto
+    await runReadingFlow(deps, { purpose: "cast", source: { type: "auto" } });
+
+    const cache = await deps.cacheStore.read();
+    expect(cache?.rng).toEqual({ source: "crypto", intentionBound: false });
+    const journal = new JsonlJournalStore(deps.paths.state);
+    const entry = await journal.latest();
+    expect(entry?.rng).toEqual({ source: "crypto", intentionBound: false });
+  });
+
+  test("bound entropy with an intention records intentionBound provenance", async () => {
+    const ctx = { cols: 80, rows: 24, done: false, colorSupport: "none" as const };
+    const run: RunImpl = async (scene) => {
+      if (scene instanceof IntentionScene) {
+        for (const ch of "will it rain?") scene.handleKey({ type: "char", char: ch }, ctx);
+        return scene.handleKey({ type: "enter" }, ctx) ?? undefined;
+      }
+      if (scene instanceof CastScene) return { type: "home" };
+    };
+
+    const deps = { ...makeDeps(dataDir, run), entropy: "bound" as const };
+    await runReadingFlow(deps, { purpose: "cast", source: { type: "auto" } });
+
+    const cache = await deps.cacheStore.read();
+    expect(cache?.rng).toEqual({ source: "bound", intentionBound: true });
+    expect(cache?.intention).toBe("will it rain?");
+    const journal = new JsonlJournalStore(deps.paths.state);
+    const entry = await journal.latest();
+    expect(entry?.rng).toEqual({ source: "bound", intentionBound: true });
+  });
+
+  test("bound entropy without an intention is bound to the moment only", async () => {
+    const ctx = { cols: 80, rows: 24, done: false, colorSupport: "none" as const };
+    const run: RunImpl = async (scene) => {
+      if (scene instanceof IntentionScene) {
+        return scene.handleKey({ type: "enter" }, ctx) ?? undefined; // empty intention
+      }
+      if (scene instanceof CastScene) return { type: "home" };
+    };
+
+    const deps = { ...makeDeps(dataDir, run), entropy: "bound" as const };
+    await runReadingFlow(deps, { purpose: "cast", source: { type: "auto" } });
+
+    const cache = await deps.cacheStore.read();
+    expect(cache?.rng).toEqual({ source: "bound", intentionBound: false });
+  });
+
+  test("seeded auto casts record seed provenance in the cache (journal skipped)", async () => {
+    const run: RunImpl = async (scene) => {
+      if (scene instanceof IntentionScene) return { type: "intentionConfirmed" };
+      if (scene instanceof CastScene) return { type: "home" };
+    };
+
+    const deps = { ...makeDeps(dataDir, run), entropy: "bound" as const };
+    await runReadingFlow(deps, { purpose: "cast", source: { type: "auto", seed: 42 } });
+
+    const cache = await deps.cacheStore.read();
+    // --seed stays its own deterministic path — never reported as bound.
+    expect(cache?.rng).toEqual({ source: "seed", intentionBound: false });
+    const journal = new JsonlJournalStore(deps.paths.state);
+    expect(await journal.latest()).toBeNull(); // seeded casts never reach the journal
   });
 
   test("quitting the ritual early persists nothing and does not reveal", async () => {

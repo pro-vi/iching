@@ -57,6 +57,7 @@ const STRING_SINK_FILES: string[] = [
   "apps/cli/src/commands/hexagram.ts",
   "apps/cli/src/commands/journal.ts",
   "apps/cli/src/commands/paths.ts",
+  "apps/cli/src/commands/today.ts",
   "apps/cli/src/output/plain.ts",
   "packages/core/src/format/reading.ts",
   "packages/core/src/format/derived.ts",
@@ -82,6 +83,7 @@ const CORPUS_DATA_FILES: string[] = [
   "packages/core/src/data/gua.ts",
   "packages/core/src/data/trigrams.ts",
   "packages/core/src/data/large-glyphs.ts",
+  "packages/core/src/data/sequence.ts",
 ];
 
 const REQUIRED_FIELD_IDS: string[] = [
@@ -96,6 +98,13 @@ const REQUIRED_FIELD_IDS: string[] = [
   "core-gua-w",
   "core-gua-yao",
   "core-gua-yaoEn",
+  "core-gua-gc",
+  "core-gua-gcEn",
+  "core-gua-yaoXiao",
+  "core-gua-extra",
+  "core-sequence-xu",
+  "core-sequence-za",
+  "core-sequence-zaEn",
   "core-trigram-name",
   "core-trigram-img",
   "core-trigram-sym",
@@ -384,12 +393,26 @@ function runInventoryOnly(): void {
       fail(`sentinel not in inventory: ${JSON.stringify(str)} (source ${file})`);
   }
 
-  // 4. AR-001 guard: no enrichment fields on core Hexagram.
+  // 4. AR-001 guard (amended by reading-depth v1): the gc/gcEn/yaoXiao/extra
+  // enrichment fields are now SANCTIONED — AC-001 was reopened and each field
+  // carries an inventory field-class row (core-gua-gc et al.). The guard now
+  // verifies sanctioned fields stay inventoried, and any OTHER enrichment
+  // field still reopens AC-001.
   const types = readMaybe("packages/core/src/types.ts");
   if (types) {
     const start = types.indexOf("interface Hexagram");
     const hexBlock = start >= 0 ? types.slice(start, types.indexOf("}", start)) : "";
-    for (const field of ["gc:", "gcEn:", "yaoXiao:", "legge:"]) {
+    const sanctioned: Array<[string, string]> = [
+      ["gc:", "core-gua-gc"],
+      ["gcEn:", "core-gua-gcEn"],
+      ["yaoXiao:", "core-gua-yaoXiao"],
+      ["extra?:", "core-gua-extra"],
+    ];
+    for (const [field, rowId] of sanctioned) {
+      if (hexBlock.includes(field) && !invRaw.includes(rowId))
+        fail(`enrichment field "${field}" on Hexagram lacks inventory row ${rowId} (AR-001)`);
+    }
+    for (const field of ["legge:"]) {
       if (hexBlock.includes(field))
         fail(`enrichment field "${field}" on Hexagram — AC-001 must REOPEN (AR-001)`);
     }
@@ -674,6 +697,8 @@ async function runTerminal(): Promise<void> {
     ["settings.font", "heiti", "黑體", "黑体"],
     ["settings.castMethod", "coin", "銅錢 (coin)", "铜钱 (coin)"],
     ["settings.castMethod", "yarrow", "蓍草 (yarrow)", "蓍草 (yarrow)"],
+    ["settings.entropy", "crypto", "機器 (crypto)", "机器 (crypto)"],
+    ["settings.entropy", "bound", "繫於心念 (bound)", "系于心念 (bound)"],
     ["settings.castMode", "auto", "自動", "自动"],
     ["settings.castMode", "manual", "手動", "手动"],
     ["settings.taijitu", "dots", "點陣", "点阵"],
@@ -946,10 +971,16 @@ async function runCoreData(): Promise<void> {
   for (const id of ["core-gua-name", "core-gua-pinyin", "core-gua-yao", "core-gua-yaoEn", "core-trigram-name"])
     if (!inv.includes(id)) fail(`inventory missing corpus field-class row: ${id}`);
 
-  // 君子 harmonization (C-004): the English corpus must render 君子 consistently as
-  // "the noble one", never "superior man" ("great man" stays — that is 大人).
+  // 君子 harmonization (C-004): the interpretive English corpus must render 君子
+  // consistently as "the noble one", never "superior man" ("great man" stays —
+  // that is 大人). gcEn/textEn are VERBATIM Legge quotations (public domain,
+  // attribution policy AC-010) and are excluded — quotations are not rewritten.
   const guaSrc = readMaybe("packages/core/src/data/gua.ts") ?? "";
-  if (/superior man/.test(guaSrc))
+  const guaInterpretive = guaSrc
+    .split("\n")
+    .filter((l) => !/^\s*(gcEn|textEn):/.test(l))
+    .join("\n");
+  if (/superior man/.test(guaInterpretive))
     fail('君子 inconsistency: "superior man" still in corpus EN — harmonize to "the noble one" (C-004)');
 }
 

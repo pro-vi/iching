@@ -1,4 +1,4 @@
-import type { Cast, Hexagram, Style, Structure } from "@iching/core";
+import type { Cast, CastMethod, DailyCache, Hexagram, RngProvenance, Style, Structure } from "@iching/core";
 import {
   GUA,
   STYLES,
@@ -6,6 +6,29 @@ import {
   getStructure,
 } from "@iching/core";
 import type { HistoryEntry } from "@iching/core";
+import { stripTerminalControls } from "@iching/storage";
+
+/**
+ * Quiet one-line entropy provenance, or null when there is nothing worth
+ * saying. Plain crypto stays silent — the default needs no story, and silence
+ * is calmer. "bound" and deterministic seeds get the honest label from
+ * docs/vision/entropy-sources-vision.md (local participation, never a claim
+ * of metaphysical efficacy).
+ */
+function entropyLine(rng?: RngProvenance, seed?: number): string | null {
+  if (!rng) return null;
+  if (rng.source === "seed") {
+    return seed !== undefined
+      ? `Entropy: deterministic replay from seed ${seed}.`
+      : "Entropy: deterministic replay from seed.";
+  }
+  if (rng.source === "bound") {
+    return rng.intentionBound
+      ? "Entropy: local machine entropy, bound to the intention and moment."
+      : "Entropy: local machine entropy, bound to the moment.";
+  }
+  return null; // crypto — the unremarkable default
+}
 
 /** Format a full reading as plain text */
 export function formatCastPlain(
@@ -13,6 +36,8 @@ export function formatCastPlain(
   primary: Hexagram,
   structure: Structure,
   question?: string,
+  rng?: RngProvenance,
+  seed?: number,
 ): string {
   const lines: string[] = [];
 
@@ -22,7 +47,7 @@ export function formatCastPlain(
   }
 
   // Primary hexagram
-  const ename = (primary as any).ename ? ` — ${(primary as any).ename}` : "";
+  const ename = primary.ename ? ` — ${primary.ename}` : "";
   lines.push(`${primary.u}  ${primary.n} (${primary.p})${ename} — Hexagram ${cast.primary}`);
   lines.push("");
 
@@ -59,6 +84,26 @@ export function formatCastPlain(
     lines.push("");
   }
 
+  // Judgment (卦辭) — the hexagram's own text
+  lines.push(`Judgment (gc): ${primary.gc}`);
+  lines.push(`Judgment (gcEn): ${primary.gcEn}`);
+  lines.push("");
+
+  // Changing lines — the texts the reading turns on
+  if (cast.changingPositions.length > 0) {
+    lines.push("Changing lines:");
+    for (const pos of cast.changingPositions) {
+      lines.push(`  ${pos}: ${primary.yao[pos - 1]}`);
+      lines.push(`     ${primary.yaoEn[pos - 1]}`);
+    }
+    // All six moving on hexagram 1/2 reads 用九/用六
+    if (cast.changingPositions.length === 6 && primary.extra) {
+      lines.push(`  ${primary.extra.name}: ${primary.extra.text}`);
+      lines.push(`     ${primary.extra.textEn}`);
+    }
+    lines.push("");
+  }
+
   // Commentary
   lines.push("Commentary:");
   lines.push(`  大象 (dx): ${primary.dx}`);
@@ -66,6 +111,14 @@ export function formatCastPlain(
   lines.push(`  Image (en): ${primary.en}`);
   lines.push(`  Judgment (te): ${primary.te}`);
   lines.push(`  Wilhelm (w): ${primary.w}`);
+
+  // Entropy provenance — one quiet closing note, only when there is a story
+  // to tell (bound / seed). Plain crypto stays silent.
+  const entropy = entropyLine(rng, seed);
+  if (entropy) {
+    lines.push("");
+    lines.push(entropy);
+  }
 
   return lines.join("\n");
 }
@@ -79,7 +132,7 @@ export function formatHexagramPlain(
   const lines: string[] = [];
   const s = getStructure(kw);
 
-  const ename = (hex as any).ename ? ` — ${(hex as any).ename}` : "";
+  const ename = hex.ename ? ` — ${hex.ename}` : "";
   lines.push(`${hex.u}  ${hex.n} (${hex.p})${ename} — Hexagram ${kw}`);
   lines.push("");
   lines.push(
@@ -95,13 +148,52 @@ export function formatHexagramPlain(
     // the trigram block above already covers it, so we skip the commentary.
     lines.push(hex[style]);
   } else if (!style) {
-    // Show all commentary styles
+    // Show the judgment (卦辭) first, then all commentary styles
+    lines.push(`Judgment (gc): ${hex.gc}`);
+    lines.push(`Judgment (gcEn): ${hex.gcEn}`);
     lines.push(`大象 (dx): ${hex.dx}`);
     lines.push(`彖傳 (tu): ${hex.tu}`);
     lines.push(`Image (en): ${hex.en}`);
     lines.push(`Judgment (te): ${hex.te}`);
     lines.push(`Wilhelm (w): ${hex.w}`);
   }
+
+  return lines.join("\n");
+}
+
+/** Quiet human label for cast-method provenance — a note, not a badge */
+function methodLabel(method: CastMethod): string {
+  switch (method) {
+    case "coin":
+      return "coins";
+    case "coin-manual":
+      return "coins, by hand";
+    case "yarrow":
+      return "yarrow stalks";
+    case "yarrow-manual":
+      return "yarrow stalks, by hand";
+  }
+}
+
+/**
+ * Format today's cached reading (`iching today`) as plain text — the full
+ * reading (judgment, changing-line texts, commentary via formatCastPlain)
+ * prefixed by the day's context: date, intention, method provenance.
+ */
+export function formatTodayPlain(cache: DailyCache): string {
+  const cast = cache.cast;
+  const primary = GUA[cast.primary - 1];
+  const lines: string[] = [];
+
+  lines.push(`Date: ${cache.date}`);
+  if (cache.intention) {
+    lines.push(`Intention: ${cache.intention}`);
+  }
+  if (cache.method) {
+    lines.push(`Method: ${methodLabel(cache.method)}`);
+  }
+  lines.push("");
+  lines.push(formatCastPlain(cast, primary, cache.structure, undefined, cache.rng));
 
   return lines.join("\n");
 }
@@ -121,21 +213,36 @@ export function formatJournalListPlain(
         : "";
     const time = entry.timestamp ? `  ${formatTime(entry.timestamp)}` : "";
     const intention = entry.intention ? `  "${entry.intention}"` : "";
-    lines.push(`${entry.date}${time}  ${g.u} ${g.n} (${g.p})${becoming}${intention}`);
+    // Coins are the ambient default; only the slower rituals earn a quiet note.
+    const method =
+      entry.method && entry.method !== "coin" ? `  · ${methodLabel(entry.method)}` : "";
+    lines.push(`${entry.date}${time}  ${g.u} ${g.n} (${g.p})${becoming}${intention}${method}`);
   }
   return lines.join("\n");
 }
 
-/** Format a single journal entry (show) as plain text */
-export function formatJournalShowPlain(entry: HistoryEntry): string {
+/** Format a single journal entry (show) as plain text, reflection notes beneath */
+export function formatJournalShowPlain(
+  entry: HistoryEntry,
+  notes?: ReadonlyArray<{ date: string; text: string }>,
+): string {
   const g = GUA[entry.cast.primary - 1];
   const structure = getStructure(entry.cast.primary);
   const lines: string[] = [];
 
-  const ename = (g as any).ename ? ` — ${(g as any).ename}` : "";
+  const ename = g.ename ? ` — ${g.ename}` : "";
   lines.push(`Date: ${entry.date}${entry.timestamp ? `  ${formatTime(entry.timestamp)}` : ""}`);
   if (entry.intention) {
     lines.push(`Intention: ${entry.intention}`);
+  }
+  if (entry.method) {
+    lines.push(`Method: ${methodLabel(entry.method)}`);
+  }
+  // Quiet provenance note — only bound entries carry a story (seeded casts
+  // never reach the journal; plain crypto stays silent).
+  const entropy = entropyLine(entry.rng);
+  if (entropy) {
+    lines.push(entropy);
   }
   lines.push(`${g.u}  ${g.n} (${g.p})${ename} — Hexagram ${entry.cast.primary}`);
   lines.push("");
@@ -157,6 +264,18 @@ export function formatJournalShowPlain(entry: HistoryEntry): string {
   lines.push("");
   lines.push(`大象 (dx): ${g.dx}`);
   lines.push(`Image (en): ${g.en}`);
+
+  // Reflection notes — what happened after, written later. Text is stripped
+  // of control characters at render time too: notes written by older
+  // binaries (or hand-edited into the JSONL) must not replay ESC/OSC bytes
+  // as live control sequences.
+  if (notes && notes.length > 0) {
+    lines.push("");
+    lines.push("Notes:");
+    for (const note of notes) {
+      lines.push(`  ${note.date}  ${stripTerminalControls(note.text)}`);
+    }
+  }
 
   return lines.join("\n");
 }

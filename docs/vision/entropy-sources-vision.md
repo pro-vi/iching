@@ -60,6 +60,14 @@ Contract:
 
 Near-term preferred upgrade.
 
+Status: implemented 2026-06-10 as `BoundRandomSource` (core), behind the
+`entropy` config key with `crypto` still the default. The seed is a SHA-256
+of fresh crypto bytes, the intention text, an ISO timestamp, and a per-process
+nonce (each field length-prefixed); cast bytes expand from it via a
+hash-counter DRBG. Provenance is recorded as an `rng` block on journal and
+cache entries and in `cast --json`; plain output carries the one quiet label
+below only when binding actually happened. `--seed` remains its own path.
+
 Uses local cryptographic randomness, then binds the cast to intention and session
 context.
 

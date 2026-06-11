@@ -6,6 +6,7 @@ export type {
   Style,
   DisplayLanguage,
   Hexagram,
+  HexagramExtra,
   LineValue,
   Line,
   Cast,
@@ -14,11 +15,16 @@ export type {
   Structure,
   DailyCache,
   HistoryEntry,
+  ReflectionNote,
+  CastMethod,
+  EntropySource,
+  RngProvenance,
 } from "./types.js";
 
 // RandomSource
-export type { RandomSource } from "./random.js";
+export type { RandomSource, BindingContext } from "./random.js";
 export {
+  BoundRandomSource,
   CryptoRandomSource,
   SeededRandomSource,
   TapeRandomSource,
@@ -57,16 +63,21 @@ export {
   DERIVED_LABELS_CN,
 } from "./data/trigrams.js";
 export { LARGE_GLYPHS, type GlyphFont, type GlyphSize, type GlyphEntry } from "./data/large-glyphs.js";
+export { SEQUENCE, type SequenceTexts } from "./data/sequence.js";
 
 // i18n — audited Traditional -> Simplified conversion
 export { toSimplified, SIMPLIFIED_MAP, SIMPLIFIED_EXCEPTIONS } from "./i18n/simplify.js";
 
 // Format
-export { formatReading, getRandomQuoteStyle } from "./format/reading.js";
+export { formatReading, getRandomQuoteStyle, readingFocus } from "./format/reading.js";
+export type { ReadingFocus } from "./format/reading.js";
 export { formatDerived } from "./format/derived.js";
 
 // Search
 export { searchHexagrams } from "./search.js";
+
+// Terminal-safe text
+export { stripTerminalControls } from "./terminal-text.js";
 
 // Detail
 export { type HexagramDetail, buildHexagramDetail } from "./detail.js";

@@ -19,7 +19,16 @@ export { JsonConfigStore, detectSystemLanguage, canonicalLanguage } from "./json
 export { atomicWriteJson } from "./json/atomic-write.js";
 
 // Journal query
-export { type HexagramHistory, getHexagramHistory } from "./journal-query.js";
+export {
+  type HexagramHistory,
+  type AnnotatedEntry,
+  getHexagramHistory,
+  loadEntriesWithNotes,
+  noteMatchesEntry,
+} from "./journal-query.js";
+
+// Terminal-safe text (journal notes are replayed to terminals)
+export { stripTerminalControls } from "./sanitize.js";
 
 // Legacy discovery
 export { discoverLegacyPaths } from "./legacy/discovery.js";

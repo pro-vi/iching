@@ -8,8 +8,10 @@ import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
 import type { GlyphAnimator } from "./types.ts";
 import { getTheme } from "../color/theme.ts";
+import { lerpColor } from "../color/lerp.ts";
 
-const TOTAL_MS = 3000;
+/** Total run time (ms) at durationScale 1. */
+export const DOTS_TOTAL_MS = 3000;
 
 // Braille dot positions: each braille char is a 2x4 grid encoded in 8 bits.
 // Bit layout: dot1=0x01, dot2=0x02, dot3=0x04, dot4=0x08,
@@ -48,16 +50,6 @@ function getDots(pattern: number): number[] {
   return dots;
 }
 
-function lerpColor(a: string, b: string, t: number): string {
-  const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
-  const ar = parseInt(a.slice(1, 3), 16), ag = parseInt(a.slice(3, 5), 16), ab = parseInt(a.slice(5, 7), 16);
-  const br = parseInt(b.slice(1, 3), 16), bg = parseInt(b.slice(3, 5), 16), bb = parseInt(b.slice(5, 7), 16);
-  const r = clamp(ar + (br - ar) * t);
-  const g = clamp(ag + (bg - ag) * t);
-  const bv = clamp(ab + (bb - ab) * t);
-  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${bv.toString(16).padStart(2, "0")}`;
-}
-
 interface CellMeta {
   isContent: boolean;
   realChar: string;
@@ -72,12 +64,15 @@ interface CellMeta {
 
 export class DotsAnimator implements GlyphAnimator {
   private readonly glyph: GlyphEntry;
+  /** Motion-preset time dilation: <1 plays the same animation faster. */
+  private readonly durationScale: number;
   private cells: CellMeta[][] = [];
   private startTime = -1;
   private localMs = 0;
 
-  constructor(glyph: GlyphEntry) {
+  constructor(glyph: GlyphEntry, durationScale: number = 1) {
     this.glyph = glyph;
+    this.durationScale = Math.max(0.05, durationScale);
     this.initCells();
   }
 
@@ -85,8 +80,8 @@ export class DotsAnimator implements GlyphAnimator {
     this.cells = [];
     const totalCells = this.glyph.height * this.glyph.width;
     // Stagger: each cell starts at a different time based on scan order
-    const staggerWindow = TOTAL_MS * 0.6; // first 60% is stagger window
-    const fillWindow = TOTAL_MS * 0.4;    // each cell has 40% to fill its dots
+    const staggerWindow = DOTS_TOTAL_MS * 0.6; // first 60% is stagger window
+    const fillWindow = DOTS_TOTAL_MS * 0.4;    // each cell has 40% to fill its dots
 
     let idx = 0;
     for (let r = 0; r < this.glyph.height; r++) {
@@ -118,8 +113,8 @@ export class DotsAnimator implements GlyphAnimator {
 
   update(elapsed: number): boolean {
     if (this.startTime < 0) this.startTime = elapsed;
-    this.localMs = elapsed - this.startTime;
-    return this.localMs >= TOTAL_MS;
+    this.localMs = (elapsed - this.startTime) / this.durationScale;
+    return this.localMs >= DOTS_TOTAL_MS;
   }
 
   render(buf: CellBuffer, offsetR: number, offsetC: number): void {

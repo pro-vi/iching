@@ -7,11 +7,15 @@
 // rejoin post-cast nav).
 
 import {
+  BoundRandomSource,
   buildStructure,
   castHexagram,
   type Cast,
+  type CastMethod,
   CryptoRandomSource,
   type DisplayLanguage,
+  type RandomSource,
+  type RngProvenance,
   SeededRandomSource,
 } from "@iching/core";
 import {
@@ -24,7 +28,6 @@ import {
   CastScene,
   type CastGlyphInput,
   IntentionScene,
-  JournalScene,
   type MotionPreset,
   type Scene,
   SceneRouter,
@@ -38,6 +41,7 @@ import {
   makeBrowseFactory,
   makeDetailScene,
   makeJournalFactory,
+  makeJournalScene,
   type SessionDims,
 } from "./scene-factories.ts";
 
@@ -50,16 +54,37 @@ export type ReadingSource =
 
 export type ReadingPurpose = "cast" | "play" | "replay";
 
+// Cast-method provenance recorded at persist time — replays ("existing")
+// never persist, so they carry no method.
+const METHOD_BY_SOURCE: Record<Exclude<ReadingSource["type"], "existing">, CastMethod> = {
+  "auto": "coin",
+  "manual": "coin-manual",
+  "yarrow": "yarrow",
+  "yarrow-manual": "yarrow-manual",
+};
+
 export interface ReadingFlowDeps {
   run: (scene: Scene) => Promise<SceneSignal | void>;
   runRouter: (router: SceneRouter) => Promise<{ shouldExit: boolean }>;
   paths: ResolvedPaths;
   cacheStore: JsonDailyCacheStore;
-  today: string;
+  /**
+   * Returns today's local date (YYYY-MM-DD). Called at persist time — not at
+   * flow start — so a reading that crosses midnight is stamped with the day
+   * it actually completed.
+   */
+  today: () => string;
   session: SessionDims;
   glyphConfig: CastGlyphInput;
   language: DisplayLanguage;
   motion: MotionPreset;
+  /**
+   * Live entropy mode for machine-driven sources (auto coins, both yarrow
+   * rituals): "crypto" is plain local machine entropy; "bound" mixes the
+   * intention and moment into the seed as salt — chance stays primary.
+   * Defaults to "crypto". Deterministic seeds are their own path.
+   */
+  entropy?: "crypto" | "bound";
 }
 
 /**
@@ -88,7 +113,13 @@ export async function runReadingFlow(
     intention = intentionScene.getIntention();
   }
 
-  // 2. Obtain — branch on source; produces a Cast or returns early
+  // 2. Obtain — branch on source; produces a Cast or returns early.
+  // Live entropy is built per cast: a BoundRandomSource binds THIS intention
+  // and THIS moment into its seed, so it can never be hoisted or reused.
+  const liveSource = (): RandomSource =>
+    deps.entropy === "bound"
+      ? new BoundRandomSource(intention ?? "")
+      : new CryptoRandomSource();
   let cast: Cast;
   let usedSeed = false;
   if (opts.source.type === "manual") {
@@ -98,13 +129,13 @@ export async function runReadingFlow(
     if (tossSignal?.type !== "tossCompleted") return { shouldExit: false }; // user quit before 6 lines
     cast = tossSignal.cast;
   } else if (opts.source.type === "yarrow") {
-    const yarrowScene = new YarrowScene(deps.motion, undefined, deps.language);
+    const yarrowScene = new YarrowScene(deps.motion, liveSource(), deps.language);
     const yarrowSignal = await deps.run(yarrowScene);
     if (yarrowSignal?.type === "exit") return { shouldExit: true };
     if (yarrowSignal?.type !== "yarrowCompleted") return { shouldExit: false }; // user quit mid-ritual
     cast = yarrowSignal.cast;
   } else if (opts.source.type === "yarrow-manual") {
-    const yarrowManualScene = new YarrowManualScene(deps.motion, undefined, deps.language);
+    const yarrowManualScene = new YarrowManualScene(deps.motion, liveSource(), deps.language);
     const yarrowSignal = await deps.run(yarrowManualScene);
     if (yarrowSignal?.type === "exit") return { shouldExit: true };
     if (yarrowSignal?.type !== "yarrowCompleted") return { shouldExit: false }; // user quit mid-ritual
@@ -113,7 +144,7 @@ export async function runReadingFlow(
     usedSeed = opts.source.seed !== undefined;
     const source = usedSeed
       ? new SeededRandomSource(opts.source.seed!)
-      : new CryptoRandomSource();
+      : liveSource();
     cast = castHexagram(source);
   } else {
     cast = opts.source.cast;
@@ -123,16 +154,34 @@ export async function runReadingFlow(
   if (!isPlay && !isReplay) {
     const structure = buildStructure(cast);
     const timestamp = new Date().toISOString();
+    // One call so journal and cache agree even at a midnight boundary.
+    const date = deps.today();
+    const method =
+      opts.source.type === "existing" ? undefined : METHOD_BY_SOURCE[opts.source.type];
+    // Entropy provenance — the honest record of where the bytes came from.
+    // The manual coin toss draws its line values inside TossScene from its
+    // own CryptoRandomSource (keypresses only trigger the toss), so it is
+    // recorded as plain crypto regardless of the entropy setting.
+    const rng: RngProvenance =
+      opts.source.type === "manual"
+        ? { source: "crypto", intentionBound: false }
+        : usedSeed
+          ? { source: "seed", intentionBound: false }
+          : deps.entropy === "bound"
+            ? { source: "bound", intentionBound: intention !== undefined && intention !== "" }
+            : { source: "crypto", intentionBound: false };
     if (!usedSeed) {
       const journal = new JsonlJournalStore(deps.paths.state);
-      await journal.append({ date: deps.today, cast, intention, timestamp });
+      await journal.append({ date, cast, intention, timestamp, method, rng });
     }
     await deps.cacheStore.write({
-      date: deps.today,
+      date,
       cast,
       shown: true,
       structure,
       intention,
+      method,
+      rng,
     });
   }
 
@@ -190,7 +239,7 @@ async function runPostCastNavigation(
       session: deps.session,
     };
     const router = new SceneRouter(
-      new JournalScene(entries),
+      makeJournalScene(factoryDeps),
       makeJournalFactory(factoryDeps),
     );
     return await deps.runRouter(router);
@@ -203,7 +252,7 @@ async function runPostCastNavigation(
       journal,
     };
     const startScene: Scene = signal.type === "openDetail"
-      ? makeDetailScene(signal.kw, factoryDeps)
+      ? makeDetailScene(signal.kw, factoryDeps, signal.changedPositions)
       : new BrowseScene();
     const router = new SceneRouter(startScene, makeBrowseFactory(factoryDeps));
     return await deps.runRouter(router);

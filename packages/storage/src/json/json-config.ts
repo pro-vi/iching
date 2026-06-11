@@ -12,6 +12,7 @@ const GLYPH_FONT_OPTIONS = ["kaiti", "libian", "heiti"] as const;
 const TAIJITU_STYLE_OPTIONS = ["dots", "dense"] as const;
 const CAST_METHOD_OPTIONS = ["coin", "yarrow"] as const;
 const CAST_MODE_OPTIONS = ["auto", "manual"] as const;
+const ENTROPY_OPTIONS = ["crypto", "bound"] as const;
 
 const DEFAULT_CONFIG: UserConfig = {
   motion: "default",
@@ -24,7 +25,10 @@ const DEFAULT_CONFIG: UserConfig = {
   taijituStyle: "dots",
   castMethod: "coin",
   castMode: "auto",
+  entropy: "crypto",
 };
+
+type ForwardCompatibleUserConfig = UserConfig & Record<string, unknown>;
 
 // Old castMode strings (pre split into castMethod+castMode) → new pair.
 const LEGACY_CAST_MODE: Record<string, { method: UserConfig["castMethod"]; mode: UserConfig["castMode"] }> = {
@@ -139,7 +143,7 @@ function stringValue(
 }
 
 function normalizeConfig(parsed: unknown): UserConfig {
-  const merged: UserConfig = { ...DEFAULT_CONFIG };
+  const merged: ForwardCompatibleUserConfig = { ...DEFAULT_CONFIG };
   if (!isRecord(parsed)) return merged;
 
   if (isOneOf(MOTION_OPTIONS, parsed.motion)) merged.motion = parsed.motion;
@@ -190,6 +194,8 @@ function normalizeConfig(parsed: unknown): UserConfig {
     }
   }
 
+  if (isOneOf(ENTROPY_OPTIONS, parsed.entropy)) merged.entropy = parsed.entropy;
+
   // Forward-compat (schema-keys: "schemas only expand"): carry through unknown
   // OWN keys written by a newer version / parallel install, so a settings save
   // from this version doesn't destroy them. Object.hasOwn, NOT `k in` — the `in`
@@ -200,7 +206,7 @@ function normalizeConfig(parsed: unknown): UserConfig {
   for (const k of Object.keys(parsed)) {
     if (k === "__proto__" || k === "constructor" || k === "prototype") continue;
     if (!Object.hasOwn(DEFAULT_CONFIG, k)) {
-      (merged as unknown as Record<string, unknown>)[k] = parsed[k];
+      merged[k] = parsed[k];
     }
   }
 

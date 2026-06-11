@@ -1,35 +1,171 @@
-// JournalScene — scrollable timeline of past readings
+// JournalScene — scrollable timeline of past readings, and an instrument of
+// reflection: incremental search over intentions and hexagram names ([/]),
+// reflection notes attached to past readings ([n]), a door into the
+// dictionary for the selected entry ([g]), and a quiet patterns pane over
+// everything cast so far ([p]).
 
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
-import type { HistoryEntry } from "@iching/core";
-import { GUA, buildStructure, toSimplified } from "@iching/core";
+import type { DisplayLanguage, HistoryEntry } from "@iching/core";
+import { GUA, stripTerminalControls, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { ScrollableRegion } from "../../widgets/scrollable.ts";
+import { TextInput } from "../../widgets/text-input.ts";
 import { tr } from "../../i18n/messages.ts";
+import { computeJournalPatterns } from "./journal-patterns.ts";
+
+/** A reflection note as the journal renders it (storage records carry more). */
+export interface JournalNoteView {
+  text: string;
+  date: string;
+  /**
+   * Persistence state for notes committed this session: "pending" while the
+   * append is in flight (rendered dim), "saved" once it lands. A failed
+   * append removes the note from its entry instead. Notes loaded from disk
+   * carry no state — they are already durable.
+   */
+  state?: "pending" | "saved";
+}
+
+/** Journal entry plus its attached reflection notes. */
+export interface JournalEntryView extends HistoryEntry {
+  notes?: JournalNoteView[];
+}
+
+export interface JournalSceneOptions {
+  /**
+   * Persist a committed reflection note. The scene updates its own view
+   * (marker + preview) immediately; persistence rides this callback so the
+   * scene stays storage-free. Returning the append promise lets the scene
+   * track the note honestly — pending until it settles, withdrawn (with one
+   * calm line) when the write fails — and await in-flight writes on exit.
+   */
+  onNote?: (entry: JournalEntryView, text: string) => void | Promise<void>;
+  /** Local YYYY-MM-DD — injected for tests; defaults to the system clock. */
+  today?: () => string;
+}
+
+/**
+ * Sanitize typed/pasted text for the scene's one-line inputs: fold
+ * newlines/tabs to spaces (enter must not submit mid-paste) and strip the
+ * remaining C0/C1 control characters — including ESC (0x1B), so a pasted
+ * ANSI sequence cannot leak raw control bytes into a stored note.
+ */
+export function sanitizeFieldText(text: string): string {
+  return stripTerminalControls(text);
+}
+
+/** Strip diacritics for accent-insensitive pinyin matching. */
+function normalize(str: string): string {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+/**
+ * Truncate to a display-width budget with a trailing one-column ellipsis.
+ * List rows and previews must clip by terminal columns, not UTF-16 code
+ * units — a CJK string sliced by code units keeps up to twice its budget
+ * and runs off the right edge (taking the ellipsis with it).
+ */
+export function truncateToWidth(text: string, maxWidth: number): string {
+  if (maxWidth <= 0) return "";
+  if (stringWidth(text) <= maxWidth) return text;
+  const budget = maxWidth - 1; // reserve one column for the ellipsis
+  let out = "";
+  let used = 0;
+  for (const ch of text) {
+    const w = stringWidth(ch);
+    if (used + w > budget) break;
+    out += ch;
+    used += w;
+  }
+  return out + "…";
+}
+
+/** Does this hexagram match the query (name / simplified / pinyin / ename / number)? */
+function hexagramMatches(kw: number, q: string): boolean {
+  const gua = GUA[kw - 1];
+  if (!gua) return false;
+  return (
+    gua.n.includes(q) ||
+    toSimplified(gua.n).includes(q) ||
+    normalize(gua.p).includes(q) ||
+    normalize(gua.ename).includes(q) ||
+    String(kw).startsWith(q)
+  );
+}
+
+/** Live search predicate: intention text + primary/becoming hexagram. */
+export function entryMatchesQuery(entry: HistoryEntry, query: string): boolean {
+  const q = normalize(query.trim());
+  if (q.length === 0) return true;
+  if (entry.intention && normalize(entry.intention).includes(q)) return true;
+  if (hexagramMatches(entry.cast.primary, q)) return true;
+  if (entry.cast.becoming !== null && hexagramMatches(entry.cast.becoming, q)) return true;
+  return false;
+}
 
 export class JournalScene implements Scene {
-  private entries: HistoryEntry[];
+  private entries: JournalEntryView[];
+  private filtered: JournalEntryView[];
   private cursor: number;
   private scroll: ScrollableRegion;
+  private opts: JournalSceneOptions;
 
-  constructor(entries: HistoryEntry[]) {
+  // [/] incremental search
+  private searchActive = false;
+  private searchInput: TextInput;
+
+  // [n] one-line reflection-note input (rendered in-scene, not a new Scene)
+  private noteActive = false;
+  private noteInput: TextInput;
+
+  // [p] patterns pane
+  private patternsOpen = false;
+
+  // Reflection-note persistence honesty: appends still in flight (awaited by
+  // exit() so scene teardown can't lose a pending write) and entries whose
+  // last append failed (one calm line in the preview row).
+  private inFlightNotes = new Set<Promise<void>>();
+  private failedNoteEntries = new Set<JournalEntryView>();
+
+  constructor(entries: JournalEntryView[], opts: JournalSceneOptions = {}) {
     // Most recent first
     this.entries = [...entries].reverse();
+    this.filtered = this.entries;
     this.cursor = 0;
     this.scroll = new ScrollableRegion(20, []);
+    this.opts = opts;
+    this.searchInput = new TextInput();
+    this.noteInput = new TextInput();
   }
 
   enter(ctx: SceneContext): void {
-    this.scroll.viewportHeight = ctx.rows - 5; // header + footer
+    this.scroll.viewportHeight = ctx.rows - 4; // header(2) + preview + footer
+  }
+
+  exit(): Promise<void> {
+    // Scene teardown (pop, push, or leaving the program) waits for pending
+    // note appends — esc or quit right after committing a note must not
+    // lose the write. runScene awaits this before the router proceeds.
+    return this.notesSettled();
+  }
+
+  /** Resolves when every in-flight note append has settled. */
+  async notesSettled(): Promise<void> {
+    while (this.inFlightNotes.size > 0) {
+      await Promise.allSettled([...this.inFlightNotes]);
+    }
   }
 
   update(_elapsed: number, _dt: number, _ctx: SceneContext): void {}
 
   resize(cols: number, rows: number): void {
-    this.scroll.viewportHeight = rows - 5;
+    this.scroll.viewportHeight = rows - 4;
   }
 
   render(frame: CellBuffer, ctx: SceneContext): void {
@@ -42,13 +178,20 @@ export class JournalScene implements Scene {
     const titleCol = Math.max(0, Math.floor((maxW - stringWidth(title)) / 2));
     frame.writeText(0, titleCol, title, { fg: t.primary, bold: true });
 
-    const countText = `${this.entries.length} ${tr(lang, "journal.countSuffix")}`;
+    const countText = `${this.filtered.length} ${tr(lang, "journal.countSuffix")}`;
     frame.writeText(0, maxW - stringWidth(countText) - 1, countText, { fg: t.tertiary });
 
-    // Separator
-    const sep = "─".repeat(Math.min(maxW, 60));
-    const sepCol = Math.max(0, Math.floor((maxW - stringWidth(sep)) / 2));
-    frame.writeText(1, sepCol, sep, { fg: t.tertiary, dim: true });
+    // Separator row doubles as the search input when search is live.
+    if (this.searchActive) {
+      const label = tr(lang, "dict.searchPrompt");
+      const labelW = stringWidth(label);
+      frame.writeText(1, 1, label, { fg: t.accent });
+      this.searchInput.render(frame, 1, 1 + labelW, maxW - 2 - labelW, { fg: t.primary });
+    } else {
+      const sep = "─".repeat(Math.min(maxW, 60));
+      const sepCol = Math.max(0, Math.floor((maxW - stringWidth(sep)) / 2));
+      frame.writeText(1, sepCol, sep, { fg: t.tertiary, dim: true });
+    }
 
     if (this.entries.length === 0) {
       const empty = tr(lang, "journal.empty");
@@ -57,14 +200,27 @@ export class JournalScene implements Scene {
       return;
     }
 
-    // Scrollable list
+    if (this.patternsOpen) {
+      this.renderPatterns(frame, ctx, lang);
+      this.renderFooter(frame, ctx, lang);
+      return;
+    }
+
+    this.renderList(frame, ctx, lang);
+    this.renderPreviewRow(frame, ctx, lang);
+    this.renderFooter(frame, ctx, lang);
+  }
+
+  private renderList(frame: CellBuffer, ctx: SceneContext, lang: DisplayLanguage): void {
+    const t = getTheme();
+    const maxW = ctx.cols;
     const viewportTop = 2;
     const viewportH = ctx.rows - 4;
     const visibleStart = this.scroll.scrollOffset;
-    const visibleEnd = Math.min(this.entries.length, visibleStart + viewportH);
+    const visibleEnd = Math.min(this.filtered.length, visibleStart + viewportH);
 
     for (let i = visibleStart; i < visibleEnd; i++) {
-      const entry = this.entries[i];
+      const entry = this.filtered[i];
       const row = viewportTop + (i - visibleStart);
       if (row >= ctx.rows - 2) break;
 
@@ -89,19 +245,18 @@ export class JournalScene implements Scene {
         }
       }
 
-      // Intention
+      // Intention — a 30-column budget (CJK counts double)
       if (entry.intention) {
-        const maxLen = 30;
-        const truncated = entry.intention.length > maxLen
-          ? entry.intention.slice(0, maxLen - 1) + "\u2026"
-          : entry.intention;
-        line += `  \u201c${truncated}\u201d`;
+        line += `  “${truncateToWidth(entry.intention, 30)}”`;
       }
 
-      // Truncate to width
-      if (stringWidth(line) > maxW - 4) {
-        line = line.slice(0, maxW - 5) + "\u2026";
+      // Quiet marker for annotated entries (·註 / ·note)
+      if (entry.notes?.length) {
+        line += `  ·${tr(lang, "journal.noteMarker")}`;
       }
+
+      // Truncate to the viewport's column budget
+      line = truncateToWidth(line, maxW - 4);
 
       const col = 3;
       const cursor = isSelected ? " > " : "   ";
@@ -113,75 +268,369 @@ export class JournalScene implements Scene {
     }
 
     // Scroll indicator
-    if (this.entries.length > viewportH) {
-      const pct = Math.round((this.cursor / (this.entries.length - 1)) * 100);
-      const indicator = `${this.cursor + 1}/${this.entries.length} (${pct}%)`;
+    if (this.filtered.length > viewportH) {
+      const pct = Math.round((this.cursor / (this.filtered.length - 1)) * 100);
+      const indicator = `${this.cursor + 1}/${this.filtered.length} (${pct}%)`;
       frame.writeText(ctx.rows - 2, maxW - stringWidth(indicator) - 1, indicator, { fg: t.tertiary });
-    }
-
-    // Footer
-    const footer = `[↑↓] ${tr(lang, "verb.navigate")}  ·  [enter] ${tr(lang, "verb.view")}  ·  [d] ${tr(lang, "verb.dictionary")}  ·  [esc] ${tr(lang, "verb.back")}`;
-    const footerCol = Math.max(0, Math.floor((maxW - stringWidth(footer)) / 2));
-    frame.writeText(ctx.rows - 1, footerCol, footer, { fg: t.tertiary });
-
-    // Detail preview of selected entry
-    if (this.entries[this.cursor]) {
-      const selected = this.entries[this.cursor];
-      const gua = GUA[selected.cast.primary - 1];
-      const structure = buildStructure(selected.cast);
-
-      // Image preview: English image in en mode; the 大象傳 (converted for 简) in zh modes
-      const detailRow = ctx.rows - 2;
-      const detail = lang === "en" ? gua.en : lang === "zh-Hans" ? toSimplified(gua.dx) : gua.dx;
-      if (stringWidth(detail) <= maxW - 4) {
-        frame.writeText(detailRow, 2, detail, { fg: t.tertiary, dim: true });
-      }
     }
   }
 
-  handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
-    if (this.entries.length === 0) {
-      if (key.type === "char" && (key.char === "q" || key.char === "d")) return { type: "back" };
-      if (key.type === "escape") return { type: "back" };
-      if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
+  /** Preview row (rows-2): note input > latest note > the entry's image text. */
+  private renderPreviewRow(frame: CellBuffer, ctx: SceneContext, lang: DisplayLanguage): void {
+    const t = getTheme();
+    const maxW = ctx.cols;
+    const detailRow = ctx.rows - 2;
+    const selected = this.filtered[this.cursor];
+
+    if (this.noteActive) {
+      const label = tr(lang, "journal.notePrompt");
+      const labelW = stringWidth(label);
+      frame.writeText(detailRow, 2, label, { fg: t.accent });
+      this.noteInput.render(frame, detailRow, 2 + labelW, maxW - 4 - labelW, { fg: t.primary });
       return;
     }
 
-    if (key.type === "arrow") {
-      if (key.direction === "up") {
-        this.cursor = Math.max(0, this.cursor - 1);
-        this.ensureCursorVisible();
-      } else if (key.direction === "down") {
-        this.cursor = Math.min(this.entries.length - 1, this.cursor + 1);
-        this.ensureCursorVisible();
+    if (!selected) return;
+
+    // A failed append withdrew its note (marker gone) — one calm line says so.
+    if (this.failedNoteEntries.has(selected)) {
+      const failed = truncateToWidth(tr(lang, "journal.noteSaveFailed"), maxW - 4);
+      frame.writeText(detailRow, 2, failed, { fg: t.tertiary, dim: true });
+      return;
+    }
+
+    const latestNote = selected.notes?.[selected.notes.length - 1];
+    if (latestNote) {
+      const text = truncateToWidth(
+        `·${tr(lang, "journal.noteMarker")} ${latestNote.date}  ${latestNote.text}`,
+        maxW - 4,
+      );
+      // Dim only while the append is in flight — a settled note holds the
+      // regular tertiary weight.
+      frame.writeText(detailRow, 2, text, {
+        fg: t.tertiary,
+        dim: latestNote.state === "pending",
+      });
+      return;
+    }
+
+    // Image preview: English image in en mode; the 大象傳 (converted for 简) in zh modes
+    const gua = GUA[selected.cast.primary - 1];
+    const detail = lang === "en" ? gua.en : lang === "zh-Hans" ? toSimplified(gua.dx) : gua.dx;
+    if (stringWidth(detail) <= maxW - 4) {
+      frame.writeText(detailRow, 2, detail, { fg: t.tertiary, dim: true });
+    }
+  }
+
+  /** The quiet observatory: counts and dates over the loaded entries. */
+  private renderPatterns(frame: CellBuffer, ctx: SceneContext, lang: DisplayLanguage): void {
+    const t = getTheme();
+    const today = this.opts.today ? this.opts.today() : localToday();
+    const patterns = computeJournalPatterns(this.entries, today);
+    const cn = (s: string): string => (lang === "zh-Hans" ? toSimplified(s) : s);
+
+    const top = 3;
+    const col = 4;
+    let row = top;
+    const put = (text: string, style: Parameters<CellBuffer["writeText"]>[3]): void => {
+      if (row < ctx.rows - 2) frame.writeText(row, col, text, style);
+      row++;
+    };
+
+    put(tr(lang, "journal.patterns.title"), { fg: t.primary, bold: true });
+    row++;
+
+    put(
+      `${patterns.total} ${tr(lang, "journal.countSuffix")}  ·  ${tr(lang, "journal.patterns.thisMonth")} ${patterns.thisMonth}`,
+      { fg: t.secondary },
+    );
+    row++;
+
+    if (patterns.topHexagrams.length > 0) {
+      put(tr(lang, "journal.patterns.mostSeen"), { fg: t.tertiary, dim: true });
+      for (const hex of patterns.topHexagrams) {
+        const gua = GUA[hex.kw - 1];
+        put(`${gua.u} ${cn(gua.n)} (${gua.p})   ×${hex.count} · ${hex.lastDate}`, { fg: t.secondary });
       }
+      row++;
+    }
+
+    if (patterns.movingLine) {
+      put(
+        `${tr(lang, "journal.patterns.movingLine")} · ${patterns.movingLine.position} (×${patterns.movingLine.count})`,
+        { fg: t.tertiary, dim: true },
+      );
+    }
+  }
+
+  private renderFooter(frame: CellBuffer, ctx: SceneContext, lang: DisplayLanguage): void {
+    const t = getTheme();
+    const maxW = ctx.cols;
+    // Single-space separators: the full key list must fit 80 columns.
+    let footer: string;
+    if (this.noteActive) {
+      footer = `[enter] ${tr(lang, "verb.confirm")} · [esc] ${tr(lang, "verb.back")}`;
+    } else if (this.patternsOpen) {
+      // p also closes (a quiet toggle); only the universal key is advertised.
+      footer = `[esc] ${tr(lang, "verb.back")}`;
+    } else if (this.searchActive) {
+      footer = `[↑↓] ${tr(lang, "verb.navigate")} · [enter] ${tr(lang, "verb.view")} · [esc] ${tr(lang, "verb.clearSearch")}`;
+    } else {
+      footer =
+        `[enter] ${tr(lang, "verb.view")} · [n] ${tr(lang, "verb.note")} · [g] ${tr(lang, "verb.detail")}` +
+        ` · [/] ${tr(lang, "verb.search")} · [p] ${tr(lang, "verb.patterns")} · [esc] ${tr(lang, "verb.back")}`;
+    }
+    const footerCol = Math.max(0, Math.floor((maxW - stringWidth(footer)) / 2));
+    frame.writeText(ctx.rows - 1, footerCol, footer, { fg: t.tertiary });
+  }
+
+  handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
+    if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
+
+    if (this.entries.length === 0) {
+      if (key.type === "char" && (key.char === "q" || key.char === "d")) return { type: "back" };
+      if (key.type === "escape") return { type: "back" };
+      return;
+    }
+
+    if (this.noteActive) return this.handleNoteKey(key);
+    if (this.patternsOpen) return this.handlePatternsKey(key);
+    if (this.searchActive) return this.handleSearchKey(key);
+
+    if (key.type === "arrow") {
+      if (key.direction === "up") this.moveCursor(-1);
+      else if (key.direction === "down") this.moveCursor(1);
+      return;
     }
 
     if (key.type === "page") {
+      const stride = Math.max(1, this.scroll.viewportHeight);
       if (key.direction === "up") {
-        this.cursor = Math.max(0, this.cursor - this.scroll.viewportHeight);
-        this.scroll.pageUp();
+        this.cursor = Math.max(0, this.cursor - stride);
       } else {
-        this.cursor = Math.min(this.entries.length - 1, this.cursor + this.scroll.viewportHeight);
-        this.scroll.pageDown();
+        this.cursor = Math.min(Math.max(0, this.filtered.length - 1), this.cursor + stride);
       }
+      // The ScrollableRegion holds no content lines (the list renders from
+      // `filtered` directly), so its pageUp/pageDown scroll math would no-op
+      // and let the selection leave the viewport — walk the offset from the
+      // cursor instead, same as the arrow path.
+      this.ensureCursorVisible();
+      return;
+    }
+
+    if (key.type === "home") {
+      this.cursor = 0;
+      this.scroll.scrollOffset = 0;
+      return;
+    }
+
+    if (key.type === "end") {
+      this.cursor = Math.max(0, this.filtered.length - 1);
+      this.ensureCursorVisible();
+      return;
     }
 
     if (key.type === "enter") {
-      const entry = this.entries[this.cursor];
+      const entry = this.filtered[this.cursor];
       if (entry) {
         const entryKey = entry.timestamp || entry.date;
         return { type: "openJournalReading", key: entryKey };
       }
+      return;
     }
 
-    if (key.type === "char" && key.char === "d") {
-      return { type: "openDictionary" };
+    if (key.type === "char") {
+      switch (key.char) {
+        // Nav parity with the dict browser: j/k when search is not active.
+        case "j":
+          this.moveCursor(1);
+          return;
+        case "k":
+          this.moveCursor(-1);
+          return;
+        case "/":
+          this.searchActive = true;
+          return;
+        case "n":
+          if (this.filtered[this.cursor]) {
+            this.noteActive = true;
+            this.noteInput.clear();
+          }
+          return;
+        case "g": {
+          // Door into the dictionary: the entry's primary hexagram, with its
+          // cast's moving lines marked.
+          const entry = this.filtered[this.cursor];
+          if (entry) {
+            const changed = entry.cast.changingPositions;
+            return changed?.length
+              ? { type: "openDetail", kw: entry.cast.primary, changedPositions: [...changed] }
+              : { type: "openDetail", kw: entry.cast.primary };
+          }
+          return;
+        }
+        case "p":
+          this.patternsOpen = true;
+          return;
+        case "d":
+          return { type: "openDictionary" };
+        case "q":
+          return { type: "back" };
+      }
+      return;
     }
 
-    if (key.type === "char" && key.char === "q") return { type: "back" };
     if (key.type === "escape") return { type: "back" };
-    if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
+  }
+
+  private handleNoteKey(key: KeyEvent): SceneSignal | void {
+    if (key.type === "enter") {
+      const text = this.noteInput.value.trim();
+      this.noteActive = false;
+      this.noteInput.clear();
+      if (!text) return; // empty note is a cancel, not an entry
+      const entry = this.filtered[this.cursor];
+      if (!entry) return;
+      const date = this.opts.today ? this.opts.today() : localToday();
+      this.commitNote(entry, { text, date });
+      return;
+    }
+    if (key.type === "escape") {
+      this.noteActive = false;
+      this.noteInput.clear();
+      return;
+    }
+    if (key.type === "arrow") {
+      if (key.direction === "left") this.noteInput.moveCursorLeft();
+      if (key.direction === "right") this.noteInput.moveCursorRight();
+      return;
+    }
+    if (key.type === "backspace") {
+      this.noteInput.backspace();
+      return;
+    }
+    if (key.type === "delete") {
+      this.noteInput.delete();
+      return;
+    }
+    if (key.type === "home") {
+      this.noteInput.moveToStart();
+      return;
+    }
+    if (key.type === "end") {
+      this.noteInput.moveToEnd();
+      return;
+    }
+    if (key.type === "paste") {
+      // A pasted reflection arrives as one block — sanitize it whole.
+      const text = sanitizeFieldText(key.text);
+      if (text.length > 0) this.noteInput.insert(text);
+      return;
+    }
+    if (key.type === "char") {
+      // Decoded C1 controls (e.g. U+0085) arrive as char events — drop them.
+      const ch = sanitizeFieldText(key.char);
+      if (ch.length > 0) this.noteInput.insert(ch);
+      return;
+    }
+  }
+
+  /**
+   * Attach a committed note to its entry and ride the persistence callback
+   * honestly: a promise-returning onNote marks the note pending (rendered
+   * dim) until the append settles — kept on success, withdrawn on failure
+   * with one calm line in the preview row. In-flight appends are awaited by
+   * exit() so a commit immediately followed by leaving the scene still
+   * reaches disk.
+   */
+  private commitNote(entry: JournalEntryView, note: JournalNoteView): void {
+    this.failedNoteEntries.delete(entry);
+    entry.notes = [...(entry.notes ?? []), note];
+    const result = this.opts.onNote?.(entry, note.text);
+    if (!result) {
+      note.state = "saved"; // synchronous persistence (or none wired)
+      return;
+    }
+    note.state = "pending";
+    const settle = result.then(
+      () => {
+        note.state = "saved";
+      },
+      () => {
+        // The bytes never landed — withdrawing the marker is the honest render.
+        entry.notes = (entry.notes ?? []).filter((n) => n !== note);
+        this.failedNoteEntries.add(entry);
+      },
+    );
+    this.inFlightNotes.add(settle);
+    void settle.finally(() => this.inFlightNotes.delete(settle));
+  }
+
+  private handlePatternsKey(key: KeyEvent): SceneSignal | void {
+    if (key.type === "escape" || (key.type === "char" && (key.char === "p" || key.char === "q"))) {
+      this.patternsOpen = false;
+      return;
+    }
+  }
+
+  private handleSearchKey(key: KeyEvent): SceneSignal | void {
+    if (key.type === "escape") {
+      this.searchActive = false;
+      this.searchInput.clear();
+      this.setQuery("");
+      return;
+    }
+    if (key.type === "enter") {
+      const entry = this.filtered[this.cursor];
+      if (entry) {
+        const entryKey = entry.timestamp || entry.date;
+        return { type: "openJournalReading", key: entryKey };
+      }
+      return;
+    }
+    if (key.type === "arrow") {
+      if (key.direction === "up") this.moveCursor(-1);
+      else if (key.direction === "down") this.moveCursor(1);
+      return;
+    }
+    if (key.type === "backspace") {
+      this.searchInput.backspace();
+      this.setQuery(this.searchInput.value);
+      return;
+    }
+    if (key.type === "paste") {
+      const text = sanitizeFieldText(key.text);
+      if (text.length > 0) {
+        this.searchInput.insert(text);
+        this.setQuery(this.searchInput.value);
+      }
+      return;
+    }
+    if (key.type === "char") {
+      const ch = sanitizeFieldText(key.char);
+      if (ch.length > 0) {
+        this.searchInput.insert(ch);
+        this.setQuery(this.searchInput.value);
+      }
+      return;
+    }
+  }
+
+  private setQuery(query: string): void {
+    this.filtered =
+      query.trim().length > 0
+        ? this.entries.filter((e) => entryMatchesQuery(e, query))
+        : this.entries;
+    if (this.cursor >= this.filtered.length) {
+      this.cursor = Math.max(0, this.filtered.length - 1);
+    }
+    this.scroll.scrollOffset = 0;
+    this.ensureCursorVisible();
+  }
+
+  private moveCursor(delta: number): void {
+    this.cursor = Math.min(Math.max(0, this.cursor + delta), Math.max(0, this.filtered.length - 1));
+    this.ensureCursorVisible();
   }
 
   private ensureCursorVisible(): void {
@@ -198,4 +647,10 @@ function formatTime(iso: string): string {
   const h = String(d.getHours()).padStart(2, "0");
   const m = String(d.getMinutes()).padStart(2, "0");
   return `${h}:${m}`;
+}
+
+/** Local YYYY-MM-DD (default for the injected `today`). */
+function localToday(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }

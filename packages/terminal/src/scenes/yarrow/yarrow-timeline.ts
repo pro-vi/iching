@@ -221,10 +221,11 @@ export function buildYarrowFuseBeat(
   lineIdx: number,
   opts?: { narrating?: boolean; language?: DisplayLanguage },
 ): Step {
-  const line = model.transcript[lineIdx].line;
+  const result = model.requireLineResult(lineIdx);
+  const line = result.line;
   const narrating = opts?.narrating ?? false;
   const hold = (caption: string): Step[] => (caption ? [wait(timing.captionHoldMs)] : []);
-  const fuseCap = narrating ? buildFuseCaption(model.transcript[lineIdx].rounds[2].remaining, opts?.language ?? "en") : "";
+  const fuseCap = narrating ? buildFuseCaption(result.rounds[2].remaining, opts?.language ?? "en") : "";
   return seq(
     call(() => {
       model.beat = "fuse";
@@ -255,7 +256,7 @@ export function buildYarrowFullLineBeats(
   lineIdx: number,
   opts?: { narrating?: boolean; language?: DisplayLanguage },
 ): Step[] {
-  const rounds = model.transcript[lineIdx].rounds;
+  const rounds = model.requireLineResult(lineIdx).rounds;
   return [
     ...buildYarrowRoundBeats(model, timing, detail, lineIdx, 0, rounds[0], opts),
     ...buildYarrowRoundBeats(model, timing, detail, lineIdx, 1, rounds[1], opts),

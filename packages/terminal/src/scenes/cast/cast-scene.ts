@@ -1,6 +1,6 @@
 // CastScene — main scene orchestrating the full casting ritual
 
-import { type Cast, GUA } from "@iching/core";
+import { type Cast, GUA, toSimplified } from "@iching/core";
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
@@ -10,21 +10,26 @@ import { TimelineRunner } from "../../animation/runner.ts";
 import { CastModel } from "./model.ts";
 import { renderCoins } from "./coin-renderer.ts";
 import { renderHexagram, anchorRow, LINE_ROW_OFFSETS, COIN_ROW_OFFSET } from "./hexagram-renderer.ts";
-import { renderTitle, renderBecomingTitle } from "./reveal-renderer.ts";
+import { renderTitle, renderBecomingTitle, glyphDisplayMode } from "./reveal-renderer.ts";
+import { renderReadingPanel } from "./reading-renderer.ts";
+import { readingPanelRows, readingPanelWidth } from "./reading-lines.ts";
 import { renderMorph } from "./morph-renderer.ts";
 import { renderRightHexagram, renderRightMorph } from "./right-hex-renderer.ts";
 import { buildCastTimeline, type CastGlyphConfig } from "./timeline-builder.ts";
 import { renderLargeGlyph } from "./glyph-renderer.ts";
-import { hexColOffset } from "./layout-calc.ts";
+import { hexColOffset, canSplit, glyphRevealMode, glyphTitleLineCount } from "./layout-calc.ts";
 import { getTheme } from "../../color/theme.ts";
 import { SPLIT_ARROW } from "../../glyphs.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
-import { autoGlyphSize } from "../../glyph-anim/auto-size.ts";
+import { composeGlyph } from "../../glyph-anim/compose.ts";
 import { tr } from "../../i18n/messages.ts";
-import type { DisplayLanguage } from "@iching/core";
+import type { DisplayLanguage, GlyphSize } from "@iching/core";
 
 export type CastGlyphInput = Omit<CastGlyphConfig, "glyphSize">;
+
+/** Reveal pace multipliers cycled by f — same ladder as the yarrow ritual. */
+const PACE_SPEEDS = [1, 2, 4];
 
 export class CastScene implements Scene {
   private model: CastModel;
@@ -32,6 +37,16 @@ export class CastScene implements Scene {
   private complete = false;
   private glyphConfig?: CastGlyphConfig;
   private termWidth: number;
+  // Scene-controlled clock — pace control (pause/speed) modulates how fast
+  // this advances relative to the loop's elapsed time.
+  private virtualElapsed = 0;
+  private lastElapsed = 0;
+  // Motion-preset time dilation for glyph reveals on focus changes (0 = static).
+  private glyphAnimScale = 1;
+  // Where esc/q land. Standalone casts unwind to the home menu; a journal
+  // replay emits `back` so the router pops to the original journal list
+  // (cursor and search intact) instead of leaving the journal entirely.
+  private exitSignal: "home" | "back";
 
   constructor(
     cast: Cast,
@@ -40,30 +55,57 @@ export class CastScene implements Scene {
     glyphConfig?: CastGlyphInput,
     termRows: number = 24,
     intention?: string,
-    opts?: { skipLineDrawing?: boolean; language?: DisplayLanguage },
+    opts?: {
+      skipLineDrawing?: boolean;
+      language?: DisplayLanguage;
+      exitSignal?: "home" | "back";
+    },
   ) {
     this.model = new CastModel(cast);
     this.model.intention = intention;
     this.termWidth = termWidth;
-    // Auto-size glyph to fit the area below the hexagram. Glyph is rendered at
-    // anchor+1 (anchor = floor(rows/2)+3), so vertical room is rows - anchor - 1.
+    this.exitSignal = opts?.exitSignal ?? "home";
+    // Size the glyph against the settled-reveal budget: the reading panel's
+    // rows are reserved first (the oracle texts are the heart of the reading;
+    // the glyph is ornament). Prefer the largest size that keeps the normal
+    // layout (glyph + title + texts), fall back to compact (title yields),
+    // and omit the glyph entirely when even compact cannot host the texts.
     if (glyphConfig) {
+      const language = opts?.language ?? "en";
+      const anchor = anchorRow(termRows);
+      const willSplit = cast.becoming !== null && canSplit(termWidth);
+      const titleLines = glyphTitleLineCount(willSplit, language === "en");
+      const panelRows = readingPanelRows(cast, language, readingPanelWidth(termWidth));
       const primaryName = GUA[cast.primary - 1]?.n ?? "";
       const becomingName = cast.becoming ? GUA[cast.becoming - 1]?.n ?? "" : "";
-      const maxChars = Math.max(
-        1,
-        [...primaryName].length,
-        [...becomingName].length,
-      );
-      const anchor = Math.floor(termRows / 2) + 3;
-      const availRows = Math.max(4, termRows - anchor - 1);
-      this.glyphConfig = {
-        ...glyphConfig,
-        glyphSize: autoGlyphSize(availRows, termWidth, maxChars),
-        language: opts?.language,
-      };
+      // zh-Hans composes Simplified glyphs — measure what will be drawn.
+      const names = [primaryName, becomingName]
+        .filter((n) => n.length > 0)
+        .map((n) => (language === "zh-Hans" ? toSimplified(n) : n));
+      let fitted: GlyphSize | null = null;
+      outer: for (const wantMode of ["normal", "compact"] as const) {
+        for (const size of [64, 48, 32] as const) {
+          const entries = names.map((n) => composeGlyph(n, glyphConfig.glyphFont, size));
+          if (entries.some((e) => e === null)) continue;
+          const glyphHeight = Math.max(...entries.map((e) => e!.height));
+          const glyphWidth = Math.max(...entries.map((e) => e!.width));
+          if (glyphWidth > termWidth) continue;
+          if (glyphRevealMode(termRows, anchor, glyphHeight, titleLines, panelRows) === wantMode) {
+            fitted = size;
+            break outer;
+          }
+        }
+      }
+      if (fitted !== null) {
+        this.glyphConfig = {
+          ...glyphConfig,
+          glyphSize: fitted,
+          language: opts?.language,
+        };
+      }
     }
     const timing = getPreset(preset);
+    this.glyphAnimScale = timing.glyphAnimScale;
     const step = buildCastTimeline(cast, this.model, timing, termWidth, this.glyphConfig, opts);
     this.timeline = new TimelineRunner(step);
   }
@@ -73,11 +115,18 @@ export class CastScene implements Scene {
   }
 
   update(elapsed: number, _dt: number, _ctx: SceneContext): void {
+    // Advance the virtual clock from the loop's elapsed time, honoring
+    // pause/speed. At speed 1 unpaused this tracks `elapsed` exactly.
+    const delta = Math.max(0, elapsed - this.lastElapsed);
+    this.lastElapsed = elapsed;
+    if (!this.model.paused) {
+      this.virtualElapsed += delta * this.model.speed;
+    }
     if (!this.complete) {
-      this.complete = this.timeline.advance(elapsed, this.model);
+      this.complete = this.timeline.advance(this.virtualElapsed, this.model);
     }
     if (this.model.glyphAnimator && !this.model.glyphAnimDone) {
-      const done = this.model.glyphAnimator.update(elapsed);
+      const done = this.model.glyphAnimator.update(this.virtualElapsed);
       if (done) {
         this.model.glyphAnimDone = true;
       }
@@ -117,11 +166,15 @@ export class CastScene implements Scene {
     }
 
     // When large glyph is active: single centered glyph + title area
-    // replaces the split left/right title layout
-    const hasGlyph = model.primaryGlyphEntry && (model.glyphAnimator || model.glyphAnimDone);
+    // replaces the split left/right title layout. The glyph yields ("none")
+    // when the reading texts need its rows — the split titles return then.
+    const hasGlyph =
+      model.primaryGlyphEntry &&
+      (model.glyphAnimator || model.glyphAnimDone) &&
+      glyphDisplayMode(frame, model, lang) !== "none";
 
     if (hasGlyph) {
-      renderLargeGlyph(frame, model);
+      renderLargeGlyph(frame, model, lang);
       // Single centered title for the focused hexagram (no split offset)
       renderTitle(frame, model, 0, lang);
     } else {
@@ -135,16 +188,44 @@ export class CastScene implements Scene {
       renderIntention(frame, model.intention);
     }
 
-    // Render prompt
+    // Reading panel + prompt once the reveal settles; pace hints before.
     if (model.showPrompt) {
+      renderReadingPanel(frame, model, lang);
       renderPrompt(frame, model, lang);
+    } else {
+      renderPaceFooter(frame, model, lang);
     }
   }
 
   handleKey(key: KeyEvent, ctx: SceneContext): SceneSignal | void {
-    // During animation, q cancels the cast and returns to the home menu.
+    // During animation, q cancels the cast and leaves the scene.
     if (key.type === "char" && key.char === "q") {
-      return { type: "home" };
+      return { type: this.exitSignal };
+    }
+
+    // Esc leaves from any phase — matching toss/yarrow semantics (the footer
+    // advertises it; it must work). The destination is the constructor's
+    // exitSignal: home for standalone casts, back for journal replays.
+    if (key.type === "escape") {
+      return { type: this.exitSignal };
+    }
+
+    // Reveal in progress — pace control (mirrors the yarrow ritual).
+    if (!this.model.showPrompt) {
+      if (key.type === "char" && key.char === " ") {
+        this.model.paused = !this.model.paused;
+        return;
+      }
+      if (key.type === "char" && key.char === "s") {
+        this.model.paused = false;
+        this.skipToComplete();
+        return;
+      }
+      if (key.type === "char" && key.char === "f") {
+        const next = (PACE_SPEEDS.indexOf(this.model.speed) + 1) % PACE_SPEEDS.length;
+        this.model.speed = PACE_SPEEDS[next];
+        return;
+      }
     }
 
     // Exploration mode: left/right arrows switch focus
@@ -159,13 +240,20 @@ export class CastScene implements Scene {
       }
     }
 
-    // Enter in exploration mode opens dictionary for focused hex
+    // Enter in exploration mode opens dictionary for focused hex.
+    // Primary detail carries the cast's changing positions so the detail
+    // view can mark the moving lines; the becoming's line texts are not
+    // read classically, so it opens without cast context.
     if (this.model.explorationMode && key.type === "enter") {
-      const kw =
-        this.model.focusedHex === "primary"
-          ? this.model.cast.primary
-          : this.model.cast.becoming;
-      if (kw) return { type: "openDetail", kw };
+      const primaryFocused = this.model.focusedHex === "primary";
+      const kw = primaryFocused
+        ? this.model.cast.primary
+        : this.model.cast.becoming;
+      if (kw) {
+        return primaryFocused && this.model.cast.changingPositions.length > 0
+          ? { type: "openDetail", kw, changedPositions: [...this.model.cast.changingPositions] }
+          : { type: "openDetail", kw };
+      }
     }
 
     // Only handle prompt keys after prompt is shown
@@ -199,8 +287,18 @@ export class CastScene implements Scene {
       ? this.model.primaryGlyphEntry
       : this.model.becomingGlyphEntry;
     if (entry && this.glyphConfig) {
-      this.model.glyphAnimator = createGlyphAnimator(this.glyphConfig.glyphAnim, entry);
-      this.model.glyphAnimDone = false;
+      if (this.glyphAnimScale > 0) {
+        this.model.glyphAnimator = createGlyphAnimator(
+          this.glyphConfig.glyphAnim,
+          entry,
+          this.glyphAnimScale,
+        );
+        this.model.glyphAnimDone = false;
+      } else {
+        // Reduced motion: no animation — show the settled glyph immediately.
+        this.model.glyphAnimator = null;
+        this.model.glyphAnimDone = true;
+      }
     }
   }
 
@@ -272,6 +370,20 @@ function renderPrompt(buf: CellBuffer, model: CastModel, language: DisplayLangua
   const w = stringWidth(text);
   const col = Math.max(0, Math.floor((buf.width - w) / 2));
   buf.writeText(row, col, text, { fg: t.tertiary });
+}
+
+/** Render the pace-control hints while the reveal is still unfolding. */
+function renderPaceFooter(buf: CellBuffer, model: CastModel, language: DisplayLanguage): void {
+  const t = getTheme();
+  const speed = model.speed > 1 ? `  ·  ${model.speed}×` : "";
+  const text = model.paused
+    ? `[space] ${tr(language, "verb.resume")}  ·  [s] ${tr(language, "verb.skip")}  ·  [esc] ${tr(language, "verb.back")}`
+    : `[space] ${tr(language, "verb.pause")}  ·  [f] ${tr(language, "verb.speed")}  ·  [s] ${tr(language, "verb.skip")}  ·  [esc] ${tr(language, "verb.back")}${speed}`;
+  const row = buf.height - 2;
+  if (row < 0) return;
+  const w = stringWidth(text);
+  const col = Math.max(0, Math.floor((buf.width - w) / 2));
+  buf.writeText(row, col, text, { fg: t.tertiary, dim: true });
 }
 
 /** Render the user's intention at the top of the frame. */

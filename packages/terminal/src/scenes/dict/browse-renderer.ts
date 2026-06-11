@@ -4,7 +4,7 @@ import type { CellBuffer } from "../../render/buffer.ts";
 import type { SceneContext } from "../../scene/types.ts";
 import type { BrowseModel } from "./browse-model.ts";
 import type { TextInput } from "../../widgets/text-input.ts";
-import { GUA, toSimplified } from "@iching/core";
+import { GUA, getStructure, toSimplified } from "@iching/core";
 import type { DisplayLanguage } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
@@ -77,6 +77,17 @@ function renderList(
     model.scrollOffset + listHeight,
   );
 
+  // A query with no matches: one quiet centered line instead of a blank list
+  // (a bare empty area reads like a rendering bug).
+  if (model.filtered.length === 0) {
+    const t = getTheme();
+    const hint = tr(ctx.language ?? "en", "dict.emptyHint");
+    const row = startRow + Math.floor(Math.max(0, listHeight - 1) / 2);
+    const col = Math.max(1, Math.floor((ctx.cols - stringWidth(hint)) / 2));
+    frame.writeText(row, col, hint, { fg: t.tertiary, dim: true });
+    return;
+  }
+
   for (let i = model.scrollOffset; i < visibleEnd; i++) {
     const row = startRow + (i - model.scrollOffset);
     if (row >= ctx.rows - FOOTER_ROWS) break;
@@ -113,7 +124,17 @@ function renderRow(
   const pinyinCol = chineseCol + chineseFixedWidth + 1;
   const pinyinFixedWidth = 9;
   const enStart = pinyinCol + pinyinFixedWidth + 2;
-  const enWidth = width - enStart - 1;
+
+  // Trigram pair (upper then lower, as in 山風蠱) — a dim structural cue in
+  // the spare right column. Scanning the list teaches structure passively and
+  // makes trigram-search results self-explanatory. Rendered where width allows.
+  const structure = getStructure(kw);
+  const pair = `${structure.upper.sym}${structure.lower.sym}`;
+  const pairCol = width - stringWidth(pair) - 2;
+  const showPair = pairCol >= enStart + 2;
+  const enWidth = showPair
+    ? Math.min(width - enStart - 1, pairCol - enStart - 2)
+    : width - enStart - 1;
 
   const chineseWidth = stringWidth(chinese);
   const chinesePadded =
@@ -125,7 +146,7 @@ function renderRow(
       : hex.ename;
 
   const fg = isSelected ? t.primary : t.secondary;
-  const bgStyle = isSelected ? { bg: "#1A2030" } : {};
+  const bgStyle = isSelected ? { bg: t.dimmed } : {};
 
   // Write background for selected row
   if (isSelected) {
@@ -145,6 +166,13 @@ function renderRow(
   // English name column only in English mode (no stray English in Chinese modes).
   if (enWidth > 0 && language === "en") {
     frame.writeText(row, enStart, ename, { fg, ...bgStyle });
+  }
+  if (showPair) {
+    frame.writeText(row, pairCol, pair, {
+      fg: isSelected ? t.secondary : t.tertiary,
+      dim: !isSelected,
+      ...bgStyle,
+    });
   }
 }
 

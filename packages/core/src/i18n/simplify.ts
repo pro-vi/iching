@@ -29,8 +29,10 @@
  *   - 乾: semantic-collision exception — Heaven (乾卦) must stay 乾, never 干.
  *   - 纆/餗/繻: Ext-B-tofu exception — standard simplification is an unreadable
  *     CJK Ext-B glyph (𬙊/𫗧/𦈡), so the BMP Traditional form is retained.
+ *   - 繘 (hex48 卦辭 汔至亦未繘井): same Ext-B-tofu rationale — its only
+ *     simplification is outside the BMP, so the Traditional form is kept.
  */
-export const SIMPLIFIED_EXCEPTIONS: readonly string[] = ["乾", "纆", "餗", "繻"];
+export const SIMPLIFIED_EXCEPTIONS: readonly string[] = ["乾", "纆", "餗", "繻", "繘"];
 
 /** Audited Traditional -> Simplified character map (non-identity only). */
 export const SIMPLIFIED_MAP: Readonly<Record<string, string>> = {
@@ -79,6 +81,16 @@ export const SIMPLIFIED_MAP: Readonly<Record<string, string>> = {
   // C-004 adversarial fix: 陰 was mapped but 陽 was not (asymmetry). 陽 is not in the
   // current corpus, but the pair is added for completeness/future-proofing.
   陽: "阳",
+  // ── 卦辭/小象傳 corpus supplement (vetted; chars introduced by gc/yaoXiao/extra
+  // in data/gua.ts that the original 929-char extraction did not include) ──
+  馴: "驯", 貴: "贵", 賤: "贱", 縱: "纵", 瀆: "渎", 辯: "辩", 傷: "伤", 際: "际",
+  願: "愿", 誰: "谁", 備: "备", 聰: "聪", 試: "试", 憊: "惫", 晝: "昼", 玆: "兹",
+  愛: "爱", 飽: "饱", 絕: "绝", 暉: "晖",
+  // ── 序卦/雜卦 corpus supplement (vetted; chars introduced by data/sequence.ts).
+  // 著 (蒙雜而著, zhù "manifest") is deliberately IDENTITY — 著→着 applies only
+  // to the zhe/zhuó senses, and simplified editions keep 著 here. 稺 is the
+  // received variant of 稚; simplified 周易 editions print 稚. ──
+  間: "间", 輕: "轻", 飭: "饬", 飾: "饰", 盡: "尽", 爛: "烂", 誅: "诛", 稺: "稚",
 };
 
 /**

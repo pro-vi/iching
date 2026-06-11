@@ -69,6 +69,20 @@ describe("motion presets", () => {
     expect(r.finalGlowDownMs).toBe(0);
   });
 
+  test("glyph reveal: reduced skips the animation, other presets scale it", () => {
+    expect(getPreset("default").glyphAnimScale).toBe(1);
+    expect(getPreset("brisk").glyphAnimScale).toBeLessThan(1);
+    expect(getPreset("brisk").glyphAnimScale).toBeGreaterThan(0);
+    expect(getPreset("deep").glyphAnimScale).toBeGreaterThan(1);
+    expect(getPreset("reduced").glyphAnimScale).toBe(0);
+  });
+
+  test("glyph breath is preserved across all presets (reduced keeps pauses)", () => {
+    for (const name of ["default", "brisk", "deep", "reduced"] as const) {
+      expect(getPreset(name).glyphBreathMs).toBeGreaterThan(0);
+    }
+  });
+
   test("getPreset returns a copy (not a reference)", () => {
     const a = getPreset("default");
     const b = getPreset("default");

@@ -1,12 +1,14 @@
 import {
+  BoundRandomSource,
   castHexagram,
   buildStructure,
   selectDisplay,
   CryptoRandomSource,
 } from "@iching/core";
-import type { Cast, Structure } from "@iching/core";
+import type { Cast, CastMethod, RandomSource, RngProvenance, Structure } from "@iching/core";
 import {
   resolvePaths,
+  JsonConfigStore,
   JsonDailyCacheStore,
   JsonlJournalStore,
 } from "@iching/storage";
@@ -44,7 +46,6 @@ export async function runHookAdapter(): Promise<void> {
   // Consume stdin (hook payload)
   const _payload = await readStdin();
 
-  const source = new CryptoRandomSource();
   const paths = resolvePaths();
   const cacheStore = new JsonDailyCacheStore(paths.cache);
   const journal = new JsonlJournalStore(paths.state);
@@ -55,6 +56,9 @@ export async function runHookAdapter(): Promise<void> {
   let structure: Structure;
   let shown: boolean;
   let intention: string | undefined;
+  let method: CastMethod | undefined;
+  let rng: RngProvenance | undefined;
+  let source: RandomSource;
 
   // Check cache
   const cached = await cacheStore.read();
@@ -63,11 +67,29 @@ export async function runHookAdapter(): Promise<void> {
     structure = cached.structure;
     shown = cached.shown;
     intention = cached.intention;
+    method = cached.method;
+    // Carry the day's entropy provenance through the rewrite — a hook run
+    // after a bound/seeded TUI cast must not strip the honest source story.
+    rng = cached.rng;
+    // No new cast: entropy is only needed for the display cascade.
+    source = new CryptoRandomSource();
   } else {
-    // Fresh cast
+    // Fresh cast — instant coins, recorded as such. Honor the saved entropy
+    // config like commands/cast.ts does; the hook carries no intention, so a
+    // bound cast salts with the empty moment only (intentionBound stays false
+    // — chance is primary either way).
+    const config = await new JsonConfigStore(paths.config).load();
+    if (config.entropy === "bound") {
+      source = new BoundRandomSource("");
+      rng = { source: "bound", intentionBound: false };
+    } else {
+      source = new CryptoRandomSource();
+      rng = { source: "crypto", intentionBound: false };
+    }
     cast = castHexagram(source);
     structure = buildStructure(cast);
     shown = false;
+    method = "coin";
   }
 
   // Select display
@@ -77,16 +99,18 @@ export async function runHookAdapter(): Promise<void> {
   // (vs cache-first where journal entry is permanently lost)
   if (!shown) {
     const timestamp = new Date().toISOString();
-    await journal.append({ date: today, cast, timestamp });
+    await journal.append({ date: today, cast, timestamp, method, rng });
   }
 
-  // Then update cache (preserve intention from TUI if present)
+  // Then update cache (preserve intention/method/rng from TUI if present)
   await cacheStore.write({
     date: today,
     cast,
     shown: true,
     structure,
     intention,
+    method,
+    rng,
   });
 
   // Output

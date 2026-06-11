@@ -2,7 +2,7 @@
 
 import { CellBuffer } from "./buffer.ts";
 import { type StyledCell, cellsEqual } from "./cell.ts";
-import { cursorTo, clearToEndOfLine } from "../ansi/codes.ts";
+import { cursorTo, clearToEndOfLine, syncOutputOn, syncOutputOff } from "../ansi/codes.ts";
 import { fgColor, bgColor, boldStyle, dimStyle, resetStyle } from "../ansi/sgr.ts";
 import { detectColorSupport, type ColorSupport } from "../color/detect.ts";
 
@@ -73,9 +73,10 @@ export class DiffRenderer {
       chunks.push(resetStyle());
     }
 
-    // Single write for the entire frame
+    // Single write for the entire frame, wrapped in synchronized-output
+    // guards (DEC 2026) so busy frames present atomically without tearing.
     if (chunks.length > 0) {
-      this.output.write(chunks.join(""));
+      this.output.write(syncOutputOn + chunks.join("") + syncOutputOff);
     }
   }
 

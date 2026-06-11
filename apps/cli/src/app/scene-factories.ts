@@ -3,17 +3,24 @@
 // (DetailScene + getHexagramHistory hydration, plus the SceneRouter
 // factories used by browse/journal navigation).
 
-import type { DisplayLanguage, HistoryEntry } from "@iching/core";
-import { getHexagramHistory, type JsonlJournalStore } from "@iching/storage";
+import type { DisplayLanguage, ReflectionNote } from "@iching/core";
+import {
+  getHexagramHistory,
+  loadEntriesWithNotes,
+  type AnnotatedEntry,
+  type JsonlJournalStore,
+} from "@iching/storage";
 import {
   BrowseScene,
   CastScene,
   type CastGlyphInput,
   DetailScene,
   JournalScene,
+  type JournalEntryView,
   type Scene,
   type SceneFactory,
 } from "@iching/terminal";
+import { localToday } from "../util/today.js";
 
 export interface SessionDims {
   cols: number;
@@ -28,25 +35,59 @@ export interface DetailDeps {
 }
 
 export interface JournalDeps extends DetailDeps {
-  entries: HistoryEntry[];
+  entries: JournalEntryView[];
   session: SessionDims;
 }
 
 /** Construct DetailScene + kick off async history hydration. */
-export function makeDetailScene(kw: number, deps: DetailDeps): DetailScene {
-  const scene = new DetailScene(kw, deps.glyphConfig, deps.language);
-  getHexagramHistory(deps.journal, kw).then((h) =>
-    scene.setHistory(h.castCount, h.lastCastDate),
-  );
+export function makeDetailScene(
+  kw: number,
+  deps: DetailDeps,
+  changedPositions?: number[],
+): DetailScene {
+  const scene = new DetailScene(kw, deps.glyphConfig, deps.language, changedPositions);
+  getHexagramHistory(deps.journal, kw)
+    .then((h) => scene.setHistory(h.castCount, h.lastCastDate))
+    .catch(() => {
+      // A corrupt journal must not surface as an unhandled rejection (which
+      // would kill the process outside runScene's restore path) — the detail
+      // scene simply renders without cast history.
+    });
   return scene;
 }
 
 /** SceneRouter factory for the dictionary path: handles openDetail, falls back through. */
 export function makeBrowseFactory(deps: DetailDeps): SceneFactory {
   return (signal): Scene | null => {
-    if (signal.type === "openDetail") return makeDetailScene(signal.kw, deps);
+    if (signal.type === "openDetail") {
+      return makeDetailScene(signal.kw, deps, signal.changedPositions);
+    }
     return null;
   };
+}
+
+/**
+ * Construct the journal list scene with reflection-note persistence wired in.
+ * Committed notes are appended to the journal JSONL; the append promise is
+ * returned so the scene can track each note honestly (pending → saved, or a
+ * calm failed line when the bytes never land) and await in-flight writes on
+ * exit. The scene attaches its own settle handlers, so a write failure never
+ * crashes the scene loop or escapes as an unhandled rejection.
+ */
+export function makeJournalScene(deps: JournalDeps): JournalScene {
+  return new JournalScene(deps.entries, {
+    today: localToday,
+    onNote: (entry, text) => {
+      const note: ReflectionNote = {
+        kind: "note",
+        ref: entry.timestamp ?? entry.date,
+        date: localToday(),
+        timestamp: new Date().toISOString(),
+        text,
+      };
+      return deps.journal.appendNote(note);
+    },
+  });
 }
 
 /** SceneRouter factory for the journal path: handles openJournalReading, openDetail, openDictionary, openJournal. */
@@ -56,7 +97,7 @@ export function makeJournalFactory(deps: JournalDeps): SceneFactory {
       const entry = deps.entries.find(
         (e) => e.timestamp === signal.key || e.date === signal.key,
       );
-      if (!entry) return new JournalScene(deps.entries);
+      if (!entry) return makeJournalScene(deps);
       const cs = new CastScene(
         entry.cast,
         "reduced",
@@ -64,26 +105,30 @@ export function makeJournalFactory(deps: JournalDeps): SceneFactory {
         deps.glyphConfig,
         deps.session.rows,
         entry.intention,
-        { language: deps.language },
+        // exitSignal "back": esc/q from a replayed reading pop the router
+        // stack to the ORIGINAL journal list (cursor and search intact)
+        // instead of unwinding the whole router to Home.
+        { language: deps.language, exitSignal: "back" },
       );
       cs.skipToComplete(false);
       return cs;
     }
-    if (signal.type === "openDetail") return makeDetailScene(signal.kw, deps);
+    if (signal.type === "openDetail") {
+      return makeDetailScene(signal.kw, deps, signal.changedPositions);
+    }
     if (signal.type === "openDictionary") return new BrowseScene();
     // `j` from a replayed CastScene inside the journal router → reset to the journal list.
-    if (signal.type === "openJournal") return new JournalScene(deps.entries);
+    if (signal.type === "openJournal") return makeJournalScene(deps);
+    // No scene inside this router emits `home` anymore (the replayed
+    // CastScene's esc/q are `back` now) — anything else bubbles out so the
+    // router exits gracefully and the home loop dispatches it.
     return null;
   };
 }
 
-/** Drain the journal stream into an array of entries. */
+/** Drain the journal stream into an array of entries, notes attached. */
 export async function loadJournalEntries(
   journal: JsonlJournalStore,
-): Promise<HistoryEntry[]> {
-  const entries: HistoryEntry[] = [];
-  for await (const entry of journal.stream()) {
-    entries.push(entry);
-  }
-  return entries;
+): Promise<AnnotatedEntry[]> {
+  return loadEntriesWithNotes(journal);
 }

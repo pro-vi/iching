@@ -8,6 +8,8 @@ document in the repository.
 `iching` is a local-first terminal I Ching application:
 
 - one-shot CLI commands for casting, journal, config, paths, doctor, and lookup
+- a daily-reading anchor: the day's cast is cached and recallable without
+  recasting (`iching today`, TUI `t`)
 - fullscreen TUI for daily casting, journal review, settings, and dictionary
 - pure domain package for casts, derivations, search, and hexagram data
 - JSON/JSONL storage using XDG-compatible local paths
@@ -25,7 +27,7 @@ old checkbox.
 | Workspace monorepo | Implemented | `apps/cli`, `packages/core`, `packages/storage`, `packages/terminal` |
 | Core domain | Implemented | casting, derivation, lookup, detail, search, formatters, exhaustive tests |
 | Storage | Implemented | paths, JSON/JSONL stores, config store, legacy discovery, atomic-write tests |
-| CLI commands | Implemented | `cast`, `journal`, `hexagram`, `config`, `paths`, `doctor`, `dict` |
+| CLI commands | Implemented | `cast`, `today`, `journal`, `hexagram`, `config`, `paths`, `doctor`, `dict` |
 | Terminal primitives | Implemented | cell buffer, diff renderer, ANSI, key parser, raw input, session lifecycle |
 | Animation engine | Implemented | timeline DSL, runner, easing, presets, scene loop |
 | Casting scenes | Implemented | cast scene, coin/line/morph/reveal renderers, timeline builder |
@@ -33,24 +35,10 @@ old checkbox.
 | Large glyph support | Implemented | glyph data, glyph animation modes, cast/detail integration |
 | Yarrow casting | Implemented (2026-05-30) | `core/casting/yarrow.ts`, `YarrowScene` auto, `YarrowManualScene` 18-cut full-manual, ritual-chrome parity with coin |
 | Distribution | Infrastructure present | build script, smoke script, CI workflow, release workflow |
-| Entropy source evolution | Planned | see `docs/vision/entropy-sources-vision.md` |
+| Entropy binding (`bound`) | Implemented (2026-06-10) | `core/random.ts` `BoundRandomSource` (SHA-256 length-prefixed binding of fresh crypto bytes + intention + timestamp + process nonce, hash-counter DRBG); `entropy` config key (default `crypto`); `cast --bound`; `rng` provenance on journal/cache/`cast --json`; Settings row; `bound-random.test.ts` |
+| Entropy source evolution | In progress | `bound` shipped (row above); `embodied` and `quantum-remote` remain planned — see `docs/vision/entropy-sources-vision.md` |
 
 ## Active Product Questions
-
-### Entropy Binding
-
-Next likely scope: add a `bound` entropy path that mixes local crypto entropy
-with intention/session context.
-
-Constraints:
-
-- keep `crypto` as the default
-- use intention as salt/context, never as the sole seed
-- preserve explicit deterministic `--seed`
-- record provenance in JSON and journal output if the source becomes user-visible
-- do not add network entropy in this step
-
-Source: [Entropy Sources Vision](docs/vision/entropy-sources-vision.md).
 
 ### Embodied Entropy
 

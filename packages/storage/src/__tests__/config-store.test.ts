@@ -44,6 +44,7 @@ describe("JsonConfigStore", () => {
       taijituStyle: "dots",
       castMethod: "coin",
       castMode: "auto",
+      entropy: "crypto",
     });
   });
 
@@ -59,6 +60,7 @@ describe("JsonConfigStore", () => {
       taijituStyle: "dense",
       castMethod: "yarrow",
       castMode: "manual",
+      entropy: "bound",
     };
 
     await store.save(custom);
@@ -84,7 +86,14 @@ describe("JsonConfigStore", () => {
       taijituStyle: "dots",
       castMethod: "coin",
       castMode: "auto",
+      entropy: "crypto",
     });
+  });
+
+  test("load defaults invalid entropy values to crypto", async () => {
+    await writeFile(join(dir, "config.json"), JSON.stringify({ entropy: "quantum" }), "utf-8");
+    const loaded = await store.load();
+    expect(loaded.entropy).toBe("crypto");
   });
 
   test("load migrates legacy single-string castMode → method+mode pair", async () => {

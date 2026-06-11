@@ -26,3 +26,11 @@ export const clearToEndOfLine = `${CSI}0K`;
 // Alternate screen buffer
 export const altScreenOn = `${CSI}?1049h`;
 export const altScreenOff = `${CSI}?1049l`;
+
+// Bracketed paste mode (DEC 2004) — terminals without support ignore these
+export const bracketedPasteOn = `${CSI}?2004h`;
+export const bracketedPasteOff = `${CSI}?2004l`;
+
+// Synchronized output (DEC 2026) — atomic frame presentation, ignored when unsupported
+export const syncOutputOn = `${CSI}?2026h`;
+export const syncOutputOff = `${CSI}?2026l`;
