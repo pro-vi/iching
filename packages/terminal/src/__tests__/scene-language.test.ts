@@ -477,31 +477,35 @@ describe("DetailScene footer — nav verbs honor language", () => {
     return bufferText(buf);
   }
 
-  test("English footer: scroll/derived/open/back", () => {
+  // Content focus documents ↑↓/←→/tab/esc; [enter] open lives in the
+  // derived-focus footer (enter is a no-op while content has focus).
+  test("English footer: scroll/adjacent/derived/back", () => {
     const text = detailText("en");
     expect(text).toContain("scroll");
+    expect(text).toContain("adjacent");
     expect(text).toContain("derived");
-    expect(text).toContain("open");
     expect(text).toContain("back");
   });
 
   test("Simplified footer localizes, no English leak", () => {
     const text = detailText("zh-Hans");
     expect(text).toContain("卷动"); // scroll
+    expect(text).toContain("邻卦"); // adjacent
     expect(text).toContain("衍卦"); // derived
-    expect(text).toContain("开启"); // open
     expect(text).toContain("返回"); // back
     expect(text).not.toContain("scroll");
+    expect(text).not.toContain("adjacent");
     expect(text).not.toContain("derived");
-    expect(text).not.toContain("open");
   });
 
   test("Traditional footer localizes, no Simplified residue", () => {
     const text = detailText("zh-Hant");
     expect(text).toContain("捲動"); // scroll (Traditional)
+    expect(text).toContain("鄰卦"); // adjacent (Traditional)
     expect(text).toContain("衍卦"); // derived
     expect(text).not.toContain("scroll");
     expect(text).not.toContain("卷动"); // no Simplified residue
+    expect(text).not.toContain("邻卦");
   });
 });
 

@@ -99,11 +99,27 @@ export class DetailScene implements Scene {
       return { type: "back" };
     }
 
-    // Tab — toggle focus
+    // Tab — toggle focus; focusing the derived links scrolls them into view
+    // (they sit near the bottom of the content, off-screen on a fresh page)
     if (key.type === "tab") {
       this.model.focus =
         this.model.focus === "content" ? "derived" : "content";
+      if (this.model.focus === "derived") {
+        this.model.ensureDerivedVisible();
+      }
       return;
+    }
+
+    // Left/right (and h/l) — walk the King Wen sequence, wrapping at 1/64.
+    // `replace` keeps the router stack flat so esc pops straight back.
+    if (
+      (key.type === "arrow" && (key.direction === "left" || key.direction === "right")) ||
+      (key.type === "char" && (key.char === "h" || key.char === "l"))
+    ) {
+      const forward = key.type === "arrow" ? key.direction === "right" : key.char === "l";
+      const kw = this.model.detail.kw;
+      const neighbor = forward ? (kw % 64) + 1 : ((kw + 62) % 64) + 1;
+      return { type: "openDetail", kw: neighbor, replace: true };
     }
 
     // Arrow keys

@@ -1351,6 +1351,66 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   verifier: "--cli invalid-path"
   notes: "Range error DUPLICATED verbatim in dict+hexagram (should share constant). --style help omits 'st' but plain.ts supports it (inconsistency)."
 
+- surface_id: cli-hexagram-name-lookup
+  file: apps/cli/src/commands/{dict,hexagram}.ts
+  code_locator: "hexagram .description()/.argument() + matches/none branches; dict .argument()"
+  current_text: '"Look up hexagram by King Wen number, name, pinyin, or English name" / "hexagram number (1-64), name, pinyin, or English name" / "hexagram number (1-64), name, pinyin, or search query" / "Multiple matches for \"${query}\":" / "No hexagram matches \"${query}\"."'
+  surface_class: cli-commands
+  render_context: "--help descriptions; shortlist stdout (exit 0); not-found stderr (exit 1)"
+  language_policy: translate
+  source_layer: product-ui
+  json_policy: not-json
+  risk: low
+  agentify_required: no
+  status: open
+  verifier: "--cli; apps/cli/src/__tests__/hexagram-resolve.test.ts"
+  notes: "Name/pinyin/trigram lookup via core searchHexagrams (resolveHexagramQuery shared by hexagram+dict). --json shortlist uses stable keys number/name/pinyin/ename/symbol."
+
+- surface_id: cli-cast-seed-error
+  file: apps/cli/src/commands/cast.ts
+  code_locator: "--seed validation"
+  current_text: '"Invalid --seed \"${rawSeed}\": expected a number."'
+  surface_class: cli-invalid-paths
+  render_context: "stderr, exit 1"
+  language_policy: translate
+  source_layer: product-ui
+  json_policy: not-json
+  risk: low
+  agentify_required: no
+  status: open
+  verifier: "--cli invalid-path"
+  notes: "Same 'expected a number' idiom as the journal --hexagram validation."
+
+- surface_id: cli-config-positional-shorthand
+  file: apps/cli/src/commands/config.ts
+  code_locator: ".argument() positional key/value (git-style shorthand)"
+  current_text: '"config key (shorthand for get; with a value, for set)" / "config value (shorthand for set)"'
+  surface_class: cli-commands
+  render_context: "--help argument descriptions"
+  language_policy: translate
+  source_layer: product-ui
+  json_policy: not-json
+  risk: low
+  agentify_required: no
+  status: open
+  verifier: "--cli help coverage"
+  notes: "Positional `config <key> [value]` shorthand added alongside get/set subcommands."
+
+- surface_id: cli-journal-hexagram-filter
+  file: apps/cli/src/commands/journal.ts
+  code_locator: ".option(--hexagram) + validation"
+  current_text: '"--hexagram <n>" / "only readings where hexagram <n> is primary or becoming" / "Invalid --hexagram \"${h}\": expected a number 1-${GUA.length}."'
+  surface_class: cli-commands
+  render_context: "--help option description; stderr validation (exit 1)"
+  language_policy: translate
+  source_layer: product-ui
+  json_policy: not-json
+  risk: low
+  agentify_required: no
+  status: open
+  verifier: "--cli help coverage + invalid-path"
+  notes: "Flag token --hexagram preserves; the sentence translates."
+
 - surface_id: cli-journal-errors-empty
   file: apps/cli/src/commands/journal.ts, output/plain.ts
   code_locator: "journal L46,88; plain L113"
@@ -1519,6 +1579,21 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   status: verified
   verifier: "--inventory-only; apps/cli/src/__tests__/cast.test.ts + hexagram-output.test.ts"
   notes: "Labels follow the existing parenthetical field-code convention (dx/tu/en/te/w); gc/gcEn values are canonical-anchor + verbatim Legge."
+
+- surface_id: cli-plain-cast-method-labels
+  file: apps/cli/src/output/plain.ts
+  code_locator: "castMethod display labels (coin/yarrow × auto/manual)"
+  current_text: '"coins" / "coins, by hand" / "yarrow stalks" / "yarrow stalks, by hand"'
+  surface_class: cli-commands
+  render_context: "journal/cast plain stdout — how a reading was produced"
+  language_policy: translate
+  source_layer: product-ui
+  json_policy: not-json
+  risk: low
+  agentify_required: no
+  status: open
+  verifier: "--cli"
+  notes: "Method provenance labels (storage `method` field rendered for humans); enum values stay machine tokens."
 
 - surface_id: cli-json-output
   file: apps/cli/src/output/json.ts
@@ -2263,6 +2338,36 @@ Default language **en**; settings order **EN → 繁 → 简** (asserted by
   zh_hant_source: catalog
   zh_hans_strategy: convert
   render_context: dict/hexagram errors
+- id: cli-hexagram-name-lookup
+  language_policy: translate
+  en_source: hardcoded help text + shortlist/not-found messages
+  zh_hant_source: catalog
+  zh_hans_strategy: convert
+  render_context: hexagram/dict name lookup (help, shortlist stdout, not-found stderr)
+- id: cli-cast-seed-error
+  language_policy: translate
+  en_source: hardcoded --seed validation error
+  zh_hant_source: catalog
+  zh_hans_strategy: convert
+  render_context: cast --seed validation stderr
+- id: cli-config-positional-shorthand
+  language_policy: translate
+  en_source: hardcoded argument descriptions
+  zh_hant_source: catalog
+  zh_hans_strategy: convert
+  render_context: config positional shorthand help
+- id: cli-journal-hexagram-filter
+  language_policy: translate
+  en_source: hardcoded option description + validation error
+  zh_hant_source: catalog
+  zh_hans_strategy: convert
+  render_context: journal --hexagram filter help + validation stderr
+- id: cli-plain-cast-method-labels
+  language_policy: translate
+  en_source: hardcoded method provenance labels
+  zh_hant_source: catalog
+  zh_hans_strategy: convert
+  render_context: journal/cast plain stdout method labels
 - id: cli-journal-errors-empty
   language_policy: translate
   en_source: hardcoded empty/not-found messages

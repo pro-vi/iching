@@ -44,7 +44,10 @@ export type SceneSignal =
   // when a detail view is opened from a cast with moving lines, those line
   // positions (1-6, bottom-up) are marked and their texts emphasized.
   // Dictionary browsing passes none.
-  | { type: "openDetail"; kw: number; changedPositions?: number[] }
+  // `replace` swaps the current scene instead of pushing — used by the
+  // detail view's prev/next sequence walk so esc still pops straight back
+  // to the list (no unbounded stack growth while reading the book).
+  | { type: "openDetail"; kw: number; changedPositions?: number[]; replace?: boolean }
   | { type: "openJournalReading"; key: string }
   // Inner-flow events
   | { type: "intentionConfirmed" } // intention input completed

@@ -231,6 +231,8 @@ export function buildContentLines(
 
   // Derived hexagrams
   lines.push({ text: english ? "Derived" : zh("衍卦", language), fg: t.accent, bold: true });
+  // Record where the links start so focus changes can scroll them into view
+  model.derivedStartLine = lines.length;
   for (let i = 0; i < model.derivedLinks.length; i++) {
     const link = model.derivedLinks[i];
     const isSelected = model.focus === "derived" && model.derivedCursor === i;
@@ -384,10 +386,12 @@ function renderFooter(
 
   frame.writeText(sepRow, 0, "─".repeat(ctx.cols), { fg: t.tertiary });
 
+  // Content focus omits [enter] (it only acts on the derived links, where the
+  // focused footer documents it) — the freed width carries the ←→ walk hint.
   const keys =
     model.focus === "derived"
       ? `[↑↓] ${tr(language, "verb.select")}  ·  [enter] ${tr(language, "verb.open")}  ·  [tab] ${tr(language, "verb.scroll")}  ·  [esc] ${tr(language, "verb.back")}`
-      : `[↑↓] ${tr(language, "verb.scroll")}  ·  [tab] ${tr(language, "verb.derived")}  ·  [enter] ${tr(language, "verb.open")}  ·  [esc] ${tr(language, "verb.back")}`;
+      : `[↑↓] ${tr(language, "verb.scroll")}  ·  [←→] ${tr(language, "verb.adjacent")}  ·  [tab] ${tr(language, "verb.derived")}  ·  [esc] ${tr(language, "verb.back")}`;
 
   // Hidden when content fits (vs the region's "1/1"); shows the page otherwise.
   const indicator =
