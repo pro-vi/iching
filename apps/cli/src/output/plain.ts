@@ -1,4 +1,4 @@
-import type { Cast, Hexagram, Style, Structure } from "@iching/core";
+import type { Cast, CastMethod, Hexagram, Style, Structure } from "@iching/core";
 import {
   GUA,
   STYLES,
@@ -106,6 +106,20 @@ export function formatHexagramPlain(
   return lines.join("\n");
 }
 
+/** Quiet human label for cast-method provenance — a note, not a badge */
+function methodLabel(method: CastMethod): string {
+  switch (method) {
+    case "coin":
+      return "coins";
+    case "coin-manual":
+      return "coins, by hand";
+    case "yarrow":
+      return "yarrow stalks";
+    case "yarrow-manual":
+      return "yarrow stalks, by hand";
+  }
+}
+
 /** Format journal entry list as plain text */
 export function formatJournalListPlain(
   entries: HistoryEntry[],
@@ -121,7 +135,10 @@ export function formatJournalListPlain(
         : "";
     const time = entry.timestamp ? `  ${formatTime(entry.timestamp)}` : "";
     const intention = entry.intention ? `  "${entry.intention}"` : "";
-    lines.push(`${entry.date}${time}  ${g.u} ${g.n} (${g.p})${becoming}${intention}`);
+    // Coins are the ambient default; only the slower rituals earn a quiet note.
+    const method =
+      entry.method && entry.method !== "coin" ? `  · ${methodLabel(entry.method)}` : "";
+    lines.push(`${entry.date}${time}  ${g.u} ${g.n} (${g.p})${becoming}${intention}${method}`);
   }
   return lines.join("\n");
 }
@@ -136,6 +153,9 @@ export function formatJournalShowPlain(entry: HistoryEntry): string {
   lines.push(`Date: ${entry.date}${entry.timestamp ? `  ${formatTime(entry.timestamp)}` : ""}`);
   if (entry.intention) {
     lines.push(`Intention: ${entry.intention}`);
+  }
+  if (entry.method) {
+    lines.push(`Method: ${methodLabel(entry.method)}`);
   }
   lines.push(`${g.u}  ${g.n} (${g.p})${ename} — Hexagram ${entry.cast.primary}`);
   lines.push("");

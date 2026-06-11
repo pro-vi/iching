@@ -6,7 +6,7 @@ import {
   formatJournalListPlain,
   formatJournalShowPlain,
 } from "../output/plain.js";
-import { outputJson } from "../output/json.js";
+import { outputJson, journalEntryToJson } from "../output/json.js";
 import { localToday } from "../util/today.js";
 
 export function registerJournalCommand(program: Command): void {
@@ -20,6 +20,7 @@ export function registerJournalCommand(program: Command): void {
     .option("--since <date>", "show readings since date (YYYY-MM-DD)")
     .option("--limit <n>", "maximum entries to show", "20")
     .option("--all", "show all entries (no limit)")
+    .option("--hexagram <n>", "only readings where hexagram <n> is primary or becoming")
     .action(async (cmdOpts) => {
       const globalOpts = program.opts();
       const paths = resolvePaths(
@@ -27,10 +28,29 @@ export function registerJournalCommand(program: Command): void {
       );
       const store = new JsonlJournalStore(paths.state);
 
+      // Validate the hexagram filter before reading anything.
+      let hexFilter: number | undefined;
+      if (cmdOpts.hexagram !== undefined) {
+        hexFilter = Number(cmdOpts.hexagram);
+        if (!Number.isInteger(hexFilter) || hexFilter < 1 || hexFilter > GUA.length) {
+          console.error(
+            `Invalid --hexagram "${cmdOpts.hexagram}": expected a number 1-${GUA.length}.`,
+          );
+          process.exit(1);
+        }
+      }
+
       const allEntries: HistoryEntry[] = [];
       const query = { since: cmdOpts.since };
 
       for await (const entry of store.stream(query)) {
+        if (
+          hexFilter !== undefined &&
+          entry.cast.primary !== hexFilter &&
+          entry.cast.becoming !== hexFilter
+        ) {
+          continue;
+        }
         allEntries.push(entry);
       }
 
@@ -40,7 +60,7 @@ export function registerJournalCommand(program: Command): void {
       const entries = allEntries.slice(0, limit);
 
       if (globalOpts.json) {
-        outputJson(entries);
+        outputJson(entries.map(journalEntryToJson));
       } else {
         if (entries.length === 0) {
           console.log("No readings found.");
@@ -90,7 +110,7 @@ export function registerJournalCommand(program: Command): void {
       }
 
       if (globalOpts.json) {
-        outputJson(found);
+        outputJson(journalEntryToJson(found));
       } else {
         console.log(formatJournalShowPlain(found));
       }

@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtemp, rm, readFile, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import {
   castHexagram,
   buildStructure,
@@ -111,4 +111,49 @@ describe("cast command", () => {
     expect(text).toContain(primary.p);
     expect(text).toContain("Commentary:");
   });
+});
+
+// Regression: Number("abc") is NaN and NaN|0 collapsed the PRNG to a constant
+// state — `cast --seed abc` exited 0 with the same plausible-looking cast
+// forever. Non-numeric seeds must fail loudly.
+describe("cast --seed validation (subprocess)", () => {
+  const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
+  const MAIN_TS = resolve(REPO_ROOT, "apps/cli/src/main.ts");
+
+  async function runCast(seed: string): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+    const proc = Bun.spawn(["bun", MAIN_TS, "--seed", seed, "cast"], {
+      cwd: REPO_ROOT,
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env, NO_COLOR: "1" },
+    });
+    proc.stdin.end();
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    const exitCode = await proc.exited;
+    return { exitCode, stdout, stderr };
+  }
+
+  test("non-numeric seed errors on stderr and exits 1", async () => {
+    const { exitCode, stdout, stderr } = await runCast("abc");
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('Invalid --seed "abc"');
+    expect(stdout).toBe("");
+  }, 20_000);
+
+  test("empty seed is rejected (Number('') would silently become 0)", async () => {
+    const { exitCode, stderr } = await runCast("");
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("Invalid --seed");
+  }, 20_000);
+
+  test("numeric seed still works and stays deterministic", async () => {
+    const a = await runCast("42");
+    const b = await runCast("42");
+    expect(a.exitCode).toBe(0);
+    expect(a.stdout).toBe(b.stdout);
+  }, 20_000);
 });

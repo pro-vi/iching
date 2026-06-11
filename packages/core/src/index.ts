@@ -14,6 +14,7 @@ export type {
   Structure,
   DailyCache,
   HistoryEntry,
+  CastMethod,
 } from "./types.js";
 
 // RandomSource

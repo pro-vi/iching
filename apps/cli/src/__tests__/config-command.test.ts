@@ -255,4 +255,56 @@ describe("config command", () => {
     }
     expect(await Bun.file(join(dataDir, "config.json")).exists()).toBe(false);
   }, 20_000);
+
+  // Git-style positional shorthand: `config <key>` reads, `config <key>
+  // <value>` writes — same validated schema as get/set. This is also the
+  // syntax the README advertises (`iching config theme cinnabar`).
+  describe("positional shorthand", () => {
+    test("`config theme cinnabar` sets, `config theme` gets", async () => {
+      const setResult = await runCli(dataDir, ["config", "theme", "cinnabar"]);
+      expect(setResult.exitCode).toBe(0);
+      expect(setResult.stdout.trim()).toBe("theme = cinnabar");
+
+      const getResult = await runCli(dataDir, ["config", "theme"]);
+      expect(getResult.exitCode).toBe(0);
+      expect(getResult.stdout.trim()).toBe("cinnabar");
+
+      // The explicit subcommand sees the same persisted value
+      const subResult = await runCli(dataDir, ["config", "get", "theme"]);
+      expect(subResult.stdout.trim()).toBe("cinnabar");
+    }, 20_000);
+
+    test("bare `config` lists all values like `config list`", async () => {
+      const bare = await runCli(dataDir, ["config"]);
+      const list = await runCli(dataDir, ["config", "list"]);
+      expect(bare.exitCode).toBe(0);
+      expect(bare.stdout).toBe(list.stdout);
+    }, 20_000);
+
+    test("shorthand rejects unknown keys with exit 1", async () => {
+      const { exitCode, stderr } = await runCli(dataDir, ["config", "notARealKey"]);
+      expect(exitCode).toBe(1);
+      expect(stderr.toLowerCase()).toContain("unknown key");
+    }, 20_000);
+
+    test("shorthand set goes through the validated schema", async () => {
+      const { exitCode, stderr } = await runCli(dataDir, ["config", "theme", "outline"]);
+      expect(exitCode).toBe(1);
+      expect(stderr.toLowerCase()).toContain("invalid value");
+      // The rejected write must not create a config file (cf. set ordering)
+      expect(await Bun.file(join(dataDir, "config.json")).exists()).toBe(false);
+    }, 20_000);
+
+    test("shorthand normalizes language labels like `config set` does", async () => {
+      const setResult = await runCli(dataDir, ["config", "language", "繁"]);
+      expect(setResult.exitCode).toBe(0);
+      expect(setResult.stdout.trim()).toBe("language = zh-Hant");
+    }, 20_000);
+
+    test("subcommands still win over shorthand (path)", async () => {
+      const { exitCode, stdout } = await runCli(dataDir, ["config", "path"]);
+      expect(exitCode).toBe(0);
+      expect(stdout.trim()).toBe(join(dataDir, "config.json"));
+    }, 20_000);
+  });
 });

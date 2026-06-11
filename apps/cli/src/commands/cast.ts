@@ -22,7 +22,18 @@ export function registerCastCommand(program: Command): void {
     .argument("[question]", "question for the oracle")
     .action(async (question: string | undefined) => {
       const opts = program.opts();
-      const seed = opts.seed ? Number(opts.seed) : undefined;
+      // Validate --seed: Number("abc") is NaN, and NaN|0 collapses the PRNG
+      // state to a constant — a typo'd seed would silently yield the same
+      // "random" cast forever. Reject anything non-numeric loudly instead.
+      let seed: number | undefined;
+      const rawSeed = opts.seed as string | undefined;
+      if (rawSeed !== undefined) {
+        seed = Number(rawSeed);
+        if (rawSeed.trim() === "" || !Number.isFinite(seed)) {
+          console.error(`Invalid --seed "${rawSeed}": expected a number.`);
+          process.exit(1);
+        }
+      }
       const source =
         seed !== undefined
           ? new SeededRandomSource(seed)

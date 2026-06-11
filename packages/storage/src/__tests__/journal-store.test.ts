@@ -126,4 +126,102 @@ describe("JsonlJournalStore", () => {
     const result = await emptyStore.latest();
     expect(result).toBeNull();
   });
+
+  // Torn-line tolerance: a crash / power loss / ENOSPC mid-append leaves a
+  // partial JSON line. One bad line must never make the whole journal
+  // unreadable — readers skip it and surface a count.
+  describe("torn/malformed lines", () => {
+    test("stream skips a torn trailing line and keeps prior entries", async () => {
+      const { appendFile } = await import("node:fs/promises");
+      await store.append(makeEntry("2025-01-01"));
+      await store.append(makeEntry("2025-01-02"));
+      // Torn append: no newline, truncated mid-object
+      await appendFile(join(dir, "history.jsonl"), '{"date":"2025-01-0', "utf-8");
+
+      const results: HistoryEntry[] = [];
+      for await (const entry of store.stream()) {
+        results.push(entry);
+      }
+
+      expect(results.map((e) => e.date)).toEqual(["2025-01-01", "2025-01-02"]);
+      expect(store.skippedLines).toBe(1);
+    });
+
+    test("stream skips a torn middle line and keeps reading past it", async () => {
+      const { writeFile } = await import("node:fs/promises");
+      const good1 = JSON.stringify(makeEntry("2025-01-01"));
+      const good2 = JSON.stringify(makeEntry("2025-01-03"));
+      await writeFile(
+        join(dir, "history.jsonl"),
+        `${good1}\n{"date":"2025-01-02","cas\n${good2}\n`,
+        "utf-8",
+      );
+
+      const results: HistoryEntry[] = [];
+      for await (const entry of store.stream()) {
+        results.push(entry);
+      }
+
+      expect(results.map((e) => e.date)).toEqual(["2025-01-01", "2025-01-03"]);
+      expect(store.skippedLines).toBe(1);
+    });
+
+    test("stream skips valid JSON that is not entry-shaped", async () => {
+      const { writeFile } = await import("node:fs/promises");
+      const good = JSON.stringify(makeEntry("2025-01-01"));
+      // Scalars, arrays, and objects missing date/cast are all damage, not entries
+      await writeFile(
+        join(dir, "history.jsonl"),
+        `42\nnull\n[1,2]\n{"date":"2025-01-02"}\n${good}\n`,
+        "utf-8",
+      );
+
+      const results: HistoryEntry[] = [];
+      for await (const entry of store.stream()) {
+        results.push(entry);
+      }
+
+      expect(results.map((e) => e.date)).toEqual(["2025-01-01"]);
+      expect(store.skippedLines).toBe(4);
+    });
+
+    test("latest falls back past a torn final line to the last good entry", async () => {
+      const { appendFile } = await import("node:fs/promises");
+      await store.append(makeEntry("2025-01-01"));
+      await store.append(makeEntry("2025-01-02"));
+      await appendFile(join(dir, "history.jsonl"), '{"date":"2025-01-0', "utf-8");
+
+      const last = await store.latest();
+      expect(last).not.toBeNull();
+      expect(last!.date).toBe("2025-01-02");
+      expect(store.skippedLines).toBe(1);
+    });
+
+    test("latest returns null when every line is torn", async () => {
+      const { writeFile } = await import("node:fs/promises");
+      const path = join(dir, "history.jsonl");
+      await writeFile(path, '{"date":"2025-\n{"broken\n', "utf-8");
+
+      const last = await store.latest();
+      expect(last).toBeNull();
+      expect(store.skippedLines).toBe(2);
+    });
+
+    test("skippedLines resets between reads", async () => {
+      const { appendFile } = await import("node:fs/promises");
+      await store.append(makeEntry("2025-01-01"));
+      await appendFile(join(dir, "history.jsonl"), "garbage", "utf-8");
+
+      await store.latest();
+      expect(store.skippedLines).toBe(1);
+
+      // A clean read must not inherit the previous count
+      const clean = new JsonlJournalStore(join(dir, "clean.jsonl"));
+      await clean.append(makeEntry("2025-02-01"));
+      for await (const _ of clean.stream()) {
+        // drain
+      }
+      expect(clean.skippedLines).toBe(0);
+    });
+  });
 });
