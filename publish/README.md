@@ -57,16 +57,22 @@ bun run build                # builds dist/iching for your platform
 iching                          # interactive TUI
 iching cast                     # one-shot cast (plain text)
 iching cast "should I ship?"    # with a question
+iching cast --bound "ship it?"  # bind the cast to the question and moment
 iching cast --json              # structured output
+iching today                    # today's reading (cast in the TUI)
+iching today --json             # full reading payload for scripts/assistants
 iching journal list             # recent readings
+iching journal list --hexagram 29   # readings where hexagram 29 appears
 iching journal show today       # today's reading
-iching hexagram 1               # look up hexagram by number
+iching journal note "..."       # attach a reflection note to the latest reading
+iching hexagram 1               # look up hexagram by number or name
+iching dict water               # open the dictionary on a search
 iching dict                     # browse all 64 in TUI
 iching config theme cinnabar    # set theme
 ```
 
-Press `c` to cast, `j` for journal, `d` for dictionary, `s` for
-settings, `q` to quit.
+Press `c` to cast, `t` to return to today's reading, `j` for journal,
+`d` for dictionary, `s` for settings, `q` to quit.
 
 ## Storage
 
@@ -76,6 +82,7 @@ Files follow the [XDG Base Directory](https://specifications.freedesktop.org/bas
 |------|------|---------|
 | Cache | `~/.cache/iching/daily-cache.json` | Most recent cast |
 | Journal | `~/.local/state/iching/history.jsonl` | All casts |
+| Notes | `~/.local/state/iching/notes.jsonl` | Reflection notes (sidecar to the journal) |
 | Config | `~/.config/iching/config.json` | Theme, motion, glyph settings |
 
 Override with `ICHING_HOME` env var or `--data-dir` flag.
@@ -94,9 +101,10 @@ Bun workspace monorepo. Four packages:
 ## Development
 
 ```bash
-bun test          # run tests (382 tests, ~100ms)
+bun test          # run the test suite
 bun run typecheck # tsc --noEmit
-bun run smoke     # end-to-end smoke test
+bun run build     # compile the binary for your platform
+bun run smoke     # end-to-end smoke test of the built binary
 ```
 
 ## Why

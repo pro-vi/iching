@@ -10,8 +10,11 @@ import { registerDictCommand } from "./commands/dict.js";
 
 import pkg from "../package.json" with { type: "json" };
 
+// The binary users invoke is `iching` — never the workspace package name
+// (`@iching/cli` made `--help` print "Usage: @iching/cli"). Version still
+// derives from package.json so a release bump is a one-file change.
 export const program = new Command()
-  .name(pkg.name ?? "iching")
+  .name("iching")
   .version(pkg.version ?? "0.1.0")
   .option("--json", "structured JSON output")
   .option("--seed <n>", "deterministic RNG seed (cast command)")

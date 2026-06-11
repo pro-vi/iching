@@ -105,6 +105,61 @@ describe("journal command", () => {
     }
   }, 20_000);
 
+  // Regression: Number("abc") is NaN, slice(0, NaN) is [] — garbage --limit
+  // used to print "No readings found." (exit 0) with data present, and
+  // --limit -1 silently dropped the oldest entry.
+  test("list --limit rejects non-numeric, zero, negative, and fractional values", async () => {
+    await seedJournal(dataDir, [makeEntry("2026-01-01", 1, null)]);
+    for (const bad of ["abc", "0", "-1", "3.5"]) {
+      const { exitCode, stdout, stderr } = await runCli(dataDir, [
+        "journal", "list", "--limit", bad,
+      ]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain(`Invalid --limit "${bad}"`);
+      expect(stdout).not.toContain("No readings found.");
+    }
+  }, 20_000);
+
+  test("list --limit still truncates to the most recent N", async () => {
+    await seedJournal(dataDir, [
+      makeEntry("2026-01-01", 1, null),
+      makeEntry("2026-01-02", 2, null),
+      makeEntry("2026-01-03", 3, null),
+    ]);
+    const { exitCode, stdout } = await runCli(dataDir, ["journal", "list", "--limit", "2"]);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("2026-01-03");
+    expect(stdout).toContain("2026-01-02");
+    expect(stdout).not.toContain("2026-01-01");
+  }, 20_000);
+
+  // Regression: --since was never format-validated — the lexicographic
+  // compare against "notadate" filtered every entry out (exit 0).
+  test("list --since rejects non-YYYY-MM-DD values", async () => {
+    await seedJournal(dataDir, [makeEntry("2026-01-01", 1, null)]);
+    for (const bad of ["notadate", "2026/01/01", "yesterday", "2026-1-1"]) {
+      const { exitCode, stdout, stderr } = await runCli(dataDir, [
+        "journal", "list", "--since", bad,
+      ]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain(`Invalid --since "${bad}"`);
+      expect(stdout).not.toContain("No readings found.");
+    }
+  }, 20_000);
+
+  test("list --since with a valid date filters older entries", async () => {
+    await seedJournal(dataDir, [
+      makeEntry("2026-01-01", 1, null),
+      makeEntry("2026-01-03", 3, null),
+    ]);
+    const { exitCode, stdout } = await runCli(dataDir, [
+      "journal", "list", "--since", "2026-01-02",
+    ]);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("2026-01-03");
+    expect(stdout).not.toContain("2026-01-01");
+  }, 20_000);
+
   test("list --json enriches entries with resolved names, raw fields intact", async () => {
     await seedJournal(dataDir, [makeEntry("2026-01-03", 3, 39, "yarrow")]);
 
@@ -214,6 +269,38 @@ describe("journal command", () => {
     const show = await runCli(dataDir, ["journal", "show", "latest"]);
     expect(show.exitCode).toBe(0);
     expect(show.stdout).toContain("2026-01-01");
+  }, 20_000);
+
+  // Torn-line damage is surfaced, not hidden: a one-line stderr note after
+  // list/show says how many lines were skipped. Clean journals stay silent.
+  test("list and show note skipped unreadable lines on stderr", async () => {
+    await seedJournal(dataDir, [makeEntry("2026-01-01", 1, null)]);
+    await appendFile(join(dataDir, "history.jsonl"), '{"date":"2026-01-0', "utf-8");
+
+    const list = await runCli(dataDir, ["journal", "list"]);
+    expect(list.exitCode).toBe(0);
+    expect(list.stderr).toContain("note: 1 unreadable journal line(s) skipped");
+
+    const show = await runCli(dataDir, ["journal", "show", "latest"]);
+    expect(show.exitCode).toBe(0);
+    expect(show.stderr).toContain("note: 1 unreadable journal line(s) skipped");
+
+    // --json keeps stdout parseable; the note stays on stderr.
+    const json = await runCli(dataDir, ["--json", "journal", "list"]);
+    expect(JSON.parse(json.stdout)).toHaveLength(1);
+    expect(json.stderr).toContain("unreadable journal line(s) skipped");
+  }, 20_000);
+
+  test("list and show stay silent on stderr for a clean journal", async () => {
+    await seedJournal(dataDir, [makeEntry("2026-01-01", 1, null)]);
+
+    const list = await runCli(dataDir, ["journal", "list"]);
+    expect(list.exitCode).toBe(0);
+    expect(list.stderr).toBe("");
+
+    const show = await runCli(dataDir, ["journal", "show", "latest"]);
+    expect(show.exitCode).toBe(0);
+    expect(show.stderr).toBe("");
   }, 20_000);
 });
 

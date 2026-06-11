@@ -101,7 +101,8 @@ export function todayToJson(cache: DailyCache): Record<string, unknown> {
 
 /**
  * JSON shape for `iching today --json` when no reading exists yet today.
- * A state, not an error: stable keys, null payload, exit 0.
+ * A state, not an error: the SAME key set as todayToJson with null (or [])
+ * values, exit 0 — scripts never branch on key presence, only on values.
  */
 export function noTodayToJson(date: string): Record<string, unknown> {
   return {
@@ -111,6 +112,12 @@ export function noTodayToJson(date: string): Record<string, unknown> {
     question: null,
     primary: null,
     becoming: null,
+    changingPositions: [],
+    changingLines: [],
+    extra: null,
+    derived: null,
+    commentary: null,
+    rng: null,
   };
 }
 

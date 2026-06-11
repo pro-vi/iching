@@ -56,15 +56,21 @@ bun run build                # 为当前平台构建 dist/iching
 iching                          # 进入交互式 TUI
 iching cast                     # 一次性起卦（纯文本）
 iching cast "该不该上线？"       # 带问意起卦
+iching cast --bound "该不该上线？"  # 将此卦与问意及当下时刻绑定
 iching cast --json              # 结构化输出
+iching today                    # 今日卦象（在 TUI 中起卦）
+iching today --json             # 供脚本与助手读取的完整卦象数据
 iching journal list             # 近期记录
+iching journal list --hexagram 29   # 筛选出现第 29 卦的记录
 iching journal show today       # 今日卦象
-iching hexagram 1               # 按卦序查阅
+iching journal note "……"        # 给最近一卦附上注记
+iching hexagram 1               # 按卦序或卦名查阅
+iching dict water               # 以检索词打开卦典
 iching dict                     # 在 TUI 中浏览六十四卦
 iching config theme cinnabar    # 设置主题
 ```
 
-按 `c` 起卦，`j` 查日志，`d` 查卦典，`s` 设置，`q` 退出。
+按 `c` 起卦，`t` 回看今日，`j` 查日志，`d` 查卦典，`s` 设置，`q` 退出。
 
 ## 数据存储
 
@@ -74,6 +80,7 @@ iching config theme cinnabar    # 设置主题
 |------|------|------|
 | 缓存 | `~/.cache/iching/daily-cache.json` | 最近一卦 |
 | 日志 | `~/.local/state/iching/history.jsonl` | 全部卦象 |
+| 注记 | `~/.local/state/iching/notes.jsonl` | 回看注记（日志的伴生文件） |
 | 配置 | `~/.config/iching/config.json` | 主题、动画、字符设置 |
 
 可用 `ICHING_HOME` 环境变量或 `--data-dir` 参数覆盖。
@@ -92,9 +99,10 @@ Bun 工作区单仓多包。共四个包：
 ## 开发
 
 ```bash
-bun test          # 运行测试（382 项，约 100ms）
+bun test          # 运行测试
 bun run typecheck # tsc --noEmit
-bun run smoke     # 端到端冒烟测试
+bun run build     # 构建当前平台的二进制
+bun run smoke     # 对构建产物做端到端冒烟测试
 ```
 
 ## 缘起

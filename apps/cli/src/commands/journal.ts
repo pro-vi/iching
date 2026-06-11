@@ -9,6 +9,16 @@ import {
 import { outputJson, journalEntryToJson } from "../output/json.js";
 import { localToday } from "../util/today.js";
 
+/**
+ * Quiet damage report after a read: torn/malformed lines were skipped, the
+ * readings on the surrounding lines survived. stderr so --json stays clean.
+ */
+function reportSkippedLines(store: JsonlJournalStore): void {
+  if (store.skippedLines > 0) {
+    console.error(`note: ${store.skippedLines} unreadable journal line(s) skipped`);
+  }
+}
+
 export function registerJournalCommand(program: Command): void {
   const journal = program
     .command("journal")
@@ -40,6 +50,22 @@ export function registerJournalCommand(program: Command): void {
         }
       }
 
+      // Validate --limit / --since the same way: fail loudly, never an
+      // accidental empty list (Number("abc") is NaN; slice(0, NaN) drops all).
+      const limit = Number(cmdOpts.limit);
+      if (!Number.isInteger(limit) || limit < 1) {
+        console.error(
+          `Invalid --limit "${cmdOpts.limit}": expected a positive integer.`,
+        );
+        process.exit(1);
+      }
+      if (cmdOpts.since !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(cmdOpts.since)) {
+        console.error(
+          `Invalid --since "${cmdOpts.since}": expected a date in YYYY-MM-DD format.`,
+        );
+        process.exit(1);
+      }
+
       const allEntries: HistoryEntry[] = [];
       const query = { since: cmdOpts.since };
 
@@ -56,8 +82,7 @@ export function registerJournalCommand(program: Command): void {
 
       // Most recent first, then limit
       allEntries.reverse();
-      const limit = cmdOpts.all ? allEntries.length : Number(cmdOpts.limit);
-      const entries = allEntries.slice(0, limit);
+      const entries = cmdOpts.all ? allEntries : allEntries.slice(0, limit);
 
       if (globalOpts.json) {
         outputJson(entries.map((entry) => journalEntryToJson(entry)));
@@ -68,6 +93,7 @@ export function registerJournalCommand(program: Command): void {
           console.log(formatJournalListPlain(entries));
         }
       }
+      reportSkippedLines(store);
     });
 
   journal
@@ -106,6 +132,7 @@ export function registerJournalCommand(program: Command): void {
       if (!found) {
         const label = dateArg === "today" ? `today (${localToday()})` : dateArg;
         console.error(`No reading found for ${label}`);
+        reportSkippedLines(store);
         process.exit(1);
       }
 
@@ -120,6 +147,7 @@ export function registerJournalCommand(program: Command): void {
       } else {
         console.log(formatJournalShowPlain(found, notes));
       }
+      reportSkippedLines(store);
     });
 
   journal

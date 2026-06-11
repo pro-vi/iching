@@ -1585,6 +1585,36 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   verifier: "--cli invalid-path (asserted by journal-command.test.ts)"
   notes: "Journal filter by hexagram number; option/flag tokens preserve, prose follows cli-command-descriptions disposition."
 
+- surface_id: cli-journal-list-validation
+  file: apps/cli/src/commands/journal.ts
+  code_locator: "list --limit/--since validation guards (exit 1)"
+  current_text: 'Invalid --limit "…": expected a positive integer. / Invalid --since "…": expected a date in YYYY-MM-DD format.'
+  surface_class: cli-invalid-paths
+  render_context: "stderr validation (exit 1)"
+  language_policy: translate
+  source_layer: product-ui
+  json_policy: not-json
+  risk: low
+  agentify_required: no
+  status: open
+  verifier: "--cli invalid-path (asserted by journal-command.test.ts)"
+  notes: "Regression guard: Number(\"abc\") is NaN and slice(0, NaN) silently emptied the list; --since compared lexicographically against arbitrary text. Siblings of cli-journal-hexagram-filter / cli-cast-seed-error."
+
+- surface_id: cli-journal-skipped-lines-note
+  file: apps/cli/src/commands/journal.ts
+  code_locator: "reportSkippedLines() after list/show reads"
+  current_text: 'note: ${n} unreadable journal line(s) skipped'
+  surface_class: cli-invalid-paths
+  render_context: "one-line stderr note after journal list/show when the store skipped torn/malformed lines (exit code unchanged; --json stdout stays clean)"
+  language_policy: translate
+  source_layer: product-ui
+  json_policy: not-json
+  risk: low
+  agentify_required: no
+  status: open
+  verifier: "--cli (asserted by journal-command.test.ts torn-line tests)"
+  notes: "Surfaces JsonlJournalStore.skippedLines — damage is reported quietly, never hidden, never fatal."
+
 - surface_id: cli-commander-framework
   file: node_modules/commander (dependency-generated; surfaced by apps/cli/src/program.ts)
   code_locator: "Commander auto-output: Usage/Options/Commands/Arguments headings; unknown-command, missing-argument, excess-argument, invalid-option errors; auto -h/--help"
@@ -1795,7 +1825,7 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   agentify_required: no
   status: exempted
   verifier: "n/a"
-  notes: "INTERNAL, not shipped. SPEC has no language/i18n entry yet (scope gap). Version skew cli 0.2.0 vs root 0.2.1."
+  notes: "INTERNAL, not shipped. SPEC has no language/i18n entry yet (scope gap). Version skew resolved: apps/cli tracks the root version (asserted by program-meta.test.ts)."
 ```
 
 ## Group: format-locale  (cross-cutting — number / date / plural formatting)
@@ -1907,6 +1937,8 @@ classified as developer-only with rationale." The config `language` value round-
 | `cli-cast-seed-error` | developer-only (exempt) | `--seed` validation error — power-user, sibling of `cli-range-errors` |
 | `cli-config-positional-args` | developer-only (exempt) | Commander argument help for the config shorthand — dev/scripting |
 | `cli-journal-hexagram-filter` | developer-only (exempt) | `--hexagram` option help + validation — power-user |
+| `cli-journal-list-validation` | developer-only (exempt) | `--limit`/`--since` validation errors — power-user, siblings of `cli-journal-hexagram-filter` |
+| `cli-journal-skipped-lines-note` | developer-only (exempt) | quiet stderr damage note after journal reads — power-user diagnostics |
 | `cli-plain-method-labels` | developer-only (exempt) | quiet method-provenance notes in plain journal output; token rides in JSON |
 | `cli-plain-entropy-provenance` | developer-only (exempt) | quiet entropy-provenance note (bound/seed only); JSON twin is the stable `rng` block |
 | `cli-hook-output` | developer-only (exempt) | Claude Code hook integration; daily fragment via core `selectDisplay` (locale behavior tracked under AC-003) |
@@ -2521,6 +2553,18 @@ Default language **en**; settings order **EN → 繁 → 简** (asserted by
   zh_hant_source: catalog if the CLI reading mode ships (AC-005 reopen)
   zh_hans_strategy: catalog (authored)
   render_context: journal list --hexagram help + stderr validation
+- id: cli-journal-list-validation
+  language_policy: translate
+  en_source: hardcoded --limit/--since validation errors (AC-005 dev-exempt)
+  zh_hant_source: catalog if the CLI reading mode ships (AC-005 reopen)
+  zh_hans_strategy: catalog (authored)
+  render_context: journal list --limit/--since stderr validation (exit 1)
+- id: cli-journal-skipped-lines-note
+  language_policy: translate
+  en_source: hardcoded stderr damage note (AC-005 dev-exempt)
+  zh_hant_source: catalog if the CLI reading mode ships (AC-005 reopen)
+  zh_hans_strategy: catalog (authored)
+  render_context: journal list/show stderr torn-line note
 - id: cli-plain-method-labels
   language_policy: translate
   en_source: methodLabel() hardcoded labels (AC-005 dev-exempt); method token preserved in JSON

@@ -1,14 +1,30 @@
 #!/usr/bin/env bun
 /**
  * Smoke test a compiled binary.
- * Usage: bun scripts/smoke-test.ts <path-to-binary>
+ * Usage: bun scripts/smoke-test.ts [path-to-binary]
+ * Without an argument, defaults to the current platform's build artifact
+ * (dist/iching-<platform>-<arch>, the path scripts/build.ts writes), so a
+ * bare `bun run smoke` works after `bun run build`.
  */
 import { $ } from "bun";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
-const binary = process.argv[2];
+function defaultBinary(): string {
+  const arch = process.arch === "arm64" ? "arm64" : "x64";
+  const platform = process.platform === "darwin" ? "darwin" : "linux";
+  return join("dist", `iching-${platform}-${arch}`);
+}
 
-if (!binary) {
-  console.error("Usage: bun scripts/smoke-test.ts <path-to-binary>");
+const binary = process.argv[2] ?? defaultBinary();
+
+if (!existsSync(binary)) {
+  console.error(`Binary not found: ${binary}`);
+  console.error(
+    process.argv[2]
+      ? "Check the path, or build it with: bun run build"
+      : "Build it first with: bun run build (or pass an explicit path: bun scripts/smoke-test.ts <path-to-binary>)",
+  );
   process.exit(1);
 }
 
