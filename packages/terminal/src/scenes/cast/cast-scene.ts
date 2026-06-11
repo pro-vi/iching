@@ -43,6 +43,10 @@ export class CastScene implements Scene {
   private lastElapsed = 0;
   // Motion-preset time dilation for glyph reveals on focus changes (0 = static).
   private glyphAnimScale = 1;
+  // Where esc/q land. Standalone casts unwind to the home menu; a journal
+  // replay emits `back` so the router pops to the original journal list
+  // (cursor and search intact) instead of leaving the journal entirely.
+  private exitSignal: "home" | "back";
 
   constructor(
     cast: Cast,
@@ -51,11 +55,16 @@ export class CastScene implements Scene {
     glyphConfig?: CastGlyphInput,
     termRows: number = 24,
     intention?: string,
-    opts?: { skipLineDrawing?: boolean; language?: DisplayLanguage },
+    opts?: {
+      skipLineDrawing?: boolean;
+      language?: DisplayLanguage;
+      exitSignal?: "home" | "back";
+    },
   ) {
     this.model = new CastModel(cast);
     this.model.intention = intention;
     this.termWidth = termWidth;
+    this.exitSignal = opts?.exitSignal ?? "home";
     // Size the glyph against the settled-reveal budget: the reading panel's
     // rows are reserved first (the oracle texts are the heart of the reading;
     // the glyph is ornament). Prefer the largest size that keeps the normal
@@ -189,15 +198,16 @@ export class CastScene implements Scene {
   }
 
   handleKey(key: KeyEvent, ctx: SceneContext): SceneSignal | void {
-    // During animation, q cancels the cast and returns to the home menu.
+    // During animation, q cancels the cast and leaves the scene.
     if (key.type === "char" && key.char === "q") {
-      return { type: "home" };
+      return { type: this.exitSignal };
     }
 
-    // Esc returns home from any phase — matching toss/yarrow semantics
-    // (the footer advertises it; it must work).
+    // Esc leaves from any phase — matching toss/yarrow semantics (the footer
+    // advertises it; it must work). The destination is the constructor's
+    // exitSignal: home for standalone casts, back for journal replays.
     if (key.type === "escape") {
-      return { type: "home" };
+      return { type: this.exitSignal };
     }
 
     // Reveal in progress — pace control (mirrors the yarrow ritual).

@@ -68,9 +68,11 @@ export function makeBrowseFactory(deps: DetailDeps): SceneFactory {
 
 /**
  * Construct the journal list scene with reflection-note persistence wired in.
- * Committed notes are appended to the journal JSONL fire-and-forget — a write
- * failure must not crash the scene loop (the note stays visible in-session
- * and the journal file remains intact).
+ * Committed notes are appended to the journal JSONL; the append promise is
+ * returned so the scene can track each note honestly (pending → saved, or a
+ * calm failed line when the bytes never land) and await in-flight writes on
+ * exit. The scene attaches its own settle handlers, so a write failure never
+ * crashes the scene loop or escapes as an unhandled rejection.
  */
 export function makeJournalScene(deps: JournalDeps): JournalScene {
   return new JournalScene(deps.entries, {
@@ -83,12 +85,12 @@ export function makeJournalScene(deps: JournalDeps): JournalScene {
         timestamp: new Date().toISOString(),
         text,
       };
-      deps.journal.appendNote(note).catch(() => {});
+      return deps.journal.appendNote(note);
     },
   });
 }
 
-/** SceneRouter factory for the journal path: handles openJournalReading, openDetail, openDictionary, openJournal, home. */
+/** SceneRouter factory for the journal path: handles openJournalReading, openDetail, openDictionary, openJournal. */
 export function makeJournalFactory(deps: JournalDeps): SceneFactory {
   return (signal): Scene | null => {
     if (signal.type === "openJournalReading") {
@@ -103,7 +105,10 @@ export function makeJournalFactory(deps: JournalDeps): SceneFactory {
         deps.glyphConfig,
         deps.session.rows,
         entry.intention,
-        { language: deps.language },
+        // exitSignal "back": esc/q from a replayed reading pop the router
+        // stack to the ORIGINAL journal list (cursor and search intact)
+        // instead of unwinding the whole router to Home.
+        { language: deps.language, exitSignal: "back" },
       );
       cs.skipToComplete(false);
       return cs;
@@ -114,13 +119,9 @@ export function makeJournalFactory(deps: JournalDeps): SceneFactory {
     if (signal.type === "openDictionary") return new BrowseScene();
     // `j` from a replayed CastScene inside the journal router → reset to the journal list.
     if (signal.type === "openJournal") return makeJournalScene(deps);
-    // Esc/q from a replayed CastScene emits `home`; unhandled it would exit
-    // the whole journal router to Home, though the footer says "back". Map it
-    // to the journal list instead. Limitation: this is a fresh list (cursor
-    // and search state reset, same as the openJournal branch) — preserving
-    // the live instance would need the router to keep it on the stack rather
-    // than factory-recreate it.
-    if (signal.type === "home") return makeJournalScene(deps);
+    // No scene inside this router emits `home` anymore (the replayed
+    // CastScene's esc/q are `back` now) — anything else bubbles out so the
+    // router exits gracefully and the home loop dispatches it.
     return null;
   };
 }

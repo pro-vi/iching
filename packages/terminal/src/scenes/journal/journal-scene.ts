@@ -20,6 +20,13 @@ import { computeJournalPatterns } from "./journal-patterns.ts";
 export interface JournalNoteView {
   text: string;
   date: string;
+  /**
+   * Persistence state for notes committed this session: "pending" while the
+   * append is in flight (rendered dim), "saved" once it lands. A failed
+   * append removes the note from its entry instead. Notes loaded from disk
+   * carry no state — they are already durable.
+   */
+  state?: "pending" | "saved";
 }
 
 /** Journal entry plus its attached reflection notes. */
@@ -31,11 +38,25 @@ export interface JournalSceneOptions {
   /**
    * Persist a committed reflection note. The scene updates its own view
    * (marker + preview) immediately; persistence rides this callback so the
-   * scene stays storage-free.
+   * scene stays storage-free. Returning the append promise lets the scene
+   * track the note honestly — pending until it settles, withdrawn (with one
+   * calm line) when the write fails — and await in-flight writes on exit.
    */
-  onNote?: (entry: JournalEntryView, text: string) => void;
+  onNote?: (entry: JournalEntryView, text: string) => void | Promise<void>;
   /** Local YYYY-MM-DD — injected for tests; defaults to the system clock. */
   today?: () => string;
+}
+
+/**
+ * Sanitize typed/pasted text for the scene's one-line inputs: fold
+ * newlines/tabs to spaces (enter must not submit mid-paste) and strip the
+ * remaining C0/C1 control characters — including ESC (0x1B), so a pasted
+ * ANSI sequence cannot leak raw control bytes into a stored note.
+ * TODO(merge): the CLI note-write path grows the same stripping (R1); unify
+ * into one shared sanitizer once both land.
+ */
+export function sanitizeFieldText(text: string): string {
+  return text.replace(/[\n\t]+/g, " ").replace(/[\u0000-\u001f\u007f-\u009f]/g, "");
 }
 
 /** Strip diacritics for accent-insensitive pinyin matching. */
@@ -108,6 +129,12 @@ export class JournalScene implements Scene {
   // [p] patterns pane
   private patternsOpen = false;
 
+  // Reflection-note persistence honesty: appends still in flight (awaited by
+  // exit() so scene teardown can't lose a pending write) and entries whose
+  // last append failed (one calm line in the preview row).
+  private inFlightNotes = new Set<Promise<void>>();
+  private failedNoteEntries = new Set<JournalEntryView>();
+
   constructor(entries: JournalEntryView[], opts: JournalSceneOptions = {}) {
     // Most recent first
     this.entries = [...entries].reverse();
@@ -121,6 +148,20 @@ export class JournalScene implements Scene {
 
   enter(ctx: SceneContext): void {
     this.scroll.viewportHeight = ctx.rows - 4; // header(2) + preview + footer
+  }
+
+  exit(): Promise<void> {
+    // Scene teardown (pop, push, or leaving the program) waits for pending
+    // note appends — esc or quit right after committing a note must not
+    // lose the write. runScene awaits this before the router proceeds.
+    return this.notesSettled();
+  }
+
+  /** Resolves when every in-flight note append has settled. */
+  async notesSettled(): Promise<void> {
+    while (this.inFlightNotes.size > 0) {
+      await Promise.allSettled([...this.inFlightNotes]);
+    }
   }
 
   update(_elapsed: number, _dt: number, _ctx: SceneContext): void {}
@@ -253,13 +294,25 @@ export class JournalScene implements Scene {
 
     if (!selected) return;
 
+    // A failed append withdrew its note (marker gone) — one calm line says so.
+    if (this.failedNoteEntries.has(selected)) {
+      const failed = truncateToWidth(tr(lang, "journal.noteSaveFailed"), maxW - 4);
+      frame.writeText(detailRow, 2, failed, { fg: t.tertiary, dim: true });
+      return;
+    }
+
     const latestNote = selected.notes?.[selected.notes.length - 1];
     if (latestNote) {
       const text = truncateToWidth(
         `·${tr(lang, "journal.noteMarker")} ${latestNote.date}  ${latestNote.text}`,
         maxW - 4,
       );
-      frame.writeText(detailRow, 2, text, { fg: t.tertiary, dim: true });
+      // Dim only while the append is in flight — a settled note holds the
+      // regular tertiary weight.
+      frame.writeText(detailRow, 2, text, {
+        fg: t.tertiary,
+        dim: latestNote.state === "pending",
+      });
       return;
     }
 
@@ -353,13 +406,17 @@ export class JournalScene implements Scene {
     }
 
     if (key.type === "page") {
+      const stride = Math.max(1, this.scroll.viewportHeight);
       if (key.direction === "up") {
-        this.cursor = Math.max(0, this.cursor - this.scroll.viewportHeight);
-        this.scroll.pageUp();
+        this.cursor = Math.max(0, this.cursor - stride);
       } else {
-        this.cursor = Math.min(this.filtered.length - 1, this.cursor + this.scroll.viewportHeight);
-        this.scroll.pageDown();
+        this.cursor = Math.min(Math.max(0, this.filtered.length - 1), this.cursor + stride);
       }
+      // The ScrollableRegion holds no content lines (the list renders from
+      // `filtered` directly), so its pageUp/pageDown scroll math would no-op
+      // and let the selection leave the viewport — walk the offset from the
+      // cursor instead, same as the arrow path.
+      this.ensureCursorVisible();
       return;
     }
 
@@ -437,8 +494,7 @@ export class JournalScene implements Scene {
       const entry = this.filtered[this.cursor];
       if (!entry) return;
       const date = this.opts.today ? this.opts.today() : localToday();
-      entry.notes = [...(entry.notes ?? []), { text, date }];
-      this.opts.onNote?.(entry, text);
+      this.commitNote(entry, { text, date });
       return;
     }
     if (key.type === "escape") {
@@ -468,16 +524,48 @@ export class JournalScene implements Scene {
       return;
     }
     if (key.type === "paste") {
-      // A pasted reflection arrives as one block: fold newlines/tabs to
-      // spaces (enter must not submit mid-paste) and drop control chars.
-      const text = key.text.replace(/[\n\t]+/g, " ").replace(/[\x00-\x1f\x7f]/g, "");
+      // A pasted reflection arrives as one block — sanitize it whole.
+      const text = sanitizeFieldText(key.text);
       if (text.length > 0) this.noteInput.insert(text);
       return;
     }
     if (key.type === "char") {
-      this.noteInput.insert(key.char);
+      // Decoded C1 controls (e.g. U+0085) arrive as char events — drop them.
+      const ch = sanitizeFieldText(key.char);
+      if (ch.length > 0) this.noteInput.insert(ch);
       return;
     }
+  }
+
+  /**
+   * Attach a committed note to its entry and ride the persistence callback
+   * honestly: a promise-returning onNote marks the note pending (rendered
+   * dim) until the append settles — kept on success, withdrawn on failure
+   * with one calm line in the preview row. In-flight appends are awaited by
+   * exit() so a commit immediately followed by leaving the scene still
+   * reaches disk.
+   */
+  private commitNote(entry: JournalEntryView, note: JournalNoteView): void {
+    this.failedNoteEntries.delete(entry);
+    entry.notes = [...(entry.notes ?? []), note];
+    const result = this.opts.onNote?.(entry, note.text);
+    if (!result) {
+      note.state = "saved"; // synchronous persistence (or none wired)
+      return;
+    }
+    note.state = "pending";
+    const settle = result.then(
+      () => {
+        note.state = "saved";
+      },
+      () => {
+        // The bytes never landed — withdrawing the marker is the honest render.
+        entry.notes = (entry.notes ?? []).filter((n) => n !== note);
+        this.failedNoteEntries.add(entry);
+      },
+    );
+    this.inFlightNotes.add(settle);
+    void settle.finally(() => this.inFlightNotes.delete(settle));
   }
 
   private handlePatternsKey(key: KeyEvent): SceneSignal | void {
@@ -513,7 +601,7 @@ export class JournalScene implements Scene {
       return;
     }
     if (key.type === "paste") {
-      const text = key.text.replace(/[\n\t]+/g, " ").replace(/[\x00-\x1f\x7f]/g, "");
+      const text = sanitizeFieldText(key.text);
       if (text.length > 0) {
         this.searchInput.insert(text);
         this.setQuery(this.searchInput.value);
@@ -521,8 +609,11 @@ export class JournalScene implements Scene {
       return;
     }
     if (key.type === "char") {
-      this.searchInput.insert(key.char);
-      this.setQuery(this.searchInput.value);
+      const ch = sanitizeFieldText(key.char);
+      if (ch.length > 0) {
+        this.searchInput.insert(ch);
+        this.setQuery(this.searchInput.value);
+      }
       return;
     }
   }
