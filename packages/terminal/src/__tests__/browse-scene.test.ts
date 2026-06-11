@@ -73,6 +73,40 @@ describe("BrowseScene", () => {
     expect(scene.getModel().filtered[0].ename).toBe("The Creative");
   });
 
+  test("paste activates search and filters results", () => {
+    const scene = new BrowseScene();
+    scene.enter(makeCtx());
+    scene.handleKey({ type: "paste", text: "creative" }, makeCtx());
+    expect(scene.getModel().searchActive).toBe(true);
+    expect(scene.getModel().query).toBe("creative");
+    expect(scene.getModel().filtered.length).toBeGreaterThan(0);
+    expect(scene.getModel().filtered[0].ename).toBe("The Creative");
+  });
+
+  test("paste folds newlines and strips control chars before filtering", () => {
+    const scene = new BrowseScene();
+    scene.enter(makeCtx());
+    scene.handleKey({ type: "char", char: "/" }, makeCtx());
+    scene.handleKey({ type: "paste", text: "cre\native\x07" }, makeCtx());
+    expect(scene.getModel().query).toBe("cre ative");
+  });
+
+  test("paste appends to an existing query at the cursor", () => {
+    const scene = new BrowseScene();
+    scene.enter(makeCtx());
+    scene.handleKey({ type: "char", char: "t" }, makeCtx());
+    scene.handleKey({ type: "paste", text: "ai" }, makeCtx());
+    expect(scene.getModel().query).toBe("tai");
+  });
+
+  test("an all-control-chars paste changes nothing", () => {
+    const scene = new BrowseScene();
+    scene.enter(makeCtx());
+    scene.handleKey({ type: "paste", text: "\x00\x07\x7f" }, makeCtx());
+    expect(scene.getModel().searchActive).toBe(false);
+    expect(scene.getModel().filtered).toHaveLength(64);
+  });
+
   test("escape clears search", () => {
     const scene = new BrowseScene();
     scene.enter(makeCtx());

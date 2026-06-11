@@ -374,9 +374,10 @@ describe("CastScene reading panel", () => {
     scene.update(scene.getTimeline().duration + 100, 33, ctx);
 
     const text = frameText(scene, ctx).join("\n");
-    // Hexagram 21, changing lines 1 and 4 — the hint plus line 1's text
+    // Hexagram 21, changing lines 1 and 4 — the hint plus the governing
+    // (upper) line's text first
     expect(text).toContain("two lines move — the upper governs");
-    expect(text).toContain("1 · His feet are fastened");
+    expect(text).toContain("4 · Biting on dried gristly meat");
   });
 
   test("judgment shown when no lines move", () => {
@@ -457,7 +458,7 @@ describe("CastScene journal replay (skipToComplete(false))", () => {
     const text = frameText(scene, ctx).join("\n");
     expect(scene.getModel().showPrompt).toBe(true);
     expect(text).toContain("two lines move — the upper governs");
-    expect(text).toContain("1 · His feet are fastened");
+    expect(text).toContain("4 · Biting on dried gristly meat");
     expect(text).toContain("the launch question");
   });
 

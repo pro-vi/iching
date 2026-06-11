@@ -75,6 +75,9 @@ export const MESSAGES = {
   // ── reading panel (exploration phase) ──
   // Label prefixed to the 卦辭 when no lines move (the judgment IS the reading).
   "cast.judgment": { en: "Judgment", zhHant: "卦辭", zhHans: "卦辞" },
+  // Label prefixed to the becoming hexagram's 卦辭 when four or five lines
+  // move (or all six off hex 1/2) — the becoming's judgment is the reading.
+  "cast.becomingJudgment": { en: "Becoming · Judgment", zhHant: "之卦卦辭", zhHans: "之卦卦辞" },
   // One-line reading-method hints — the classical rule for which text governs,
   // stated observationally (one dim line, never a lecture).
   "cast.hint.one": { en: "one line moves — it speaks", zhHant: "一爻動，以動爻為占", zhHans: "一爻动，以动爻为占" },

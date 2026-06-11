@@ -117,6 +117,20 @@ export class BrowseScene implements Scene {
       return;
     }
 
+    // Paste — a pasted query lands in the search like typed characters:
+    // fold newlines/tabs to spaces, drop control chars, filter live.
+    if (key.type === "paste") {
+      const text = key.text.replace(/[\n\t]+/g, " ").replace(/[\x00-\x1f\x7f]/g, "");
+      if (text.length > 0) {
+        if (!this.model.searchActive) {
+          this.model.searchActive = true;
+        }
+        this.textInput.insert(text);
+        this.model.setQuery(this.textInput.value);
+      }
+      return;
+    }
+
     // Type characters — activate search if not active, add to query
     if (key.type === "char" && key.char !== "q") {
       if (!this.model.searchActive) {
