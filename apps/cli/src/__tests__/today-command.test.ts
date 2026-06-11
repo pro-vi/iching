@@ -163,5 +163,28 @@ describe("today command", () => {
     expect(payload.becoming).toBeNull();
     expect(payload.intention).toBeNull();
     expect(payload.method).toBeNull();
+    // List-shaped keys are empty arrays so scripts can iterate either state.
+    expect(payload.changingPositions).toEqual([]);
+    expect(payload.changingLines).toEqual([]);
+    expect(payload.extra).toBeNull();
+    expect(payload.derived).toBeNull();
+    expect(payload.commentary).toBeNull();
+    expect(payload.rng).toBeNull();
+  }, 20_000);
+
+  // Regression: the empty state used to expose only 6 of the 12 keys —
+  // consumers branching on key presence broke. Both states must expose the
+  // IDENTICAL key set; only the values differ.
+  test("--json key set is identical with and without a cast", async () => {
+    const empty = await runCli(dataDir, ["--json", "today"]);
+    expect(empty.exitCode).toBe(0);
+    const emptyKeys = Object.keys(JSON.parse(empty.stdout)).sort();
+
+    await seedCache(dataDir, makeCache(utcToday()));
+    const full = await runCli(dataDir, ["--json", "today"]);
+    expect(full.exitCode).toBe(0);
+    const fullKeys = Object.keys(JSON.parse(full.stdout)).sort();
+
+    expect(emptyKeys).toEqual(fullKeys);
   }, 20_000);
 });

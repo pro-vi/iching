@@ -8,6 +8,8 @@ document in the repository.
 `iching` is a local-first terminal I Ching application:
 
 - one-shot CLI commands for casting, journal, config, paths, doctor, and lookup
+- a daily-reading anchor: the day's cast is cached and recallable without
+  recasting (`iching today`, TUI `t`)
 - fullscreen TUI for daily casting, journal review, settings, and dictionary
 - pure domain package for casts, derivations, search, and hexagram data
 - JSON/JSONL storage using XDG-compatible local paths
@@ -25,7 +27,7 @@ old checkbox.
 | Workspace monorepo | Implemented | `apps/cli`, `packages/core`, `packages/storage`, `packages/terminal` |
 | Core domain | Implemented | casting, derivation, lookup, detail, search, formatters, exhaustive tests |
 | Storage | Implemented | paths, JSON/JSONL stores, config store, legacy discovery, atomic-write tests |
-| CLI commands | Implemented | `cast`, `journal`, `hexagram`, `config`, `paths`, `doctor`, `dict` |
+| CLI commands | Implemented | `cast`, `today`, `journal`, `hexagram`, `config`, `paths`, `doctor`, `dict` |
 | Terminal primitives | Implemented | cell buffer, diff renderer, ANSI, key parser, raw input, session lifecycle |
 | Animation engine | Implemented | timeline DSL, runner, easing, presets, scene loop |
 | Casting scenes | Implemented | cast scene, coin/line/morph/reveal renderers, timeline builder |
