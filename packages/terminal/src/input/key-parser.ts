@@ -33,6 +33,15 @@ const PASTE_END = new Uint8Array([0x1b, 0x5b, 0x32, 0x30, 0x31, 0x7e]);
 // How long to wait for the rest of an escape sequence before flushing.
 const ESC_TIMEOUT_MS = 50;
 
+// Bracketed-paste guards. Paste accumulation must stay bounded: a lost
+// ESC[201~ terminator would otherwise buffer stdin forever (and look like a
+// dead app). The cap is generous for an intention; past it the paste event
+// is delivered with what was collected and normal parsing resumes. A paste
+// left dangling (no terminator, no further bytes) flushes after a quiet
+// gap, the same way the lone-ESC timeout does.
+const PASTE_MAX_BYTES = 64 * 1024;
+const PASTE_TIMEOUT_MS = 500;
+
 /**
  * Determine the byte length of a single UTF-8 character from its leading byte.
  */
@@ -248,14 +257,19 @@ export class KeyParser {
         const merged = concatBytes(this.pasteData, buf);
         const end = indexOfSeq(merged, PASTE_END);
         if (end === -1) {
+          if (merged.length > PASTE_MAX_BYTES) {
+            // The terminator never came within the cap — deliver what was
+            // collected and return to normal parsing.
+            this.pasteData = null;
+            this.emitPaste(merged);
+            return;
+          }
           this.pasteData = merged;
+          this.armPasteFlush();
           return;
         }
-        const raw = new TextDecoder().decode(merged.subarray(0, end));
         this.pasteData = null;
-        // Normalize line endings — terminals paste \r for newlines
-        const text = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-        this.callback({ type: "paste", text });
+        this.emitPaste(merged.subarray(0, end));
         buf = merged.subarray(end + PASTE_END.length);
         continue;
       }
@@ -265,6 +279,7 @@ export class KeyParser {
         if (startsWithSeq(buf, PASTE_START)) {
           this.pasteData = new Uint8Array(0);
           buf = buf.subarray(PASTE_START.length);
+          if (buf.length === 0) this.armPasteFlush();
           continue;
         }
 
@@ -299,6 +314,29 @@ export class KeyParser {
       if (result.event) this.callback(result.event);
       buf = buf.subarray(result.consumed);
     }
+  }
+
+  /** Decode paste bytes, normalize line endings, emit the paste event. */
+  private emitPaste(data: Uint8Array): void {
+    const raw = new TextDecoder().decode(data);
+    // Normalize line endings — terminals paste \r for newlines
+    const text = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    this.callback({ type: "paste", text });
+  }
+
+  /**
+   * Arm the dangling-paste flush: if no further bytes arrive (feed() clears
+   * the timer on entry), the unterminated paste is delivered as-is and the
+   * parser leaves paste mode.
+   */
+  private armPasteFlush(): void {
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      if (this.pasteData === null) return;
+      const data = this.pasteData;
+      this.pasteData = null;
+      if (data.length > 0) this.emitPaste(data);
+    }, PASTE_TIMEOUT_MS);
   }
 
   /** Clean up timers */

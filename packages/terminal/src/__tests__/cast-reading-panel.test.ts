@@ -67,11 +67,13 @@ function hasGlyph(rows: string[]): boolean {
   return rows.some((r) => /[⠁-⣿]/.test(r));
 }
 
-// 0/1/3/6 changing lines, with correctly derived becoming hexagrams.
+// 0/1/3/4/5/6 changing lines, with correctly derived becoming hexagrams.
 const CASES: Array<{ label: string; cast: Cast }> = [
   { label: "0 changing (hex 63)", cast: makeCast(63, []) },
   { label: "1 changing (hex 21, line 4)", cast: makeCast(21, [4]) },
   { label: "3 changing (hex 21, lines 1·3·4)", cast: makeCast(21, [1, 3, 4]) },
+  { label: "4 changing (hex 21 → becoming 卦辭)", cast: makeCast(21, [1, 2, 3, 4]) },
+  { label: "5 changing (hex 21 → becoming 卦辭)", cast: makeCast(21, [1, 2, 3, 4, 5]) },
   { label: "6 changing (hex 1 → 用九)", cast: makeCast(1, [1, 2, 3, 4, 5, 6]) },
 ];
 

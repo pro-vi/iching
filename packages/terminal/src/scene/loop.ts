@@ -113,9 +113,22 @@ export async function runScene(
       const dt = Math.min(now - prev, MAX_DT);
       prev = now;
 
+      // Below the size floor the scene is hidden behind the notice, so its
+      // keys and updates rest (a toggle must not flip out of sight). Ctrl-c
+      // still exits, and the resize handler above keeps recovery working.
+      const tooSmall = ctx.cols < MIN_COLS || ctx.rows < MIN_ROWS;
+
       // Drain input queue
       while (inputQueue.length > 0) {
         const key = inputQueue.shift()!;
+        if (tooSmall) {
+          if (key.type === "ctrl" && key.char === "c") {
+            exitSignal = { type: "exit" };
+            ctx.done = true;
+            break;
+          }
+          continue; // other keys pass quietly — the scene is not on screen
+        }
         const signal = scene.handleKey?.(key, ctx);
         if (signal) {
           exitSignal = signal;
@@ -126,12 +139,12 @@ export async function runScene(
       if (ctx.done) break;
 
       // Update
-      scene.update(elapsed, dt, ctx);
+      if (!tooSmall) scene.update(elapsed, dt, ctx);
 
       // Render — below the size floor, show the calm placeholder instead of
       // silently clipped scene content.
       const frame = CellBuffer.create(ctx.cols, ctx.rows);
-      if (ctx.cols < MIN_COLS || ctx.rows < MIN_ROWS) {
+      if (tooSmall) {
         renderTooSmallNotice(frame, ctx);
       } else {
         scene.render(frame, ctx);

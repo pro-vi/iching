@@ -168,6 +168,57 @@ describe("KeyParser — bracketed paste", () => {
   });
 });
 
+describe("KeyParser — paste accumulation stays bounded", () => {
+  test("a paste whose terminator never comes is delivered at the cap", () => {
+    const { events, parser } = collect();
+    parser.feed(bytes("\x1b[200~"));
+    const chunk = "x".repeat(16 * 1024);
+    for (let i = 0; i < 5; i++) parser.feed(bytes(chunk)); // 80 KiB, no end marker
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe("paste");
+    expect(events[0]).toEqual({ type: "paste", text: chunk.repeat(5) });
+
+    // Normal parsing resumed — keys arrive as keys again…
+    parser.feed(bytes("q"));
+    expect(events[1]).toEqual({ type: "char", char: "q" });
+    // …and a late terminator is swallowed silently, not leaked as escape.
+    parser.feed(bytes("\x1b[201~"));
+    expect(events).toHaveLength(2);
+    parser.dispose();
+  });
+
+  test("a complete paste past the cap in one feed still delivers intact", () => {
+    const { events, parser } = collect();
+    const text = "y".repeat(100 * 1024);
+    parser.feed(bytes(`\x1b[200~${text}\x1b[201~`));
+    expect(events).toEqual([{ type: "paste", text }]);
+    parser.dispose();
+  });
+
+  test("an unterminated paste flushes after a quiet gap", async () => {
+    const { events, parser } = collect();
+    parser.feed(bytes("\x1b[200~adrift"));
+    expect(events).toEqual([]);
+    await new Promise((r) => setTimeout(r, 600));
+    expect(events).toEqual([{ type: "paste", text: "adrift" }]);
+
+    // The parser left paste mode — back to ordinary keys.
+    parser.feed(bytes("k"));
+    expect(events[1]).toEqual({ type: "char", char: "k" });
+    parser.dispose();
+  });
+
+  test("a dangling paste start with no content goes quietly (no empty paste)", async () => {
+    const { events, parser } = collect();
+    parser.feed(bytes("\x1b[200~"));
+    await new Promise((r) => setTimeout(r, 600));
+    expect(events).toEqual([]);
+    parser.feed(bytes("k"));
+    expect(events).toEqual([{ type: "char", char: "k" }]);
+    parser.dispose();
+  });
+});
+
 describe("KeyParser — split UTF-8 buffering", () => {
   test("3-byte CJK char split across two feeds decodes intact", () => {
     const { events, parser } = collect();

@@ -3,10 +3,13 @@
 // Extracted from reading-renderer.ts so the reveal layout (which budgets
 // vertical space between the glyph, the title block, and these texts) can
 // measure the panel without an import cycle. The texts a reading is
-// classically made of: the changing lines' 爻辭 (bottom-line-first, as
-// cast), or — when no lines move — the 卦辭, since the judgment IS the
-// reading in that case. A single dim hint line states which text governs
-// per the common classical rule. Quiet, observational, never interpretive.
+// classically made of follow readingFocus (the common classical rule), and
+// the text the hint names always comes first: the changing lines' 爻辭
+// (governing line first when two or three move, the rest bottom-first as
+// cast), the becoming hexagram's 卦辭 when four or five move, or — when no
+// lines move — the primary 卦辭, since the judgment IS the reading in that
+// case. A single dim hint line states which text governs. Quiet,
+// observational, never interpretive.
 
 import { type Cast, type DisplayLanguage, GUA, readingFocus, toSimplified } from "@iching/core";
 import { wordWrap } from "../dict/word-wrap.ts";
@@ -64,6 +67,14 @@ export function buildReadingLines(
     }
   };
 
+  const pushYao = (pos: number): void => {
+    pushText(
+      english
+        ? `${pos} · ${gua.yaoEn[pos - 1]}`
+        : cn(gua.yao[pos - 1]),
+    );
+  };
+
   if (focus.kind === "judgment") {
     // No moving lines — the judgment is the reading.
     const label = tr(language, "cast.judgment");
@@ -75,16 +86,23 @@ export function buildReadingLines(
         ? `${gua.extra.name} · ${gua.extra.textEn}`
         : `${cn(gua.extra.name)} · ${cn(gua.extra.text)}`,
     );
-  } else {
-    // The changing lines' 爻辭, bottom-line-first as cast.
-    const positions = [...cast.changingPositions].sort((a, b) => a - b);
-    for (const pos of positions) {
-      pushText(
-        english
-          ? `${pos} · ${gua.yaoEn[pos - 1]}`
-          : cn(gua.yao[pos - 1]),
-      );
+  } else if (focus.kind === "becoming" && cast.becoming !== null) {
+    // Four or five lines move (or all six off hex 1/2) — the becoming
+    // hexagram's 卦辭 is the reading, exactly as the hint says.
+    const becoming = GUA[cast.becoming - 1];
+    const label = tr(language, "cast.becomingJudgment");
+    pushText(english ? `${label} · ${becoming.gcEn}` : `${label} · ${cn(becoming.gc)}`);
+  } else if (focus.kind === "lines") {
+    // Two or three lines move — the governing (upper) line speaks first,
+    // the other noted lines follow bottom-first as quieter context.
+    pushYao(focus.governing);
+    for (const pos of focus.positions) {
+      if (pos !== focus.governing) pushYao(pos);
     }
+  } else {
+    // One changing line (or a fallback) — the 爻辭, bottom-line-first.
+    const positions = [...cast.changingPositions].sort((a, b) => a - b);
+    for (const pos of positions) pushYao(pos);
   }
 
   if (lines.length > maxRows) {

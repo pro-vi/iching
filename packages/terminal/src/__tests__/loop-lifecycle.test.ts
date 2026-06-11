@@ -2,9 +2,11 @@
 // and the too-small-terminal placeholder.
 
 import { describe, test, expect } from "bun:test";
+import type { Clock } from "../clock.ts";
 import { ManualClock } from "../clock.ts";
 import { runScene, renderTooSmallNotice, MIN_COLS, MIN_ROWS } from "../scene/loop.ts";
 import type { Scene, SceneContext } from "../scene/types.ts";
+import type { KeyEvent } from "../input/key-parser.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import { TerminalSession } from "../session/terminal-session.ts";
 
@@ -137,17 +139,43 @@ describe("runScene — resize repaint", () => {
   });
 });
 
+/**
+ * Clock whose sleep yields to the macrotask queue, so test code can emit
+ * stdin data / SIGWINCH between frames while runScene is in flight.
+ */
+class SteppingClock implements Clock {
+  private time = 0;
+  now(): number {
+    return this.time;
+  }
+  async sleep(ms: number): Promise<void> {
+    this.time += Math.max(1, ms);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
+
+/** Let the render loop take a few frames. */
+async function frames(n: number): Promise<void> {
+  for (let i = 0; i < n; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
+
 describe("runScene — too-small terminal", () => {
   test("below the floor the scene render is replaced by the notice", async () => {
     const stdout = mockStdout(30, 8);
     const session = new TerminalSession(stdout, mockStdin());
     let rendered = false;
-    const scene = framesScene(1, {
+    const scene: Scene = {
+      update() {},
       render() {
         rendered = true;
       },
-    });
-    await runScene(scene, session, new ManualClock(), "truecolor");
+    };
+    const run = runScene(scene, session, new SteppingClock(), "truecolor");
+    await frames(3);
+    process.stdin.emit("data", Buffer.from([0x03])); // ctrl-c
+    await run;
     expect(rendered).toBe(false);
   });
 
@@ -162,6 +190,66 @@ describe("runScene — too-small terminal", () => {
     });
     await runScene(scene, session, new ManualClock(), "truecolor");
     expect(rendered).toBe(true);
+  });
+
+  test("while too small, keys and updates rest — ctrl-c still exits", async () => {
+    const stdout = mockStdout(30, 8);
+    const session = new TerminalSession(stdout, mockStdin());
+    const keys: KeyEvent[] = [];
+    let updates = 0;
+    const scene: Scene = {
+      update() {
+        updates++;
+      },
+      render() {},
+      handleKey(key) {
+        keys.push(key);
+      },
+    };
+
+    const run = runScene(scene, session, new SteppingClock(), "truecolor");
+    await frames(2);
+    process.stdin.emit("data", Buffer.from("j")); // would move a hidden cursor
+    await frames(2);
+    process.stdin.emit("data", Buffer.from([0x03])); // ctrl-c
+    const signal = await run;
+
+    expect(keys).toEqual([]); // the hidden scene never saw a key
+    expect(updates).toBe(0); // nor an update tick
+    expect(signal).toEqual({ type: "exit" }); // but ctrl-c still exits
+  });
+
+  test("resizing back above the floor restores key and update delivery", async () => {
+    const stdout = mockStdout(30, 8);
+    const session = new TerminalSession(stdout, mockStdin());
+    const keys: KeyEvent[] = [];
+    let updates = 0;
+    const scene: Scene = {
+      update() {
+        updates++;
+      },
+      render() {},
+      handleKey(key): { type: "back" } | undefined {
+        keys.push(key);
+        return key.type === "char" && key.char === "q" ? { type: "back" } : undefined;
+      },
+    };
+
+    const run = runScene(scene, session, new SteppingClock(), "truecolor");
+    await frames(2);
+    process.stdin.emit("data", Buffer.from("x")); // swallowed while too small
+    await frames(2);
+
+    stdout.columns = 80;
+    stdout.rows = 24;
+    process.emit("SIGWINCH");
+    await frames(2);
+    process.stdin.emit("data", Buffer.from("q")); // delivered after recovery
+    const signal = await run;
+
+    expect(keys).toEqual([{ type: "char", char: "q" }]); // "x" never arrived late
+    expect(updates).toBeGreaterThan(0); // updates resumed
+    expect(signal).toEqual({ type: "back" });
   });
 });
 
