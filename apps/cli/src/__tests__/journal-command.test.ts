@@ -272,13 +272,21 @@ describe("journal note command", () => {
     await runCli(dataDir, ["journal", "note", "shape check"]);
 
     const { readFile } = await import("node:fs/promises");
-    const raw = await readFile(join(dataDir, "history.jsonl"), "utf-8");
+    // Notes live in the notes.jsonl sidecar so pre-note binaries reading
+    // history.jsonl never meet a record shape they cannot parse.
+    const raw = await readFile(join(dataDir, "notes.jsonl"), "utf-8");
     const lines = raw.trim().split("\n");
     const note = JSON.parse(lines[lines.length - 1]);
     expect(Object.keys(note).sort()).toEqual(["date", "kind", "ref", "text", "timestamp"]);
     expect(note.kind).toBe("note");
     expect(note.ref).toBe("2026-01-01T09:00:00.000Z");
     expect(note.text).toBe("shape check");
+
+    // And history.jsonl still holds only plain readings (no kind records).
+    const history = await readFile(join(dataDir, "history.jsonl"), "utf-8");
+    for (const line of history.trim().split("\n")) {
+      expect(JSON.parse(line).kind).toBeUndefined();
+    }
   }, 20_000);
 
   test("note errors calmly when there is nothing to annotate", async () => {

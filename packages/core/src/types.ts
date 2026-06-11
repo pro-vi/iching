@@ -138,8 +138,10 @@ export interface HistoryEntry {
 /**
  * Reflection note — the journal's other half. A reading is cast in the
  * morning and understood at night; a note records what happened, appended
- * later as its own JSONL line (kind:"note"). Lines without a kind remain
- * readings, so old journals stay readable unchanged.
+ * later as its own JSONL line (kind:"note") in the notes.jsonl sidecar
+ * beside history.jsonl — so binaries that predate notes never meet one.
+ * Legacy note lines written into history.jsonl itself remain readable;
+ * lines without a kind remain readings, so old journals stay intact.
  */
 export interface ReflectionNote {
   kind: "note";

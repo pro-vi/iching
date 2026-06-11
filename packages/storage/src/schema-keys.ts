@@ -36,8 +36,10 @@ export const SCHEMA_KEYS = {
     required: ["date", "cast"],
     optional: ["intention", "timestamp", "method", "rng"],
   },
-  // Reflection notes share the journal file as a second record shape; the
-  // `kind` discriminator is what keeps them out of entry reads.
+  // Reflection notes are written to the notes.jsonl sidecar beside
+  // history.jsonl, so pre-note binaries never meet a record shape they cannot
+  // parse. The `kind` discriminator still keeps any LEGACY note lines (written
+  // into history.jsonl before the sidecar landed) out of entry reads.
   note: {
     required: ["kind", "ref", "date", "timestamp", "text"],
     optional: [],
