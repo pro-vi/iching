@@ -24,15 +24,16 @@ export const SCHEMA_KEYS = {
       "taijituStyle",
       "castMethod",
       "castMode",
+      "entropy",
     ],
     optional: [],
   },
   cache: {
     required: ["date", "cast", "shown", "structure"],
-    optional: ["intention", "method"],
+    optional: ["intention", "method", "rng"],
   },
   history: {
     required: ["date", "cast"],
-    optional: ["intention", "timestamp", "method"],
+    optional: ["intention", "timestamp", "method", "rng"],
   },
 } as const satisfies Record<string, Shape>;

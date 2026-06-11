@@ -16,6 +16,7 @@ function makeScene(language: "zh-Hans" | "zh-Hant" | "en" = "en"): SettingsScene
     glyphFont: "kaiti",
     castMethod: "coin",
     castMode: "auto",
+    entropy: "crypto",
   });
 }
 
@@ -68,15 +69,65 @@ describe("SettingsScene layout", () => {
     expect(rows[labelRow + 1]).toContain("[auto]"); // …options visible, not blind
   });
 
-  test("renders all 7 rows without scrolling at h=24", () => {
+  test("renders all 8 rows without scrolling at h=24", () => {
     const scene = makeScene("en");
     const ctx = makeCtx(80, 24);
     const buf = CellBuffer.create(80, 24);
     scene.render(buf, ctx);
     const text = bufferText(buf);
-    for (const label of ["Theme", "Language", "Taijitu", "Font", "Cast Method", "Cast Mode"]) {
+    for (const label of ["Theme", "Language", "Taijitu", "Font", "Cast Method", "Cast Mode", "Entropy"]) {
       expect(text).toContain(label);
     }
+  });
+});
+
+describe("SettingsScene entropy row", () => {
+  test("defaults to crypto and round-trips through getValues", () => {
+    const scene = makeScene("en");
+    expect(scene.getValues().entropy).toBe("crypto");
+  });
+
+  test("left/right toggles entropy crypto ↔ bound", () => {
+    const scene = makeScene("en");
+    const ctx = makeCtx();
+    for (let i = 0; i < 7; i++) scene.handleKey({ type: "arrow", direction: "down" }, ctx); // focus Entropy
+    scene.handleKey({ type: "arrow", direction: "right" }, ctx);
+    expect(scene.getValues().entropy).toBe("bound");
+    scene.handleKey({ type: "arrow", direction: "right" }, ctx);
+    expect(scene.getValues().entropy).toBe("crypto"); // wraps back
+  });
+
+  test("an initial bound value is preserved", () => {
+    const scene = new SettingsScene({
+      theme: "bone",
+      language: "en",
+      taijituStyle: "dots",
+      glyphAnim: "dots",
+      glyphFont: "kaiti",
+      castMethod: "coin",
+      castMode: "auto",
+      entropy: "bound",
+    });
+    expect(scene.getValues().entropy).toBe("bound");
+  });
+
+  test("zh chips render the ratified labels (繫於心念 / 系于心念)", () => {
+    const scene = new SettingsScene({
+      theme: "bone",
+      language: "zh-Hant",
+      taijituStyle: "dots",
+      glyphAnim: "dots",
+      glyphFont: "kaiti",
+      castMethod: "coin",
+      castMode: "auto",
+      entropy: "bound",
+    });
+    const ctx = makeCtx(100, 30);
+    const buf = CellBuffer.create(100, 30);
+    scene.render(buf, ctx);
+    const text = bufferText(buf);
+    expect(text).toContain("隨機源");
+    expect(text).toContain("繫於心念");
   });
 });
 
@@ -95,11 +146,11 @@ describe("SettingsScene getValues — identity-bound, not positional", () => {
   test("selections made after a reorder land on the right field", () => {
     const scene = makeScene("en");
     (scene as unknown as { rows: unknown[] }).rows.reverse();
-    // After reversal, focused row 0 is Cast Mode (was Theme). Toggle it.
+    // After reversal, focused row 0 is Entropy (was Theme). Toggle it.
     const ctx = makeCtx();
     scene.handleKey({ type: "arrow", direction: "right" }, ctx);
     const vals = scene.getValues();
-    expect(vals.castMode).toBe("manual"); // the toggled row's field moved…
+    expect(vals.entropy).toBe("bound"); // the toggled row's field moved…
     expect(vals.theme).toBe("bone"); // …and theme (old position 0) did not.
   });
 });

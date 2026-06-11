@@ -68,6 +68,7 @@ describe("config command", () => {
       "taijituStyle",
       "castMethod",
       "castMode",
+      "entropy",
     ]) {
       expect(stdout).toContain(key);
     }
@@ -159,6 +160,26 @@ describe("config command", () => {
 
   test("set castMethod rejects invalid value", async () => {
     const { exitCode, stderr } = await runCli(dataDir, ["config", "set", "castMethod", "stones"]);
+    expect(exitCode).not.toBe(0);
+    expect(stderr.toLowerCase()).toContain("invalid value");
+  }, 20_000);
+
+  test("get entropy returns the default value (crypto)", async () => {
+    const { exitCode, stdout } = await runCli(dataDir, ["config", "get", "entropy"]);
+    expect(exitCode).toBe(0);
+    expect(stdout.trim()).toBe("crypto");
+  }, 20_000);
+
+  test("set entropy bound persists, reload reads bound", async () => {
+    const setResult = await runCli(dataDir, ["config", "set", "entropy", "bound"]);
+    expect(setResult.exitCode).toBe(0);
+    const getResult = await runCli(dataDir, ["config", "get", "entropy"]);
+    expect(getResult.exitCode).toBe(0);
+    expect(getResult.stdout.trim()).toBe("bound");
+  }, 20_000);
+
+  test("set entropy rejects invalid value", async () => {
+    const { exitCode, stderr } = await runCli(dataDir, ["config", "set", "entropy", "quantum"]);
     expect(exitCode).not.toBe(0);
     expect(stderr.toLowerCase()).toContain("invalid value");
   }, 20_000);

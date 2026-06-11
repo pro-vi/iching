@@ -1,4 +1,4 @@
-import type { Cast, CastMethod, Hexagram, Style, Structure } from "@iching/core";
+import type { Cast, CastMethod, Hexagram, RngProvenance, Style, Structure } from "@iching/core";
 import {
   GUA,
   STYLES,
@@ -7,12 +7,36 @@ import {
 } from "@iching/core";
 import type { HistoryEntry } from "@iching/core";
 
+/**
+ * Quiet one-line entropy provenance, or null when there is nothing worth
+ * saying. Plain crypto stays silent — the default needs no story, and silence
+ * is calmer. "bound" and deterministic seeds get the honest label from
+ * docs/vision/entropy-sources-vision.md (local participation, never a claim
+ * of metaphysical efficacy).
+ */
+function entropyLine(rng?: RngProvenance, seed?: number): string | null {
+  if (!rng) return null;
+  if (rng.source === "seed") {
+    return seed !== undefined
+      ? `Entropy: deterministic replay from seed ${seed}.`
+      : "Entropy: deterministic replay from seed.";
+  }
+  if (rng.source === "bound") {
+    return rng.intentionBound
+      ? "Entropy: local machine entropy, bound to the intention and moment."
+      : "Entropy: local machine entropy, bound to the moment.";
+  }
+  return null; // crypto — the unremarkable default
+}
+
 /** Format a full reading as plain text */
 export function formatCastPlain(
   cast: Cast,
   primary: Hexagram,
   structure: Structure,
   question?: string,
+  rng?: RngProvenance,
+  seed?: number,
 ): string {
   const lines: string[] = [];
 
@@ -86,6 +110,14 @@ export function formatCastPlain(
   lines.push(`  Image (en): ${primary.en}`);
   lines.push(`  Judgment (te): ${primary.te}`);
   lines.push(`  Wilhelm (w): ${primary.w}`);
+
+  // Entropy provenance — one quiet closing note, only when there is a story
+  // to tell (bound / seed). Plain crypto stays silent.
+  const entropy = entropyLine(rng, seed);
+  if (entropy) {
+    lines.push("");
+    lines.push(entropy);
+  }
 
   return lines.join("\n");
 }
@@ -178,6 +210,12 @@ export function formatJournalShowPlain(entry: HistoryEntry): string {
   }
   if (entry.method) {
     lines.push(`Method: ${methodLabel(entry.method)}`);
+  }
+  // Quiet provenance note — only bound entries carry a story (seeded casts
+  // never reach the journal; plain crypto stays silent).
+  const entropy = entropyLine(entry.rng);
+  if (entropy) {
+    lines.push(entropy);
   }
   lines.push(`${g.u}  ${g.n} (${g.p})${ename} — Hexagram ${entry.cast.primary}`);
   lines.push("");

@@ -34,6 +34,7 @@ const LANGUAGE_LABELS: Record<DisplayLanguage, string> = {
 const TAIJITU_OPTIONS: TaijituStyle[] = ["dots", "dense"];
 const CAST_METHOD_OPTIONS = ["coin", "yarrow"] as const;
 const CAST_MODE_OPTIONS = ["auto", "manual"] as const;
+const ENTROPY_OPTIONS = ["crypto", "bound"] as const;
 
 interface SettingRow {
   /** Stable message-catalog key; the visible label is localized at render time. */
@@ -69,6 +70,7 @@ export interface SettingsValues {
   taijituStyle: TaijituStyle;
   castMethod: "coin" | "yarrow";
   castMode: "auto" | "manual";
+  entropy: "crypto" | "bound";
 }
 
 // ── Preview constants ─────────────────────────────────────────────────
@@ -130,6 +132,7 @@ export class SettingsScene implements Scene {
       { key: "settings.font",           values: FONT_OPTIONS,        selected: Math.max(0, FONT_OPTIONS.indexOf(initial.glyphFont)) },
       { key: "settings.castMethod",     values: CAST_METHOD_OPTIONS, selected: Math.max(0, CAST_METHOD_OPTIONS.indexOf(initial.castMethod)) },
       { key: "settings.castMode",       values: CAST_MODE_OPTIONS,   selected: Math.max(0, CAST_MODE_OPTIONS.indexOf(initial.castMode)) },
+      { key: "settings.entropy",        values: ENTROPY_OPTIONS,     selected: Math.max(0, ENTROPY_OPTIONS.indexOf(initial.entropy)) },
     ];
     this.previewKind = this.previewKindForKey(this.rows[0]?.key);
   }
@@ -150,6 +153,7 @@ export class SettingsScene implements Scene {
       glyphFont: this.selectedValue(FONT_OPTIONS, "settings.font", "kaiti"),
       castMethod: this.selectedValue(CAST_METHOD_OPTIONS, "settings.castMethod", "coin"),
       castMode: this.selectedValue(CAST_MODE_OPTIONS, "settings.castMode", "auto"),
+      entropy: this.selectedValue(ENTROPY_OPTIONS, "settings.entropy", "crypto"),
     };
   }
 

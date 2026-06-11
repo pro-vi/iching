@@ -7,12 +7,15 @@
 // rejoin post-cast nav).
 
 import {
+  BoundRandomSource,
   buildStructure,
   castHexagram,
   type Cast,
   type CastMethod,
   CryptoRandomSource,
   type DisplayLanguage,
+  type RandomSource,
+  type RngProvenance,
   SeededRandomSource,
 } from "@iching/core";
 import {
@@ -75,6 +78,13 @@ export interface ReadingFlowDeps {
   glyphConfig: CastGlyphInput;
   language: DisplayLanguage;
   motion: MotionPreset;
+  /**
+   * Live entropy mode for machine-driven sources (auto coins, both yarrow
+   * rituals): "crypto" is plain local machine entropy; "bound" mixes the
+   * intention and moment into the seed as salt — chance stays primary.
+   * Defaults to "crypto". Deterministic seeds are their own path.
+   */
+  entropy?: "crypto" | "bound";
 }
 
 /**
@@ -103,7 +113,13 @@ export async function runReadingFlow(
     intention = intentionScene.getIntention();
   }
 
-  // 2. Obtain — branch on source; produces a Cast or returns early
+  // 2. Obtain — branch on source; produces a Cast or returns early.
+  // Live entropy is built per cast: a BoundRandomSource binds THIS intention
+  // and THIS moment into its seed, so it can never be hoisted or reused.
+  const liveSource = (): RandomSource =>
+    deps.entropy === "bound"
+      ? new BoundRandomSource(intention ?? "")
+      : new CryptoRandomSource();
   let cast: Cast;
   let usedSeed = false;
   if (opts.source.type === "manual") {
@@ -113,13 +129,13 @@ export async function runReadingFlow(
     if (tossSignal?.type !== "tossCompleted") return { shouldExit: false }; // user quit before 6 lines
     cast = tossSignal.cast;
   } else if (opts.source.type === "yarrow") {
-    const yarrowScene = new YarrowScene(deps.motion, undefined, deps.language);
+    const yarrowScene = new YarrowScene(deps.motion, liveSource(), deps.language);
     const yarrowSignal = await deps.run(yarrowScene);
     if (yarrowSignal?.type === "exit") return { shouldExit: true };
     if (yarrowSignal?.type !== "yarrowCompleted") return { shouldExit: false }; // user quit mid-ritual
     cast = yarrowSignal.cast;
   } else if (opts.source.type === "yarrow-manual") {
-    const yarrowManualScene = new YarrowManualScene(deps.motion, undefined, deps.language);
+    const yarrowManualScene = new YarrowManualScene(deps.motion, liveSource(), deps.language);
     const yarrowSignal = await deps.run(yarrowManualScene);
     if (yarrowSignal?.type === "exit") return { shouldExit: true };
     if (yarrowSignal?.type !== "yarrowCompleted") return { shouldExit: false }; // user quit mid-ritual
@@ -128,7 +144,7 @@ export async function runReadingFlow(
     usedSeed = opts.source.seed !== undefined;
     const source = usedSeed
       ? new SeededRandomSource(opts.source.seed!)
-      : new CryptoRandomSource();
+      : liveSource();
     cast = castHexagram(source);
   } else {
     cast = opts.source.cast;
@@ -142,9 +158,21 @@ export async function runReadingFlow(
     const date = deps.today();
     const method =
       opts.source.type === "existing" ? undefined : METHOD_BY_SOURCE[opts.source.type];
+    // Entropy provenance — the honest record of where the bytes came from.
+    // The manual coin toss draws its line values inside TossScene from its
+    // own CryptoRandomSource (keypresses only trigger the toss), so it is
+    // recorded as plain crypto regardless of the entropy setting.
+    const rng: RngProvenance =
+      opts.source.type === "manual"
+        ? { source: "crypto", intentionBound: false }
+        : usedSeed
+          ? { source: "seed", intentionBound: false }
+          : deps.entropy === "bound"
+            ? { source: "bound", intentionBound: intention !== undefined && intention !== "" }
+            : { source: "crypto", intentionBound: false };
     if (!usedSeed) {
       const journal = new JsonlJournalStore(deps.paths.state);
-      await journal.append({ date, cast, intention, timestamp, method });
+      await journal.append({ date, cast, intention, timestamp, method, rng });
     }
     await deps.cacheStore.write({
       date,
@@ -153,6 +181,7 @@ export async function runReadingFlow(
       structure,
       intention,
       method,
+      rng,
     });
   }
 

@@ -52,6 +52,7 @@ async function main() {
     let taijituStyle = savedConfig.taijituStyle;
     let castMethod = savedConfig.castMethod ?? "coin";
     let castMode = savedConfig.castMode ?? "auto";
+    let entropy = savedConfig.entropy ?? "crypto";
     let language = savedConfig.language;
 
     const session = new TerminalSession();
@@ -108,6 +109,7 @@ async function main() {
           glyphConfig,
           language,
           motion: savedConfig.motion ?? "default",
+          entropy,
         };
 
         // Derive the reading source from the (castMethod, castMode) pair.
@@ -179,6 +181,7 @@ async function main() {
               glyphFont: config.glyphFont,
               castMethod: config.castMethod ?? "coin",
               castMode: config.castMode ?? "auto",
+              entropy: config.entropy ?? "crypto",
             });
             const settingsSignal = await run(settingsScene);
             // Save on escape (signal "home"); revert on Ctrl+C ("exit")
@@ -192,6 +195,7 @@ async function main() {
               newConfig.glyphFont = updated.glyphFont;
               newConfig.castMethod = updated.castMethod;
               newConfig.castMode = updated.castMode;
+              newConfig.entropy = updated.entropy;
               // Best-effort persist: a read-only / full data dir must not crash
               // "save & back" — the deferred-seed session explicitly supports
               // reopening Settings. Apply the changes live regardless.
@@ -207,6 +211,7 @@ async function main() {
               taijituStyle = updated.taijituStyle;
               castMethod = updated.castMethod;
               castMode = updated.castMode;
+              entropy = updated.entropy;
               glyphConfig = {
                 glyphAnim: updated.glyphAnim,
                 glyphFont: updated.glyphFont,

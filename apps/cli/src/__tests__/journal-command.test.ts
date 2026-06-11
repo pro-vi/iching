@@ -169,6 +169,38 @@ describe("journal command", () => {
     expect(stdout).not.toContain("Method:");
   }, 20_000);
 
+  test("plain show carries the quiet entropy line only for bound entries", async () => {
+    const bound: HistoryEntry = {
+      ...makeEntry("2026-01-03", 3, null, "coin"),
+      rng: { source: "bound", intentionBound: true },
+    };
+    const crypto: HistoryEntry = {
+      ...makeEntry("2026-01-04", 4, null, "coin"),
+      rng: { source: "crypto", intentionBound: false },
+    };
+    await seedJournal(dataDir, [bound, crypto]);
+
+    const boundShow = await runCli(dataDir, ["journal", "show", "2026-01-03"]);
+    expect(boundShow.stdout).toContain(
+      "Entropy: local machine entropy, bound to the intention and moment.",
+    );
+
+    // Plain crypto (and legacy entries with no rng) stay silent.
+    const cryptoShow = await runCli(dataDir, ["journal", "show", "2026-01-04"]);
+    expect(cryptoShow.stdout).not.toContain("Entropy:");
+  }, 20_000);
+
+  test("show --json carries the rng block through unchanged", async () => {
+    const bound: HistoryEntry = {
+      ...makeEntry("2026-01-05", 5, null, "coin"),
+      rng: { source: "bound", intentionBound: false },
+    };
+    await seedJournal(dataDir, [bound]);
+    const { exitCode, stdout } = await runCli(dataDir, ["--json", "journal", "show", "latest"]);
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(stdout).rng).toEqual({ source: "bound", intentionBound: false });
+  }, 20_000);
+
   // Regression: a torn line used to make `journal list` and `journal show`
   // throw a SyntaxError forever. Readers now skip the damage.
   test("list and show survive a torn trailing line", async () => {

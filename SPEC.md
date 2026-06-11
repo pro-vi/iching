@@ -33,24 +33,10 @@ old checkbox.
 | Large glyph support | Implemented | glyph data, glyph animation modes, cast/detail integration |
 | Yarrow casting | Implemented (2026-05-30) | `core/casting/yarrow.ts`, `YarrowScene` auto, `YarrowManualScene` 18-cut full-manual, ritual-chrome parity with coin |
 | Distribution | Infrastructure present | build script, smoke script, CI workflow, release workflow |
-| Entropy source evolution | Planned | see `docs/vision/entropy-sources-vision.md` |
+| Entropy binding (`bound`) | Implemented (2026-06-10) | `core/random.ts` `BoundRandomSource` (SHA-256 length-prefixed binding of fresh crypto bytes + intention + timestamp + process nonce, hash-counter DRBG); `entropy` config key (default `crypto`); `cast --bound`; `rng` provenance on journal/cache/`cast --json`; Settings row; `bound-random.test.ts` |
+| Entropy source evolution | In progress | `bound` shipped (row above); `embodied` and `quantum-remote` remain planned — see `docs/vision/entropy-sources-vision.md` |
 
 ## Active Product Questions
-
-### Entropy Binding
-
-Next likely scope: add a `bound` entropy path that mixes local crypto entropy
-with intention/session context.
-
-Constraints:
-
-- keep `crypto` as the default
-- use intention as salt/context, never as the sole seed
-- preserve explicit deterministic `--seed`
-- record provenance in JSON and journal output if the source becomes user-visible
-- do not add network entropy in this step
-
-Source: [Entropy Sources Vision](docs/vision/entropy-sources-vision.md).
 
 ### Embodied Entropy
 

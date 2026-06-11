@@ -12,6 +12,7 @@ const GLYPH_FONT_OPTIONS = ["kaiti", "libian", "heiti"] as const;
 const TAIJITU_STYLE_OPTIONS = ["dots", "dense"] as const;
 const CAST_METHOD_OPTIONS = ["coin", "yarrow"] as const;
 const CAST_MODE_OPTIONS = ["auto", "manual"] as const;
+const ENTROPY_OPTIONS = ["crypto", "bound"] as const;
 
 const DEFAULT_CONFIG: UserConfig = {
   motion: "default",
@@ -24,6 +25,7 @@ const DEFAULT_CONFIG: UserConfig = {
   taijituStyle: "dots",
   castMethod: "coin",
   castMode: "auto",
+  entropy: "crypto",
 };
 
 // Old castMode strings (pre split into castMethod+castMode) → new pair.
@@ -189,6 +191,8 @@ function normalizeConfig(parsed: unknown): UserConfig {
       }
     }
   }
+
+  if (isOneOf(ENTROPY_OPTIONS, parsed.entropy)) merged.entropy = parsed.entropy;
 
   // Forward-compat (schema-keys: "schemas only expand"): carry through unknown
   // OWN keys written by a newer version / parallel install, so a settings save

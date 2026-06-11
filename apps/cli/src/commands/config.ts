@@ -27,6 +27,7 @@ const GLYPH_FONT_VALUES = ["kaiti", "libian", "heiti"] as const;
 const TAIJITU_STYLE_VALUES = ["dots", "dense"] as const;
 const CAST_METHOD_VALUES = ["coin", "yarrow"] as const;
 const CAST_MODE_VALUES = ["auto", "manual"] as const;
+const ENTROPY_VALUES = ["crypto", "bound"] as const;
 
 const CONFIG_SCHEMA: Record<keyof UserConfig, ConfigEntry> = {
   theme: {
@@ -116,6 +117,15 @@ const CONFIG_SCHEMA: Record<keyof UserConfig, ConfigEntry> = {
     set: (cfg, value) => {
       if (!isOneOf(CAST_MODE_VALUES, value)) return false;
       cfg.castMode = value;
+      return true;
+    },
+  },
+  entropy: {
+    values: ENTROPY_VALUES,
+    description: "Entropy source (machine entropy, or bound to the intention and moment)",
+    set: (cfg, value) => {
+      if (!isOneOf(ENTROPY_VALUES, value)) return false;
+      cfg.entropy = value;
       return true;
     },
   },

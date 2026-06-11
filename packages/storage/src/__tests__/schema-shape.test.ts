@@ -76,6 +76,7 @@ describe("schema shape — config", () => {
       taijituStyle: "dense",
       castMethod: "yarrow",
       castMode: "manual",
+      entropy: "bound",
     };
     await store.save(written);
     const onDisk = JSON.parse(await readFile(join(dir, "config.json"), "utf-8"));
@@ -112,6 +113,7 @@ describe("schema shape — cache", () => {
       structure: FIXTURE_STRUCTURE,
       intention: "ship it?",
       method: "yarrow",
+      rng: { source: "bound", intentionBound: true },
     };
     await store.write(record);
     const onDisk = JSON.parse(await readFile(join(dir, "cache.json"), "utf-8"));
@@ -146,6 +148,7 @@ describe("schema shape — history", () => {
       intention: "ship it?",
       timestamp: "2026-04-26T09:30:00.000Z",
       method: "coin-manual",
+      rng: { source: "crypto", intentionBound: false },
     };
     await store.append(entry);
     const text = await readFile(join(dir, "history.jsonl"), "utf-8");
