@@ -6,6 +6,7 @@
 // because no unit test exercises the entrypoint.
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -85,5 +86,35 @@ describe("main.ts mode routing", () => {
     const { exitCode, stdout } = await runCli(["--version"]);
     expect(exitCode).toBe(0);
     expect(stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
+  }, 20_000);
+
+  test("a garbage --seed exits 1 before any no-subcommand mode runs", async () => {
+    // Without the up-front guard, `iching --seed abc` fell through into
+    // hook/TUI mode: Number("abc") is NaN, NaN|0 collapses the seeded PRNG
+    // to a constant cast (always KW 2), and the result was persisted to the
+    // daily cache while skipping the journal. The seed must be refused
+    // loudly before either mode touches storage or the alt screen.
+    // ICHING_HOME pins ALL storage (hook mode ignores --data-dir) to the
+    // ephemeral temp dir so even a regression can't touch real user data.
+    const proc = Bun.spawn(["bun", MAIN_TS, "--seed", "abc"], {
+      cwd: REPO_ROOT,
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env, NO_COLOR: "1", ICHING_HOME: dataDir },
+    });
+    proc.stdin.end();
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    const exitCode = await proc.exited;
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('Invalid --seed "abc"');
+    expect(stdout).toBe(""); // no hook cast output
+    // …and nothing was persisted on the invalid path.
+    expect(existsSync(join(dataDir, "daily-cache.json"))).toBe(false);
+    expect(existsSync(join(dataDir, "history.jsonl"))).toBe(false);
   }, 20_000);
 });

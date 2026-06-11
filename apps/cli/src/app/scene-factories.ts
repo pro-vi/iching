@@ -88,7 +88,7 @@ export function makeJournalScene(deps: JournalDeps): JournalScene {
   });
 }
 
-/** SceneRouter factory for the journal path: handles openJournalReading, openDetail, openDictionary, openJournal. */
+/** SceneRouter factory for the journal path: handles openJournalReading, openDetail, openDictionary, openJournal, home. */
 export function makeJournalFactory(deps: JournalDeps): SceneFactory {
   return (signal): Scene | null => {
     if (signal.type === "openJournalReading") {
@@ -114,6 +114,13 @@ export function makeJournalFactory(deps: JournalDeps): SceneFactory {
     if (signal.type === "openDictionary") return new BrowseScene();
     // `j` from a replayed CastScene inside the journal router → reset to the journal list.
     if (signal.type === "openJournal") return makeJournalScene(deps);
+    // Esc/q from a replayed CastScene emits `home`; unhandled it would exit
+    // the whole journal router to Home, though the footer says "back". Map it
+    // to the journal list instead. Limitation: this is a fresh list (cursor
+    // and search state reset, same as the openJournal branch) — preserving
+    // the live instance would need the router to keep it on the stack rather
+    // than factory-recreate it.
+    if (signal.type === "home") return makeJournalScene(deps);
     return null;
   };
 }
