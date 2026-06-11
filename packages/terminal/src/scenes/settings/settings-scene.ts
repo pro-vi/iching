@@ -407,7 +407,9 @@ export class SettingsScene implements Scene {
   }
 
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
-    if (key.type === "escape") {
+    // q mirrors escape (save & back) — every other scene maps q to back/home,
+    // and Settings has no text input that would need the literal character.
+    if (key.type === "escape" || (key.type === "char" && key.char === "q")) {
       this.values = this.getValues();
       return { type: "home" };
     }

@@ -57,10 +57,12 @@ export class HomeScene implements Scene {
     frame.writeText(row, titleCol, title, { fg: t.primary, bold: true });
     row += 3;
 
-    // Menu items
+    // Menu items. "Today" appears only once a reading exists for the day —
+    // returning to sit with it is the most common daily action after the cast.
     const items: { key: string; msgKey: MessageKey; fg: string }[] = [
       { key: "c", msgKey: "menu.cast", fg: t.accent },
       ...(this.state.devMode ? [{ key: "p", msgKey: "menu.play" as MessageKey, fg: t.secondary }] : []),
+      ...(this.state.todayCast ? [{ key: "t", msgKey: "menu.today" as MessageKey, fg: t.primary }] : []),
       { key: "d", msgKey: "menu.dictionary", fg: t.primary },
       { key: "j", msgKey: "menu.journal", fg: t.secondary },
       { key: "s", msgKey: "menu.settings", fg: t.secondary },
@@ -103,6 +105,7 @@ export class HomeScene implements Scene {
       switch (key.char) {
         case "c": return { type: "startCast" };
         case "p": if (this.state.devMode) return { type: "startPlay" }; break;
+        case "t": if (this.state.todayCast) return { type: "openToday" }; break;
         case "d": return { type: "openDictionary" };
         case "j": return { type: "openJournal" };
         case "s": return { type: "openSettings" };
@@ -110,6 +113,8 @@ export class HomeScene implements Scene {
       }
     }
     if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
-    if (key.type === "escape") return { type: "exit" };
+    // Escape is deliberately a no-op on Home: everywhere else it means "back",
+    // so a habitual extra esc after backing out of a scene must not kill the
+    // session. q and Ctrl+C remain the exits.
   }
 }

@@ -36,6 +36,7 @@ export type SceneSignal =
   // Home-menu intents
   | { type: "startCast" }         // begin a real cast (auto or manual depending on saved mode)
   | { type: "startPlay" }         // begin the coin-toss sandbox (no persistence)
+  | { type: "openToday" }         // reopen today's reading (replay from the daily cache)
   | { type: "openDictionary" }    // open the hexagram browser
   | { type: "openJournal" }       // open the past-readings journal
   | { type: "openSettings" }      // open the settings editor

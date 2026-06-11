@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { registerCastCommand } from "./commands/cast.js";
+import { registerTodayCommand } from "./commands/today.js";
 import { registerJournalCommand } from "./commands/journal.js";
 import { registerHexagramCommand } from "./commands/hexagram.js";
 import { registerConfigCommand } from "./commands/config.js";
@@ -18,6 +19,7 @@ export const program = new Command()
   .option("--dev", "enable dev mode (coin toss playground, etc.)");
 
 registerCastCommand(program);
+registerTodayCommand(program);
 registerJournalCommand(program);
 registerHexagramCommand(program);
 registerConfigCommand(program);

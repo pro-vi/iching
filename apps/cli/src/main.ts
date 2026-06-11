@@ -140,6 +140,24 @@ async function main() {
             break;
           }
 
+          case "openToday": {
+            // Reopen today's reading: replay the cached cast (static reveal,
+            // no persistence). HomeScene only emits this when a cast exists
+            // for today; re-check here so a stale signal can't replay yesterday.
+            if (currentCache?.date === today) {
+              const result = await runReadingFlow(flowDeps, {
+                purpose: "replay",
+                source: {
+                  type: "existing",
+                  cast: currentCache.cast,
+                  intention: currentCache.intention,
+                },
+              });
+              if (result.shouldExit) running = false;
+            }
+            break;
+          }
+
           case "openDictionary": {
             const journal = new JsonlJournalStore(paths.state);
             const router = new SceneRouter(

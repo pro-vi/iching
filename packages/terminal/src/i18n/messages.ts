@@ -19,6 +19,7 @@ export const MESSAGES = {
   // ── home menu ──
   "menu.cast": { en: "Cast", zhHant: "起卦", zhHans: "起卦" },
   "menu.play": { en: "Play", zhHant: "演練", zhHans: "演练" },
+  "menu.today": { en: "Today", zhHant: "今日", zhHans: "今日" },
   "menu.dictionary": { en: "Dictionary", zhHant: "卦典", zhHans: "卦典" },
   "menu.journal": { en: "Journal", zhHant: "占記", zhHans: "占记" },
   "menu.settings": { en: "Settings", zhHant: "設定", zhHans: "设定" },

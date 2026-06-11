@@ -58,6 +58,8 @@ iching                          # interactive TUI
 iching cast                     # one-shot cast (plain text)
 iching cast "should I ship?"    # with a question
 iching cast --json              # structured output
+iching today                    # today's reading (cast in the TUI)
+iching today --json             # full reading payload for scripts/assistants
 iching journal list             # recent readings
 iching journal show today       # today's reading
 iching hexagram 1               # look up hexagram by number
@@ -65,8 +67,8 @@ iching dict                     # browse all 64 in TUI
 iching config theme cinnabar    # set theme
 ```
 
-Press `c` to cast, `j` for journal, `d` for dictionary, `s` for
-settings, `q` to quit.
+Press `c` to cast, `t` to return to today's reading, `j` for journal,
+`d` for dictionary, `s` for settings, `q` to quit.
 
 ## Storage
 

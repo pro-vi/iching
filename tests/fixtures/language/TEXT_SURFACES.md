@@ -678,7 +678,7 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
 - surface_id: term-home-menu
   file: packages/terminal/src/scenes/home/home-scene.ts
   code_locator: "L59–64 items[].label"
-  current_text: '"Cast" "Play"(dev) "Dictionary" "Journal" "Settings" "Quit"'
+  current_text: '"Cast" "Play"(dev) "Today"(cast-exists) "Dictionary" "Journal" "Settings" "Quit"'
   surface_class: terminal-home
   render_context: "home menu items '[k]  Label'; key letters are accelerators"
   language_policy: translate
@@ -688,7 +688,7 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   agentify_required: no
   status: open
   verifier: "--terminal"
-  notes: "English, hardcoded. No language branch. 'Play' is dev-mode-only."
+  notes: "Localized via catalog (menu.*). 'Play' is dev-mode-only; 'Today' (menu.today, [t] → replay) renders only when a cast exists for the day."
 
 - surface_id: term-home-status
   file: packages/terminal/src/scenes/home/home-scene.ts
@@ -1288,11 +1288,12 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   notes: "Commander help is static English unless localized. Flags/name = machine tokens (preserve)."
 
 - surface_id: cli-command-descriptions
-  file: apps/cli/src/commands/{cast,config,dict,doctor,hexagram,journal,paths}.ts
+  file: apps/cli/src/commands/{cast,config,dict,doctor,hexagram,journal,paths,today}.ts
   code_locator: ".description()/.argument()/.option() across commands"
-  current_text: '"Perform an I Ching casting" / "question for the oracle" / "Browse the I Ching dictionary" / "hexagram number (1-64) to view directly" / "Verify environment and configuration" / "Look up hexagram by King Wen number (1-64)" / "commentary style: dx|tu|en|te|w" / "--style <style>" / "View reading journal" / "List recent readings (most recent first)" / "show readings since date (YYYY-MM-DD)" / "--since <date>" / "maximum entries to show" / "--limit <n>" / "show all entries (no limit)" / "Show a specific day''s reading" / "date (YYYY-MM-DD), ''today'', or ''latest''" / "Manage configuration" / "Show all configuration values" / "Read a config value" / "Write a config value" / "config key" / "config value" / "Show config file location" / "Show all resolved file locations"
+  current_text: '"Perform an I Ching casting" / "question for the oracle" / "Browse the I Ching dictionary" / "hexagram number (1-64) to view directly" / "Verify environment and configuration" / "Look up hexagram by King Wen number (1-64)" / "commentary style: dx|tu|en|te|w" / "--style <style>" / "View reading journal" / "List recent readings (most recent first)" / "show readings since date (YYYY-MM-DD)" / "--since <date>" / "maximum entries to show" / "--limit <n>" / "show all entries (no limit)" / "--hexagram <n>" / "only readings where hexagram <n> is primary or becoming" / "Show a specific day''s reading" / "date (YYYY-MM-DD), ''today'', or ''latest''" / "Show today''s reading (cast in the TUI)" / "Manage configuration" / "Show all configuration values" / "Read a config value" / "Write a config value" / "config key" / "config value" / "config key (shorthand for get; with a value, for set)" / "config value (shorthand for set)" / "Show config file location" / "Show all resolved file locations"
     # verbatim (real punctuation) for verifier fragment-coverage:
     # Show a specific day's reading
+    # Show today's reading (cast in the TUI)
     # date (YYYY-MM-DD), 'today', or 'latest'"
   surface_class: cli-commands
   render_context: "--help (command/arg/option descriptions)"
@@ -1336,9 +1337,9 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   notes: "Error sentences translatable; keys + enum values canonical anchors. language validation enumerates en, zh-Hant, zh-Hans."
 
 - surface_id: cli-range-errors
-  file: apps/cli/src/commands/{dict,hexagram}.ts
-  code_locator: "dict L36; hexagram L18,27–29"
-  current_text: '"Hexagram number must be an integer from 1 to 64." / "Invalid style \"${style}\". Choose from: dx, tu, en, te, w"'
+  file: apps/cli/src/commands/{cast,dict,hexagram,journal}.ts
+  code_locator: "dict L36; hexagram L18,27–29; cast --seed guard; journal --hexagram guard"
+  current_text: '"Hexagram number must be an integer from 1 to 64." / "Invalid style \"${style}\". Choose from: dx, tu, en, te, w" / "Invalid --seed \"${rawSeed}\": expected a number." / "Invalid --hexagram \"${cmdOpts.hexagram}\": expected a number 1-${GUA.length}."'
   surface_class: cli-invalid-paths
   render_context: "stderr, exit 1"
   language_policy: translate
@@ -1364,6 +1365,21 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   status: open
   verifier: "--cli"
   notes: "label='today (YYYY-MM-DD)' for keyword 'today'. plain.ts L113 dup is dead (guarded)."
+
+- surface_id: cli-today-output
+  file: apps/cli/src/commands/today.ts, apps/cli/src/output/plain.ts
+  code_locator: "today command action; formatTodayPlain"
+  current_text: '"no reading yet today — run `iching` to cast" (stdout, exit 0 — a state, not an error); reading output reuses cli-plain-labels (Date:/Intention:/Method: + formatCastPlain)'
+  surface_class: cli-commands
+  render_context: "`iching today` stdout — daily-anchor recall of the cached reading; --json via todayToJson (stable keys)"
+  language_policy: developer-only
+  source_layer: product-ui
+  json_policy: stable-key
+  risk: low
+  agentify_required: no
+  status: verified
+  verifier: "--inventory-only; apps/cli/src/__tests__/today-command.test.ts"
+  notes: "Empty state exits 0 (calm invitation; shell-greeting safe). Casting itself stays in the TUI — this command only recalls."
 
 - surface_id: cli-doctor-output
   file: apps/cli/src/commands/doctor.ts
@@ -1477,7 +1493,7 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
 - surface_id: cli-plain-labels
   file: apps/cli/src/output/plain.ts
   code_locator: "L20–159"
-  current_text: '"Question: " / "Hexagram ${n}" / "Lines (bottom to top):" / "old yang ⚊→⚋" / "old yin ⚋→⚊" / "yang ⚊" / "yin ⚋" / "Upper: " / "Lower: " / "Becoming: " / "[lines …]" / "Commentary:" / "  大象 (dx): " / "  彖傳 (tu): " / "  Image (en): " / "  Judgment (te): " / "  Wilhelm (w): " / "Date: " / "Intention: "'
+  current_text: '"Question: " / "Hexagram ${n}" / "Lines (bottom to top):" / "old yang ⚊→⚋" / "old yin ⚋→⚊" / "yang ⚊" / "yin ⚋" / "Upper: " / "Lower: " / "Becoming: " / "[lines …]" / "Commentary:" / "  大象 (dx): " / "  彖傳 (tu): " / "  Image (en): " / "  Judgment (te): " / "  Wilhelm (w): " / "Date: " / "Intention: " / "Method: " — method provenance labels: "coins" / "coins, by hand" / "yarrow stalks" / "yarrow stalks, by hand"'
   surface_class: cli-commands
   render_context: "cast/hexagram/journal plain stdout"
   language_policy: translate
@@ -1507,7 +1523,7 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
 - surface_id: cli-json-output
   file: apps/cli/src/output/json.ts
   code_locator: "L5–81"
-  current_text: 'keys: question/primary/number/name/pinyin/ename/symbol/judgment/gc/gcEn/lines/value/yang/changing/becoming/changingPositions/changingLines/position/yao/yaoEn/extra/lineTexts/yaoXiao/derived/nuclear/polarity/mirror/diagonal/commentary/dx/tu/en/te/w/key/value/path'
+  current_text: 'keys: question/primary/number/name/pinyin/ename/symbol/judgment/gc/gcEn/lines/value/yang/changing/becoming/changingPositions/changingLines/position/yao/yaoEn/extra/lineTexts/yaoXiao/derived/nuclear/polarity/mirror/diagonal/commentary/dx/tu/en/te/w/key/value/path — today adds date/intention/method (todayToJson/noTodayToJson)'
   surface_class: json-api-output
   render_context: "all --json output (2-space pretty)"
   language_policy: developer-only
@@ -1733,6 +1749,7 @@ classified as developer-only with rationale." The config `language` value round-
 | `cli-config-output` | developer-only (exempt); **tokens stable** | config list/get/set + validation errors are power-user; keys/enum values (incl. language en/zh-Hant/zh-Hans) echo verbatim; invalid-path messages asserted to exist |
 | `cli-range-errors` | developer-only (exempt) | dict/hexagram arg validation — power-user |
 | `cli-journal-errors-empty` | developer-only (exempt) | empty/not-found — power-user |
+| `cli-today-output` | developer-only (exempt) | daily-anchor recall (`iching today`); invitation + plain reading reuse cli-plain-labels; `--json` rides the locale-neutral API |
 | `cli-doctor-output` | developer-only (exempt) | diagnostic tool |
 | `cli-paths-output` | developer-only (exempt) | diagnostic tool |
 | `cli-plain-labels` | developer-only (exempt) | `cast`/`hexagram`/`journal` plain output is a COMPLETE bilingual reference dump (大象傳 + Image + 彖傳 + Judgment + Wilhelm); corpus content (canonical names + Chinese commentary) is shown to all; only the English scaffolding labels (Question:/Commentary:…) are not localized |
@@ -2252,6 +2269,12 @@ Default language **en**; settings order **EN → 繁 → 简** (asserted by
   zh_hant_source: catalog
   zh_hans_strategy: convert
   render_context: journal empty + not-found
+- id: cli-today-output
+  language_policy: developer-only
+  en_source: hardcoded invitation; reading body reuses cli-plain-labels
+  zh_hant_source: n/a — developer-only CLI surface (AC-005 exemption)
+  zh_hans_strategy: n/a — developer-only CLI surface (AC-005 exemption)
+  render_context: today command stdout (daily-anchor recall + --json)
 - id: cli-doctor-output
   language_policy: translate
   en_source: hardcoded labels/status/details (env names preserved)
