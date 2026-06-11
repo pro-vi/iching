@@ -89,3 +89,33 @@ describe("gc/yaoXiao zh-Hans conversion coverage", () => {
     expect(SIMPLIFIED_MAP["乾"]).toBeUndefined();
   });
 });
+
+describe("SEQUENCE (序卦傳/雜卦傳)", () => {
+  test("all 64 entries have non-empty xu/za/zaEn", async () => {
+    const { SEQUENCE } = await import("../data/sequence.js");
+    expect(SEQUENCE).toHaveLength(64);
+    for (const e of SEQUENCE) {
+      expect(e.xu.length).toBeGreaterThan(0);
+      expect(e.za.length).toBeGreaterThan(0);
+      expect(e.zaEn.length).toBeGreaterThan(0);
+    }
+  });
+
+  test("spot checks: 屯 sequence, 乾坤 epigram, Legge pair fixups", async () => {
+    const { SEQUENCE } = await import("../data/sequence.js");
+    expect(SEQUENCE[2].xu).toBe("盈天地之間者唯萬物，故受之以《屯》。");
+    expect(SEQUENCE[0].za).toBe("《乾》剛《坤》柔。");
+    expect(SEQUENCE[1].za).toBe("《乾》剛《坤》柔。");
+    // legge-cleaned mis-tagged these pairs; the generator corrects them
+    expect(SEQUENCE[38].zaEn).toContain("Kien their home"); // 39 蹇
+    expect(SEQUENCE[48].zaEn).toContain("left by Ko"); // 49 革
+    expect(SEQUENCE[63].xu).toContain("終焉"); // 未濟 closes the sequence
+  });
+
+  test("sequence texts convert cleanly to zh-Hans", async () => {
+    const { SEQUENCE } = await import("../data/sequence.js");
+    expect(toSimplified(SEQUENCE[2].xu)).toBe("盈天地之间者唯万物，故受之以《屯》。");
+    // 蒙雜而著 — 著 (zhù, manifest) deliberately stays 著 in Simplified
+    expect(toSimplified(SEQUENCE[3].za)).toBe("《蒙》杂而著。");
+  });
+});

@@ -58,6 +58,7 @@ export {
   DERIVED_LABELS_CN,
 } from "./data/trigrams.js";
 export { LARGE_GLYPHS, type GlyphFont, type GlyphSize, type GlyphEntry } from "./data/large-glyphs.js";
+export { SEQUENCE, type SequenceTexts } from "./data/sequence.js";
 
 // i18n — audited Traditional -> Simplified conversion
 export { toSimplified, SIMPLIFIED_MAP, SIMPLIFIED_EXCEPTIONS } from "./i18n/simplify.js";

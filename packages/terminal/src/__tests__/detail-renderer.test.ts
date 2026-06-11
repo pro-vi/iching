@@ -92,6 +92,39 @@ describe("DetailRenderer oracle texts", () => {
   });
 });
 
+describe("DetailRenderer sequence section (序卦/雜卦)", () => {
+  test("zh modes show the classical snippets dim at the end", () => {
+    const lines = buildContentLines(new DetailModel(3), 100, { language: "zh-Hant" });
+    const texts = lines.map((l) => l.text);
+    const xuIdx = texts.indexOf("序卦");
+    const zaIdx = texts.indexOf("雜卦");
+    expect(xuIdx).toBeGreaterThan(-1);
+    expect(zaIdx).toBeGreaterThan(xuIdx);
+    expect(texts[xuIdx + 1]).toContain("盈天地之間者唯萬物");
+    expect(lines[xuIdx + 1].dim).toBe(true);
+  });
+
+  test("en mode shows the classical 序卦 and the Legge 雜卦 couplet", () => {
+    const text = buildContentLines(new DetailModel(3), 100, { language: "en" })
+      .map((l) => l.text)
+      .join("\n");
+    expect(text).toContain("Xugua (Sequence of the Hexagrams)");
+    expect(text).toContain("Zagua (Miscellaneous Notes)");
+    // 序卦 stays classical in en mode (Legge's xu is paragraph-segmented,
+    // not per-hexagram); the 雜卦 couplet is pair-aligned Legge.
+    expect(text).toContain("盈天地之間者唯萬物");
+    expect(text).toContain("Kun manifests itself, yet keeps its place");
+  });
+
+  test("zh-Hans converts the sequence texts", () => {
+    const text = buildContentLines(new DetailModel(4), 100, { language: "zh-Hans" })
+      .map((l) => l.text)
+      .join("\n");
+    expect(text).toContain("杂卦");
+    expect(text).toContain("《蒙》杂而著。");
+  });
+});
+
 describe("DetailRenderer cast context", () => {
   test("changed positions mark diagram lines and emphasize their texts", () => {
     const model = new DetailModel(1, [2, 5]);

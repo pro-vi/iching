@@ -4,7 +4,7 @@ import type { CellBuffer } from "../../render/buffer.ts";
 import type { SceneContext } from "../../scene/types.ts";
 import type { DetailModel, DerivedLink } from "./detail-model.ts";
 import type { DisplayLanguage } from "@iching/core";
-import { toSimplified } from "@iching/core";
+import { SEQUENCE, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth, centerPad } from "../../layout/measure.ts";
 import { wordWrap } from "./word-wrap.ts";
@@ -257,6 +257,36 @@ export function buildContentLines(
   }
 
   lines.push({ text: "" });
+
+  // Where this hexagram sits in the sequence (序卦) and its paired epigram
+  // (雜卦) — a quiet closing section, all dim. The 序卦 shows the classical
+  // snippet in every mode (Legge's translation is paragraph-segmented, not
+  // per-hexagram); the 雜卦 couplet has a pair-aligned Legge rendering.
+  const seq = SEQUENCE[model.detail.kw - 1];
+  if (seq) {
+    lines.push({ text: "─".repeat(textWidth), fg: t.tertiary });
+    lines.push({ text: "" });
+    lines.push({
+      text: english ? "Xugua (Sequence of the Hexagrams)" : zh("序卦", language),
+      fg: t.tertiary,
+      bold: true,
+    });
+    pushWrapped(lines, zh(seq.xu, language), textWidth, {
+      fg: t.tertiary,
+      dim: true,
+    });
+    lines.push({ text: "" });
+    lines.push({
+      text: english ? "Zagua (Miscellaneous Notes)" : zh("雜卦", language),
+      fg: t.tertiary,
+      bold: true,
+    });
+    pushWrapped(lines, english ? seq.zaEn : zh(seq.za, language), textWidth, {
+      fg: t.tertiary,
+      dim: true,
+    });
+    lines.push({ text: "" });
+  }
 
   // Separator before history
   lines.push({ text: "─".repeat(textWidth), fg: t.tertiary });

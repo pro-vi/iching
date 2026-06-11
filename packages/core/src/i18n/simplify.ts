@@ -86,6 +86,11 @@ export const SIMPLIFIED_MAP: Readonly<Record<string, string>> = {
   馴: "驯", 貴: "贵", 賤: "贱", 縱: "纵", 瀆: "渎", 辯: "辩", 傷: "伤", 際: "际",
   願: "愿", 誰: "谁", 備: "备", 聰: "聪", 試: "试", 憊: "惫", 晝: "昼", 玆: "兹",
   愛: "爱", 飽: "饱", 絕: "绝", 暉: "晖",
+  // ── 序卦/雜卦 corpus supplement (vetted; chars introduced by data/sequence.ts).
+  // 著 (蒙雜而著, zhù "manifest") is deliberately IDENTITY — 著→着 applies only
+  // to the zhe/zhuó senses, and simplified editions keep 著 here. 稺 is the
+  // received variant of 稚; simplified 周易 editions print 稚. ──
+  間: "间", 輕: "轻", 飭: "饬", 飾: "饰", 盡: "尽", 爛: "烂", 誅: "诛", 稺: "稚",
 };
 
 /**

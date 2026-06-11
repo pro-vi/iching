@@ -80,8 +80,8 @@ Wings. `衍卦` ("Derived") is a product label, not a classical category.
 | 大象傳 | Great Image | 大象传 | the `dx` field; "Image" UI label = 大象傳 (傳→传) |
 | 彖傳 | Tuan (Commentary on the Decision) | 彖传 | the `tu` field; "Judgment" UI label maps here even though EN renders `te` |
 | 說卦 | Shuogua (Discussion of the Trigrams) | 说卦 | not in current data (說→说) |
-| 序卦 | Xugua (Sequence of the Hexagrams) | 序卦 | not in current data |
-| 雜卦 | Zagua (Miscellaneous Notes) | 杂卦 | not in current data (雜→杂) |
+| 序卦 | Xugua (Sequence of the Hexagrams) | 序卦 | `data/sequence.ts` `xu` (reading-depth v1); classical shown in all modes |
+| 雜卦 | Zagua (Miscellaneous Notes) | 杂卦 | `data/sequence.ts` `za`/`zaEn` (雜→杂); Legge couplets pair-aligned |
 
 ## Line designations (line-identity — preserve)
 
@@ -90,7 +90,9 @@ EN: "nine/six at the beginning", "… in the second/third/fourth/fifth place", "
 top". Array index is bottom→top; renderers may show top→bottom, but the position+yin/yang
 identity must never be lost. English "Line N" headers currently drop yin/yang — AC-003
 restores identity. Special statements **用九 / 用六** (Qian/Kun only) are exceptional line
-texts not modeled in the current 6-element `yao[]` — documented exclusion (reopen if added).
+texts carried OUTSIDE the 6-element `yao[]` as the optional `extra` field on hexagrams
+1-2 (reading-depth v1; inventory row `core-gua-extra`). `yao[]` stays 6 entries — the
+line-identity invariant is unchanged.
 
 ## Pinyin
 
