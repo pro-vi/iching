@@ -95,7 +95,7 @@ export function todayToJson(cache: DailyCache): Record<string, unknown> {
     date: cache.date,
     intention: cache.intention ?? null,
     method: cache.method ?? null,
-    ...castToJson(cast, primary, becoming, cache.intention),
+    ...castToJson(cast, primary, becoming, cache.intention, cache.rng),
   };
 }
 

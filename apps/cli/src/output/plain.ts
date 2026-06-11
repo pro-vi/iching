@@ -192,7 +192,7 @@ export function formatTodayPlain(cache: DailyCache): string {
     lines.push(`Method: ${methodLabel(cache.method)}`);
   }
   lines.push("");
-  lines.push(formatCastPlain(cast, primary, cache.structure));
+  lines.push(formatCastPlain(cast, primary, cache.structure, undefined, cache.rng));
 
   return lines.join("\n");
 }
