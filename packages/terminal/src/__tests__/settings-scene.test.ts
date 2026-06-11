@@ -154,3 +154,87 @@ describe("SettingsScene getValues — identity-bound, not positional", () => {
     expect(vals.theme).toBe("bone"); // …and theme (old position 0) did not.
   });
 });
+
+describe("SettingsScene entropy preview", () => {
+  /** Focus the Entropy row (index 7 of 8) and prime the elapsed clock. */
+  function focusEntropy(scene: SettingsScene, ctx: SceneContext, elapsed = 3000): void {
+    for (let i = 0; i < 7; i++) scene.handleKey({ type: "arrow", direction: "down" }, ctx);
+    scene.update(elapsed, 16, ctx);
+  }
+
+  function renderText(scene: SettingsScene, ctx: SceneContext): string {
+    const buf = CellBuffer.create(ctx.cols, ctx.rows);
+    scene.render(buf, ctx);
+    return bufferText(buf);
+  }
+
+  const HEX_GLYPHS = /[䷀-䷿]/;
+
+  test("crypto shows a single machine lane flowing into a hexagram stream", () => {
+    const scene = makeScene("en");
+    const ctx = makeCtx(80, 40); // tall enough for the preview pane
+    focusEntropy(scene, ctx);
+    const text = renderText(scene, ctx);
+    expect(text).toContain("machine");
+    expect(text).not.toContain("intention");
+    expect(text).not.toContain("moment");
+    expect(text).toMatch(HEX_GLYPHS);
+    expect(text).toContain("▶");
+  });
+
+  test("bound shows machine, intention, and moment tributaries", () => {
+    const scene = makeScene("en");
+    const ctx = makeCtx(80, 40);
+    focusEntropy(scene, ctx);
+    scene.handleKey({ type: "arrow", direction: "right" }, ctx); // crypto → bound
+    const text = renderText(scene, ctx);
+    expect(text).toContain("machine");
+    expect(text).toContain("intention");
+    expect(text).toContain("moment");
+    expect(text).toMatch(HEX_GLYPHS);
+    // Tributaries converge: both corner joiners present.
+    expect(text).toContain("╮");
+    expect(text).toContain("╯");
+  });
+
+  test("zh-Hant tributary labels render 機器/心念/此刻", () => {
+    const scene = new SettingsScene({
+      theme: "bone",
+      language: "zh-Hant",
+      taijituStyle: "dots",
+      glyphAnim: "dots",
+      glyphFont: "kaiti",
+      castMethod: "coin",
+      castMode: "auto",
+      entropy: "bound",
+    });
+    const ctx = makeCtx(80, 40);
+    focusEntropy(scene, ctx);
+    const text = renderText(scene, ctx);
+    expect(text).toContain("機器");
+    expect(text).toContain("心念");
+    expect(text).toContain("此刻");
+  });
+
+  test("the stream re-casts over time (chance keeps moving)", () => {
+    const scene = makeScene("en");
+    const ctx = makeCtx(80, 40);
+    focusEntropy(scene, ctx, 1000);
+    const early = renderText(scene, ctx);
+    scene.update(9000, 16, ctx); // several epochs later — all six slots re-cast
+    const late = renderText(scene, ctx);
+    const streamRow = (s: string) =>
+      s.split("\n").find((line) => line.includes("▶")) ?? "";
+    expect(streamRow(early)).toMatch(HEX_GLYPHS);
+    expect(streamRow(late)).toMatch(HEX_GLYPHS);
+    expect(streamRow(late)).not.toBe(streamRow(early));
+  });
+
+  test("no hexagram stream renders while a non-entropy row is focused", () => {
+    const scene = makeScene("en");
+    const ctx = makeCtx(80, 40);
+    scene.update(3000, 16, ctx); // focused on Theme — glyph preview, no stream arrow
+    const text = renderText(scene, ctx);
+    expect(text).not.toContain("▶");
+  });
+});

@@ -5,6 +5,7 @@ import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
 import type { GlyphAnimator, GlyphAnimStyle } from "../../glyph-anim/types.ts";
 import type { DisplayLanguage, GlyphFont, GlyphSize } from "@iching/core";
+import { GUA } from "@iching/core";
 import type { TaijituStyle } from "../home/taijitu-render.ts";
 import { renderTaijitu } from "../home/taijitu-render.ts";
 import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
@@ -97,7 +98,8 @@ type PreviewKind =
   | "cast-manual"
   | "cast-auto"
   | "cast-yarrow"
-  | "cast-yarrow-manual";
+  | "cast-yarrow-manual"
+  | "entropy";
 
 // ── Scene ────────────────────────────────────────────────────────────
 
@@ -177,6 +179,7 @@ export class SettingsScene implements Scene {
         break;
 
       case "taijitu":
+      case "entropy":
         // driven by this.elapsed in renderPreview — no per-frame state needed
         break;
 
@@ -407,6 +410,87 @@ export class SettingsScene implements Scene {
         }
         break;
       }
+
+      case "entropy": {
+        this.renderEntropyPreview(frame, cx, startRow, availRows, vals.entropy, vals.language);
+        break;
+      }
+    }
+  }
+
+  /**
+   * Entropy preview — the seed recipe as a confluence. Machine chance flows
+   * into a slowly re-casting stream of hexagrams; in bound mode the intention
+   * and the moment join as tributaries. The stream keeps drifting either way:
+   * salt participates, chance stays primary. Driven purely by this.elapsed —
+   * deterministic per frame, no per-frame state, no Math.random.
+   */
+  private renderEntropyPreview(
+    frame: CellBuffer,
+    cx: number,
+    startRow: number,
+    availRows: number,
+    entropy: "crypto" | "bound",
+    lang: DisplayLanguage,
+  ): void {
+    const t = getTheme();
+    const laneKeys: MessageKey[] = entropy === "bound"
+      ? ["settings.entropyLane.machine", "settings.entropyLane.intention", "settings.entropyLane.moment"]
+      : ["settings.entropyLane.machine"];
+    const labels = laneKeys.map((k) => tr(lang, k));
+    const labelW = Math.max(...labels.map((s) => stringWidth(s)));
+
+    // Geometry: [label] [lane] [join]▶ [stream…], centered as a block.
+    const laneW = frame.width >= 60 ? 10 : 6;
+    const streamN = Math.max(3, Math.min(6, Math.floor((frame.width - 8 - labelW - laneW - 4) / 2)));
+    const totalW = labelW + 1 + laneW + 3 + streamN * 2;
+    const startCol = Math.max(2, cx - Math.floor(totalW / 2));
+    const laneCol = startCol + labelW + 1;
+    const joinCol = laneCol + laneW;
+
+    const blockH = laneKeys.length; // 1 (crypto) or 3 (bound)
+    const top = startRow + Math.max(0, Math.floor((availRows - blockH) / 2));
+    const midRow = top + Math.floor(blockH / 2);
+
+    for (let i = 0; i < laneKeys.length; i++) {
+      const r = top + i;
+
+      // Right-aligned tributary label. The intention lane breathes — a slow
+      // pulse is the only emphasis the bound mode gets.
+      const label = labels[i] ?? "";
+      const breathing =
+        laneKeys[i] === "settings.entropyLane.intention" &&
+        Math.floor(this.elapsed / 800) % 2 === 0;
+      frame.writeText(r, laneCol - 1 - stringWidth(label), label, {
+        fg: breathing ? t.primary : t.secondary,
+      });
+
+      // Dim channel with two drifting particles, phase-shifted per lane.
+      for (let c = 0; c < laneW; c++) {
+        frame.writeText(r, laneCol + c, "╌", { fg: t.border, dim: true });
+      }
+      const phase = Math.floor(this.elapsed / 110) + i * Math.floor(laneW / 3);
+      for (const off of [0, Math.floor(laneW / 2)]) {
+        frame.writeText(r, laneCol + ((phase + off) % laneW), "·", { fg: t.accent });
+      }
+
+      // Tributaries curve into the middle row's mixing point.
+      const joiner = r === midRow ? "─" : i === 0 ? "╮" : "╯";
+      frame.writeText(r, joinCol, joiner, { fg: t.border });
+    }
+
+    // The stream: each slot re-casts on its own slow cadence and fades as it
+    // drifts away from the source — readings being born from chance.
+    frame.writeText(midRow, joinCol + 1, "▶", { fg: t.tertiary });
+    let col = joinCol + 3;
+    for (let s = 0; s < streamN; s++) {
+      const epoch = Math.floor((this.elapsed + s * 230) / 650);
+      const h = ((s + 1) * 2654435761 + epoch * 40503) >>> 0;
+      const gua = GUA[h % 64];
+      if (!gua) break;
+      const fg = s === 0 ? t.primary : s === 1 ? t.secondary : t.tertiary;
+      frame.writeText(midRow, col, gua.u, { fg, dim: s >= 3 });
+      col += 2;
     }
   }
 
@@ -451,6 +535,7 @@ export class SettingsScene implements Scene {
 
   private previewKindForKey(key: MessageKey | undefined): PreviewKind {
     if (key === "settings.taijitu") return "taijitu";
+    if (key === "settings.entropy") return "entropy";
     if (key === "settings.castMethod" || key === "settings.castMode") {
       const { castMethod, castMode } = this.getValues();
       if (castMethod === "yarrow") {

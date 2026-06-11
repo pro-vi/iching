@@ -118,6 +118,12 @@ export const MESSAGES = {
   "settings.castMode": { en: "Cast Mode", zhHant: "起卦模式", zhHans: "起卦模式" },
   "settings.entropy": { en: "Entropy", zhHant: "隨機源", zhHans: "随机源" },
   "settings.preview": { en: "Preview:", zhHant: "預覽：", zhHans: "预览：" },
+  // Entropy-preview tributary labels — the seed recipe's ingredients. Register
+  // follows the ratified provenance language ("bound to the intention and
+  // moment"); 機器/心念 echo the option chips (機器 / 繫於心念).
+  "settings.entropyLane.machine": { en: "machine", zhHant: "機器", zhHans: "机器" },
+  "settings.entropyLane.intention": { en: "intention", zhHant: "心念", zhHans: "心念" },
+  "settings.entropyLane.moment": { en: "moment", zhHant: "此刻", zhHans: "此刻" },
 
   // ── yarrow ritual captions + line-values (classical terms, Agentify C-003) ──
   "yarrow.roundTitle": { en: "Round", zhHant: "變", zhHans: "变" },
