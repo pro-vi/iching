@@ -1,8 +1,9 @@
 import { describe, test, expect } from "bun:test";
-import { buildCastTimeline } from "../scenes/cast/timeline-builder.ts";
+import { buildCastTimeline, type CastGlyphConfig } from "../scenes/cast/timeline-builder.ts";
 import { CastModel } from "../scenes/cast/model.ts";
 import { getPreset } from "../animation/presets.ts";
 import { stepDuration } from "../animation/timeline.ts";
+import { GLYPH_ANIM_DURATION_MS } from "../glyph-anim/factory.ts";
 import type { Cast } from "@iching/core";
 
 function makeCast(overrides?: Partial<Cast>): Cast {
@@ -209,5 +210,61 @@ describe("buildCastTimeline", () => {
     const step = buildCastTimeline(cast, model, timing, 80);
     const duration = stepDuration(step);
     expect(duration).toBeGreaterThan(0);
+  });
+});
+
+describe("glyph reveal timing", () => {
+  function makeGlyphConfig(anim: CastGlyphConfig["glyphAnim"]): CastGlyphConfig {
+    return { glyphAnim: anim, glyphFont: "kaiti", glyphSize: 32 };
+  }
+
+  test("reveal hold tracks the chosen style's duration", () => {
+    const cast = makeCast();
+    const timing = getPreset("default");
+    const sand = buildCastTimeline(cast, new CastModel(cast), timing, 80, makeGlyphConfig("sand"));
+    const radial = buildCastTimeline(cast, new CastModel(cast), timing, 80, makeGlyphConfig("radial"));
+    expect(stepDuration(sand) - stepDuration(radial)).toBe(
+      GLYPH_ANIM_DURATION_MS.sand - GLYPH_ANIM_DURATION_MS.radial,
+    );
+  });
+
+  test("glyphAnimScale scales the reveal hold", () => {
+    const cast = makeCast();
+    const base = getPreset("default");
+    const halved = { ...base, glyphAnimScale: 0.5 };
+    const full = buildCastTimeline(cast, new CastModel(cast), base, 80, makeGlyphConfig("noise"));
+    const half = buildCastTimeline(cast, new CastModel(cast), halved, 80, makeGlyphConfig("noise"));
+    expect(stepDuration(full) - stepDuration(half)).toBe(
+      Math.round(GLYPH_ANIM_DURATION_MS.noise * 0.5),
+    );
+  });
+
+  test("reduced motion shows the settled glyph immediately, no animation", () => {
+    const cast = makeCast();
+    const model = new CastModel(cast);
+    const timing = getPreset("reduced");
+    const step = buildCastTimeline(cast, model, timing, 80, makeGlyphConfig("noise"));
+
+    const { TimelineRunner } = require("../animation/runner.ts");
+    const runner = new TimelineRunner(step);
+    runner.advance(runner.duration + 100, model);
+
+    expect(model.primaryGlyphEntry).not.toBeNull();
+    expect(model.glyphAnimator).toBeNull();
+    expect(model.glyphAnimDone).toBe(true);
+  });
+
+  test("non-reduced presets create a real animator", () => {
+    const cast = makeCast();
+    const model = new CastModel(cast);
+    const timing = getPreset("default");
+    const step = buildCastTimeline(cast, model, timing, 80, makeGlyphConfig("noise"));
+
+    const { TimelineRunner } = require("../animation/runner.ts");
+    const runner = new TimelineRunner(step);
+    runner.advance(runner.duration + 100, model);
+
+    expect(model.primaryGlyphEntry).not.toBeNull();
+    expect(model.glyphAnimator).not.toBeNull();
   });
 });

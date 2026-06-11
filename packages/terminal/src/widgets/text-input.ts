@@ -3,6 +3,7 @@
 import type { CellBuffer } from "../render/buffer.ts";
 import type { StyledCell } from "../render/cell.ts";
 import { stringWidth } from "../layout/measure.ts";
+import { getTheme } from "../color/theme.ts";
 
 export class TextInput {
   /** Internal storage as array of code points (handles surrogate pairs correctly) */
@@ -78,13 +79,15 @@ export class TextInput {
     width: number,
     style?: Partial<StyledCell>,
   ): void {
+    const t = getTheme();
     let c = 0;
     let charIdx = 0;
     const chars = this._chars;
     while (c < width) {
       const isCursor = charIdx === this.cursorPos;
+      // Block cursor: inverse video, falling back to theme tokens
       const cellStyle: Partial<StyledCell> = isCursor
-        ? { ...style, bg: style?.fg ?? "#C8A96B", fg: style?.bg ?? "#0D1117" }
+        ? { ...style, bg: style?.fg ?? t.primary, fg: style?.bg ?? t.bg }
         : { ...style };
 
       if (charIdx < chars.length) {
@@ -115,10 +118,12 @@ export class TextInput {
     style?: Partial<StyledCell>,
   ): number {
     const chars = this._chars;
+    const t = getTheme();
+    // Block cursor: inverse video, falling back to theme tokens
     const cursorStyle: Partial<StyledCell> = {
       ...style,
-      bg: style?.fg ?? "#C8A96B",
-      fg: style?.bg ?? "#0D1117",
+      bg: style?.fg ?? t.primary,
+      fg: style?.bg ?? t.bg,
     };
 
     let r = 0;

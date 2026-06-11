@@ -7,35 +7,30 @@ import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
 import type { GlyphAnimator } from "./types.ts";
 import { getTheme } from "../color/theme.ts";
+import { lerpColor } from "../color/lerp.ts";
 import { easeOut } from "../animation/easing.ts";
 
-const TOTAL_MS = 2400;
+/** Total run time (ms) at durationScale 1. */
+export const RADIAL_TOTAL_MS = 2400;
 const EDGE_WIDTH = 2.5; // cells of gradient at the expanding edge
 
 function isEmpty(ch: string): boolean {
   return ch === "\u2800" || ch === " ";
 }
 
-function lerpColor(a: string, b: string, t: number): string {
-  const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
-  const ar = parseInt(a.slice(1, 3), 16), ag = parseInt(a.slice(3, 5), 16), ab = parseInt(a.slice(5, 7), 16);
-  const br = parseInt(b.slice(1, 3), 16), bg = parseInt(b.slice(3, 5), 16), bb = parseInt(b.slice(5, 7), 16);
-  const r = clamp(ar + (br - ar) * t);
-  const g = clamp(ag + (bg - ag) * t);
-  const bv = clamp(ab + (bb - ab) * t);
-  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${bv.toString(16).padStart(2, "0")}`;
-}
-
 export class RadialAnimator implements GlyphAnimator {
   private readonly glyph: GlyphEntry;
+  /** Motion-preset time dilation: <1 plays the same animation faster. */
+  private readonly durationScale: number;
   private centerR: number;
   private centerC: number;
   private maxRadius: number;
   private startTime = -1;
   private localMs = 0;
 
-  constructor(glyph: GlyphEntry) {
+  constructor(glyph: GlyphEntry, durationScale: number = 1) {
     this.glyph = glyph;
+    this.durationScale = Math.max(0.05, durationScale);
 
     // Compute center of mass from non-empty cells
     let sumR = 0, sumC = 0, count = 0;
@@ -63,13 +58,13 @@ export class RadialAnimator implements GlyphAnimator {
 
   update(elapsed: number): boolean {
     if (this.startTime < 0) this.startTime = elapsed;
-    this.localMs = elapsed - this.startTime;
-    return this.localMs >= TOTAL_MS;
+    this.localMs = (elapsed - this.startTime) / this.durationScale;
+    return this.localMs >= RADIAL_TOTAL_MS;
   }
 
   render(buf: CellBuffer, offsetR: number, offsetC: number): void {
     const t = getTheme();
-    const progress = Math.min(1, this.localMs / TOTAL_MS);
+    const progress = Math.min(1, this.localMs / RADIAL_TOTAL_MS);
     const easedProgress = easeOut(progress);
     // Expand radius slightly past max so the edge gradient fully clears
     const currentRadius = easedProgress * (this.maxRadius + EDGE_WIDTH);

@@ -125,7 +125,7 @@ function renderRow(
       : hex.ename;
 
   const fg = isSelected ? t.primary : t.secondary;
-  const bgStyle = isSelected ? { bg: "#1A2030" } : {};
+  const bgStyle = isSelected ? { bg: t.dimmed } : {};
 
   // Write background for selected row
   if (isSelected) {

@@ -14,19 +14,39 @@ function hexToRgb(hex: string): [number, number, number] {
   ];
 }
 
-// Convert RGB to nearest ANSI-256 color index
-function rgbTo256(r: number, g: number, b: number): number {
-  // Check if it's a grayscale (r ≈ g ≈ b)
-  if (r === g && g === b) {
-    if (r < 8) return 16;
-    if (r > 248) return 231;
-    return Math.round((r - 8) / 247 * 24) + 232;
+// xterm 6x6x6 cube channel levels (cube index 0-5 → channel value)
+const CUBE_LEVELS = [0, 95, 135, 175, 215, 255];
+
+// Index of the nearest cube level for one channel value
+function nearestCubeIndex(v: number): number {
+  let best = 0;
+  for (let i = 1; i < CUBE_LEVELS.length; i++) {
+    if (Math.abs(CUBE_LEVELS[i] - v) < Math.abs(CUBE_LEVELS[best] - v)) best = i;
   }
-  // Map to 6x6x6 color cube (indices 16-231)
-  const ri = Math.round(r / 255 * 5);
-  const gi = Math.round(g / 255 * 5);
-  const bi = Math.round(b / 255 * 5);
-  return 16 + 36 * ri + 6 * gi + bi;
+  return best;
+}
+
+// Convert RGB to nearest ANSI-256 color index.
+// Compares the nearest cube color against the nearest grayscale-ramp entry
+// and picks whichever is actually closer — dark tones stay dark (the cube
+// jumps from 0 straight to 95 per channel) and near-grays land on the ramp.
+function rgbTo256(r: number, g: number, b: number): number {
+  // Candidate from the 6x6x6 color cube (indices 16-231)
+  const ri = nearestCubeIndex(r);
+  const gi = nearestCubeIndex(g);
+  const bi = nearestCubeIndex(b);
+  const cubeDist =
+    (CUBE_LEVELS[ri] - r) ** 2 + (CUBE_LEVELS[gi] - g) ** 2 + (CUBE_LEVELS[bi] - b) ** 2;
+
+  // Candidate from the grayscale ramp (indices 232-255: values 8, 18, … 238)
+  const grayIdx = Math.min(23, Math.max(0, Math.round(((r + g + b) / 3 - 8) / 10)));
+  const grayLevel = 8 + grayIdx * 10;
+  const grayDist =
+    (grayLevel - r) ** 2 + (grayLevel - g) ** 2 + (grayLevel - b) ** 2;
+
+  return grayDist < cubeDist
+    ? 232 + grayIdx
+    : 16 + 36 * ri + 6 * gi + bi;
 }
 
 // Convert RGB to nearest ANSI-16 color index
