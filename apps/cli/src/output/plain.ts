@@ -1,4 +1,4 @@
-import type { Cast, CastMethod, Hexagram, Style, Structure } from "@iching/core";
+import type { Cast, CastMethod, DailyCache, Hexagram, Style, Structure } from "@iching/core";
 import {
   GUA,
   STYLES,
@@ -140,6 +140,29 @@ function methodLabel(method: CastMethod): string {
     case "yarrow-manual":
       return "yarrow stalks, by hand";
   }
+}
+
+/**
+ * Format today's cached reading (`iching today`) as plain text — the full
+ * reading (judgment, changing-line texts, commentary via formatCastPlain)
+ * prefixed by the day's context: date, intention, method provenance.
+ */
+export function formatTodayPlain(cache: DailyCache): string {
+  const cast = cache.cast;
+  const primary = GUA[cast.primary - 1];
+  const lines: string[] = [];
+
+  lines.push(`Date: ${cache.date}`);
+  if (cache.intention) {
+    lines.push(`Intention: ${cache.intention}`);
+  }
+  if (cache.method) {
+    lines.push(`Method: ${methodLabel(cache.method)}`);
+  }
+  lines.push("");
+  lines.push(formatCastPlain(cast, primary, cache.structure));
+
+  return lines.join("\n");
 }
 
 /** Format journal entry list as plain text */

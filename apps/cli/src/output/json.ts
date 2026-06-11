@@ -1,4 +1,4 @@
-import type { Cast, Hexagram, HistoryEntry, Style } from "@iching/core";
+import type { Cast, DailyCache, Hexagram, HistoryEntry, Style } from "@iching/core";
 import { GUA } from "@iching/core";
 import type { UserConfig } from "@iching/storage";
 
@@ -66,6 +66,39 @@ export function castToJson(
       te: primary.te,
       w: primary.w,
     },
+  };
+}
+
+/**
+ * Structure today's cached reading for JSON output (`iching today --json`):
+ * the full castToJson payload plus the day's context (date/intention/method).
+ * This is the one-call integration surface — an assistant can read the whole
+ * reading without touching the cache file or the data tables.
+ */
+export function todayToJson(cache: DailyCache): Record<string, unknown> {
+  const cast = cache.cast;
+  const primary = GUA[cast.primary - 1];
+  const becoming = cast.becoming !== null ? GUA[cast.becoming - 1] : null;
+  return {
+    date: cache.date,
+    intention: cache.intention ?? null,
+    method: cache.method ?? null,
+    ...castToJson(cast, primary, becoming, cache.intention),
+  };
+}
+
+/**
+ * JSON shape for `iching today --json` when no reading exists yet today.
+ * A state, not an error: stable keys, null payload, exit 0.
+ */
+export function noTodayToJson(date: string): Record<string, unknown> {
+  return {
+    date,
+    intention: null,
+    method: null,
+    question: null,
+    primary: null,
+    becoming: null,
   };
 }
 
