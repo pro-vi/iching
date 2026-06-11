@@ -63,6 +63,20 @@ export const MESSAGES = {
   // Connective joining the upper/lower trigram in the structure line ("X above Y").
   "cast.trigramConnective": { en: "above", zhHant: "上", zhHans: "上" },
 
+  // ── reading panel (exploration phase) ──
+  // Label prefixed to the 卦辭 when no lines move (the judgment IS the reading).
+  "cast.judgment": { en: "Judgment", zhHant: "卦辭", zhHans: "卦辞" },
+  // One-line reading-method hints — the classical rule for which text governs,
+  // stated observationally (one dim line, never a lecture).
+  "cast.hint.one": { en: "one line moves — it speaks", zhHant: "一爻動，以動爻為占", zhHans: "一爻动，以动爻为占" },
+  "cast.hint.two": { en: "two lines move — the upper governs", zhHant: "二爻動，以上爻為占", zhHans: "二爻动，以上爻为占" },
+  "cast.hint.three": { en: "three lines move — the upper governs", zhHant: "三爻動，以上爻為占", zhHans: "三爻动，以上爻为占" },
+  "cast.hint.four": { en: "four lines move — the becoming speaks", zhHant: "四爻動，以之卦為占", zhHans: "四爻动，以之卦为占" },
+  "cast.hint.five": { en: "five lines move — the becoming speaks", zhHant: "五爻動，以之卦為占", zhHans: "五爻动，以之卦为占" },
+  "cast.hint.all": { en: "all six lines move — the becoming speaks", zhHant: "六爻皆動，以之卦為占", zhHans: "六爻皆动，以之卦为占" },
+  "cast.hint.allYong9": { en: "all six lines move — 用九 speaks", zhHant: "六爻皆動，以用九為占", zhHans: "六爻皆动，以用九为占" },
+  "cast.hint.allYong6": { en: "all six lines move — 用六 speaks", zhHant: "六爻皆動，以用六為占", zhHans: "六爻皆动，以用六为占" },
+
   // ── dictionary chrome ──
   "dict.title": { en: "I Ching Dictionary", zhHant: "易經卦典", zhHans: "易经卦典" },
   "dict.searchPrompt": { en: "Search: ", zhHant: "搜尋：", zhHans: "搜寻：" },

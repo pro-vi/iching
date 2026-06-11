@@ -101,10 +101,25 @@ export function buildContentLines(
   }
   lines.push({ text: "" });
 
-  // Line diagram (top to bottom: line 6 down to line 1)
+  // Line diagram (top to bottom: line 6 down to line 1). Cast context marks
+  // the moving lines with the same gutter markers the cast ritual uses.
   for (let i = 5; i >= 0; i--) {
     const lineChar = gua.l[i] === 1 ? GLYPHS.yangFinal : GLYPHS.yinFinal;
-    lines.push({ text: centerPad(lineChar, textWidth), fg: t.primary });
+    const changed = model.changedPositions.includes(i + 1);
+    let text = centerPad(lineChar, textWidth);
+    if (changed) {
+      const marker = gua.l[i] === 1 ? GLYPHS.changingMarkerYang : GLYPHS.changingMarkerYin;
+      // Marker 2 cols right of the line's end, like the cast hexagram gutter
+      const markerCol =
+        Math.floor(textWidth / 2) + Math.floor(stringWidth(lineChar) / 2) + 2;
+      if (markerCol < text.length) {
+        text = text.slice(0, markerCol) + marker + text.slice(markerCol + 1);
+      }
+    }
+    lines.push({
+      text,
+      fg: changed ? (gua.l[i] === 1 ? t.accent : t.changingYin) : t.primary,
+    });
     // Add gap between upper and lower trigrams (after line 4, before line 3)
     if (i === 3) {
       lines.push({ text: "" });
@@ -127,11 +142,29 @@ export function buildContentLines(
   lines.push({ text: "─".repeat(textWidth), fg: t.tertiary });
   lines.push({ text: "" });
 
-  // Commentary sections
+  // Commentary sections — the 卦辭 (the hexagram's own judgment) comes first;
+  // the Wings follow. In en mode the canonical classical text rides dim
+  // beneath the Legge translation; "Judgment" now labels the actual 卦辭,
+  // so the 彖傳 translation is labeled as the commentary it is.
+  lines.push({
+    text: english ? "Judgment" : zh("卦辭", language),
+    fg: t.accent,
+    bold: true,
+  });
+  if (english) {
+    pushWrapped(lines, gua.gcEn, textWidth, { fg: t.secondary });
+    pushWrapped(lines, gua.gc, textWidth, { fg: t.tertiary, dim: true });
+  } else {
+    pushWrapped(lines, zh(gua.gc, language), textWidth, { fg: t.secondary });
+  }
+  lines.push({ text: "" });
+
   const sections: [string, string][] = english
     ? [
         ["Image", gua.en],
-        ["Judgment", gua.te],
+        // 彖傳 EN name per docs/language-glossary.md (the old bare "Judgment"
+        // label now belongs to the 卦辭 section above).
+        ["Tuan (Commentary on the Decision)", gua.te],
         // "Wilhelm-inspired" (not bare "Wilhelm"): gua.w is interpretive advice
         // after Wilhelm, NOT a direct quotation (AC-010 attribution policy; C-005).
         ["Wilhelm-inspired", gua.w],
@@ -147,7 +180,9 @@ export function buildContentLines(
     lines.push({ text: "" });
   }
 
-  // Line interpretations (爻辭)
+  // Line interpretations (爻辭), each with its 小象傳 dim beneath — the Yi
+  // commenting on its own lines. Moving lines from the cast are marked and
+  // their texts emphasized.
   if (gua.yao && gua.yao.length === 6) {
     lines.push({ text: "─".repeat(textWidth), fg: t.tertiary });
     lines.push({ text: "" });
@@ -156,13 +191,35 @@ export function buildContentLines(
 
     // Display top-to-bottom (line 6 down to line 1) to match visual diagram
     for (let i = 5; i >= 0; i--) {
+      const changed = model.changedPositions.includes(i + 1);
+      const marker = changed
+        ? ` ${gua.l[i] === 1 ? GLYPHS.changingMarkerYang : GLYPHS.changingMarkerYin}`
+        : "";
+      const changedFg = gua.l[i] === 1 ? t.accent : t.changingYin;
       if (english) {
-        lines.push({ text: `Line ${i + 1}`, fg: t.secondary, bold: true });
+        lines.push({
+          text: `Line ${i + 1}${marker}`,
+          fg: changed ? changedFg : t.secondary,
+          bold: true,
+        });
         if (gua.yaoEn?.[i]) {
-          pushWrapped(lines, gua.yaoEn[i], textWidth, { fg: t.tertiary });
+          pushWrapped(lines, gua.yaoEn[i], textWidth, {
+            fg: changed ? t.secondary : t.tertiary,
+            bold: changed || undefined,
+          });
         }
       } else {
-        pushWrapped(lines, zh(gua.yao[i], language), textWidth, { fg: t.secondary });
+        // Marker prefixes the text (a trailing marker could wrap alone)
+        pushWrapped(lines, `${marker ? marker.trimStart() + " " : ""}${zh(gua.yao[i], language)}`, textWidth, {
+          fg: changed ? changedFg : t.secondary,
+          bold: changed || undefined,
+        });
+      }
+      if (gua.yaoXiao?.[i]) {
+        pushWrapped(lines, zh(gua.yaoXiao[i], language), textWidth, {
+          fg: t.tertiary,
+          dim: true,
+        });
       }
       lines.push({ text: "" });
     }

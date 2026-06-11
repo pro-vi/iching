@@ -19,6 +19,12 @@ export class DetailModel {
   readonly detail: HexagramDetail;
   readonly derivedLinks: DerivedLink[];
 
+  /**
+   * Cast context — line positions (1-6, bottom-up) that were moving in the
+   * cast this detail was opened from. Empty when browsing the dictionary.
+   */
+  readonly changedPositions: number[];
+
   /** Scroll offset for content */
   scrollOffset: number;
 
@@ -43,8 +49,9 @@ export class DetailModel {
   glyphEntry: GlyphEntry | null;
   glyphAnimDone: boolean;
 
-  constructor(kw: number) {
+  constructor(kw: number, changedPositions: number[] = []) {
     this.detail = buildHexagramDetail(kw);
+    this.changedPositions = changedPositions;
     this.scrollOffset = 0;
     this.focus = "content";
     this.derivedCursor = 0;

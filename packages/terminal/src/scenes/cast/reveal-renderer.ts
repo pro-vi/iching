@@ -10,18 +10,14 @@ import { anchorRow, TITLE_ROW_OFFSET } from "./hexagram-renderer.ts";
 import { tr } from "../../i18n/messages.ts";
 
 /**
- * Render the title block: Chinese name, pinyin, English, trigram meta.
- * Fade in based on titleProgress.
+ * Title-block layout: where the block starts and which text lines it shows.
+ * Shared by renderTitle and the reading panel (which starts below the block).
  */
-export function renderTitle(
+export function titleLayout(
   buf: CellBuffer,
   model: CastModel,
-  xOffset: number = 0,
   language: DisplayLanguage = "en",
-): void {
-  if (model.titleProgress <= 0) return;
-
-  const t = getTheme();
+): { baseRow: number; lines: string[] } {
   const anchor = anchorRow(buf.height);
   // Use focused hexagram — focusedHex is authoritative regardless of explorationMode
   const focusedKw = model.focusedHex === "becoming" && model.cast.becoming
@@ -69,6 +65,23 @@ export function renderTitle(
       lines = [line1, line2, structLine];
     }
   }
+  return { baseRow, lines };
+}
+
+/**
+ * Render the title block: Chinese name, pinyin, English, trigram meta.
+ * Fade in based on titleProgress.
+ */
+export function renderTitle(
+  buf: CellBuffer,
+  model: CastModel,
+  xOffset: number = 0,
+  language: DisplayLanguage = "en",
+): void {
+  if (model.titleProgress <= 0) return;
+
+  const t = getTheme();
+  const { baseRow, lines } = titleLayout(buf, model, language);
   const progress = model.titleProgress;
 
   for (let i = 0; i < lines.length; i++) {

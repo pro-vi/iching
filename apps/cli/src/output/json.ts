@@ -13,13 +13,23 @@ export function castToJson(
   becoming: Hexagram | null,
   question?: string,
 ): Record<string, unknown> {
+  // Changing lines carry their oracle texts — the texts a reading turns on.
+  // All six moving on hexagram 1/2 additionally reads 用九/用六 (extra).
+  const changingLines = cast.changingPositions.map((pos) => ({
+    position: pos,
+    yao: primary.yao[pos - 1],
+    yaoEn: primary.yaoEn[pos - 1],
+  }));
+
   return {
     question: question ?? null,
     primary: {
       number: cast.primary,
       name: primary.n,
       pinyin: primary.p,
+      ename: primary.ename,
       symbol: primary.u,
+      judgment: { gc: primary.gc, gcEn: primary.gcEn },
       lines: cast.lines.map((l) => ({
         value: l.value,
         yang: l.isYang,
@@ -31,10 +41,17 @@ export function castToJson(
           number: cast.becoming,
           name: becoming.n,
           pinyin: becoming.p,
+          ename: becoming.ename,
           symbol: becoming.u,
+          judgment: { gc: becoming.gc, gcEn: becoming.gcEn },
         }
       : null,
     changingPositions: cast.changingPositions,
+    changingLines,
+    extra:
+      cast.changingPositions.length === 6 && primary.extra
+        ? primary.extra
+        : null,
     derived: {
       nuclear: cast.nuclear,
       polarity: cast.polarity,
@@ -60,8 +77,17 @@ export function hexagramToJson(
     number: kw,
     name: hex.n,
     pinyin: hex.p,
+    ename: hex.ename,
     symbol: hex.u,
     lines: hex.l,
+    judgment: { gc: hex.gc, gcEn: hex.gcEn },
+    lineTexts: hex.yao.map((yao, i) => ({
+      position: i + 1,
+      yao,
+      yaoEn: hex.yaoEn[i],
+      yaoXiao: hex.yaoXiao[i],
+    })),
+    extra: hex.extra ?? null,
     commentary: {
       dx: hex.dx,
       tu: hex.tu,

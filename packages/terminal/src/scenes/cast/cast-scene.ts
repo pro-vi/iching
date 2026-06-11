@@ -11,6 +11,7 @@ import { CastModel } from "./model.ts";
 import { renderCoins } from "./coin-renderer.ts";
 import { renderHexagram, anchorRow, LINE_ROW_OFFSETS, COIN_ROW_OFFSET } from "./hexagram-renderer.ts";
 import { renderTitle, renderBecomingTitle } from "./reveal-renderer.ts";
+import { renderReadingPanel } from "./reading-renderer.ts";
 import { renderMorph } from "./morph-renderer.ts";
 import { renderRightHexagram, renderRightMorph } from "./right-hex-renderer.ts";
 import { buildCastTimeline, type CastGlyphConfig } from "./timeline-builder.ts";
@@ -26,12 +27,19 @@ import type { DisplayLanguage } from "@iching/core";
 
 export type CastGlyphInput = Omit<CastGlyphConfig, "glyphSize">;
 
+/** Reveal pace multipliers cycled by f — same ladder as the yarrow ritual. */
+const PACE_SPEEDS = [1, 2, 4];
+
 export class CastScene implements Scene {
   private model: CastModel;
   private timeline: TimelineRunner;
   private complete = false;
   private glyphConfig?: CastGlyphConfig;
   private termWidth: number;
+  // Scene-controlled clock — pace control (pause/speed) modulates how fast
+  // this advances relative to the loop's elapsed time.
+  private virtualElapsed = 0;
+  private lastElapsed = 0;
 
   constructor(
     cast: Cast,
@@ -73,11 +81,18 @@ export class CastScene implements Scene {
   }
 
   update(elapsed: number, _dt: number, _ctx: SceneContext): void {
+    // Advance the virtual clock from the loop's elapsed time, honoring
+    // pause/speed. At speed 1 unpaused this tracks `elapsed` exactly.
+    const delta = Math.max(0, elapsed - this.lastElapsed);
+    this.lastElapsed = elapsed;
+    if (!this.model.paused) {
+      this.virtualElapsed += delta * this.model.speed;
+    }
     if (!this.complete) {
-      this.complete = this.timeline.advance(elapsed, this.model);
+      this.complete = this.timeline.advance(this.virtualElapsed, this.model);
     }
     if (this.model.glyphAnimator && !this.model.glyphAnimDone) {
-      const done = this.model.glyphAnimator.update(elapsed);
+      const done = this.model.glyphAnimator.update(this.virtualElapsed);
       if (done) {
         this.model.glyphAnimDone = true;
       }
@@ -135,9 +150,12 @@ export class CastScene implements Scene {
       renderIntention(frame, model.intention);
     }
 
-    // Render prompt
+    // Reading panel + prompt once the reveal settles; pace hints before.
     if (model.showPrompt) {
+      renderReadingPanel(frame, model, lang);
       renderPrompt(frame, model, lang);
+    } else {
+      renderPaceFooter(frame, model, lang);
     }
   }
 
@@ -145,6 +163,30 @@ export class CastScene implements Scene {
     // During animation, q cancels the cast and returns to the home menu.
     if (key.type === "char" && key.char === "q") {
       return { type: "home" };
+    }
+
+    // Esc returns home from any phase — matching toss/yarrow semantics
+    // (the footer advertises it; it must work).
+    if (key.type === "escape") {
+      return { type: "home" };
+    }
+
+    // Reveal in progress — pace control (mirrors the yarrow ritual).
+    if (!this.model.showPrompt) {
+      if (key.type === "char" && key.char === " ") {
+        this.model.paused = !this.model.paused;
+        return;
+      }
+      if (key.type === "char" && key.char === "s") {
+        this.model.paused = false;
+        this.skipToComplete();
+        return;
+      }
+      if (key.type === "char" && key.char === "f") {
+        const next = (PACE_SPEEDS.indexOf(this.model.speed) + 1) % PACE_SPEEDS.length;
+        this.model.speed = PACE_SPEEDS[next];
+        return;
+      }
     }
 
     // Exploration mode: left/right arrows switch focus
@@ -159,13 +201,20 @@ export class CastScene implements Scene {
       }
     }
 
-    // Enter in exploration mode opens dictionary for focused hex
+    // Enter in exploration mode opens dictionary for focused hex.
+    // Primary detail carries the cast's changing positions so the detail
+    // view can mark the moving lines; the becoming's line texts are not
+    // read classically, so it opens without cast context.
     if (this.model.explorationMode && key.type === "enter") {
-      const kw =
-        this.model.focusedHex === "primary"
-          ? this.model.cast.primary
-          : this.model.cast.becoming;
-      if (kw) return { type: "openDetail", kw };
+      const primaryFocused = this.model.focusedHex === "primary";
+      const kw = primaryFocused
+        ? this.model.cast.primary
+        : this.model.cast.becoming;
+      if (kw) {
+        return primaryFocused && this.model.cast.changingPositions.length > 0
+          ? { type: "openDetail", kw, changedPositions: [...this.model.cast.changingPositions] }
+          : { type: "openDetail", kw };
+      }
     }
 
     // Only handle prompt keys after prompt is shown
@@ -272,6 +321,20 @@ function renderPrompt(buf: CellBuffer, model: CastModel, language: DisplayLangua
   const w = stringWidth(text);
   const col = Math.max(0, Math.floor((buf.width - w) / 2));
   buf.writeText(row, col, text, { fg: t.tertiary });
+}
+
+/** Render the pace-control hints while the reveal is still unfolding. */
+function renderPaceFooter(buf: CellBuffer, model: CastModel, language: DisplayLanguage): void {
+  const t = getTheme();
+  const speed = model.speed > 1 ? `  ·  ${model.speed}×` : "";
+  const text = model.paused
+    ? `[space] ${tr(language, "verb.resume")}  ·  [s] ${tr(language, "verb.skip")}  ·  [esc] ${tr(language, "verb.back")}`
+    : `[space] ${tr(language, "verb.pause")}  ·  [f] ${tr(language, "verb.speed")}  ·  [s] ${tr(language, "verb.skip")}  ·  [esc] ${tr(language, "verb.back")}${speed}`;
+  const row = buf.height - 2;
+  if (row < 0) return;
+  const w = stringWidth(text);
+  const col = Math.max(0, Math.floor((buf.width - w) / 2));
+  buf.writeText(row, col, text, { fg: t.tertiary, dim: true });
 }
 
 /** Render the user's intention at the top of the frame. */

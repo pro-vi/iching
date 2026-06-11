@@ -33,8 +33,12 @@ export interface JournalDeps extends DetailDeps {
 }
 
 /** Construct DetailScene + kick off async history hydration. */
-export function makeDetailScene(kw: number, deps: DetailDeps): DetailScene {
-  const scene = new DetailScene(kw, deps.glyphConfig, deps.language);
+export function makeDetailScene(
+  kw: number,
+  deps: DetailDeps,
+  changedPositions?: number[],
+): DetailScene {
+  const scene = new DetailScene(kw, deps.glyphConfig, deps.language, changedPositions);
   getHexagramHistory(deps.journal, kw).then((h) =>
     scene.setHistory(h.castCount, h.lastCastDate),
   );
@@ -44,7 +48,9 @@ export function makeDetailScene(kw: number, deps: DetailDeps): DetailScene {
 /** SceneRouter factory for the dictionary path: handles openDetail, falls back through. */
 export function makeBrowseFactory(deps: DetailDeps): SceneFactory {
   return (signal): Scene | null => {
-    if (signal.type === "openDetail") return makeDetailScene(signal.kw, deps);
+    if (signal.type === "openDetail") {
+      return makeDetailScene(signal.kw, deps, signal.changedPositions);
+    }
     return null;
   };
 }
@@ -69,7 +75,9 @@ export function makeJournalFactory(deps: JournalDeps): SceneFactory {
       cs.skipToComplete(false);
       return cs;
     }
-    if (signal.type === "openDetail") return makeDetailScene(signal.kw, deps);
+    if (signal.type === "openDetail") {
+      return makeDetailScene(signal.kw, deps, signal.changedPositions);
+    }
     if (signal.type === "openDictionary") return new BrowseScene();
     // `j` from a replayed CastScene inside the journal router → reset to the journal list.
     if (signal.type === "openJournal") return new JournalScene(deps.entries);

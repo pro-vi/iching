@@ -25,6 +25,17 @@ export interface Hexagram {
   w: string; // Inspired by Wilhelm — experimental, not direct quotes
   yao: string[]; // 爻辭 — 6 classical Chinese line texts (line 1 through 6)
   yaoEn: string[]; // 6 English line interpretations (line 1 through 6)
+  gc: string; // 卦辭 — canonical judgment (classical Chinese)
+  gcEn: string; // English judgment (Legge, public domain — glosses kept)
+  yaoXiao: string[]; // 小象傳 — 6 classical per-line commentaries (line 1 through 6)
+  extra?: HexagramExtra; // 用九/用六 — hexagrams 1 and 2 only
+}
+
+/** 用九/用六 extra text (all-lines-moving reading for hexagrams 1 and 2) */
+export interface HexagramExtra {
+  name: string; // 用九 or 用六
+  text: string; // classical Chinese
+  textEn: string; // Legge English
 }
 
 /** Line value from 3-coin toss: 6=old yin, 7=young yang, 8=young yin, 9=old yang */

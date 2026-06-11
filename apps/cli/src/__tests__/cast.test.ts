@@ -112,3 +112,97 @@ describe("cast command", () => {
     expect(text).toContain("Commentary:");
   });
 });
+
+describe("cast output oracle texts", () => {
+  /** Seed 7: hexagram 47 → 62, changing lines [2, 3, 5]. */
+  function makeSeededCast() {
+    const cast = castHexagram(new SeededRandomSource(7));
+    const primary = GUA[cast.primary - 1];
+    const becoming = cast.becoming !== null ? GUA[cast.becoming - 1] : null;
+    return { cast, primary, becoming };
+  }
+
+  test("castToJson includes the judgment for primary and becoming", () => {
+    const { cast, primary, becoming } = makeSeededCast();
+    const json = castToJson(cast, primary, becoming);
+
+    const p = json.primary as Record<string, unknown>;
+    expect(p.ename).toBe(primary.ename);
+    expect(p.judgment).toEqual({ gc: primary.gc, gcEn: primary.gcEn });
+    const b = json.becoming as Record<string, unknown>;
+    expect(b.judgment).toEqual({ gc: becoming!.gc, gcEn: becoming!.gcEn });
+  });
+
+  test("castToJson includes the changing lines' texts with positions", () => {
+    const { cast, primary, becoming } = makeSeededCast();
+    const json = castToJson(cast, primary, becoming);
+
+    const changing = json.changingLines as Array<Record<string, unknown>>;
+    expect(changing).toHaveLength(cast.changingPositions.length);
+    for (let i = 0; i < changing.length; i++) {
+      const pos = cast.changingPositions[i];
+      expect(changing[i]).toEqual({
+        position: pos,
+        yao: primary.yao[pos - 1],
+        yaoEn: primary.yaoEn[pos - 1],
+      });
+    }
+  });
+
+  test("castToJson extra is null unless all six lines move on hex 1/2", () => {
+    const { cast, primary, becoming } = makeSeededCast();
+    const json = castToJson(cast, primary, becoming);
+    expect(json.extra).toBeNull();
+
+    // Synthesize the all-moving 乾 cast: 用九 governs
+    const allMoving = {
+      ...cast,
+      primary: 1,
+      becoming: 2,
+      changingPositions: [1, 2, 3, 4, 5, 6],
+      lines: Array.from({ length: 6 }, () => ({
+        value: 9 as const,
+        isYang: true,
+        isChanging: true,
+      })),
+    };
+    const yongJson = castToJson(allMoving, GUA[0], GUA[1]);
+    expect(yongJson.extra).toEqual({
+      name: "用九",
+      text: "見群龍無首，吉。",
+      textEn: GUA[0].extra!.textEn,
+    });
+  });
+
+  test("formatCastPlain lists judgment and changing-line texts", () => {
+    const { cast, primary } = makeSeededCast();
+    const structure = buildStructure(cast);
+    const text = formatCastPlain(cast, primary, structure);
+
+    expect(text).toContain(`Judgment (gc): ${primary.gc}`);
+    expect(text).toContain(`Judgment (gcEn): ${primary.gcEn}`);
+    expect(text).toContain("Changing lines:");
+    for (const pos of cast.changingPositions) {
+      expect(text).toContain(`  ${pos}: ${primary.yao[pos - 1]}`);
+      expect(text).toContain(`     ${primary.yaoEn[pos - 1]}`);
+    }
+  });
+
+  test("formatCastPlain omits the changing-lines block when none move", () => {
+    // Force an unchanging cast by stripping the changing flags
+    const { cast, primary } = makeSeededCast();
+    const unchanging = {
+      ...cast,
+      becoming: null,
+      changingPositions: [],
+      lines: cast.lines.map((l) => ({
+        ...l,
+        isChanging: false,
+        value: (l.isYang ? 7 : 8) as 7 | 8,
+      })),
+    };
+    const text = formatCastPlain(unchanging, primary, buildStructure(unchanging));
+    expect(text).not.toContain("Changing lines:");
+    expect(text).toContain("Judgment (gc):");
+  });
+});

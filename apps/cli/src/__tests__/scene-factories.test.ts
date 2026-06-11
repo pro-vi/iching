@@ -83,3 +83,26 @@ describe("makeJournalFactory", () => {
     expect(scene).toBeInstanceOf(JournalScene);
   });
 });
+
+describe("cast context (changedPositions) pass-through", () => {
+  let dir: string;
+  let journal: JsonlJournalStore;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "cast-context-factory-test-"));
+    journal = new JsonlJournalStore(join(dir, "history.jsonl"));
+  });
+
+  test("openDetail with changedPositions marks the DetailScene model", () => {
+    const factory = makeBrowseFactory({ journal });
+    const scene = factory({ type: "openDetail", kw: 21, changedPositions: [1, 4] });
+    expect(scene).toBeInstanceOf(DetailScene);
+    expect((scene as DetailScene).getModel().changedPositions).toEqual([1, 4]);
+  });
+
+  test("openDetail without changedPositions yields an unmarked model", () => {
+    const factory = makeBrowseFactory({ journal });
+    const scene = factory({ type: "openDetail", kw: 21 });
+    expect((scene as DetailScene).getModel().changedPositions).toEqual([]);
+  });
+});

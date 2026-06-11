@@ -48,6 +48,10 @@ export class CastModel {
   showPrompt: boolean;
   promptChoice: string | null;
 
+  // Pace control during the reveal (mirrors the yarrow ritual)
+  paused: boolean;
+  speed: number;
+
   // Large glyph reveal
   glyphAnimator: GlyphAnimator | null;
   glyphAnimDone: boolean;
@@ -98,6 +102,9 @@ export class CastModel {
 
     this.showPrompt = false;
     this.promptChoice = null;
+
+    this.paused = false;
+    this.speed = 1;
 
     this.glyphAnimator = null;
     this.glyphAnimDone = false;

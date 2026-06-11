@@ -59,6 +59,26 @@ export function formatCastPlain(
     lines.push("");
   }
 
+  // Judgment (卦辭) — the hexagram's own text
+  lines.push(`Judgment (gc): ${primary.gc}`);
+  lines.push(`Judgment (gcEn): ${primary.gcEn}`);
+  lines.push("");
+
+  // Changing lines — the texts the reading turns on
+  if (cast.changingPositions.length > 0) {
+    lines.push("Changing lines:");
+    for (const pos of cast.changingPositions) {
+      lines.push(`  ${pos}: ${primary.yao[pos - 1]}`);
+      lines.push(`     ${primary.yaoEn[pos - 1]}`);
+    }
+    // All six moving on hexagram 1/2 reads 用九/用六
+    if (cast.changingPositions.length === 6 && primary.extra) {
+      lines.push(`  ${primary.extra.name}: ${primary.extra.text}`);
+      lines.push(`     ${primary.extra.textEn}`);
+    }
+    lines.push("");
+  }
+
   // Commentary
   lines.push("Commentary:");
   lines.push(`  大象 (dx): ${primary.dx}`);
@@ -95,7 +115,9 @@ export function formatHexagramPlain(
     // the trigram block above already covers it, so we skip the commentary.
     lines.push(hex[style]);
   } else if (!style) {
-    // Show all commentary styles
+    // Show the judgment (卦辭) first, then all commentary styles
+    lines.push(`Judgment (gc): ${hex.gc}`);
+    lines.push(`Judgment (gcEn): ${hex.gcEn}`);
     lines.push(`大象 (dx): ${hex.dx}`);
     lines.push(`彖傳 (tu): ${hex.tu}`);
     lines.push(`Image (en): ${hex.en}`);

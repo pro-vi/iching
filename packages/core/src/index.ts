@@ -6,6 +6,7 @@ export type {
   Style,
   DisplayLanguage,
   Hexagram,
+  HexagramExtra,
   LineValue,
   Line,
   Cast,
@@ -62,7 +63,8 @@ export { LARGE_GLYPHS, type GlyphFont, type GlyphSize, type GlyphEntry } from ".
 export { toSimplified, SIMPLIFIED_MAP, SIMPLIFIED_EXCEPTIONS } from "./i18n/simplify.js";
 
 // Format
-export { formatReading, getRandomQuoteStyle } from "./format/reading.js";
+export { formatReading, getRandomQuoteStyle, readingFocus } from "./format/reading.js";
+export type { ReadingFocus } from "./format/reading.js";
 export { formatDerived } from "./format/derived.js";
 
 // Search

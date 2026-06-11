@@ -242,3 +242,177 @@ describe("CastScene", () => {
     expect(hasContent).toBe(true);
   });
 });
+
+/** Collect the visible text of a rendered frame as one string per row. */
+function frameText(scene: CastScene, ctx: SceneContext): string[] {
+  const frame = CellBuffer.create(ctx.cols, ctx.rows);
+  scene.render(frame, ctx);
+  const rows: string[] = [];
+  for (let r = 0; r < frame.height; r++) {
+    let row = "";
+    for (let c = 0; c < frame.width; c++) row += frame.getCell(r, c).char;
+    rows.push(row.trimEnd());
+  }
+  return rows;
+}
+
+describe("CastScene escape key", () => {
+  test("escape returns home during animation", () => {
+    const scene = new CastScene(makeCast(), "reduced");
+    const result = scene.handleKey({ type: "escape" }, makeCtx());
+    expect(result).toEqual({ type: "home" });
+  });
+
+  test("escape returns home in exploration mode (footer advertises it)", () => {
+    const scene = new CastScene(makeChangingCast(), "reduced", 80);
+    const ctx = makeCtx();
+    scene.enter(ctx);
+    scene.update(scene.getTimeline().duration + 100, 33, ctx);
+    expect(scene.getModel().explorationMode).toBe(true);
+
+    const result = scene.handleKey({ type: "escape" }, ctx);
+    expect(result).toEqual({ type: "home" });
+  });
+});
+
+describe("CastScene pace control", () => {
+  test("space toggles pause during the reveal", () => {
+    const scene = new CastScene(makeCast(), "reduced");
+    const ctx = makeCtx();
+    scene.enter(ctx);
+    scene.update(100, 33, ctx);
+
+    scene.handleKey({ type: "char", char: " " }, ctx);
+    expect(scene.getModel().paused).toBe(true);
+
+    // While paused, the timeline does not advance
+    const before = scene.getModel().titleProgress;
+    scene.update(scene.getTimeline().duration + 5000, 33, ctx);
+    expect(scene.getModel().showPrompt).toBe(false);
+    expect(scene.getModel().titleProgress).toBe(before);
+
+    scene.handleKey({ type: "char", char: " " }, ctx);
+    expect(scene.getModel().paused).toBe(false);
+  });
+
+  test("s skips to the fully revealed state", () => {
+    const scene = new CastScene(makeChangingCast(), "reduced", 80);
+    const ctx = makeCtx();
+    scene.enter(ctx);
+    scene.update(100, 33, ctx);
+
+    scene.handleKey({ type: "char", char: "s" }, ctx);
+    const model = scene.getModel();
+    expect(model.showPrompt).toBe(true);
+    expect(model.explorationMode).toBe(true);
+    expect(model.layout).toBe("side-by-side");
+  });
+
+  test("f cycles speed 1 → 2 → 4 → 1", () => {
+    const scene = new CastScene(makeCast(), "reduced");
+    const ctx = makeCtx();
+    scene.enter(ctx);
+    scene.update(100, 33, ctx);
+
+    scene.handleKey({ type: "char", char: "f" }, ctx);
+    expect(scene.getModel().speed).toBe(2);
+    scene.handleKey({ type: "char", char: "f" }, ctx);
+    expect(scene.getModel().speed).toBe(4);
+    scene.handleKey({ type: "char", char: "f" }, ctx);
+    expect(scene.getModel().speed).toBe(1);
+  });
+
+  test("pace keys are inert once the prompt is shown", () => {
+    const scene = new CastScene(makeCast(), "reduced");
+    const ctx = makeCtx();
+    scene.enter(ctx);
+    scene.update(scene.getTimeline().duration + 100, 33, ctx);
+    expect(scene.getModel().showPrompt).toBe(true);
+
+    scene.handleKey({ type: "char", char: " " }, ctx);
+    expect(scene.getModel().paused).toBe(false);
+    scene.handleKey({ type: "char", char: "f" }, ctx);
+    expect(scene.getModel().speed).toBe(1);
+  });
+
+  test("pace footer is shown during the reveal", () => {
+    const scene = new CastScene(makeCast(), "reduced");
+    const ctx = makeCtx();
+    scene.enter(ctx);
+    scene.update(100, 33, ctx);
+
+    const rows = frameText(scene, ctx);
+    expect(rows[ctx.rows - 2]).toContain("[space] pause");
+    expect(rows[ctx.rows - 2]).toContain("[esc] back");
+  });
+});
+
+describe("CastScene reading panel", () => {
+  test("changing lines' texts appear after the reveal", () => {
+    const scene = new CastScene(makeChangingCast(), "reduced", 80);
+    const ctx = makeCtx();
+    scene.enter(ctx);
+    scene.update(scene.getTimeline().duration + 100, 33, ctx);
+
+    const text = frameText(scene, ctx).join("\n");
+    // Hexagram 21, changing lines 1 and 4 — the hint plus line 1's text
+    expect(text).toContain("two lines move — the upper governs");
+    expect(text).toContain("1 · His feet are fastened");
+  });
+
+  test("judgment shown when no lines move", () => {
+    const scene = new CastScene(makeCast(), "reduced");
+    const ctx = makeCtx();
+    scene.enter(ctx);
+    scene.update(scene.getTimeline().duration + 100, 33, ctx);
+
+    const text = frameText(scene, ctx).join("\n");
+    // Hexagram 63 既濟 — the judgment is the reading
+    expect(text).toContain("Judgment · ");
+  });
+
+  test("no reading panel before the reveal settles", () => {
+    const scene = new CastScene(makeChangingCast(), "reduced", 80);
+    const ctx = makeCtx();
+    scene.enter(ctx);
+    scene.update(100, 33, ctx);
+
+    const text = frameText(scene, ctx).join("\n");
+    expect(text).not.toContain("two lines move");
+  });
+});
+
+describe("CastScene openDetail cast context", () => {
+  test("primary detail carries the changing positions", () => {
+    const scene = new CastScene(makeChangingCast(), "reduced", 80);
+    const ctx = makeCtx();
+    scene.enter(ctx);
+    scene.update(scene.getTimeline().duration + 100, 33, ctx);
+
+    const model = scene.getModel();
+    model.focusedHex = "primary";
+    const result = scene.handleKey({ type: "enter" }, ctx);
+    expect(result).toEqual({ type: "openDetail", kw: 21, changedPositions: [1, 4] });
+  });
+
+  test("becoming detail opens without cast context", () => {
+    const scene = new CastScene(makeChangingCast(), "reduced", 80);
+    const ctx = makeCtx();
+    scene.enter(ctx);
+    scene.update(scene.getTimeline().duration + 100, 33, ctx);
+
+    scene.getModel().focusedHex = "becoming";
+    const result = scene.handleKey({ type: "enter" }, ctx);
+    expect(result).toEqual({ type: "openDetail", kw: 42 });
+  });
+
+  test("unchanging cast opens primary detail without context", () => {
+    const scene = new CastScene(makeCast(), "reduced");
+    const ctx = makeCtx();
+    scene.enter(ctx);
+    scene.update(scene.getTimeline().duration + 100, 33, ctx);
+    scene.handleKey({ type: "enter" }, ctx); // enter exploration
+    const result = scene.handleKey({ type: "enter" }, ctx);
+    expect(result).toEqual({ type: "openDetail", kw: 63 });
+  });
+});

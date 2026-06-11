@@ -28,8 +28,9 @@ export class DetailScene implements Scene {
     kw: number,
     glyphConfig?: DetailGlyphConfig,
     language: DisplayLanguage = "en",
+    changedPositions?: number[],
   ) {
-    this.model = new DetailModel(kw);
+    this.model = new DetailModel(kw, changedPositions);
     this.glyphConfig = glyphConfig;
     this.language = language;
   }

@@ -203,7 +203,7 @@ async function runPostCastNavigation(
       journal,
     };
     const startScene: Scene = signal.type === "openDetail"
-      ? makeDetailScene(signal.kw, factoryDeps)
+      ? makeDetailScene(signal.kw, factoryDeps, signal.changedPositions)
       : new BrowseScene();
     const router = new SceneRouter(startScene, makeBrowseFactory(factoryDeps));
     return await deps.runRouter(router);
