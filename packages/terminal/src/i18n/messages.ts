@@ -57,6 +57,10 @@ export const MESSAGES = {
   "verb.cut": { en: "cut", zhHant: "分蓍", zhHans: "分蓍" },
   "verb.cutAroundHere": { en: "cut around here", zhHant: "約此處分", zhHans: "约此处分" },
 
+  // ── loop-level notices ──
+  // Shown (calm, centered) when the terminal is too small for honest layout.
+  "notice.tooSmall": { en: "the window is too small", zhHant: "視窗過小", zhHans: "窗口过小" },
+
   // ── counters / structure (ritual chrome) ──
   "chrome.line": { en: "line", zhHant: "爻", zhHans: "爻" },
   "chrome.round": { en: "round", zhHant: "輪", zhHans: "轮" },

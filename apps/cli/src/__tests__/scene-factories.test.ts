@@ -4,13 +4,14 @@
 // SceneSignal objects instead of dotted strings.
 
 import { describe, test, expect, beforeEach } from "bun:test";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { JsonlJournalStore } from "@iching/storage";
 import { BrowseScene, DetailScene, JournalScene } from "@iching/terminal";
 import {
   makeBrowseFactory,
+  makeDetailScene,
   makeJournalFactory,
 } from "../app/scene-factories.ts";
 
@@ -41,6 +42,31 @@ describe("makeBrowseFactory", () => {
     const factory = makeBrowseFactory({ journal });
     expect(factory({ type: "openJournal" })).toBeNull();
     expect(factory({ type: "openSettings" })).toBeNull();
+  });
+});
+
+describe("makeDetailScene — history hydration crash safety", () => {
+  test("a corrupt journal line never escapes as an unhandled rejection", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "detail-hydration-test-"));
+    const path = join(dir, "history.jsonl");
+    await writeFile(path, "this is not json\n", "utf-8");
+    const journal = new JsonlJournalStore(path);
+
+    // Without the .catch on the hydration promise this rejection would kill
+    // the process outside runScene's restore path (terminal left raw).
+    let unhandled: unknown = null;
+    const onUnhandled = (err: unknown) => {
+      unhandled = err;
+    };
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      const scene = makeDetailScene(1, { journal });
+      expect(scene).toBeInstanceOf(DetailScene);
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      expect(unhandled).toBeNull();
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
   });
 });
 

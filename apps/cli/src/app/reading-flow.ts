@@ -55,7 +55,12 @@ export interface ReadingFlowDeps {
   runRouter: (router: SceneRouter) => Promise<{ shouldExit: boolean }>;
   paths: ResolvedPaths;
   cacheStore: JsonDailyCacheStore;
-  today: string;
+  /**
+   * Returns today's local date (YYYY-MM-DD). Called at persist time — not at
+   * flow start — so a reading that crosses midnight is stamped with the day
+   * it actually completed.
+   */
+  today: () => string;
   session: SessionDims;
   glyphConfig: CastGlyphInput;
   language: DisplayLanguage;
@@ -123,12 +128,14 @@ export async function runReadingFlow(
   if (!isPlay && !isReplay) {
     const structure = buildStructure(cast);
     const timestamp = new Date().toISOString();
+    // One call so journal and cache agree even at a midnight boundary.
+    const date = deps.today();
     if (!usedSeed) {
       const journal = new JsonlJournalStore(deps.paths.state);
-      await journal.append({ date: deps.today, cast, intention, timestamp });
+      await journal.append({ date, cast, intention, timestamp });
     }
     await deps.cacheStore.write({
-      date: deps.today,
+      date,
       cast,
       shown: true,
       structure,

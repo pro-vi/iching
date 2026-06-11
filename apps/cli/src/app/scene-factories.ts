@@ -35,9 +35,13 @@ export interface JournalDeps extends DetailDeps {
 /** Construct DetailScene + kick off async history hydration. */
 export function makeDetailScene(kw: number, deps: DetailDeps): DetailScene {
   const scene = new DetailScene(kw, deps.glyphConfig, deps.language);
-  getHexagramHistory(deps.journal, kw).then((h) =>
-    scene.setHistory(h.castCount, h.lastCastDate),
-  );
+  getHexagramHistory(deps.journal, kw)
+    .then((h) => scene.setHistory(h.castCount, h.lastCastDate))
+    .catch(() => {
+      // A corrupt journal must not surface as an unhandled rejection (which
+      // would kill the process outside runScene's restore path) — the detail
+      // scene simply renders without cast history.
+    });
   return scene;
 }
 
