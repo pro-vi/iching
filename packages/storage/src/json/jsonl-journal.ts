@@ -5,6 +5,7 @@ import { createInterface } from "node:readline";
 import type { HistoryEntry, ReflectionNote } from "@iching/core";
 import type { HistoryQuery } from "../types.js";
 import type { JournalStore } from "../journal-store.js";
+import { isCastShaped } from "./cast-shape.js";
 
 /**
  * Classify one JSONL line:
@@ -37,7 +38,11 @@ function parseLine(line: string): ParsedLine {
   // are forward-compatible: skip gracefully, don't flag the journal as torn.
   if (typeof record.kind === "string") return { type: "other", record };
   if (typeof record.date !== "string") return { type: "torn" };
-  if (typeof record.cast !== "object" || record.cast === null) return { type: "torn" };
+  // Deep cast validation (cast-shape.ts): readers resolve GUA[primary - 1] /
+  // GUA[becoming - 1] and walk lines/changingPositions without guarding, so a
+  // record like {"date":"…","cast":{}} is damage — skipped and counted like a
+  // torn line, never yielded for `journal list` to crash on.
+  if (!isCastShaped(record.cast)) return { type: "torn" };
   return { type: "entry", entry: parsed as HistoryEntry };
 }
 

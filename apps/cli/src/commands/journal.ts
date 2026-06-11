@@ -1,7 +1,12 @@
 import { Command } from "commander";
 import { GUA } from "@iching/core";
 import type { HistoryEntry, ReflectionNote } from "@iching/core";
-import { resolvePaths, JsonlJournalStore, noteMatchesEntry } from "@iching/storage";
+import {
+  resolvePaths,
+  JsonlJournalStore,
+  noteMatchesEntry,
+  stripTerminalControls,
+} from "@iching/storage";
 import {
   formatJournalListPlain,
   formatJournalShowPlain,
@@ -162,7 +167,10 @@ export function registerJournalCommand(program: Command): void {
       );
       const store = new JsonlJournalStore(paths.state);
 
-      const trimmed = text.trim();
+      // Strip terminal control sequences before the text becomes durable —
+      // a persisted note is replayed raw on every `journal show`, so ESC/OSC
+      // bytes in the argument would replay as live control sequences forever.
+      const trimmed = stripTerminalControls(text).trim();
       if (!trimmed) {
         console.error("Note text is empty.");
         process.exit(1);

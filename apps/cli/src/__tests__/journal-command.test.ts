@@ -302,6 +302,32 @@ describe("journal command", () => {
     expect(show.exitCode).toBe(0);
     expect(show.stderr).toBe("");
   }, 20_000);
+
+  // Regression: a syntactically valid record with an empty cast object used
+  // to pass the per-line guard and crash `journal list` resolving
+  // GUA[entry.cast.primary - 1] / entry.cast.becoming names. Malformed
+  // records now count as skipped lines, like torn ones.
+  test("list and show survive a record whose cast is an empty object", async () => {
+    await seedJournal(dataDir, [makeEntry("2026-01-01", 1, null)]);
+    await appendFile(
+      join(dataDir, "history.jsonl"),
+      '{"date":"2026-01-02","cast":{}}\n',
+      "utf-8",
+    );
+
+    const list = await runCli(dataDir, ["journal", "list"]);
+    expect(list.exitCode).toBe(0);
+    expect(list.stdout).toContain("2026-01-01");
+    expect(list.stderr).toContain("note: 1 unreadable journal line(s) skipped");
+
+    const show = await runCli(dataDir, ["journal", "show", "latest"]);
+    expect(show.exitCode).toBe(0);
+    expect(show.stdout).toContain("2026-01-01");
+
+    const json = await runCli(dataDir, ["--json", "journal", "list"]);
+    expect(json.exitCode).toBe(0);
+    expect(JSON.parse(json.stdout)).toHaveLength(1);
+  }, 20_000);
 });
 
 // Reflection notes — `journal note` appends a kind:"note" line; `journal show`
@@ -426,6 +452,65 @@ describe("journal note command", () => {
     expect(out.noted.ref).toBe("2026-01-02T09:00:00.000Z");
     expect(out.reading.date).toBe("2026-01-02");
     expect(out.reading.primary.n).toBe("蹇");
+  }, 20_000);
+
+  // Control-injection regression: persisted note text is replayed raw to the
+  // terminal on every `journal show` — ESC/OSC bytes in a note would replay
+  // as live control sequences (window retitle, cursor moves). Stripped at
+  // BOTH ends: write time (new records clean at rest) and render time
+  // (legacy / hand-edited records replay safely too).
+  test("note strips terminal control sequences before persisting", async () => {
+    const ESC = String.fromCharCode(0x1b);
+    const BEL = String.fromCharCode(0x07);
+    await seedJournal(dataDir, [makeEntry("2026-01-01", 1, null)]);
+
+    const noted = await runCli(dataDir, [
+      "journal", "note", `${ESC}]0;pwned${BEL}genuine reflection`,
+    ]);
+    expect(noted.exitCode).toBe(0);
+
+    const { readFile } = await import("node:fs/promises");
+    const raw = await readFile(join(dataDir, "notes.jsonl"), "utf-8");
+    const record = JSON.parse(raw.trim());
+    // Control bytes never reach disk; the printable residue stays.
+    expect(record.text).toBe("]0;pwnedgenuine reflection");
+    expect(record.text).not.toContain(ESC);
+  }, 20_000);
+
+  test("show strips control bytes from legacy hand-edited note records", async () => {
+    const ESC = String.fromCharCode(0x1b);
+    const BEL = String.fromCharCode(0x07);
+    await seedJournal(dataDir, [makeEntry("2026-01-01", 1, null)]);
+    // A note written around the CLI (hand-edit / older binary): raw ESC at rest.
+    await appendFile(
+      join(dataDir, "notes.jsonl"),
+      JSON.stringify({
+        kind: "note",
+        ref: "2026-01-01T09:00:00.000Z",
+        date: "2026-01-02",
+        timestamp: "2026-01-02T21:00:00.000Z",
+        text: `${ESC}]0;pwned${BEL}still readable`,
+      }) + "\n",
+      "utf-8",
+    );
+
+    const show = await runCli(dataDir, ["journal", "show", "2026-01-01"]);
+    expect(show.exitCode).toBe(0);
+    expect(show.stdout).toContain("still readable");
+    expect(show.stdout).not.toContain(ESC);
+    expect(show.stdout).not.toContain(BEL);
+  }, 20_000);
+
+  test("an all-control note is rejected as empty", async () => {
+    const ESC = String.fromCharCode(0x1b);
+    await seedJournal(dataDir, [makeEntry("2026-01-01", 1, null)]);
+    const noted = await runCli(dataDir, ["journal", "note", `${ESC}${ESC}[2J`]);
+    // "[2J" survives the strip — only pure-control text collapses to empty.
+    expect(noted.exitCode).toBe(0);
+
+    const blank = await runCli(dataDir, ["journal", "note", `${ESC}`]);
+    expect(blank.exitCode).toBe(1);
+    expect(blank.stderr).toContain("Note text is empty.");
   }, 20_000);
 
   test("readings written after a note still stream and show correctly", async () => {

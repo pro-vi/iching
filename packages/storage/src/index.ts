@@ -27,6 +27,9 @@ export {
   noteMatchesEntry,
 } from "./journal-query.js";
 
+// Terminal-safe text (journal notes are replayed to terminals)
+export { stripTerminalControls } from "./sanitize.js";
+
 // Legacy discovery
 export { discoverLegacyPaths } from "./legacy/discovery.js";
 export type { LegacyPaths } from "./legacy/discovery.js";

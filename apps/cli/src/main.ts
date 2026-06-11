@@ -3,6 +3,7 @@ import { program } from "./program.js";
 import { parseSeed } from "./util/parse-seed.js";
 import { localToday } from "./util/today.js";
 import { readTodayCache } from "./util/today-cache.js";
+import { deferDiagnostics, flushDiagnostics } from "./util/deferred-diagnostics.js";
 
 async function main() {
   // Operands are non-option args — i.e. actual subcommand names.
@@ -79,6 +80,7 @@ async function main() {
     // the user's shell isn't left in raw mode on the alt screen.
     const onFatal = (err: unknown) => {
       session.exit();
+      flushDiagnostics();
       console.error(err instanceof Error ? err.stack ?? err.message : String(err));
       process.exit(1);
     };
@@ -88,6 +90,11 @@ async function main() {
     // Hold one alt-screen session across the whole home loop — scene
     // transitions repaint in place instead of flashing the user's shell.
     session.enter();
+
+    // While the alt screen is held, anything console.error'd (corrupt-cache
+    // quarantine notes, the settings save-failure warning) is repainted over
+    // within a frame and lost on exit — defer it all to the post-exit flush.
+    deferDiagnostics();
 
     // Home menu loop — keeps returning to home until exit
     let running = true;
@@ -259,8 +266,11 @@ async function main() {
         }
       }
     } finally {
-      // Leave the alt screen exactly once, after the last scene
+      // Leave the alt screen exactly once, after the last scene — then
+      // replay any diagnostics deferred while it was up, so they land in
+      // scrollback instead of the discarded alt-screen buffer.
       session.exit();
+      flushDiagnostics();
     }
 
     process.exit(0);

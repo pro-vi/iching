@@ -6,6 +6,7 @@ import {
   getStructure,
 } from "@iching/core";
 import type { HistoryEntry } from "@iching/core";
+import { stripTerminalControls } from "@iching/storage";
 
 /**
  * Quiet one-line entropy provenance, or null when there is nothing worth
@@ -264,12 +265,15 @@ export function formatJournalShowPlain(
   lines.push(`大象 (dx): ${g.dx}`);
   lines.push(`Image (en): ${g.en}`);
 
-  // Reflection notes — what happened after, written later.
+  // Reflection notes — what happened after, written later. Text is stripped
+  // of control characters at render time too: notes written by older
+  // binaries (or hand-edited into the JSONL) must not replay ESC/OSC bytes
+  // as live control sequences.
   if (notes && notes.length > 0) {
     lines.push("");
     lines.push("Notes:");
     for (const note of notes) {
-      lines.push(`  ${note.date}  ${note.text}`);
+      lines.push(`  ${note.date}  ${stripTerminalControls(note.text)}`);
     }
   }
 

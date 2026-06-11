@@ -252,6 +252,85 @@ describe("JsonlJournalStore", () => {
       expect(notes.map((n) => n.text)).toEqual(["survives the tear"]);
     });
 
+    // Deep cast validation — a syntactically valid record whose cast lacks
+    // what readers dereference (GUA[primary - 1], becoming names, lines,
+    // changingPositions) is damage, counted like a torn line. An entry like
+    // {"date":"…","cast":{}} used to be yielded and crash `journal list`.
+    test("stream skips entries whose cast is missing its required shape", async () => {
+      const { writeFile } = await import("node:fs/promises");
+      const good = JSON.stringify(makeEntry("2025-01-01"));
+      await writeFile(
+        join(dir, "history.jsonl"),
+        `${good}\n{"date":"2025-01-02","cast":{}}\n`,
+        "utf-8",
+      );
+
+      const results: HistoryEntry[] = [];
+      for await (const entry of store.stream()) {
+        results.push(entry);
+      }
+
+      expect(results.map((e) => e.date)).toEqual(["2025-01-01"]);
+      expect(store.skippedLines).toBe(1);
+    });
+
+    test("stream skips casts with out-of-range or malformed fields", async () => {
+      const { writeFile } = await import("node:fs/promises");
+      const good = makeEntry("2025-01-01");
+      const damaged = [
+        { ...good, cast: { ...good.cast, primary: 0 } },
+        { ...good, cast: { ...good.cast, primary: 65 } },
+        { ...good, cast: { ...good.cast, primary: 1.5 } },
+        { ...good, cast: { ...good.cast, becoming: 99 } },
+        { ...good, cast: { ...good.cast, lines: good.cast.lines.slice(0, 5) } },
+        { ...good, cast: { ...good.cast, changingPositions: "none" } },
+        { ...good, cast: { ...good.cast, changingPositions: [1, "two"] } },
+      ];
+      await writeFile(
+        join(dir, "history.jsonl"),
+        [...damaged.map((e) => JSON.stringify(e)), JSON.stringify(good)].join("\n") + "\n",
+        "utf-8",
+      );
+
+      const results: HistoryEntry[] = [];
+      for await (const entry of store.stream()) {
+        results.push(entry);
+      }
+
+      expect(results).toHaveLength(1);
+      expect(results[0]).toEqual(good);
+      expect(store.skippedLines).toBe(damaged.length);
+    });
+
+    test("latest falls back past a trailing malformed-cast record", async () => {
+      const { appendFile } = await import("node:fs/promises");
+      await store.append(makeEntry("2025-01-01"));
+      await appendFile(
+        join(dir, "history.jsonl"),
+        '{"date":"2025-01-02","cast":{}}\n',
+        "utf-8",
+      );
+
+      const last = await store.latest();
+      expect(last).not.toBeNull();
+      expect(last!.date).toBe("2025-01-01");
+      expect(store.skippedLines).toBe(1);
+    });
+
+    test("a fully shaped entry with a non-null becoming still streams", async () => {
+      const entry = makeEntry("2025-01-01");
+      entry.cast.becoming = 8;
+      entry.cast.changingPositions = [1];
+      await store.append(entry);
+
+      const results: HistoryEntry[] = [];
+      for await (const e of store.stream()) {
+        results.push(e);
+      }
+      expect(results).toEqual([entry]);
+      expect(store.skippedLines).toBe(0);
+    });
+
     test("skippedLines resets between reads", async () => {
       const { appendFile } = await import("node:fs/promises");
       await store.append(makeEntry("2025-01-01"));

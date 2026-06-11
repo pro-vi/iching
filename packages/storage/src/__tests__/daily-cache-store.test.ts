@@ -152,4 +152,114 @@ describe("JsonDailyCacheStore", () => {
       expect(await store.read()).toEqual(record);
     });
   });
+
+  // Deep shape validation — every field readers dereference unguarded must
+  // hold, or the record is quarantined like torn bytes. A partial-but-valid
+  // JSON cache (e.g. missing structure) used to pass the guard and crash
+  // `iching today` on cache.structure.upper.
+  describe("deep shape validation", () => {
+    /** Write makeCache with one field damaged, return what read() yields. */
+    async function readDamaged(
+      mutate: (record: Record<string, unknown>) => void,
+    ): Promise<unknown> {
+      const { writeFile } = await import("node:fs/promises");
+      const record = JSON.parse(
+        JSON.stringify(makeCache("2025-01-15")),
+      ) as Record<string, unknown>;
+      mutate(record);
+      await writeFile(join(dir, "daily-cache.json"), JSON.stringify(record), "utf-8");
+      return store.read();
+    }
+
+    test("missing structure is quarantined (the `iching today` crash)", async () => {
+      const { readFile } = await import("node:fs/promises");
+      expect(await readDamaged((r) => delete r.structure)).toBeNull();
+      // Same quarantine path as unparseable bytes: .corrupt sidecar saved.
+      const backup = await readFile(join(dir, "daily-cache.json.corrupt"), "utf-8");
+      expect(JSON.parse(backup).structure).toBeUndefined();
+    });
+
+    test("structure missing upper or lower is quarantined", async () => {
+      expect(
+        await readDamaged((r) => delete (r.structure as Record<string, unknown>).upper),
+      ).toBeNull();
+      expect(
+        await readDamaged((r) => ((r.structure as Record<string, unknown>).lower = null)),
+      ).toBeNull();
+    });
+
+    test("missing or non-boolean shown is quarantined", async () => {
+      expect(await readDamaged((r) => delete r.shown)).toBeNull();
+      expect(await readDamaged((r) => (r.shown = "yes"))).toBeNull();
+    });
+
+    test("primary outside 1-64 or non-integer is quarantined", async () => {
+      for (const bad of [0, 65, 1.5, "3", null]) {
+        expect(
+          await readDamaged((r) => ((r.cast as Record<string, unknown>).primary = bad)),
+        ).toBeNull();
+      }
+    });
+
+    test("becoming must be null or 1-64", async () => {
+      for (const bad of [0, 99, "8", undefined]) {
+        expect(
+          await readDamaged((r) => ((r.cast as Record<string, unknown>).becoming = bad)),
+        ).toBeNull();
+      }
+    });
+
+    test("lines must be six line objects", async () => {
+      // Wrong length
+      expect(
+        await readDamaged((r) => {
+          const cast = r.cast as Record<string, unknown>;
+          cast.lines = (cast.lines as unknown[]).slice(0, 5);
+        }),
+      ).toBeNull();
+      // Right length, wrong element shape (today walks l.value/isYang/isChanging)
+      expect(
+        await readDamaged((r) => {
+          const cast = r.cast as Record<string, unknown>;
+          (cast.lines as unknown[])[2] = 7;
+        }),
+      ).toBeNull();
+      expect(
+        await readDamaged((r) => {
+          const cast = r.cast as Record<string, unknown>;
+          (cast.lines as unknown[])[0] = { value: 7, isYang: "yes", isChanging: false };
+        }),
+      ).toBeNull();
+    });
+
+    test("changingPositions must be an array of integers", async () => {
+      expect(
+        await readDamaged((r) => ((r.cast as Record<string, unknown>).changingPositions = "1,2")),
+      ).toBeNull();
+      expect(
+        await readDamaged(
+          (r) => ((r.cast as Record<string, unknown>).changingPositions = [1, "two"]),
+        ),
+      ).toBeNull();
+    });
+
+    test("derived numbers must be 1-64 (the hook's display cascade indexes GUA)", async () => {
+      for (const field of ["nuclear", "polarity", "mirror", "diagonal"]) {
+        expect(
+          await readDamaged((r) => delete (r.cast as Record<string, unknown>)[field]),
+        ).toBeNull();
+        expect(
+          await readDamaged((r) => ((r.cast as Record<string, unknown>)[field] = 65)),
+        ).toBeNull();
+      }
+    });
+
+    test("a fully shaped record with a non-null becoming still reads back", async () => {
+      const record = makeCache("2025-01-15");
+      record.cast.becoming = 8;
+      record.cast.changingPositions = [1];
+      await store.write(record);
+      expect(await store.read()).toEqual(record);
+    });
+  });
 });
