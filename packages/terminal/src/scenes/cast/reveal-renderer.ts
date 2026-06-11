@@ -7,11 +7,46 @@ import type { DisplayLanguage } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { anchorRow, TITLE_ROW_OFFSET } from "./hexagram-renderer.ts";
+import { canSplit, glyphRevealMode, glyphTitleLineCount, type GlyphRevealMode } from "./layout-calc.ts";
+import { readingPanelRows, readingPanelWidth } from "./reading-lines.ts";
 import { tr } from "../../i18n/messages.ts";
+
+/** The focused glyph entry — the one renderLargeGlyph would draw. */
+function focusedGlyphEntry(model: CastModel) {
+  return model.focusedHex === "primary"
+    ? model.primaryGlyphEntry
+    : (model.becomingGlyphEntry ?? model.primaryGlyphEntry);
+}
+
+/**
+ * How the glyph shares the rows below the hexagram with the title block and
+ * the reading panel — "normal", "compact" (title yields), or "none" (glyph
+ * yields). Single source of truth for glyph-renderer, titleLayout, and the
+ * reading panel, so all three agree on the same geometry.
+ *
+ * Computed from the settled-state layout (split prediction, full panel
+ * height) rather than the current animation phase, so the glyph never
+ * jumps rows when the exploration phase begins.
+ */
+export function glyphDisplayMode(
+  buf: CellBuffer,
+  model: CastModel,
+  language: DisplayLanguage = "en",
+): GlyphRevealMode {
+  const glyphHeight = focusedGlyphEntry(model)?.height ?? 0;
+  const hasGlyph = glyphHeight > 0 && (model.glyphAnimator !== null || model.glyphAnimDone);
+  if (!hasGlyph) return "none";
+  const willSplit = model.cast.becoming !== null && canSplit(buf.width);
+  const titleLines = glyphTitleLineCount(willSplit, language === "en");
+  const panelRows = readingPanelRows(model.cast, language, readingPanelWidth(buf.width));
+  return glyphRevealMode(buf.height, anchorRow(buf.height), glyphHeight, titleLines, panelRows);
+}
 
 /**
  * Title-block layout: where the block starts and which text lines it shows.
  * Shared by renderTitle and the reading panel (which starts below the block).
+ * In compact glyph mode the title yields all its rows to the reading texts —
+ * the glyph IS the name; the detail view holds the rest.
  */
 export function titleLayout(
   buf: CellBuffer,
@@ -24,11 +59,13 @@ export function titleLayout(
     ? model.cast.becoming
     : model.cast.primary;
 
-  const glyphEntry = model.focusedHex === "primary"
-    ? model.primaryGlyphEntry
-    : (model.becomingGlyphEntry ?? model.primaryGlyphEntry);
-  const glyphHeight = glyphEntry?.height ?? 0;
-  const hasGlyph = glyphHeight > 0 && (model.glyphAnimator !== null || model.glyphAnimDone);
+  const glyphHeight = focusedGlyphEntry(model)?.height ?? 0;
+  const mode = glyphDisplayMode(buf, model, language);
+  if (mode === "compact") {
+    // Glyph hugs the hexagram at `anchor`; the first free row follows it.
+    return { baseRow: anchor + glyphHeight, lines: [] };
+  }
+  const hasGlyph = mode === "normal";
   const baseRow = anchor + TITLE_ROW_OFFSET + (hasGlyph ? glyphHeight + 1 : 0);
   const gua = GUA[focusedKw - 1];
   const structure = getStructure(focusedKw);
@@ -137,8 +174,12 @@ export function renderBecomingTitle(
   const isSplit = model.layout !== "centered";
   const glyphEntry = model.primaryGlyphEntry ?? model.becomingGlyphEntry;
   const glyphHeight = glyphEntry?.height ?? 0;
-  const hasGlyph = glyphHeight > 0 && (model.glyphAnimator !== null || model.glyphAnimDone);
-  const glyphOffset = hasGlyph ? glyphHeight + 1 : 0;
+  // Offset below the glyph only when the glyph actually holds its normal
+  // place — in compact/none modes the becoming title is not glyph-shifted.
+  const glyphOffset =
+    glyphHeight > 0 && glyphDisplayMode(buf, model, language) === "normal"
+      ? glyphHeight + 1
+      : 0;
   // In split mode, becoming title renders at same row as primary title (not +6)
   const baseRow = anchor + TITLE_ROW_OFFSET + glyphOffset + (isSplit ? 0 : 6);
   const hexNum = model.cast.becoming;

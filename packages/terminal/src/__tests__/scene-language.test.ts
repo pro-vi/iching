@@ -546,7 +546,10 @@ describe("Glyph composition honors language — Simplified glyphs in zh-Hans", (
     diagonal: 1,
   };
   function castGlyph(language: DisplayLanguage): string[] | undefined {
-    const s = new CastScene(cast58, "reduced", 80, glyphCfg, 24, undefined, { language });
+    // 40 rows: tall enough that the glyph keeps its place beside the reading
+    // panel (at 24 rows the glyph yields to the texts — see cast-reading-panel
+    // tests) so the composed entry is present to compare.
+    const s = new CastScene(cast58, "reduced", 80, glyphCfg, 40, undefined, { language });
     s.skipToComplete(false);
     return (s as unknown as { model: { primaryGlyphEntry: { rows: string[] } | null } }).model
       .primaryGlyphEntry?.rows;

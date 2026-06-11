@@ -1,6 +1,6 @@
 // CastScene — main scene orchestrating the full casting ritual
 
-import { type Cast, GUA } from "@iching/core";
+import { type Cast, GUA, toSimplified } from "@iching/core";
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
@@ -10,20 +10,21 @@ import { TimelineRunner } from "../../animation/runner.ts";
 import { CastModel } from "./model.ts";
 import { renderCoins } from "./coin-renderer.ts";
 import { renderHexagram, anchorRow, LINE_ROW_OFFSETS, COIN_ROW_OFFSET } from "./hexagram-renderer.ts";
-import { renderTitle, renderBecomingTitle } from "./reveal-renderer.ts";
+import { renderTitle, renderBecomingTitle, glyphDisplayMode } from "./reveal-renderer.ts";
 import { renderReadingPanel } from "./reading-renderer.ts";
+import { readingPanelRows, readingPanelWidth } from "./reading-lines.ts";
 import { renderMorph } from "./morph-renderer.ts";
 import { renderRightHexagram, renderRightMorph } from "./right-hex-renderer.ts";
 import { buildCastTimeline, type CastGlyphConfig } from "./timeline-builder.ts";
 import { renderLargeGlyph } from "./glyph-renderer.ts";
-import { hexColOffset } from "./layout-calc.ts";
+import { hexColOffset, canSplit, glyphRevealMode, glyphTitleLineCount } from "./layout-calc.ts";
 import { getTheme } from "../../color/theme.ts";
 import { SPLIT_ARROW } from "../../glyphs.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
-import { autoGlyphSize } from "../../glyph-anim/auto-size.ts";
+import { composeGlyph } from "../../glyph-anim/compose.ts";
 import { tr } from "../../i18n/messages.ts";
-import type { DisplayLanguage } from "@iching/core";
+import type { DisplayLanguage, GlyphSize } from "@iching/core";
 
 export type CastGlyphInput = Omit<CastGlyphConfig, "glyphSize">;
 
@@ -55,23 +56,44 @@ export class CastScene implements Scene {
     this.model = new CastModel(cast);
     this.model.intention = intention;
     this.termWidth = termWidth;
-    // Auto-size glyph to fit the area below the hexagram. Glyph is rendered at
-    // anchor+1 (anchor = floor(rows/2)+3), so vertical room is rows - anchor - 1.
+    // Size the glyph against the settled-reveal budget: the reading panel's
+    // rows are reserved first (the oracle texts are the heart of the reading;
+    // the glyph is ornament). Prefer the largest size that keeps the normal
+    // layout (glyph + title + texts), fall back to compact (title yields),
+    // and omit the glyph entirely when even compact cannot host the texts.
     if (glyphConfig) {
+      const language = opts?.language ?? "en";
+      const anchor = anchorRow(termRows);
+      const willSplit = cast.becoming !== null && canSplit(termWidth);
+      const titleLines = glyphTitleLineCount(willSplit, language === "en");
+      const panelRows = readingPanelRows(cast, language, readingPanelWidth(termWidth));
       const primaryName = GUA[cast.primary - 1]?.n ?? "";
       const becomingName = cast.becoming ? GUA[cast.becoming - 1]?.n ?? "" : "";
-      const maxChars = Math.max(
-        1,
-        [...primaryName].length,
-        [...becomingName].length,
-      );
-      const anchor = Math.floor(termRows / 2) + 3;
-      const availRows = Math.max(4, termRows - anchor - 1);
-      this.glyphConfig = {
-        ...glyphConfig,
-        glyphSize: autoGlyphSize(availRows, termWidth, maxChars),
-        language: opts?.language,
-      };
+      // zh-Hans composes Simplified glyphs — measure what will be drawn.
+      const names = [primaryName, becomingName]
+        .filter((n) => n.length > 0)
+        .map((n) => (language === "zh-Hans" ? toSimplified(n) : n));
+      let fitted: GlyphSize | null = null;
+      outer: for (const wantMode of ["normal", "compact"] as const) {
+        for (const size of [64, 48, 32] as const) {
+          const entries = names.map((n) => composeGlyph(n, glyphConfig.glyphFont, size));
+          if (entries.some((e) => e === null)) continue;
+          const glyphHeight = Math.max(...entries.map((e) => e!.height));
+          const glyphWidth = Math.max(...entries.map((e) => e!.width));
+          if (glyphWidth > termWidth) continue;
+          if (glyphRevealMode(termRows, anchor, glyphHeight, titleLines, panelRows) === wantMode) {
+            fitted = size;
+            break outer;
+          }
+        }
+      }
+      if (fitted !== null) {
+        this.glyphConfig = {
+          ...glyphConfig,
+          glyphSize: fitted,
+          language: opts?.language,
+        };
+      }
     }
     const timing = getPreset(preset);
     this.glyphAnimScale = timing.glyphAnimScale;
@@ -135,11 +157,15 @@ export class CastScene implements Scene {
     }
 
     // When large glyph is active: single centered glyph + title area
-    // replaces the split left/right title layout
-    const hasGlyph = model.primaryGlyphEntry && (model.glyphAnimator || model.glyphAnimDone);
+    // replaces the split left/right title layout. The glyph yields ("none")
+    // when the reading texts need its rows — the split titles return then.
+    const hasGlyph =
+      model.primaryGlyphEntry &&
+      (model.glyphAnimator || model.glyphAnimDone) &&
+      glyphDisplayMode(frame, model, lang) !== "none";
 
     if (hasGlyph) {
-      renderLargeGlyph(frame, model);
+      renderLargeGlyph(frame, model, lang);
       // Single centered title for the focused hexagram (no split offset)
       renderTitle(frame, model, 0, lang);
     } else {
