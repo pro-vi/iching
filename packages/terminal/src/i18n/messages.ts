@@ -41,6 +41,8 @@ export const MESSAGES = {
   "verb.clearSearch": { en: "clear search", zhHant: "清除搜尋", zhHans: "清除搜寻" },
   "verb.scroll": { en: "scroll", zhHant: "捲動", zhHans: "卷动" },
   "verb.derived": { en: "derived", zhHant: "衍卦", zhHans: "衍卦" },
+  // Detail-view ←/→ walk of the King Wen sequence (KW ±1, wrapping).
+  "verb.adjacent": { en: "adjacent", zhHant: "鄰卦", zhHans: "邻卦" },
   "verb.select": { en: "select", zhHant: "選擇", zhHans: "选择" },
   "verb.view": { en: "view", zhHant: "檢視", zhHans: "检视" },
   "verb.dictionary": { en: "dictionary", zhHant: "卦典", zhHans: "卦典" },
@@ -85,6 +87,8 @@ export const MESSAGES = {
   "dict.title": { en: "I Ching Dictionary", zhHant: "易經卦典", zhHans: "易经卦典" },
   "dict.searchPrompt": { en: "Search: ", zhHant: "搜尋：", zhHans: "搜寻：" },
   "dict.countSuffix": { en: "hexagrams", zhHant: "卦", zhHans: "卦" },
+  // Quiet centered hint when a search matches nothing (instead of a blank list).
+  "dict.emptyHint": { en: "nothing answers · esc to clear", zhHant: "無所應 · esc 清除", zhHans: "无所应 · esc 清除" },
 
   // ── journal chrome ──
   "journal.title": { en: "Journal", zhHant: "占記", zhHans: "占记" },

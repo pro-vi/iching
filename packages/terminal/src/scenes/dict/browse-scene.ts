@@ -11,9 +11,19 @@ export class BrowseScene implements Scene {
   private model: BrowseModel;
   private textInput: TextInput;
 
-  constructor() {
+  /**
+   * `initialQuery` opens the browser with the search already active and
+   * filtered (e.g. `iching dict tai` lands on the matching shortlist).
+   */
+  constructor(initialQuery?: string) {
     this.model = new BrowseModel();
     this.textInput = new TextInput();
+    if (initialQuery && initialQuery.trim().length > 0) {
+      this.textInput.value = initialQuery;
+      this.textInput.moveToEnd();
+      this.model.searchActive = true;
+      this.model.setQuery(initialQuery);
+    }
   }
 
   enter(ctx: SceneContext): void {
