@@ -3,6 +3,7 @@
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
+import { stripTerminalControls } from "@iching/core";
 import { BrowseModel } from "./browse-model.ts";
 import { TextInput } from "../../widgets/text-input.ts";
 import { renderBrowse, listViewportHeight } from "./browse-renderer.ts";
@@ -120,7 +121,7 @@ export class BrowseScene implements Scene {
     // Paste — a pasted query lands in the search like typed characters:
     // fold newlines/tabs to spaces, drop control chars, filter live.
     if (key.type === "paste") {
-      const text = key.text.replace(/[\n\t]+/g, " ").replace(/[\x00-\x1f\x7f]/g, "");
+      const text = stripTerminalControls(key.text);
       if (text.length > 0) {
         if (!this.model.searchActive) {
           this.model.searchActive = true;

@@ -4,7 +4,7 @@ import { CellBuffer } from "../render/buffer.ts";
 import type { SceneContext } from "../scene/types.ts";
 
 function makeCtx(cols = 80, rows = 24): SceneContext {
-  return { cols, rows, done: false, colorSupport: "none" as any };
+  return { cols, rows, done: false, colorSupport: "none" };
 }
 
 describe("DetailScene", () => {

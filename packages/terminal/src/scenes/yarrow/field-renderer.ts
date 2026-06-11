@@ -453,7 +453,8 @@ export function renderYarrowFieldStrip(
     case "fuse": {
       const activeLine = model.activeLine;
       if (activeLine < 0) break;
-      const transcript = model.transcript[activeLine];
+      const transcript = model.lineResult(activeLine);
+      if (!transcript) break;
       const remaining = transcript.rounds[2].remaining;
       const line = transcript.line;
       const startWidth = stalkWidth(remaining);

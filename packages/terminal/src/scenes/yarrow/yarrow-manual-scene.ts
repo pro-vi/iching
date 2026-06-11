@@ -17,7 +17,6 @@ import {
   lineFromValue,
   toLineValue,
   type RandomSource,
-  type YarrowLineResult,
   type YarrowRound,
 } from "@iching/core";
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
@@ -266,8 +265,8 @@ export class YarrowManualScene implements Scene {
     while (this.model.transcript.length <= lineIdx) {
       // Placeholder: rounds will be filled in as they commit; line set on round 3.
       this.model.transcript.push({
-        rounds: [] as unknown as YarrowLineResult["rounds"],
-        line: null as unknown as YarrowLineResult["line"],
+        rounds: [],
+        line: null,
       });
     }
   }

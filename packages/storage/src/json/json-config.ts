@@ -28,6 +28,8 @@ const DEFAULT_CONFIG: UserConfig = {
   entropy: "crypto",
 };
 
+type ForwardCompatibleUserConfig = UserConfig & Record<string, unknown>;
+
 // Old castMode strings (pre split into castMethod+castMode) → new pair.
 const LEGACY_CAST_MODE: Record<string, { method: UserConfig["castMethod"]; mode: UserConfig["castMode"] }> = {
   "auto": { method: "coin", mode: "auto" },
@@ -141,7 +143,7 @@ function stringValue(
 }
 
 function normalizeConfig(parsed: unknown): UserConfig {
-  const merged: UserConfig = { ...DEFAULT_CONFIG };
+  const merged: ForwardCompatibleUserConfig = { ...DEFAULT_CONFIG };
   if (!isRecord(parsed)) return merged;
 
   if (isOneOf(MOTION_OPTIONS, parsed.motion)) merged.motion = parsed.motion;
@@ -204,7 +206,7 @@ function normalizeConfig(parsed: unknown): UserConfig {
   for (const k of Object.keys(parsed)) {
     if (k === "__proto__" || k === "constructor" || k === "prototype") continue;
     if (!Object.hasOwn(DEFAULT_CONFIG, k)) {
-      (merged as unknown as Record<string, unknown>)[k] = parsed[k];
+      merged[k] = parsed[k];
     }
   }
 

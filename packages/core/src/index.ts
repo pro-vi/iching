@@ -76,6 +76,9 @@ export { formatDerived } from "./format/derived.js";
 // Search
 export { searchHexagrams } from "./search.js";
 
+// Terminal-safe text
+export { stripTerminalControls } from "./terminal-text.js";
+
 // Detail
 export { type HexagramDetail, buildHexagramDetail } from "./detail.js";
 

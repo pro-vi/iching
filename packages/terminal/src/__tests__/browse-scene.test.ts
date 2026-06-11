@@ -5,7 +5,7 @@ import { CellBuffer } from "../render/buffer.ts";
 import type { KeyEvent } from "../input/key-parser.ts";
 
 function makeCtx(cols = 80, rows = 24): SceneContext {
-  return { cols, rows, done: false, colorSupport: "none" as any };
+  return { cols, rows, done: false, colorSupport: "none" };
 }
 
 describe("BrowseScene", () => {
@@ -89,6 +89,15 @@ describe("BrowseScene", () => {
     scene.handleKey({ type: "char", char: "/" }, makeCtx());
     scene.handleKey({ type: "paste", text: "cre\native\x07" }, makeCtx());
     expect(scene.getModel().query).toBe("cre ative");
+  });
+
+  test("paste strips C1 controls before filtering", () => {
+    const scene = new BrowseScene();
+    scene.enter(makeCtx());
+    scene.handleKey({ type: "paste", text: "creative\u0085" }, makeCtx());
+    expect(scene.getModel().query).toBe("creative");
+    expect(scene.getModel().filtered.length).toBeGreaterThan(0);
+    expect(scene.getModel().filtered[0].ename).toBe("The Creative");
   });
 
   test("paste appends to an existing query at the cursor", () => {

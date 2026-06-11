@@ -19,7 +19,7 @@ const mockCast: Cast = {
 };
 
 function makeCtx(): SceneContext {
-  return { cols: 80, rows: 24, done: false, colorSupport: "none" as any };
+  return { cols: 80, rows: 24, done: false, colorSupport: "none" };
 }
 
 describe("CastScene dictionary key", () => {

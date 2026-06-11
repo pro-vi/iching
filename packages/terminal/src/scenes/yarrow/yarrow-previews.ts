@@ -51,7 +51,7 @@ export class YarrowAutoPreview {
 
   constructor() {
     this.model = new YarrowModel(castYarrowHexagram(new SeededRandomSource(PREVIEW_SEED)));
-    this.runner = newRoundRunner(this.model, this.model.transcript[0].rounds[0]);
+    this.runner = newRoundRunner(this.model, this.model.requireLineResult(0).rounds[0]);
   }
 
   step(dt: number): void {
@@ -84,7 +84,7 @@ export class YarrowManualPreview {
 
   constructor() {
     this.model = new YarrowModel(castYarrowHexagram(new SeededRandomSource(PREVIEW_SEED)));
-    this.runner = newRoundRunner(this.model, this.model.transcript[0].rounds[0]);
+    this.runner = newRoundRunner(this.model, this.model.requireLineResult(0).rounds[0]);
     this.model.resetActiveLine(0, STALKS);
     this.resetSweepState();
   }

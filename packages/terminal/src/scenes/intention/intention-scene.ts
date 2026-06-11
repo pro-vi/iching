@@ -3,6 +3,7 @@
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
+import { stripTerminalControls } from "@iching/core";
 import { TextInput } from "../../widgets/text-input.ts";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
@@ -101,9 +102,9 @@ export class IntentionScene implements Scene {
     }
 
     if (key.type === "paste") {
-      // A pasted reflection arrives as one block: fold newlines/tabs to
+      // A pasted intention arrives as one block: fold newlines/tabs to
       // spaces (enter must not submit mid-paste) and drop control chars.
-      const text = key.text.replace(/[\n\t]+/g, " ").replace(/[\x00-\x1f\x7f]/g, "");
+      const text = stripTerminalControls(key.text);
       if (text.length > 0) this.textInput.insert(text);
       return;
     }

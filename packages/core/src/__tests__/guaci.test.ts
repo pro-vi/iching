@@ -70,7 +70,7 @@ describe("GUA judgment texts (卦辭)", () => {
 describe("gc/yaoXiao zh-Hans conversion coverage", () => {
   test("every Traditional char in the new texts is mapped, identity, or a listed exception", () => {
     // The audited map covers the rendered corpus. New texts (gc/yaoXiao/extra)
-    // must not silently leak unconverted Traditional characters: any char with
+    // must not silently leak unconverted Traditional characters: each char with
     // a distinct simplified form must be in SIMPLIFIED_MAP; deliberate
     // retentions live in SIMPLIFIED_EXCEPTIONS. This test pins the supplement
     // entries added for the 卦辭/小象傳 corpus.

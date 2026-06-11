@@ -57,6 +57,13 @@ describe("IntentionScene — paste", () => {
     expect(scene.getIntention()).toBe("a bc");
   });
 
+  test("C1 controls are dropped from paste", () => {
+    const scene = new IntentionScene();
+    scene.handleKey({ type: "paste", text: "ask\u0085\u009b31m" }, ctx());
+    scene.handleKey({ type: "enter" }, ctx());
+    expect(scene.getIntention()).toBe("ask31m");
+  });
+
   test("paste lands at the cursor position", () => {
     const scene = new IntentionScene();
     scene.handleKey({ type: "char", char: "x" }, ctx());

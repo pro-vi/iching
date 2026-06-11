@@ -8,7 +8,7 @@ import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
 import type { DisplayLanguage, HistoryEntry } from "@iching/core";
-import { GUA, toSimplified } from "@iching/core";
+import { GUA, stripTerminalControls, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { ScrollableRegion } from "../../widgets/scrollable.ts";
@@ -52,11 +52,9 @@ export interface JournalSceneOptions {
  * newlines/tabs to spaces (enter must not submit mid-paste) and strip the
  * remaining C0/C1 control characters — including ESC (0x1B), so a pasted
  * ANSI sequence cannot leak raw control bytes into a stored note.
- * TODO(merge): the CLI note-write path grows the same stripping (R1); unify
- * into one shared sanitizer once both land.
  */
 export function sanitizeFieldText(text: string): string {
-  return text.replace(/[\n\t]+/g, " ").replace(/[\u0000-\u001f\u007f-\u009f]/g, "");
+  return stripTerminalControls(text);
 }
 
 /** Strip diacritics for accent-insensitive pinyin matching. */

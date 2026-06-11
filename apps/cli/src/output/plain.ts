@@ -47,7 +47,7 @@ export function formatCastPlain(
   }
 
   // Primary hexagram
-  const ename = (primary as any).ename ? ` — ${(primary as any).ename}` : "";
+  const ename = primary.ename ? ` — ${primary.ename}` : "";
   lines.push(`${primary.u}  ${primary.n} (${primary.p})${ename} — Hexagram ${cast.primary}`);
   lines.push("");
 
@@ -132,7 +132,7 @@ export function formatHexagramPlain(
   const lines: string[] = [];
   const s = getStructure(kw);
 
-  const ename = (hex as any).ename ? ` — ${(hex as any).ename}` : "";
+  const ename = hex.ename ? ` — ${hex.ename}` : "";
   lines.push(`${hex.u}  ${hex.n} (${hex.p})${ename} — Hexagram ${kw}`);
   lines.push("");
   lines.push(
@@ -230,7 +230,7 @@ export function formatJournalShowPlain(
   const structure = getStructure(entry.cast.primary);
   const lines: string[] = [];
 
-  const ename = (g as any).ename ? ` — ${(g as any).ename}` : "";
+  const ename = g.ename ? ` — ${g.ename}` : "";
   lines.push(`Date: ${entry.date}${entry.timestamp ? `  ${formatTime(entry.timestamp)}` : ""}`);
   if (entry.intention) {
     lines.push(`Intention: ${entry.intention}`);
