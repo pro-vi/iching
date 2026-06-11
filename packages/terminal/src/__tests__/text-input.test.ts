@@ -171,4 +171,23 @@ describe("TextInput", () => {
     // Cursor cell has inverted colors
     expect(cell2.bg).toBe("#FFFFFF");
   });
+
+  test("cursor colors fall back to theme tokens when style omits fg/bg", () => {
+    const { getTheme } = require("../color/theme.ts");
+    const t = getTheme();
+
+    const input = new TextInput();
+    const buf = CellBuffer.create(10, 1);
+    input.render(buf, 0, 0, 5);
+    // Empty input: cursor block sits at col 0
+    const cursor = buf.getCell(0, 0);
+    expect(cursor.bg).toBe(t.primary);
+    expect(cursor.fg).toBe(t.bg);
+
+    const wrapped = CellBuffer.create(10, 2);
+    input.renderWrapped(wrapped, 0, 0, 5, 2);
+    const wCursor = wrapped.getCell(0, 0);
+    expect(wCursor.bg).toBe(t.primary);
+    expect(wCursor.fg).toBe(t.bg);
+  });
 });

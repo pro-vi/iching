@@ -1,8 +1,10 @@
 // Taijitu — rotating yin-yang renderer using braille dot patterns.
-// Monochrome: no fg/bg set, cells inherit the terminal's default text color.
+// Drawn in the active theme's secondary tone by default so the centerpiece
+// sits with the rest of the themed screen on any terminal profile.
 // Blank regions are achieved by simply not writing a cell.
 
 import type { CellBuffer } from "../../render/buffer.ts";
+import { getTheme } from "../../color/theme.ts";
 
 export type TaijituStyle = "dots" | "dense";
 
@@ -35,6 +37,7 @@ export function renderTaijitu(
   radius: number,
   theta: number,
   style: TaijituStyle,
+  fg: string = getTheme().secondary,
 ): void {
   if (radius < 4) return;
 
@@ -79,7 +82,7 @@ export function renderTaijitu(
 
       if (bits === 0) continue;
 
-      buf.setCell(row, col, { char: String.fromCharCode(0x2800 + bits) });
+      buf.setCell(row, col, { char: String.fromCharCode(0x2800 + bits), fg });
     }
   }
 }
