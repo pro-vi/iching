@@ -464,20 +464,16 @@ export class JournalScene implements Scene {
       return [...segs, { text: " ".repeat(Math.max(1, LABEL_W - w + 1)), style: stLabel }];
     };
 
-    // Fractional bars: the last cell fills in eighths (▏▎▍▌▋▊▉) rather than
-    // rounding to a whole block, so an uneven ratio reads precisely and the
-    // bars share the drift sparkline's eighth-block grain. Width stays barW.
+    // Bars in the lower-block family — ▅ ink fading to a faint ▁ groove, both
+    // resting on the cell baseline. This is the same family as the 次第 drift
+    // sparkline (▁▂▃▄▅▆▇█), so the pane speaks one glyph language; ▅ is softer
+    // ink than a full █ block, and ▁ a quieter track than ░ shade. Rounded to
+    // whole cells: these are glanceable proportions, not a precision meter.
     const bar = (count: number, max: number): PatternSegment[] => {
-      if (count <= 0 || max <= 0) {
-        return [{ text: "░".repeat(barW), style: stRest }];
-      }
-      const eighths = Math.max(1, Math.round((count / max) * barW * 8));
-      const full = Math.floor(eighths / 8);
-      const rem = eighths % 8;
-      const fill = "█".repeat(full) + (rem > 0 ? "▏▎▍▌▋▊▉"[rem - 1] : "");
+      const filled = count <= 0 || max <= 0 ? 0 : Math.max(1, Math.round((count / max) * barW));
       return [
-        { text: fill, style: stBar },
-        { text: "░".repeat(Math.max(0, barW - full - (rem > 0 ? 1 : 0))), style: stRest },
+        { text: "▅".repeat(Math.min(barW, filled)), style: stBar },
+        { text: "▁".repeat(Math.max(0, barW - filled)), style: stRest },
       ];
     };
 
@@ -903,11 +899,11 @@ export class JournalScene implements Scene {
       row(
         ...label([]),
         { text: "⚋ ", style: yinFill },
-        { text: "░".repeat(armW - yinArm), style: stRest },
-        { text: "█".repeat(yinArm), style: yinFill },
+        { text: "▁".repeat(armW - yinArm), style: stRest },
+        { text: "▅".repeat(yinArm), style: yinFill },
         { text: "│", style: stSep },
-        { text: "█".repeat(yangArm), style: yangFill },
-        { text: "░".repeat(armW - yangArm), style: stRest },
+        { text: "▅".repeat(yangArm), style: yangFill },
+        { text: "▁".repeat(armW - yangArm), style: stRest },
         { text: " ⚊", style: yangFill },
         lab("  "),
         lab(`${tr(lang, "journal.patterns.balanceYin")} `),

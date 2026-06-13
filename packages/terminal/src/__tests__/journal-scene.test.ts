@@ -622,7 +622,7 @@ describe("JournalScene patterns pane ([p])", () => {
     // S2 — faces seen: aligned labels, bars, counts, last dates
     expect(text).toContain("卦象 · faces seen");
     expect(text).toContain("䷦ 蹇 Jiǎn");
-    expect(text).toContain("████████████ ×3 · last 04-02");
+    expect(text).toContain("▅▅▅▅▅▅▅▅▅▅▅▅ ×3 · last 04-02");
     expect(text).toContain("䷀ 乾 Qián");
 
     // S3 — movement, read top-down like a hexagram
@@ -761,9 +761,9 @@ describe("JournalScene patterns pane ([p])", () => {
     expect(text).not.toContain("old yang");
   });
 
-  test("bars fill in eighths — an uneven ratio shows a partial cell, not a rounded block", () => {
-    // line 5 moves 4× while line 4 moves 5× (the max): 4/5 of 12 cells = 9.6,
-    // which must render as nine full blocks plus a 5/8 partial, never a flat 10.
+  test("bars render in the lower-block ink family — ▅ fill, ▁ groove track", () => {
+    // line 5 moves 4×, line 4 moves 5× (the max). Bars round to whole cells in
+    // the ▅/▁ family that the drift sparkline shares; the max fills solid.
     const moving = [
       makeEntry("2026-03-01", 2, { cast: makeCast(2, 24, [4]), method: "coin" }),
       makeEntry("2026-03-02", 2, { cast: makeCast(2, 24, [4]), method: "coin" }),
@@ -780,8 +780,8 @@ describe("JournalScene patterns pane ([p])", () => {
     scene.enter(ctx);
     press(scene, ctx, "p");
     const text = renderText(scene, ctx);
-    expect(text).toContain("█████████▋"); // line 5: 4/5 → 9 full + 5/8
-    expect(text).toContain("████████████ × 5"); // line 4 (the max) fills the track
+    expect(text).toContain("▅▅▅▅▅▅▅▅▅▅▁▁"); // line 5: 4/5 of 12 → 10 ink + 2 groove
+    expect(text).toContain("▅▅▅▅▅▅▅▅▅▅▅▅ × 5"); // line 4 (the max) fills solid
   });
 
   test("兩儀 coda renders the yang/yin balance growing from a central axis", () => {
