@@ -133,6 +133,15 @@ export function parseKeyWithLength(buf: Uint8Array): ParseResult | null {
         // Truncated CSI — flush as escape, consuming everything
         return { event: { type: "escape" }, consumed: buf.length };
       }
+      const csiFinal = buf[finalIdx];
+      if (csiFinal < 0x40 || csiFinal > 0x7e) {
+        // Malformed CSI: the scan stopped at a byte that is neither a parameter/
+        // intermediate nor a VALID final (0x40–0x7E) — e.g. a new ESC or a C0
+        // control. Treating it as the final would swallow a following real
+        // sequence (ESC [ ESC [ A would eat the arrow). Abort: drop the ESC [ …
+        // prefix and leave the offending byte to be re-parsed as its own start.
+        return { event: null, consumed: finalIdx };
+      }
       return parseCSI(buf, finalIdx);
     }
 
@@ -143,6 +152,12 @@ export function parseKeyWithLength(buf: Uint8Array): ParseResult | null {
         return { event: { type: "escape" }, consumed: buf.length };
       }
       const final = buf[2];
+      if (final < 0x40 || final > 0x7e) {
+        // Malformed SS3: the "final" is a control byte (e.g. a new ESC), not a
+        // valid SS3 final. Don't consume it — drop ESC O and let the byte
+        // re-parse, so a following sequence (ESC O ESC [ A) isn't eaten.
+        return { event: null, consumed: 2 };
+      }
       if (final === 0x41) return { event: { type: "arrow", direction: "up" }, consumed: 3 };
       if (final === 0x42) return { event: { type: "arrow", direction: "down" }, consumed: 3 };
       if (final === 0x43) return { event: { type: "arrow", direction: "right" }, consumed: 3 };

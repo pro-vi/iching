@@ -67,6 +67,23 @@ describe("KeyParser — extended key buffering", () => {
     parser.dispose();
   });
 
+  test("a malformed CSI/SS3 interrupted by a new ESC doesn't swallow the next sequence", () => {
+    // ESC [ then a new ESC (the first CSI never got a valid final 0x40-0x7E):
+    // the parser must not treat that ESC as the CSI's final and eat the arrow.
+    let ev: KeyEvent[] = [];
+    let parser = new KeyParser((e) => ev.push(e));
+    parser.feed(new Uint8Array([0x1b, 0x5b, 0x1b, 0x5b, 0x41])); // ESC[ ESC[A
+    expect(ev).toContainEqual({ type: "arrow", direction: "up" });
+    parser.dispose();
+
+    // Same for SS3: ESC O then a new ESC — the third byte isn't a valid final.
+    ev = [];
+    parser = new KeyParser((e) => ev.push(e));
+    parser.feed(new Uint8Array([0x1b, 0x4f, 0x1b, 0x5b, 0x41])); // ESC O ESC[A
+    expect(ev).toContainEqual({ type: "arrow", direction: "up" });
+    parser.dispose();
+  });
+
   test("a truncated multibyte lead before an ESC sequence doesn't swallow the sequence", () => {
     // A 3-byte UTF-8 lead cut off by a read boundary, then an arrow key. The
     // parser must not decode [lead, ESC, []] as one bogus char (eating the arrow
