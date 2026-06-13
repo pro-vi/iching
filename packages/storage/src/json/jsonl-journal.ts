@@ -189,7 +189,12 @@ export class JsonlJournalStore implements JournalStore {
     if (!(await this.exists(this.path))) return null;
 
     const content = await readFile(this.path, "utf-8");
-    const lines = content.trimEnd().split("\n");
+    // Split on universal newlines (\n, \r\n, lone \r) to match the readline
+    // reader in stream(): an externally lone-CR-delimited journal (old-Mac
+    // endings from a hand-edit or import) would otherwise collapse to one giant
+    // torn line here and return null, so `iching today` would report an empty
+    // journal that `journal list` (which streams every entry) disproves.
+    const lines = content.split(/\r\n|\r|\n/);
 
     // Walk backwards to find the last non-empty line that parses — a torn
     // final line (interrupted append) falls through to the previous entry,

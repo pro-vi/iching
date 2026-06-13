@@ -263,6 +263,28 @@ describe("JsonlJournalStore", () => {
       expect(store.skippedLines).toBe(2);
     });
 
+    test("latest and stream agree on lone-CR (old-Mac) line endings", async () => {
+      // stream() reads via readline, which breaks on \n, \r\n AND a lone \r;
+      // latest() split on "\n" only, so an externally lone-CR-delimited journal
+      // (a hand-edit or import carrying old-Mac endings) collapsed into one
+      // giant unparseable line and latest() returned null — `iching today` saw
+      // an empty journal that `journal list` streamed in full. The two readers
+      // must resolve the SAME last entry whatever the newline style.
+      const { writeFile } = await import("node:fs/promises");
+      const path = join(dir, "history.jsonl");
+      const e1 = makeEntry("2025-02-01");
+      const e2 = makeEntry("2025-02-02");
+      await writeFile(path, `${JSON.stringify(e1)}\r${JSON.stringify(e2)}\r`, "utf-8");
+
+      const streamed: HistoryEntry[] = [];
+      for await (const e of store.stream()) streamed.push(e);
+      const last = await store.latest();
+
+      expect(streamed.map((e) => e.date)).toEqual(["2025-02-01", "2025-02-02"]);
+      expect(last?.date).toBe("2025-02-02"); // recovered, not null…
+      expect(last?.date).toBe(streamed[streamed.length - 1].date); // …and stream agrees
+    });
+
     // Self-healing append: a torn final line (no trailing newline) must not
     // glue the NEXT record onto the fragment — that silently loses a real
     // reading, not just the already-damaged bytes.
