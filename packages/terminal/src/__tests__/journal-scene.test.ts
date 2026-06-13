@@ -784,6 +784,44 @@ describe("JournalScene patterns pane ([p])", () => {
     expect(text).toContain("▅▅▅▅▅▅▅▅▅▅▅▅ × 5"); // line 4 (the max) fills solid
   });
 
+  test("malformed entries are tolerated, not fatal, in list and patterns", () => {
+    // A record missing its cast.lines (pre-format) or its cast entirely
+    // (corrupt) must not take the whole scene down — storage validates, but
+    // the scene is defensive. The good readings still render and count.
+    const noLines = {
+      date: "2026-03-02",
+      cast: {
+        primary: 5,
+        becoming: null,
+        changingPositions: [],
+        nuclear: 1,
+        polarity: 1,
+        mirror: 1,
+        diagonal: 1,
+      },
+    } as unknown as JournalEntryView;
+    const noCast = { date: "2026-03-03" } as unknown as JournalEntryView;
+    const entries = [
+      makeEntry("2026-03-01", 39, { method: "coin" }),
+      noLines,
+      noCast,
+      makeEntry("2026-03-04", 8, { method: "coin" }),
+    ];
+    const ctx = ctxFor(45, 80);
+    const scene = new JournalScene(entries, { today: () => "2026-04-15" });
+    scene.enter(ctx);
+    // The cast-less entry is dropped at the boundary; lines-less survives.
+    const list = renderText(scene, ctx);
+    expect(list).toContain("3 readings"); // 4 in, 1 cast-less dropped
+    expect(() => {
+      press(scene, ctx, "p");
+      renderText(scene, ctx);
+    }).not.toThrow();
+    const patterns = renderText(scene, ctx);
+    expect(patterns).toContain("3 readings"); // derivation agrees
+    expect(patterns).toContain("觀象 · patterns");
+  });
+
   test("the pane degrades gracefully on a no-color terminal", () => {
     // colorSupport 'none' strips fg tones but keeps bold/dim, so the field
     // must still read: never-seen glyphs dim, the rest carrying their bold.

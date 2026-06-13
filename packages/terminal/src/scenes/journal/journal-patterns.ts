@@ -282,8 +282,11 @@ export function computeJournalPatterns(
     // observed = all readings, expected = the method-marked subset (named in
     // a footnote). Line values 6/9 are recorded regardless of method, so the
     // observation isn't gated by missing data; only the expectation is. The
-    // 兩儀 balance counts every line's polarity the same way.
-    for (const line of entry.cast.lines) {
+    // 兩儀 balance counts every line's polarity the same way. A malformed entry
+    // missing its lines (corrupt or pre-format record) contributes nothing here
+    // rather than crashing the whole pane — one bad reading is tolerated.
+    const lines = Array.isArray(entry.cast.lines) ? entry.cast.lines : [];
+    for (const line of lines) {
       if (line.value === 6) observedOldYin++;
       if (line.value === 9) observedOldYang++;
       if (line.isYang) yangLines++;
@@ -300,7 +303,7 @@ export function computeJournalPatterns(
       for (const pos of changing) {
         if (pos >= 1 && pos <= 6) knownLineCounts[pos - 1]++;
       }
-      for (const line of entry.cast.lines) {
+      for (const _line of lines) {
         expectedOldYin += LINE_PROBABILITIES[family][6];
         expectedOldYang += LINE_PROBABILITIES[family][9];
       }

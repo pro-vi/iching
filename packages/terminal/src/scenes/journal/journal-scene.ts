@@ -172,8 +172,13 @@ export class JournalScene implements Scene {
   private failedNoteEntries = new Set<JournalEntryView>();
 
   constructor(entries: JournalEntryView[], opts: JournalSceneOptions = {}) {
-    // Most recent first
-    this.entries = [...entries].reverse();
+    // Most recent first. Drop any entry without a usable cast at the boundary
+    // (storage validates, so this is defense-in-depth): every downstream site —
+    // the list row, the field, the patterns derivation — indexes cast.primary,
+    // and one cast-less record must not take the whole scene down.
+    this.entries = entries
+      .filter((e) => e?.cast != null && typeof e.cast.primary === "number")
+      .reverse();
     this.filtered = this.entries;
     this.cursor = 0;
     this.scroll = new ScrollableRegion(20, []);
