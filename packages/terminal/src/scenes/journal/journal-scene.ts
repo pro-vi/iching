@@ -190,7 +190,7 @@ export class JournalScene implements Scene {
 
   enter(ctx: SceneContext): void {
     this.scroll.viewportHeight = ctx.rows - 4; // header(2) + preview + footer
-    this.patternsScroll.viewportHeight = Math.max(1, ctx.rows - 5); // header + footer + scroll hint
+    this.patternsScroll.viewportHeight = Math.max(1, ctx.rows - 3); // top margin + indicator + footer
   }
 
   exit(): Promise<void> {
@@ -211,7 +211,7 @@ export class JournalScene implements Scene {
 
   resize(cols: number, rows: number): void {
     this.scroll.viewportHeight = rows - 4;
-    this.patternsScroll.viewportHeight = Math.max(1, rows - 5);
+    this.patternsScroll.viewportHeight = Math.max(1, rows - 3);
     this.patternsScroll.scrollDown(0);
   }
 
@@ -219,6 +219,15 @@ export class JournalScene implements Scene {
     const t = getTheme();
     const lang = ctx.language ?? "en";
     const maxW = ctx.cols;
+
+    // The patterns observatory owns the whole screen: its own 觀象 rule is the
+    // header and it restates the reading count itself, so the journal-list
+    // chrome (title · count · separator) would only compete. Render it alone.
+    if (this.patternsOpen && this.entries.length > 0) {
+      this.renderPatterns(frame, ctx, lang);
+      this.renderFooter(frame, ctx, lang);
+      return;
+    }
 
     // Header
     const title = tr(lang, "journal.title");
@@ -244,12 +253,6 @@ export class JournalScene implements Scene {
       const empty = tr(lang, "journal.empty");
       const emptyCol = Math.max(0, Math.floor((maxW - stringWidth(empty)) / 2));
       frame.writeText(Math.floor(ctx.rows / 2), emptyCol, empty, { fg: t.secondary });
-      return;
-    }
-
-    if (this.patternsOpen) {
-      this.renderPatterns(frame, ctx, lang);
-      this.renderFooter(frame, ctx, lang);
       return;
     }
 
@@ -373,14 +376,17 @@ export class JournalScene implements Scene {
   private renderPatterns(frame: CellBuffer, ctx: SceneContext, lang: DisplayLanguage): void {
     const t = getTheme();
     const rows = this.patternRows(ctx, lang);
-    this.patternsScroll.viewportHeight = Math.max(1, ctx.rows - 5);
+    // No journal-list header above the pane any more, so it opens near the top
+    // (row 0 is a calm margin); the 觀象 rule is its own title. viewport = total
+    // rows − margin − indicator − footer.
+    this.patternsScroll.viewportHeight = Math.max(1, ctx.rows - 3);
     // ScrollableRegion only needs row count for its math; joined text suffices.
     this.patternsScroll.contentLines = rows.map((row) =>
       row.segments.map((seg) => seg.text).join(""),
     );
     this.patternsScroll.scrollDown(0);
 
-    const top = 3;
+    const top = 1;
     const budget = Math.max(0, ctx.cols - 3);
     const visibleEnd = Math.min(
       rows.length,

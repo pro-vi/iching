@@ -655,6 +655,27 @@ describe("JournalScene patterns pane ([p])", () => {
     expect(renderText(scene, ctx)).not.toContain("卦象");
   });
 
+  test("the open pane suppresses the journal-list header and opens near the top", () => {
+    // Regression: the journal title/count/separator chrome used to sit above the
+    // pane, competing with its own 觀象 rule and restating the count. The
+    // observatory now owns the screen — its rule is the header, near the top.
+    const ctx = ctxFor(24, 80);
+    const scene = new JournalScene(entries, { today: () => "2026-04-15" });
+    scene.enter(ctx);
+    press(scene, ctx, "p");
+    const buf = CellBuffer.create(ctx.cols, ctx.rows);
+    scene.render(buf, ctx);
+    const lines = Array.from({ length: ctx.rows }, (_, r) =>
+      buf.getRow(r).map((c) => c.char).join(""),
+    );
+    // No journal-list title, and no centred 60-dash separator row above the pane.
+    expect(lines.join("\n")).not.toContain("Journal");
+    expect(lines[0].trim()).toBe(""); // a calm top margin, not the old header row
+    // The 觀象 rule is the pane's header, near the top (row 1), not pushed to row 3.
+    const ruleRow = lines.findIndex((l) => l.includes("觀象 · patterns"));
+    expect(ruleRow).toBe(1);
+  });
+
   test("p closes the pane too, and list keys are inert while it is open", () => {
     const ctx = ctxFor();
     const scene = new JournalScene(entries, { today: () => "2026-04-15" });
@@ -671,23 +692,27 @@ describe("JournalScene patterns pane ([p])", () => {
     const scene = new JournalScene(entries, { today: () => "2026-04-15" });
     scene.enter(ctx);
 
-    // 36 content rows over a 5-row viewport: 8 pages.
+    // 36 content rows over a 7-row viewport (the pane owns the screen, no
+    // journal header above it): 6 pages.
     press(scene, ctx, "p");
     let text = renderText(scene, ctx);
     expect(text).toContain("觀象 · patterns");
-    expect(text).toContain("1/8");
+    // The journal-list title chrome is gone in the pane (the count is restated
+    // inside the pane itself; only the journal *title* would be redundant).
+    expect(text).not.toContain("Journal");
+    expect(text).toContain("1/6");
     expect(text).not.toContain("卦象 · faces seen");
 
     scene.handleKey({ type: "page", direction: "down" }, ctx);
     text = renderText(scene, ctx);
-    expect(text).toContain("2/8");
+    expect(text).toContain("2/6");
 
     scene.handleKey({ type: "end" }, ctx);
     text = renderText(scene, ctx);
     expect(text).toContain("兩儀 · two modes"); // the bottom coda
     expect(text).toContain("yin 12 · yang 12");
-    // End reaches the true last page (the fixed free-scroll indicator), not 7/8.
-    expect(text).toContain("8/8");
+    // End reaches the true last page (the fixed free-scroll indicator).
+    expect(text).toContain("6/6");
 
     scene.handleKey({ type: "home" }, ctx);
     expect(renderText(scene, ctx)).toContain("觀象 · patterns");
@@ -696,7 +721,7 @@ describe("JournalScene patterns pane ([p])", () => {
     press(scene, ctx, "p"); // reopen
     text = renderText(scene, ctx);
     expect(text).toContain("觀象 · patterns");
-    expect(text).toContain("1/8");
+    expect(text).toContain("1/6");
   });
 
   test("every row fits the column budget — no ellipsis at 80 or 100 cols", () => {
