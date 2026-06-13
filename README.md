@@ -19,6 +19,9 @@ Set an intention. Cast a hexagram. Sit with what shows up.
   (大象傳, 彖傳), English image and judgment, and Wilhelm-inspired notes.
 - **Journal** every cast (with timestamp and intention) in
   append-only JSONL — your own divination history.
+- **Observe** quiet patterns over that history (`p` in the journal, or
+  `iching journal patterns`) — a field of all 64 lit by what you've drawn,
+  where movement falls, the yin/yang balance. Observation, never prediction.
 - **Hook into LLMs** the assistant can read your cast for further interpretation.
 
 Raw ANSI, five hand-tuned themes (ink, bone, cinnabar, jade, river),
@@ -65,6 +68,8 @@ iching journal list             # recent readings
 iching journal list --hexagram 29   # readings where hexagram 29 appears
 iching journal show today       # today's reading
 iching journal note "..."       # attach a reflection note to the latest reading
+iching journal patterns         # quiet observation over every past reading
+iching journal patterns --json  # the same derivation, structured for scripts
 iching hexagram 1               # look up hexagram by number or name
 iching dict water               # open the dictionary on a search
 iching dict                     # browse all 64 in TUI

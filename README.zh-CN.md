@@ -18,6 +18,8 @@
   英译象辞与卦辞、以及卫礼贤风格的注解。
 - **日志** 自动记录每一次起卦（含时间戳与问意），
   以追加式 JSONL 保存 —— 你自己的卜筮史。
+- **观象** 对这段卜筮史作静观（日志中按 `p`，或 `iching journal patterns`）——
+  六十四卦之野依所占点亮、动爻所在、阴阳之衡。只是观照，从不预言。
 - **接入大语言模型**：助手可读取你的卦象作进一步释义。
 
 原始 ANSI 渲染、五种手调主题（ink、bone、cinnabar、jade、river）、
@@ -64,6 +66,8 @@ iching journal list             # 近期记录
 iching journal list --hexagram 29   # 筛选出现第 29 卦的记录
 iching journal show today       # 今日卦象
 iching journal note "……"        # 给最近一卦附上注记
+iching journal patterns         # 观象：对历来卦记的静观
+iching journal patterns --json  # 同一推演，结构化输出供脚本读取
 iching hexagram 1               # 按卦序或卦名查阅
 iching dict water               # 以检索词打开卦典
 iching dict                     # 在 TUI 中浏览六十四卦
