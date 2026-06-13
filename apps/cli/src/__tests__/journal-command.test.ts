@@ -133,6 +133,22 @@ describe("journal command", () => {
     expect(stdout).not.toContain("2026-01-01");
   }, 20_000);
 
+  test("list --limit takes the latest-DATED, not the last-recorded (out-of-order)", async () => {
+    // An old reading recorded AFTER newer ones (imported/merged). A plain
+    // reverse() would float it to the top and into --limit; ordering by the
+    // pane's time-key must not — matching the TUI list and the ◉ recency accent.
+    await seedJournal(dataDir, [
+      makeEntry("2026-02-01", 1, null), // newer
+      makeEntry("2026-02-02", 2, null), // newest by date
+      makeEntry("2026-01-10", 3, null), // OLD, recorded last (the import)
+    ]);
+    const { exitCode, stdout } = await runCli(dataDir, ["journal", "list", "--limit", "2"]);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("2026-02-02"); // the two latest-dated…
+    expect(stdout).toContain("2026-02-01");
+    expect(stdout).not.toContain("2026-01-10"); // …not the late old import
+  }, 20_000);
+
   // Regression: --since was never format-validated — the lexicographic
   // compare against "notadate" filtered every entry out (exit 0).
   test("list --since rejects non-YYYY-MM-DD values", async () => {

@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { GUA, computeJournalPatterns } from "@iching/core";
+import { GUA, computeJournalPatterns, entryTimeKey } from "@iching/core";
 import type { HistoryEntry, ReflectionNote } from "@iching/core";
 import {
   resolvePaths,
@@ -86,8 +86,10 @@ export function registerJournalCommand(program: Command): void {
         allEntries.push(entry);
       }
 
-      // Most recent first, then limit
-      allEntries.reverse();
+      // Most recent first by time-key (NOT append order), then limit — matches
+      // the TUI list and the pane's recency, so --limit takes the latest-dated
+      // readings even on an out-of-order / imported journal.
+      allEntries.sort((a, b) => entryTimeKey(b).localeCompare(entryTimeKey(a)));
       const entries = cmdOpts.all ? allEntries : allEntries.slice(0, limit);
 
       if (globalOpts.json) {
