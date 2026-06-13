@@ -3,7 +3,7 @@
 
 import { describe, test, expect } from "bun:test";
 import type { Cast, Line } from "@iching/core";
-import { computeJournalPatterns } from "@iching/core";
+import { computeJournalPatterns, GUA } from "@iching/core";
 import { CellBuffer } from "../render/buffer.ts";
 import { stringWidth } from "../layout/measure.ts";
 import type { SceneContext } from "../scene/types.ts";
@@ -1057,6 +1057,43 @@ describe("JournalScene patterns pane ([p])", () => {
     const text = renderText(scene, ctx);
     expect(text).toContain("◉");
     expect(text).toContain("now");
+  });
+
+  test("the field encodes frequency as distinct colour tiers, recency as the accent", () => {
+    // The field's whole function is its brightness gradient — how often a
+    // hexagram has come up (○ unseen · ◦ once · ◐ a few · ● often) — with the
+    // single accent reserved for the most recent reading (recency over
+    // frequency). This is a COLOUR property invisible to the mono tests: only
+    // the accent was locked before, so a drift in the count→tier thresholds
+    // would silently flatten the field and no test would notice. Pin all five.
+    const { getTheme } = require("../color/theme.ts");
+    const t = getTheme();
+    const entries = [
+      // hex 1 ×4 (often) on early dates, so it is NOT the most recent…
+      ...Array.from({ length: 4 }, (_, i) => makeEntry(`2026-03-0${i + 1}`, 1, { method: "coin" })),
+      makeEntry("2026-03-05", 2, { method: "coin" }), // hex 2 ×2 (a few)…
+      makeEntry("2026-03-06", 2, { method: "coin" }),
+      makeEntry("2026-03-07", 3, { method: "coin" }), // hex 3 ×1 (once)
+      makeEntry("2026-03-20", 10, { method: "coin" }), // hex 10 ×1 but MOST RECENT → accent
+    ];
+    const ctx = ctxFor(45, 80);
+    const scene = new JournalScene(entries, { today: () => "2026-03-21" });
+    scene.enter(ctx);
+    press(scene, ctx, "p");
+    const buf = CellBuffer.create(ctx.cols, ctx.rows);
+    scene.render(buf, ctx);
+    const cellFor = (kw: number) => {
+      const glyph = GUA[kw - 1].u;
+      for (let r = 0; r < buf.height; r++)
+        for (const cell of buf.getRow(r)) if (cell.char === glyph) return cell;
+      return undefined;
+    };
+    expect(cellFor(1)?.fg).toBe(t.primary); // ×4 → ● often
+    expect(cellFor(1)?.bold).toBe(true); // …and bold, like the legend's ●
+    expect(cellFor(2)?.fg).toBe(t.secondary); // ×2 → ◐ a few
+    expect(cellFor(3)?.fg).toBe(t.tertiary); // ×1 → ◦ once
+    expect(cellFor(5)?.fg).toBe(t.dimmed); // ×0 → ○ not yet
+    expect(cellFor(10)?.fg).toBe(t.accent); // ×1 but most recent → ◉ now overrides the tier
   });
 
   test("the 卦象/爻象/八卦 bars align by display column in zh-Hant, same as English", () => {
