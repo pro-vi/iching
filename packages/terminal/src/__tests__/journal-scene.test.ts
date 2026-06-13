@@ -1140,6 +1140,45 @@ describe("JournalScene patterns pane ([p])", () => {
     }
   });
 
+  test("a mixed journal withholds all-count chance figures but keeps the method-marked direction comparison", () => {
+    // 8 method-marked casts (>= CHANCE_MIN_KNOWN, gate on), varied primaries with
+    // movement, so faces / lines / trigrams / direction all have data. Each cast
+    // moves line 1 (old yang) and line 4 (old yin), so direction has observations.
+    const marked = Array.from({ length: 8 }, (_, i) =>
+      makeEntry(`2026-07-${String(i + 1).padStart(2, "0")}`, (i % 6) + 1, {
+        cast: makeCast((i % 6) + 1, ((i + 1) % 6) + 1, [1, 4]),
+        method: i % 2 === 0 ? "coin" : "yarrow",
+      }),
+    );
+    const ctx = ctxFor(50, 100);
+
+    // Pure (all method-marked): the all-count by-chance baselines render.
+    const pure = new JournalScene(marked, { today: () => "2026-08-01" });
+    pure.enter(ctx);
+    press(pure, ctx, "p");
+    const pureText = renderText(pure, ctx);
+    expect(pureText).toContain("each by chance"); // faces / trigrams baseline
+    expect(pureText).toContain("old yang"); // direction comparison
+
+    // Mixed (add legacy casts with no method): the faces/lines/trigrams baselines
+    // would pair an all-readings count with a method-marked expectation, so they
+    // are withheld. The direction comparison's observed is itself method-marked,
+    // so it stays — and a footnote names the basis the kept figures rest on.
+    const mixed = [
+      ...marked,
+      makeEntry("2026-07-20", 1),
+      makeEntry("2026-07-21", 2),
+      makeEntry("2026-07-22", 3),
+    ];
+    const scene = new JournalScene(mixed, { today: () => "2026-08-01" });
+    scene.enter(ctx);
+    press(scene, ctx, "p");
+    const mixedText = renderText(scene, ctx);
+    expect(mixedText).not.toContain("each by chance"); // faces/trigrams baseline withheld
+    expect(mixedText).toContain("old yang"); // direction still shown (method-marked observed)
+    expect(mixedText).toContain("chance figures rest on the"); // footnote names the basis
+  });
+
   test("recurrence counts all readings, not just method-marked ones", () => {
     // 10 legacy (unmarked) casts, kw1 ×7 + kw2 ×3 — 8 real repeats, 0 marked.
     // The known-only repeat tally would read ×0 while the field/faces show the

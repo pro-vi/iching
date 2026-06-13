@@ -529,6 +529,16 @@ export class JournalScene implements Scene {
     const narrow = ctx.cols < 64;
     const barW = Math.max(4, Math.min(12, ctx.cols - 56));
     const gate = patterns.baseline.methods.known >= CHANCE_MIN_KNOWN;
+    // A stricter gate for sections whose ROW shows an all-readings count (faces
+    // seen, line positions, moved-per-cast, trigrams): their by-chance figure is
+    // method-marked (known/64, known/4, …), so pairing it with an all-readings
+    // count overstates how far above chance a mixed journal sits — legacy/unknown
+    // casts inflate the observed side of a comparison whose expected side counts
+    // only method-marked casts. We can't assume an unknown cast's distribution,
+    // so only show those chance figures when EVERY reading is method-marked
+    // (then all-count == known-count and the comparison is honest). Direction and
+    // diversity already display the method-marked observed, so they keep `gate`.
+    const gatePure = gate && patterns.baseline.methods.known === patterns.baseline.methods.total;
     // No-color terminals strip fg tones but keep the bold/dim attributes, so
     // the field's brightness tiers would collapse. Carry the unlit tier on dim
     // there so the dark field still reads (color mode is untouched: dim false).
@@ -582,7 +592,7 @@ export class JournalScene implements Scene {
     const chanceNum = (v: number): string => formatNumber(v, v < 10 ? 1 : 0);
     /** ' · by chance ~N' — only once enough method-marked casts exist. */
     const chance = (v: number | null): PatternSegment[] =>
-      gate && v !== null
+      gatePure && v !== null
         ? [sep(), lab(`${tr(lang, "journal.patterns.chanceSays")}${chanceNum(v)}`)]
         : [];
     const segW = (segs: PatternSegment[]): number =>
@@ -768,7 +778,7 @@ export class JournalScene implements Scene {
       rule(
         tr(lang, "journal.patterns.sectionFaces"),
         { fg: t.secondary, bold: true },
-        gate && perHex !== null
+        gatePure && perHex !== null
           ? `${tr(lang, "journal.patterns.eachByChance")}${chanceNum(perHex)}`
           : undefined,
       );
@@ -797,7 +807,7 @@ export class JournalScene implements Scene {
     rule(
       tr(lang, "journal.patterns.sectionLines"),
       { fg: t.secondary, bold: true },
-      gate
+      gatePure
         ? `${tr(lang, "journal.patterns.eachLine")} · ${tr(lang, "journal.patterns.chanceSays")}${formatNumber(methods.known / 4, 1)}`
         : undefined,
     );
@@ -807,7 +817,7 @@ export class JournalScene implements Scene {
         text: tr(lang, "journal.patterns.noMovement"),
         style: { fg: t.secondary },
       });
-      if (gate) {
+      if (gatePure) {
         // Stillness weighed against chance is itself the observation.
         row(
           ...label([lab(tr(lang, "journal.patterns.still"))]),
@@ -838,7 +848,7 @@ export class JournalScene implements Scene {
           num(padToWidth(`×${bin.count}`, 6)),
         ]),
       );
-      if (gate) {
+      if (gatePure) {
         // A rare bin (six lines moving ≈ 0.002 expected) must not strip to
         // '~0' beside a real observation — say '<0.1', not an exact zero.
         const approx = (v: number): string =>
@@ -870,11 +880,12 @@ export class JournalScene implements Scene {
       rule(
         tr(lang, "journal.patterns.sectionTrigrams"),
         { fg: t.secondary, bold: true },
-        // The chance figure is method-marked like every other section (uniform
-        // 1/8 needs P(yang)=1/2, a property of the method), so it shows only
-        // once enough method-marked casts exist. The marker (~ / 約) rides the
-        // catalog value, like chanceSays, so zh doesn't double it.
-        gate
+        // The chance figure is method-marked (uniform 1/8 needs P(yang)=1/2, a
+        // property of the method), while the row count is all-readings — so it
+        // shows only when every reading is method-marked (gatePure), else it
+        // would compare an inflated count to a method-only baseline. The marker
+        // (~ / 約) rides the catalog value, like chanceSays, so zh doesn't double it.
+        gatePure
           ? `${tr(lang, "journal.patterns.eachByChance")}${formatNumber(patterns.topTrigrams[0].expected, 1)}`
           : undefined,
       );
