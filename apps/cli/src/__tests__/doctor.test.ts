@@ -163,4 +163,28 @@ describe("doctor journal check (subprocess)", () => {
     expect(exitCode).not.toBe(0); // a real failure, surfaced
     expect(stdout).toContain("[FAIL] Journal: exists but can't be read"); // reported, not crashed
   }, 20_000);
+
+  test("warns on a corrupt daily cache, not just reports its existence", async () => {
+    // The cache/config were only existence-checked, so a torn write read as
+    // healthy ("[exists]"). doctor must surface it; it self-heals on next use
+    // (the store quarantines + resets), so a warning, not a hard failure.
+    await writeFile(join(dataDir, "daily-cache.json"), "{not valid json", "utf-8");
+    const { exitCode, stdout } = await runDoctor();
+    expect(exitCode).toBe(0); // self-healing → warn, not fail
+    expect(stdout).toContain("[WARN] Cache: corrupt JSON");
+  }, 20_000);
+
+  test("warns on a corrupt config too", async () => {
+    await writeFile(join(dataDir, "config.json"), "}also broken{", "utf-8");
+    const { stdout } = await runDoctor();
+    expect(stdout).toContain("[WARN] Config: corrupt JSON");
+  }, 20_000);
+
+  test("reports a valid config and cache as OK", async () => {
+    await writeFile(join(dataDir, "config.json"), '{"theme":"ink"}', "utf-8");
+    await writeFile(join(dataDir, "daily-cache.json"), '{"date":"2026-01-01"}', "utf-8");
+    const { stdout } = await runDoctor();
+    expect(stdout).toContain("[OK] Config: valid");
+    expect(stdout).toContain("[OK] Cache: valid");
+  }, 20_000);
 });

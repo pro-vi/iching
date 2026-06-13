@@ -1443,7 +1443,7 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
 
 - surface_id: cli-doctor-output
   file: apps/cli/src/commands/doctor.ts
-  code_locator: "L21–161"
+  code_locator: "L22–210"
   current_text: |
     "Glyphs"/"Data"/"Color"/"Terminal"/"Paths"/"Journal" check names; "I Ching Doctor"; "OK"/"WARN"/"FAIL";
     "Config:"/"State:"/"Cache:" + "[exists]"/"[not found]"; "truecolor (24-bit)"/"256-color"/"basic (16-color)"/"unknown";
@@ -1456,7 +1456,9 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
     "(< 80 columns — some output may wrap)";
     journal integrity check: "no journal yet — cast in the TUI to begin";
     "${entryCount} reading(s) recorded"; "${counts}, ${skipped} unreadable line(s) skipped";
-    "exists but can't be read (permission denied, or not a file?)"
+    "exists but can't be read (permission denied, or not a file?)";
+    config/cache validity check (checkJsonFile): "Config"/"Cache" check names;
+    "not present yet — uses defaults"; "corrupt JSON — resets to defaults on next use"; "valid"
   surface_class: cli-commands
   render_context: "doctor stdout + (--json name/detail values)"
   language_policy: translate
