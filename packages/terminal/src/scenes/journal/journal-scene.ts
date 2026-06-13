@@ -13,8 +13,14 @@ import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { ScrollableRegion } from "../../widgets/scrollable.ts";
 import { TextInput } from "../../widgets/text-input.ts";
-import { tr } from "../../i18n/messages.ts";
-import { computeJournalPatterns, type JournalPatterns, type StructuralEcho } from "@iching/core";
+import { tr, type MessageKey } from "../../i18n/messages.ts";
+import {
+  computeJournalPatterns,
+  type DirectionComparison,
+  type JournalPatterns,
+  type PairFrequency,
+  type StructuralEcho,
+} from "@iching/core";
 
 type TextStyle = Parameters<CellBuffer["writeText"]>[3];
 
@@ -780,22 +786,18 @@ export class JournalScene implements Scene {
       }
     }
     if (gate) {
-      row(
-        ...label([lab(tr(lang, "journal.patterns.oldYangLabel"))]),
-        num(`×${patterns.baseline.oldYang.observed}`),
-        sep(),
-        lab(
-          `${tr(lang, "journal.patterns.chanceSays")}${chanceNum(patterns.baseline.oldYang.expected)}`,
-        ),
-      );
-      row(
-        ...label([lab(tr(lang, "journal.patterns.oldYinLabel"))]),
-        num(`×${patterns.baseline.oldYin.observed}`),
-        sep(),
-        lab(
-          `${tr(lang, "journal.patterns.chanceSays")}${chanceNum(patterns.baseline.oldYin.expected)}`,
-        ),
-      );
+      // ×observed against its chance figure — the old-yang and old-yin rows
+      // share one shape, differing only by label and which direction's tally.
+      const directionRow = (labelKey: MessageKey, dir: DirectionComparison): void => {
+        row(
+          ...label([lab(tr(lang, labelKey))]),
+          num(`×${dir.observed}`),
+          sep(),
+          lab(`${tr(lang, "journal.patterns.chanceSays")}${chanceNum(dir.expected)}`),
+        );
+      };
+      directionRow("journal.patterns.oldYangLabel", patterns.baseline.oldYang);
+      directionRow("journal.patterns.oldYinLabel", patterns.baseline.oldYin);
     }
 
     // ── S4 八卦 — trigrams ──
@@ -843,15 +845,17 @@ export class JournalScene implements Scene {
     };
     const repeated = (pairs: typeof patterns.topTransitions): typeof patterns.topTransitions =>
       pairs.filter((pair) => pair.count >= 2).slice(0, 2);
+    /** 'from → to  ×N · last MM-DD' — the shared S5/S6 directed-pair row. */
+    const pairRow = (pair: PairFrequency): void => {
+      row(...withLast([...label(pairLabel(pair.from, pair.to)), num(`×${pair.count}`)], pair.lastDate));
+    };
 
     // ── S5 次第 — one cast to the next ──
     const transitions = repeated(patterns.topTransitions);
     if (patterns.total >= 2 && (transitions.length > 0 || patterns.hammingDrift)) {
       blank();
       rule(tr(lang, "journal.patterns.sectionSuccession"), { fg: t.secondary, bold: true });
-      for (const pair of transitions) {
-        row(...withLast([...label(pairLabel(pair.from, pair.to)), num(`×${pair.count}`)], pair.lastDate));
-      }
+      for (const pair of transitions) pairRow(pair);
       const drift = patterns.hammingDrift;
       if (drift) {
         const maxBin = Math.max(...drift.distribution.map((bin) => bin.count));
@@ -886,9 +890,7 @@ export class JournalScene implements Scene {
     if (transformations.length > 0 || echoes.length > 0) {
       blank();
       rule(tr(lang, "journal.patterns.sectionTurnings"), { fg: t.secondary, bold: true });
-      for (const pair of transformations) {
-        row(...withLast([...label(pairLabel(pair.from, pair.to)), num(`×${pair.count}`)], pair.lastDate));
-      }
+      for (const pair of transformations) pairRow(pair);
       for (const echo of echoes) {
         const valueSegs: PatternSegment[] = [];
         if (echo.kind === "kingWenPair" && echo.pairStart !== undefined && echo.pairEnd !== undefined) {
