@@ -263,6 +263,22 @@ describe("JsonlJournalStore", () => {
       expect(store.skippedLines).toBe(2);
     });
 
+    test("a non-string timestamp normalizes to absent, never yielded raw", async () => {
+      // entryTimeKey(e).localeCompare(...) throws on a non-string timestamp,
+      // which took down `journal list`'s sort. A corrupt / hand-edited object
+      // timestamp must read back as absent (the entry falls back to its date),
+      // not as the raw object. (External review, H3.)
+      const { writeFile } = await import("node:fs/promises");
+      const path = join(dir, "history.jsonl");
+      const corrupt = { ...makeEntry("2026-04-01"), timestamp: { bad: true } } as unknown as HistoryEntry;
+      await writeFile(path, JSON.stringify(corrupt) + "\n", "utf-8");
+
+      const entries: HistoryEntry[] = [];
+      for await (const entry of store.stream()) entries.push(entry);
+      expect(entries).toHaveLength(1);
+      expect(entries[0].timestamp).toBeUndefined(); // normalized; entryTimeKey falls back to date
+    });
+
     test("latest and stream agree on lone-CR (old-Mac) line endings", async () => {
       // stream() reads via readline, which breaks on \n, \r\n AND a lone \r;
       // latest() split on "\n" only, so an externally lone-CR-delimited journal

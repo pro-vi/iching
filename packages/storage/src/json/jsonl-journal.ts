@@ -43,7 +43,14 @@ function parseLine(line: string): ParsedLine {
   // record like {"date":"…","cast":{}} is damage — skipped and counted like a
   // torn line, never yielded for `journal list` to crash on.
   if (!isCastShaped(record.cast)) return { type: "torn" };
-  return { type: "entry", entry: parsed as HistoryEntry };
+  const entry = parsed as HistoryEntry;
+  // Normalize a non-string timestamp (corrupt / hand-edit) to absent. It flows
+  // into entryTimeKey() as a sort/Map key, and entryTimeKey(e).localeCompare
+  // throws on a non-string — taking down `journal list` entirely. Falling back
+  // to the date (already checked a string above) keeps the reading usable; a
+  // malformed timestamp is no worse than a missing one. (External review, H3.)
+  if (typeof entry.timestamp !== "string") entry.timestamp = undefined;
+  return { type: "entry", entry };
 }
 
 /** Parse a `kind:"note"` record into a ReflectionNote, or null if malformed. */
