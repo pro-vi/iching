@@ -312,13 +312,15 @@ export class JournalScene implements Scene {
         line += `  “${truncateToWidth(entry.intention, 30)}”`;
       }
 
-      // Quiet marker for annotated entries (·註 / ·note)
-      if (entry.notes?.length) {
-        line += `  ·${tr(lang, "journal.noteMarker")}`;
-      }
+      // Quiet marker for annotated entries (·註 / ·note). It is a STRUCTURAL
+      // signal — "this reading carries a reflection" — not content, so reserve
+      // its width and append it AFTER truncation. A long intention then clips
+      // with an ellipsis instead of pushing the marker off the row end, where
+      // it would vanish silently and the row would read as un-annotated.
+      const noteMarker = entry.notes?.length ? `  ·${tr(lang, "journal.noteMarker")}` : "";
 
-      // Truncate to the viewport's column budget
-      line = truncateToWidth(line, maxW - 4);
+      // Truncate the content to the viewport budget, holding room for the marker.
+      line = truncateToWidth(line, maxW - 4 - stringWidth(noteMarker)) + noteMarker;
 
       const col = 3;
       const cursor = isSelected ? " > " : "   ";

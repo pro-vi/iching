@@ -414,6 +414,32 @@ describe("JournalScene reflection notes ([n])", () => {
     press(scene, ctx, "j");
     expect(renderText(scene, ctx)).toContain("2026-03-02  already noted");
   });
+
+  test("the ·note marker survives a long intention (structural signal over content)", () => {
+    // A row crowded with time + becoming + changing positions + a long intention
+    // overflows 80 cols. The note marker is a STRUCTURAL signal ("this reading
+    // carries a reflection") and must not be the casualty — the intention
+    // (content) clips with an ellipsis while the marker holds its reserved width.
+    const ctx = ctxFor(); // 80 cols
+    const entries = [
+      makeEntry("2026-03-05", 2), // most recent, selected, no note
+      makeEntry("2026-03-01", 11, {
+        timestamp: "2026-03-01T08:00:00.000Z",
+        cast: makeCast(11, 12, [2, 4]), // 泰 → 否 [2,4]
+        intention: "about the move to a new city and what it all means for us",
+        notes: [{ text: "a quiet reflection", date: "2026-03-01" }],
+      }),
+    ];
+    const scene = new JournalScene(entries);
+    scene.enter(ctx);
+    const rowText =
+      renderText(scene, ctx)
+        .split("\n")
+        .find((l) => l.includes("2026-03-01")) ?? "";
+    expect(rowText).toContain("·note"); // the marker held its ground…
+    expect(rowText).toContain("…"); // …because the intention clipped to make room
+    expect(rowText).not.toContain("means for us"); // the intention tail was what gave way
+  });
 });
 
 describe("JournalScene note persistence honesty", () => {
