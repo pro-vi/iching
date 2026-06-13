@@ -332,6 +332,23 @@ describe("journal command", () => {
     expect(yarrowLine).toContain("· yarrow stalks");
   }, 20_000);
 
+  test("plain list names which lines moved on a changing reading — TUI list parity", async () => {
+    // makeCast marks line 1 moving when becoming !== null. The list shows the
+    // becoming hexagram AND the moving position inline, so a CLI scan reveals
+    // what turned each reading (matching the TUI list) without `journal show`.
+    await seedJournal(dataDir, [
+      makeEntry("2026-01-01", 3, 8), // changing → "[1]"
+      makeEntry("2026-01-02", 2, null), // static → no brackets
+    ]);
+    const { stdout } = await runCli(dataDir, ["journal", "list"]);
+    const lines = stdout.trimEnd().split("\n");
+    const changing = lines.find((l) => l.includes("2026-01-01"))!;
+    const stat = lines.find((l) => l.includes("2026-01-02"))!;
+    expect(changing).toContain("→"); // becoming shown
+    expect(changing).toContain("[1]"); // and which line moved
+    expect(stat).not.toContain("["); // a static reading carries no positions
+  }, 20_000);
+
   test("an unknown method value shows its name, never 'undefined' (forward-compat)", async () => {
     // A reading written by a newer version with a cast method this build does
     // not know must show the raw method name, not "undefined" — parity with

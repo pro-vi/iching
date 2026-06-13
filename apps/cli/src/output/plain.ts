@@ -218,9 +218,16 @@ export function formatJournalListPlain(
   const lines: string[] = [];
   for (const entry of entries) {
     const g = GUA[entry.cast.primary - 1];
+    // Name which lines moved, inline and terse ([1,4]) — parity with the TUI
+    // list, which carries the positions so you can see at a glance what turned
+    // each reading without opening `journal show`. (The worded "[line 1]" form
+    // is for the detail views; a scan list stays compact.)
     const becoming =
       entry.cast.becoming !== null
-        ? ` → ${GUA[entry.cast.becoming - 1].u} ${GUA[entry.cast.becoming - 1].n}`
+        ? ` → ${GUA[entry.cast.becoming - 1].u} ${GUA[entry.cast.becoming - 1].n}` +
+          (entry.cast.changingPositions.length > 0
+            ? ` [${entry.cast.changingPositions.join(",")}]`
+            : "")
         : "";
     const time = entry.timestamp ? `  ${formatTime(entry.timestamp)}` : "";
     const intention = entry.intention ? `  "${stripTerminalControls(entry.intention)}"` : "";
