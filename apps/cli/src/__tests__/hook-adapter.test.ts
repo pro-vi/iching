@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, readFile, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
@@ -128,6 +128,27 @@ describe("hook adapter", () => {
     const cache = JSON.parse(await readFile(join(dataDir, "daily-cache.json"), "utf-8"));
     expect(cache.method).toBe("coin");
     expect(cache.rng).toEqual({ source: "crypto", intentionBound: false });
+  }, 20_000);
+
+  test("a blocked data dir doesn't crash the hook — the reading still displays", async () => {
+    // The hook persists (journal + cache) BEFORE it displays the reading. A
+    // directory at the journal path (→ EISDIR; in the wild a read-only/full dir
+    // → EROFS/ENOSPC) must not crash the hook before showing the reading — the
+    // display is the hook's whole job. Best-effort persist: show, never crash.
+    await mkdir(join(dataDir, "history.jsonl")); // block the journal write
+    const proc = Bun.spawn(["bun", MAIN_TS], {
+      cwd: REPO_ROOT,
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env, NO_COLOR: "1", ICHING_HOME: dataDir, TZ: "UTC" },
+    });
+    proc.stdin.write("{}");
+    proc.stdin.end();
+    const stdout = await new Response(proc.stdout).text();
+    const exitCode = await proc.exited;
+    expect(exitCode).toBe(0); // best-effort persist — no crash…
+    expect(stdout.trim().length).toBeGreaterThan(0); // …the reading still displayed
   }, 20_000);
 
   // A fresh hook cast must honor the saved entropy config (cf. commands/cast.ts)

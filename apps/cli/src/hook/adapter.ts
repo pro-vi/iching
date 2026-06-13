@@ -95,23 +95,33 @@ export async function runHookAdapter(): Promise<void> {
   // Select display
   const display = selectDisplay(cast, structure, shown, source);
 
-  // Journal first — if interrupted, failure is a recoverable duplicate
-  // (vs cache-first where journal entry is permanently lost)
-  if (!shown) {
-    const timestamp = new Date().toISOString();
-    await journal.append({ date: today, cast, timestamp, method, rng });
-  }
+  // Persist best-effort: the same write-before-display shape as the TUI cast
+  // flow (reading-flow.ts). A read-only or full data dir must not crash the
+  // hook before it shows the reading below — the display IS the hook's whole
+  // job. Swallow silently to keep hook output clean: a hook can run on every
+  // shell prompt, so it must not spam stderr on a read-only dir, and the TUI
+  // surfaces the warning for anyone casting there.
+  try {
+    // Journal first — if interrupted, failure is a recoverable duplicate
+    // (vs cache-first where journal entry is permanently lost)
+    if (!shown) {
+      const timestamp = new Date().toISOString();
+      await journal.append({ date: today, cast, timestamp, method, rng });
+    }
 
-  // Then update cache (preserve intention/method/rng from TUI if present)
-  await cacheStore.write({
-    date: today,
-    cast,
-    shown: true,
-    structure,
-    intention,
-    method,
-    rng,
-  });
+    // Then update cache (preserve intention/method/rng from TUI if present)
+    await cacheStore.write({
+      date: today,
+      cast,
+      shown: true,
+      structure,
+      intention,
+      method,
+      rng,
+    });
+  } catch {
+    // best-effort — the reading still displays below
+  }
 
   // Output
   if (display) {
