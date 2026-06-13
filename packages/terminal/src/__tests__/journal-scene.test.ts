@@ -784,6 +784,44 @@ describe("JournalScene patterns pane ([p])", () => {
     expect(text).toContain("▅▅▅▅▅▅▅▅▅▅▅▅ × 5"); // line 4 (the max) fills solid
   });
 
+  test("the pane degrades gracefully on a no-color terminal", () => {
+    // colorSupport 'none' strips fg tones but keeps bold/dim, so the field
+    // must still read: never-seen glyphs dim, the rest carrying their bold.
+    // All textual content and the ▅/▁ bars (glyph-encoded) survive intact.
+    const entries = [1, 1, 1, 1, 1, 2, 2, 3, 4, 5].map((kw, i) =>
+      makeEntry(`2026-03-${String(i + 1).padStart(2, "0")}`, kw, { method: "coin" }),
+    );
+    const ctx: SceneContext = { cols: 80, rows: 50, colorSupport: "none", language: "en", done: false };
+    const scene = new JournalScene(entries, { today: () => "2026-04-15" });
+    scene.enter(ctx);
+    press(scene, ctx, "p");
+    const buf = CellBuffer.create(80, 50);
+    expect(() => scene.render(buf, ctx)).not.toThrow();
+    const text = Array.from({ length: 50 }, (_, r) =>
+      buf.getRow(r).map((c) => c.char).join(""),
+    ).join("\n");
+    // Textual content and bars survive (they don't depend on color).
+    expect(text).toContain("觀象 · patterns");
+    expect(text).toContain("卦象 · faces seen");
+    expect(text).toContain("▅");
+    expect(text).toContain("兩儀");
+    // The field keeps a readable structure via attributes: never-seen dim,
+    // a high-frequency / recent glyph bold.
+    let anyDim = false;
+    let anyBold = false;
+    for (let r = 0; r < buf.height; r++) {
+      for (const cell of buf.getRow(r)) {
+        const code = cell.char.codePointAt(0) ?? 0;
+        if (code >= 0x4dc0 && code <= 0x4dff) {
+          if (cell.dim) anyDim = true;
+          if (cell.bold) anyBold = true;
+        }
+      }
+    }
+    expect(anyDim).toBe(true); // the dark, never-cast field
+    expect(anyBold).toBe(true); // frequent + most-recent
+  });
+
   test("the patterns derivation is memoized but recomputes when the day rolls over", () => {
     // The 30 FPS loop re-renders the open pane continuously; the derivation is
     // cached so it isn't rebuilt every frame, but the cache is keyed on `today`

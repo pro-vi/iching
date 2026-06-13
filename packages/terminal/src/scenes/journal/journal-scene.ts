@@ -448,6 +448,10 @@ export class JournalScene implements Scene {
     const narrow = ctx.cols < 64;
     const barW = Math.max(4, Math.min(12, ctx.cols - 56));
     const gate = patterns.baseline.methods.known >= CHANCE_MIN_KNOWN;
+    // No-color terminals strip fg tones but keep the bold/dim attributes, so
+    // the field's brightness tiers would collapse. Carry the unlit tier on dim
+    // there so the dark field still reads (color mode is untouched: dim false).
+    const mono = ctx.colorSupport === "none";
 
     /**
      * Section rule: '── title ┄────…' with a note set flush right as a margin
@@ -619,7 +623,7 @@ export class JournalScene implements Scene {
     // (recency = attention), styled on the glyph itself — never a prefix mark,
     // which would read as a cursor on a game board.
     const tierStyle = (count: number): TextStyle => {
-      if (count === 0) return { fg: t.dimmed };
+      if (count === 0) return { fg: t.dimmed, dim: mono };
       if (count === 1) return { fg: t.tertiary };
       if (count <= 3) return { fg: t.secondary };
       return { fg: t.primary, bold: true };
