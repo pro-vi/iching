@@ -194,7 +194,11 @@ export class JournalScene implements Scene {
   }
 
   enter(ctx: SceneContext): void {
-    this.scroll.viewportHeight = ctx.rows - 4; // header(2) + preview + footer
+    // Floor every viewport at one row, exactly as resize() and the patterns
+    // scroll already do — a sub-chrome terminal (rows ≤ 4) would otherwise seed
+    // the list scroll with a ≤0 height and feed that into the cursor-visibility
+    // math until the first resize corrects it.
+    this.scroll.viewportHeight = Math.max(1, ctx.rows - 4); // header(2) + preview + footer
     this.patternsScroll.viewportHeight = Math.max(1, ctx.rows - 3); // top margin + indicator + footer
   }
 
@@ -353,7 +357,12 @@ export class JournalScene implements Scene {
 
   /** The list position indicator ("3/26 (40%)"), or null when the list fits. */
   private scrollIndicatorText(rows: number): string | null {
-    const viewportH = rows - 4;
+    // A viewport is at least one row. Without the floor, a terminal shorter
+    // than the 4-row chrome makes `rows - 4` ≤ 0, the "list fits" guard goes
+    // vacuously false even for a single entry, and the position percentage
+    // divides 0/(1-1) → renders "1/1 (NaN%)". Flooring at 1 both kills that
+    // NaN and reads honestly: one entry has nothing to scroll, so no indicator.
+    const viewportH = Math.max(1, rows - 4);
     if (this.filtered.length <= viewportH) return null;
     const pct = Math.round((this.cursor / (this.filtered.length - 1)) * 100);
     return `${this.cursor + 1}/${this.filtered.length} (${pct}%)`;

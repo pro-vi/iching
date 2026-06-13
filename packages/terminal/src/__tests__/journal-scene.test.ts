@@ -132,6 +132,22 @@ describe("JournalScene resize", () => {
     expect(previewRow).toContain("mountain"); // …the image previews (謙: "A mountain…")…
     expect(previewRow).not.toMatch(/…\S/); // …and nothing is glued after its ellipsis.
   });
+
+  test("a single-entry list on a sub-chrome terminal shows no NaN indicator", () => {
+    // Regression: a terminal shorter than the 4-row chrome made the "list fits"
+    // viewport (rows - 4) go ≤ 0, so a one-reading journal slipped past the
+    // guard and divided 0/(1-1) → rendered "1/1 (NaN%)" in the preview row.
+    const scene = new JournalScene([makeEntry("2026-03-01", 1)]);
+    const probe = scene as unknown as {
+      scrollIndicatorText(rows: number): string | null;
+    };
+    for (const rows of [2, 3, 4, 5, 6]) {
+      const ctx = ctxFor(rows, 60);
+      scene.enter(ctx);
+      expect(renderText(scene, ctx)).not.toContain("NaN"); // no math leaks to the UI…
+      expect(probe.scrollIndicatorText(rows)).toBeNull(); // …one entry never scrolls.
+    }
+  });
 });
 
 describe("JournalScene nav parity (j/k, home/end)", () => {
