@@ -189,6 +189,30 @@ describe("TextInput", () => {
     expect(buf.getCell(0, 4).bg).toBe("#FFFFFF");
   });
 
+  test("the cursor stays on screen at every position in an overflowing field", () => {
+    // The window must follow the cursor wherever it goes — never leaving it off
+    // screen — and reset to the head when the cursor returns there (not stay
+    // stuck scrolled). Guards the whole window-tracking invariant, not just the
+    // type-at-the-end case.
+    const input = new TextInput();
+    input.value = "0123456789abcdef"; // 16 chars into a width-8 field
+    const W = 8;
+    for (const pos of [0, 4, 8, 12, 16]) {
+      input.cursorPos = pos;
+      const buf = CellBuffer.create(W, 1);
+      input.render(buf, 0, 0, W, { fg: "#FFFFFF" });
+      let cursorCol = -1;
+      for (let c = 0; c < W; c++) if (buf.getCell(0, c).bg === "#FFFFFF") cursorCol = c;
+      expect(cursorCol).toBeGreaterThanOrEqual(0); // cursor block is on screen…
+      expect(cursorCol).toBeLessThan(W); // …within the field.
+    }
+    // Home returns the view to the head — the scroll is not stuck at the tail.
+    input.moveToStart();
+    const buf = CellBuffer.create(W, 1);
+    input.render(buf, 0, 0, W, { fg: "#FFFFFF" });
+    expect(buf.getCell(0, 0).char).toBe("0");
+  });
+
   test("cursor colors fall back to theme tokens when style omits fg/bg", () => {
     const { getTheme } = require("../color/theme.ts");
     const t = getTheme();
