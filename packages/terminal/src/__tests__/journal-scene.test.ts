@@ -3,7 +3,7 @@
 
 import { describe, test, expect } from "bun:test";
 import type { Cast, Line, ReflectionNote } from "@iching/core";
-import { computeJournalPatterns, GUA } from "@iching/core";
+import { computeJournalPatterns, GUA, TRIGRAMS, toSimplified } from "@iching/core";
 import { CellBuffer } from "../render/buffer.ts";
 import { stringWidth } from "../layout/measure.ts";
 import type { SceneContext } from "../scene/types.ts";
@@ -12,9 +12,10 @@ import {
   entryMatchesQuery,
   sanitizeFieldText,
   truncateToWidth,
+  LABEL_W,
   type JournalEntryView,
 } from "../scenes/journal/journal-scene.ts";
-import { countUnit } from "../i18n/messages.ts";
+import { countUnit, tr, type MessageKey } from "../i18n/messages.ts";
 
 function makeLine(value: 6 | 7 | 8 | 9): Line {
   return {
@@ -1830,5 +1831,65 @@ describe("觀象 pane — 時 phase-of-day section", () => {
     expect(text).toContain("时"); // simplified section title (時 → 时)
     expect(text).toContain("昼"); // simplified 晝 day phase (晝 → 昼)
     expect(text).toContain("记时"); // simplified timed suffix (記時 → 记时)
+  });
+});
+
+describe("觀象 pane — the shared label column has a guardrail", () => {
+  // label() pads by Math.max(1, LABEL_W - w + 1): a label whose display width
+  // exceeds LABEL_W gets only one trailing space and silently shifts that row's
+  // value column out of alignment. The widest labels currently land exactly on
+  // LABEL_W (en faces 「䷡ 大壯 Dà Zhuàng」, the becoming-pair 「䷈ 小畜 → ䷈ 小畜」),
+  // so any copy change or wider datum would break alignment unnoticed. Pin it.
+  // (External render review, H4: "some labels are exactly 17 — fragile, no guard.")
+  const langs = ["en", "zh-Hans", "zh-Hant"] as const;
+  const cn = (lang: (typeof langs)[number], s: string): string =>
+    lang === "zh-Hans" ? toSimplified(s) : s;
+
+  test("every data-derived label (faces, becoming-pairs, trigrams) fits LABEL_W", () => {
+    for (const lang of langs) {
+      let widestGuaName = "";
+      for (let kw = 1; kw <= 64; kw++) {
+        const g = GUA[kw - 1];
+        // faces row: glyph + name, plus pinyin in en (the panel's widest label).
+        const faces = `${g.u} ${cn(lang, g.n)}` + (lang === "en" ? ` ${g.p}` : "");
+        expect(stringWidth(faces)).toBeLessThanOrEqual(LABEL_W);
+        const guaName = `${g.u} ${cn(lang, g.n)}`;
+        if (stringWidth(guaName) > stringWidth(widestGuaName)) widestGuaName = guaName;
+      }
+      // S5/S6 directed-pair label: guaName → guaName (no pinyin even in en).
+      expect(stringWidth(`${widestGuaName} → ${widestGuaName}`)).toBeLessThanOrEqual(LABEL_W);
+      for (const t of TRIGRAMS) {
+        const tl = `${t.sym} ${cn(lang, t.n)}` + (lang === "en" ? ` ${t.img}` : "");
+        expect(stringWidth(tl)).toBeLessThanOrEqual(LABEL_W);
+      }
+    }
+  });
+
+  test("every fixed message label routed through label() fits LABEL_W", () => {
+    // The single-string labels handed to label([lab(tr(...))]) across the pane:
+    // line positions, the moved-per-cast / chance / still rows, the old-yang/yin
+    // direction rows, and the structural-echo kinds.
+    const keys: MessageKey[] = [
+      "journal.patterns.line1",
+      "journal.patterns.line2",
+      "journal.patterns.line3",
+      "journal.patterns.line4",
+      "journal.patterns.line5",
+      "journal.patterns.line6",
+      "journal.patterns.movedPerCast",
+      "journal.patterns.chance",
+      "journal.patterns.still",
+      "journal.patterns.oldYangLabel",
+      "journal.patterns.oldYinLabel",
+      "journal.patterns.nuclear",
+      "journal.patterns.polarity",
+      "journal.patterns.mirror",
+      "journal.patterns.kingWenPair",
+    ];
+    for (const lang of langs) {
+      for (const key of keys) {
+        expect(stringWidth(tr(lang, key))).toBeLessThanOrEqual(LABEL_W);
+      }
+    }
   });
 });

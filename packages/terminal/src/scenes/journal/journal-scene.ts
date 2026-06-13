@@ -42,8 +42,11 @@ interface PatternRow {
 // exist — below that, observed-vs-expected is statistical theatre.
 const CHANCE_MIN_KNOWN = 8;
 // The single label column every section aligns to (display columns). 17 is the
-// widest en faces label across all 64 hexagrams — 「䷡ 大壯 Dà Zhuàng」.
-const LABEL_W = 17;
+// widest en faces label across all 64 hexagrams — 「䷡ 大壯 Dà Zhuàng」. Exported
+// so a test can assert no label outgrows it: label() pads by max(1, …), so a
+// wider label silently shifts that row's value column out of alignment (it has
+// no guardrail of its own — external render review, H4).
+export const LABEL_W = 17;
 // Eighth-block ramp for the cast-to-cast drift sparkline.
 const SPARK_BLOCKS = "▁▂▃▄▅▆▇█";
 const LINE_KEYS = [
