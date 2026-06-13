@@ -85,6 +85,33 @@ function type(scene: JournalScene, ctx: SceneContext, text: string): void {
   }
 }
 
+describe("JournalScene resize", () => {
+  test("shrinking the terminal keeps the selected reading on screen", () => {
+    // Regression: resize() updated the list viewport height but never re-ran the
+    // cursor-into-view math (only the patterns scroll re-clamped), so shrinking
+    // with the selection near the bottom dropped it below the new fold until the
+    // user arrowed it back into view.
+    const entries = Array.from({ length: 18 }, (_, i) =>
+      makeEntry(`2026-05-${String(i + 1).padStart(2, "0")}`, (i % 8) + 1),
+    );
+    const scene = new JournalScene(entries, { today: () => "2026-06-01" });
+    const tall = ctxFor(24, 60);
+    scene.enter(tall);
+    for (let i = 0; i < entries.length; i++) {
+      scene.handleKey({ type: "arrow", direction: "down" }, tall); // walk to the last reading
+    }
+    scene.resize(60, 12); // shrink
+    const short = ctxFor(12, 60);
+    const buf = CellBuffer.create(short.cols, short.rows);
+    scene.render(buf, short);
+    const selRow = Array.from({ length: short.rows }, (_, r) =>
+      buf.getRow(r).map((c) => c.char).join(""),
+    ).findIndex((l) => l.trimStart().startsWith(">"));
+    expect(selRow).toBeGreaterThanOrEqual(0); // the selection is still on screen…
+    expect(selRow).toBeLessThan(short.rows - 2); // …above the preview/footer rows
+  });
+});
+
 describe("JournalScene nav parity (j/k, home/end)", () => {
   // entries render most recent first: 03-04 (index 0) … 03-01 (index 3)
   const entries = [

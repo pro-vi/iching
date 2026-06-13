@@ -210,8 +210,13 @@ export class JournalScene implements Scene {
 
   update(_elapsed: number, _dt: number, _ctx: SceneContext): void {}
 
-  resize(cols: number, rows: number): void {
-    this.scroll.viewportHeight = rows - 4;
+  resize(_cols: number, rows: number): void {
+    this.scroll.viewportHeight = Math.max(1, rows - 4);
+    // A shrink can leave the selection below the new fold: the patterns scroll
+    // re-clamps itself (scrollDown(0)), but the list cursor needs the same
+    // care, or the highlighted reading vanishes off the bottom until the user
+    // arrows it back. Re-run the cursor-into-view math the move keys use.
+    this.ensureCursorVisible();
     this.patternsScroll.viewportHeight = Math.max(1, rows - 3);
     this.patternsScroll.scrollDown(0);
   }
