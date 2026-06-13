@@ -1282,6 +1282,28 @@ describe("JournalScene patterns pane ([p])", () => {
     expect(cellFor(10)?.fg).toBe(t.accent); // ×1 but most recent → ◉ now overrides the tier
   });
 
+  test("the field's frequency tiers rise in luminance for every theme", () => {
+    // The tier mapping above pins which TONE each frequency gets; this pins the
+    // tones themselves into the right order. The field reads frequency as
+    // brightness (rarer dimmer), so dimmed < tertiary < secondary < primary must
+    // hold in actual luminance — for every theme, present and future. A palette
+    // that broke the order would silently invert the field's gradient.
+    const { THEME_NAMES, THEMES } = require("../color/theme.ts");
+    const lum = (hex: string): number => {
+      const h = hex.replace("#", "");
+      const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+      const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+      return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+    };
+    for (const name of THEME_NAMES as string[]) {
+      const th = THEMES[name];
+      const tiers = [th.dimmed, th.tertiary, th.secondary, th.primary].map(lum);
+      for (let i = 1; i < tiers.length; i++) {
+        expect(tiers[i], `${name} tier ${i}`).toBeGreaterThan(tiers[i - 1]);
+      }
+    }
+  });
+
   test("the 卦象/爻象/八卦 bars align by display column in zh-Hant, same as English", () => {
     // The three sparkline sections share one start column so the pane reads as a
     // single aligned field. CJK labels (乾, 上爻, ☷ 坤) carry different display
