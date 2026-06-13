@@ -197,6 +197,36 @@ describe("JsonlJournalStore", () => {
       expect(store.skippedLines).toBe(1);
     });
 
+    test("a record with malformed changingPositions is torn, not admitted", async () => {
+      const { writeFile } = await import("node:fs/promises");
+      // changingPositions is held to its own range discipline (0–6 unique, 1–6):
+      // out-of-range, duplicate, or >6-length records are corrupt, like a torn
+      // line — they must not reach a reader assuming valid positions.
+      const withPositions = (positions: number[]): string => {
+        const e = makeEntry("2025-01-02");
+        e.cast.changingPositions = positions;
+        return JSON.stringify(e);
+      };
+      const good = JSON.stringify(makeEntry("2025-01-01"));
+      await writeFile(
+        join(dir, "history.jsonl"),
+        [
+          good,
+          withPositions([0, 3, 99]), // out of range
+          withPositions([1, 1, 2]), // duplicate
+          withPositions([1, 2, 3, 4, 5, 6, 1]), // length > 6
+          withPositions([2, 5]), // valid — survives
+        ].join("\n") + "\n",
+        "utf-8",
+      );
+
+      const results: HistoryEntry[] = [];
+      for await (const entry of store.stream()) results.push(entry);
+      expect(results.map((e) => e.date)).toEqual(["2025-01-01", "2025-01-02"]);
+      expect(results[1].cast.changingPositions).toEqual([2, 5]); // the valid one
+      expect(store.skippedLines).toBe(3); // the three malformed records
+    });
+
     test("latest returns null when every line is torn", async () => {
       const { writeFile } = await import("node:fs/promises");
       const path = join(dir, "history.jsonl");

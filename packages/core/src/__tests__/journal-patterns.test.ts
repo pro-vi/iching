@@ -233,7 +233,13 @@ describe("computeJournalPatterns — invariants over random journals (fuzz)", ()
     const entries: HistoryEntry[] = [];
     for (let i = 0; i < n; i++) {
       const primary = 1 + Math.floor(rng() * 64);
-      const changing = [1, 2, 3, 4, 5, 6].filter(() => rng() < 0.25);
+      let changing = [1, 2, 3, 4, 5, 6].filter(() => rng() < 0.25);
+      // 1-in-6 entries carry deliberately malformed positions (out-of-range,
+      // duplicate, >6) — the compute must normalize them and keep the two
+      // moving-line distributions in agreement (the desync the review found).
+      if (rng() < 0.16) {
+        changing = [...changing, [0, 7, 99, -1][Math.floor(rng() * 4)], changing[0] ?? 3];
+      }
       const method = METHODS[Math.floor(rng() * METHODS.length)];
       // Random day in a ~200-day window, random intra-day time — order shuffled.
       const day = 1 + Math.floor(rng() * 200);
@@ -288,6 +294,16 @@ describe("computeJournalPatterns — invariants over random journals (fuzz)", ()
       for (const line of p.movingLines) {
         expect(line.count >= line.knownCount && line.knownCount >= 0, ctx).toBe(true);
       }
+      // The two moving-line distributions describe the SAME population, even when
+      // a journal carries malformed positions (per-position tally === bin-weighted
+      // sum, for all readings and for the method-marked subset).
+      const perPosition = p.movingLines.reduce((a, l) => a + l.count, 0);
+      const viaBins = p.movingLineCounts.reduce((a, b) => a + b.movingLines * b.count, 0);
+      expect(perPosition, ctx).toBe(viaBins);
+      const perPositionKnown = p.movingLines.reduce((a, l) => a + l.knownCount, 0);
+      const viaBinsKnown = p.movingLineCounts.reduce((a, b) => a + b.movingLines * b.knownCount, 0);
+      expect(perPositionKnown, ctx).toBe(viaBinsKnown);
+      expect(p.movingLineCounts.reduce((a, b) => a + b.count, 0), ctx).toBe(entries.length);
       // field.recent = primary of the chronologically latest entry, or null.
       if (entries.length === 0) {
         expect(p.field.recent, ctx).toBeNull();
