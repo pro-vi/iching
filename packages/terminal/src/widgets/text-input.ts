@@ -80,9 +80,24 @@ export class TextInput {
     style?: Partial<StyledCell>,
   ): void {
     const t = getTheme();
-    let c = 0;
-    let charIdx = 0;
     const chars = this._chars;
+
+    // Horizontal scroll: keep the cursor inside the visible window. Without it
+    // the field always renders from the head, so typing past `width` freezes on
+    // the opening text with the cursor — and every new keystroke — off screen.
+    // Scroll so the tail up to the cursor shows instead, the expected single-
+    // line behaviour. Text that fits (cursor within `width`) is unchanged:
+    // cursorCol < width → scrollCol 0 → startIdx 0.
+    let cursorCol = 0;
+    for (let i = 0; i < this.cursorPos && i < chars.length; i++) cursorCol += stringWidth(chars[i]);
+    const scrollCol = Math.max(0, cursorCol - (width - 1));
+    let startIdx = 0;
+    for (let acc = 0; startIdx < chars.length && acc < scrollCol; startIdx++) {
+      acc += stringWidth(chars[startIdx]);
+    }
+
+    let c = 0;
+    let charIdx = startIdx;
     while (c < width) {
       const isCursor = charIdx === this.cursorPos;
       // Block cursor: inverse video, falling back to theme tokens

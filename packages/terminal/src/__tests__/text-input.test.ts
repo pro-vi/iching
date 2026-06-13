@@ -172,6 +172,23 @@ describe("TextInput", () => {
     expect(cell2.bg).toBe("#FFFFFF");
   });
 
+  test("render scrolls horizontally to keep the cursor visible past the width", () => {
+    // Regression: render started from the head, so typing past the field width
+    // froze on the opening text with the cursor off screen. It now scrolls to
+    // show the tail up to the cursor.
+    const input = new TextInput();
+    input.value = "abcdefghij"; // 10 chars into a width-5 field
+    input.moveToEnd(); // cursor at position 10
+    const buf = CellBuffer.create(10, 1);
+    input.render(buf, 0, 0, 5, { fg: "#FFFFFF" });
+    // The window scrolled to the tail — the head 'a' is gone, g…j show…
+    expect(buf.getCell(0, 0).char).not.toBe("a");
+    expect(buf.getCell(0, 0).char).toBe("g");
+    expect(buf.getCell(0, 3).char).toBe("j");
+    // …and the cursor block sits on screen at the right edge (was off screen).
+    expect(buf.getCell(0, 4).bg).toBe("#FFFFFF");
+  });
+
   test("cursor colors fall back to theme tokens when style omits fg/bg", () => {
     const { getTheme } = require("../color/theme.ts");
     const t = getTheme();
