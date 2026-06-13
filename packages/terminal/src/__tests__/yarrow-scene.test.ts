@@ -33,25 +33,40 @@ describe("YarrowScene", () => {
     expect(sig).toEqual({ type: "home" });
   });
 
+  function renderAt(s: YarrowScene, cols: number, rows: number): string {
+    const buf = CellBuffer.create(cols, rows);
+    s.render(buf, { cols, rows, colorSupport: "truecolor", language: "en", done: false });
+    return Array.from({ length: rows }, (_, r) => buf.getRow(r).map((c) => c.char).join("")).join(
+      "\n",
+    );
+  }
+
   test("gates on its 52-col field need — a narrow terminal gets a calm notice", () => {
     const s = scene(42);
-    const render = (cols: number): string => {
-      const buf = CellBuffer.create(cols, 16);
-      s.render(buf, { cols, rows: 16, colorSupport: "truecolor", language: "en", done: false });
-      return Array.from({ length: 16 }, (_, r) => buf.getRow(r).map((c) => c.char).join("")).join(
-        "\n",
-      );
-    };
-    // Below the field's 52-col need but above the global 40 floor: the ritual
-    // would render a clipped half-field, so it shows the too-small notice with
-    // its OWN requirement (52), not the misleading global 40.
+    // Below the field's 52-col need but above the global 40 floor (held tall so
+    // only width gates): the ritual would render a clipped half-field, so it
+    // shows the too-small notice with its OWN requirement (52 × 21), not the
+    // misleading global 40 × 12.
     for (const cols of [41, 45, 51]) {
-      const out = render(cols);
+      const out = renderAt(s, cols, 24);
       expect(out).toContain("the window is too small");
-      expect(out).toContain("52 × 12");
+      expect(out).toContain("52 × 21");
     }
-    // At a comfortable width the field renders (its pace-control footer shows).
-    expect(render(80)).toContain("[space]");
+    // At a comfortable size the field renders (its pace-control footer shows).
+    expect(renderAt(s, 80, 24)).toContain("[space]");
+  });
+
+  test("gates on its 21-row field need — a short terminal gets a calm notice", () => {
+    const s = scene(42);
+    // The counting field is anchored low (fieldRow = floor(h/2) + 8); below 21
+    // rows the stalk bar overlaps the keybind footer. Held wide so only height
+    // gates — at 20 and below the notice shows, at 21 the ritual renders.
+    for (const rows of [12, 16, 20]) {
+      const out = renderAt(s, 80, rows);
+      expect(out).toContain("the window is too small");
+      expect(out).toContain("52 × 21");
+    }
+    expect(renderAt(s, 80, 21)).toContain("[space]"); // exactly at the floor it renders
   });
 
   test("ctrl-c exits at any point", () => {

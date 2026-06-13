@@ -34,6 +34,7 @@ import {
   drawApertureCursor,
   bounceAperture,
   BAR_AREA_WIDTH,
+  YARROW_MIN_ROWS,
 } from "./field-renderer.ts";
 import { renderTooSmallNotice } from "../../scene/loop.ts";
 import { writeChromeFooter } from "../cast/ritual-chrome.ts";
@@ -115,10 +116,11 @@ export class YarrowManualScene implements Scene {
   }
 
   render(frame: CellBuffer, ctx: SceneContext): void {
-    // The 49-stalk field needs BAR_AREA_WIDTH columns — gate above the global
-    // too-small floor so a narrow terminal sees a calm notice, not a half-field.
-    if (frame.width < BAR_AREA_WIDTH) {
-      renderTooSmallNotice(frame, { ...ctx, language: this.language }, BAR_AREA_WIDTH);
+    // The 49-stalk field needs BAR_AREA_WIDTH columns and YARROW_MIN_ROWS rows —
+    // gate above the global too-small floor on both axes so a cramped terminal
+    // sees a calm notice, not a half-field or a stalk bar over the footer.
+    if (frame.width < BAR_AREA_WIDTH || frame.height < YARROW_MIN_ROWS) {
+      renderTooSmallNotice(frame, { ...ctx, language: this.language }, BAR_AREA_WIDTH, YARROW_MIN_ROWS);
       return;
     }
     renderYarrowField(frame, this.model, this.language);

@@ -30,13 +30,15 @@ export function renderTooSmallNotice(
   frame: CellBuffer,
   ctx: SceneContext,
   minCols: number = MIN_COLS,
+  minRows: number = MIN_ROWS,
 ): void {
   const t = getTheme();
   const lang = ctx.language ?? "en";
   const msg = tr(lang, "notice.tooSmall");
-  // A scene that needs more than the global floor (e.g. the yarrow field)
-  // shows its own larger requirement so the hint is honest.
-  const dims = `${minCols} × ${MIN_ROWS}`;
+  // A scene that needs more than the global floor (e.g. the yarrow field, which
+  // needs both extra columns and extra rows) shows its own larger requirement
+  // so the hint is honest.
+  const dims = `${minCols} × ${minRows}`;
   const msgRow = Math.max(0, Math.floor(frame.height / 2) - 1);
   frame.writeText(msgRow, Math.max(0, Math.floor((frame.width - stringWidth(msg)) / 2)), msg, {
     fg: t.secondary,

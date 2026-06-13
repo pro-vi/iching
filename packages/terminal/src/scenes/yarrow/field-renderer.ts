@@ -33,6 +33,13 @@ const GAP_CELLS = 2; // minimum visible gap between heaps during split
 // (the global too-small floor of 40 is narrower than the ritual requires).
 export const BAR_AREA_WIDTH = TOTAL_STALKS + GAP_CELLS + 1; // 52
 
+// The counting field is anchored low — fieldRow = anchorRow(h) + 5 =
+// floor(h/2) + 8 (see fieldRow() below). The footer sits at h - 2, so the
+// stalk bar overlaps the footer exactly when floor(h/2) + 8 >= h - 2, i.e.
+// h <= 20. Below 21 rows the field collides with the keybinds; gate there,
+// the height analog of BAR_AREA_WIDTH's width gate.
+export const YARROW_MIN_ROWS = 21;
+
 /** A row of N stalks: `███████` (n cells of `█`). */
 function stalkBar(n: number): string {
   return STALK.repeat(Math.max(0, Math.round(n)));

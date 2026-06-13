@@ -17,7 +17,7 @@ import { getYarrowTiming } from "../../animation/yarrow-presets.ts";
 import { TimelineRunner } from "../../animation/runner.ts";
 import { YarrowModel } from "./model.ts";
 import { buildYarrowTimeline } from "./yarrow-timeline.ts";
-import { renderYarrowField, BAR_AREA_WIDTH } from "./field-renderer.ts";
+import { renderYarrowField, BAR_AREA_WIDTH, YARROW_MIN_ROWS } from "./field-renderer.ts";
 import { renderTooSmallNotice } from "../../scene/loop.ts";
 import { writeChromeFooter } from "../cast/ritual-chrome.ts";
 import { tr } from "../../i18n/messages.ts";
@@ -53,11 +53,12 @@ export class YarrowScene implements Scene {
   }
 
   render(frame: CellBuffer, ctx: SceneContext): void {
-    // The 49-stalk field needs BAR_AREA_WIDTH columns; the global too-small
-    // floor (40) is narrower, so gate here too — a clipped half-field reads as
+    // The 49-stalk field needs BAR_AREA_WIDTH columns and YARROW_MIN_ROWS rows;
+    // the global too-small floor (40 × 12) is smaller on both axes, so gate here
+    // too — a clipped half-field or a stalk bar overlapping the footer reads as
     // broken, where a calm notice reads as honest.
-    if (frame.width < BAR_AREA_WIDTH) {
-      renderTooSmallNotice(frame, { ...ctx, language: this.language }, BAR_AREA_WIDTH);
+    if (frame.width < BAR_AREA_WIDTH || frame.height < YARROW_MIN_ROWS) {
+      renderTooSmallNotice(frame, { ...ctx, language: this.language }, BAR_AREA_WIDTH, YARROW_MIN_ROWS);
       return;
     }
     // Captions are baked into the timeline at construction with this.language;
