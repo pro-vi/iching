@@ -169,6 +169,18 @@ describe("the glyph yields to the texts — and returns when there is room", () 
     expect(rowOf(frame, "Shì Kè")).toBeGreaterThanOrEqual(0); // pinyin title kept
   });
 
+  test("the title block never orphans below the prompt bar at small heights", () => {
+    // The title rows are placed at fixed anchor offsets; at cramped heights the
+    // becoming title used to spill onto the prompt row and the last line below
+    // it. The title now clips at the prompt bar (height - 2) like the panel.
+    const cast = makeCast(21, [4]); // a becoming cast → has a becoming title
+    for (const [cols, rows] of [[44, 24], [80, 12]] as Array<[number, number]>) {
+      const frame = settledRows(cast, cols, rows, "en");
+      expect(frame[rows - 1].trim()).toBe(""); // nothing below the prompt bar
+      expect(frame[rows - 2]).toContain("["); // the prompt bar is intact
+    }
+  });
+
   test("80x24 en, 0 changing: the WHOLE English judgment is on screen, not truncated", () => {
     // Regression for the headline bug: at the standard 24-row terminal the
     // no-glyph English title used to take four rows, leaving the judgment only

@@ -147,7 +147,7 @@ export function renderTitle(
 
   for (let i = 0; i < lines.length; i++) {
     const row = baseRow + i;
-    if (row >= buf.height) break;
+    if (row >= buf.height - 2) break; // never collide with the prompt bar
 
     // Stagger: each line appears slightly later
     const lineProgress = Math.max(0, Math.min(1, (progress - i * 0.15) / 0.4));
@@ -171,7 +171,7 @@ export function renderTitle(
   // Subtitle ("unchanging" or becoming title)
   if (model.subtitleText) {
     const subRow = baseRow + 5;
-    if (subRow < buf.height) {
+    if (subRow < buf.height - 2) {
       const w = stringWidth(model.subtitleText);
       const col = Math.max(0, Math.floor((buf.width - w) / 2) + xOffset);
       buf.writeText(subRow, col, model.subtitleText, {
@@ -219,7 +219,7 @@ export function renderBecomingTitle(
   const lines = [line1, line2];
   for (let i = 0; i < lines.length; i++) {
     const row = baseRow + i;
-    if (row >= buf.height) break;
+    if (row >= buf.height - 2) break; // never collide with the prompt bar
 
     const lineProgress = Math.max(0, Math.min(1, (progress - i * 0.2) / 0.6));
     if (lineProgress <= 0) continue;
