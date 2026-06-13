@@ -84,6 +84,11 @@ describe("runReadingFlow — yarrow source", () => {
     const journal = new JsonlJournalStore(deps.paths.state);
     const entry = await journal.latest();
     expect(entry?.method).toBe("yarrow");
+    // The journal and the daily cache record the SAME cast — `iching today`
+    // (cache) and the journal must agree on the day's reading. They share one
+    // `cast` at persist time; lock that they don't drift apart.
+    expect(entry?.cast).toEqual(yarrowCast);
+    expect(entry?.cast).toEqual(cache?.cast);
   });
 
   test("auto (coin) casts record method provenance too", async () => {
