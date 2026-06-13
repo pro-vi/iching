@@ -201,8 +201,12 @@ export function registerJournalCommand(program: Command): void {
       if (dateArg === "latest") {
         found = await store.latest();
       } else {
+        // A day's reading is its chronologically LATEST cast (by time-key), not
+        // merely the last appended — so an out-of-order or imported journal
+        // doesn't surface an earlier reading as "the day's". Matches the order
+        // `journal list` sorts by.
         for await (const entry of store.stream()) {
-          if (entry.date === targetDate) {
+          if (entry.date === targetDate && (found === null || entryTimeKey(entry) >= entryTimeKey(found))) {
             found = entry;
           }
         }

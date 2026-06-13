@@ -319,6 +319,21 @@ describe("journal command", () => {
     expect(stdout).not.toContain("Method:");
   }, 20_000);
 
+  test("show <date> surfaces the day's LATEST reading, even appended out of order", async () => {
+    // Three readings on one day, appended out of chronological order (as an
+    // imported journal can be). `show` must surface the latest by time-key, not
+    // whichever was appended last.
+    await seedJournal(dataDir, [
+      { date: "2026-02-01", timestamp: "2026-02-01T20:00:00.000Z", cast: makeCast(29, null), method: "coin" },
+      { date: "2026-02-01", timestamp: "2026-02-01T08:00:00.000Z", cast: makeCast(1, null), method: "coin" },
+      { date: "2026-02-01", timestamp: "2026-02-01T14:00:00.000Z", cast: makeCast(11, null), method: "coin" },
+    ]);
+    const { exitCode, stdout } = await runCli(dataDir, ["journal", "show", "2026-02-01"]);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("Hexagram 29"); // 坎, the 20:00 reading — the latest…
+    expect(stdout).not.toContain("Hexagram 11"); // …not the 14:00 one appended last
+  }, 20_000);
+
   test("plain show carries the quiet entropy line only for bound entries", async () => {
     const bound: HistoryEntry = {
       ...makeEntry("2026-01-03", 3, null, "coin"),
