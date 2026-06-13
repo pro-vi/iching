@@ -49,6 +49,30 @@ describe("SettingsScene language", () => {
     scene.handleKey({ type: "arrow", direction: "right" }, ctx);
     expect(scene.getValues().language).toBe("zh-Hans");
   });
+
+  test("every option row fits the 40-col floor with a right margin", () => {
+    // The widest content rows are the bilingual-gloss settings — entropy
+    // 繫於心念 (bound), cast method 蓍草 (yarrow). At the global MIN_COLS floor (40)
+    // every chip must stay on screen with a margin so none is silently clipped
+    // at the narrowest supported terminal. Locks against a future setting or
+    // longer label quietly overflowing it (cf. the yarrow field's 52-col gap).
+    //
+    // The keybind FOOTER is excluded: it's shared chrome that, like the journal
+    // and cast footers, runs wider than 40 in English and clips at the minimum
+    // width — an app-wide degradation, not a settings-content concern.
+    const cols = 40;
+    for (const lang of ["en", "zh-Hant", "zh-Hans"] as const) {
+      const buf = CellBuffer.create(cols, 30); // tall enough to show every setting
+      makeScene(lang).render(buf, { cols, rows: 30, done: false, colorSupport: "none", language: lang });
+      for (let r = 0; r < buf.height; r++) {
+        if (r === buf.height - 2) continue; // skip the shared keybind footer row
+        const cells = buf.getRow(r);
+        let lastCol = -1;
+        for (let c = 0; c < cols; c++) if (cells[c].char.trim() !== "") lastCol = c;
+        expect(lastCol).toBeLessThan(cols - 1); // a right margin remains
+      }
+    }
+  });
 });
 
 describe("SettingsScene layout", () => {
