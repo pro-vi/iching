@@ -684,7 +684,13 @@ function compareEntryTime(a: HistoryEntry, b: HistoryEntry): number {
   return entryTimeKey(a).localeCompare(entryTimeKey(b));
 }
 
-function entryTimeKey(entry: HistoryEntry): string {
+/**
+ * The sortable instant of a reading — its timestamp, or its local date at
+ * midnight when no timestamp was recorded. This is the SAME key the patterns
+ * pane uses to pick the most-recent reading (the ◉ recency accent), so any
+ * surface that wants "newest" must order by this to agree with the pane.
+ */
+export function entryTimeKey(entry: HistoryEntry): string {
   return entry.timestamp ?? `${entry.date}T00:00:00.000Z`;
 }
 

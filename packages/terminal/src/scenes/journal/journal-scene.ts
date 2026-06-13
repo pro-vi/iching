@@ -8,7 +8,7 @@ import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
 import type { DisplayLanguage, HistoryEntry } from "@iching/core";
-import { GUA, TRIGRAMS, stripTerminalControls, toSimplified } from "@iching/core";
+import { GUA, TRIGRAMS, entryTimeKey, stripTerminalControls, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { ScrollableRegion } from "../../widgets/scrollable.ts";
@@ -182,9 +182,14 @@ export class JournalScene implements Scene {
     // (storage validates, so this is defense-in-depth): every downstream site —
     // the list row, the field, the patterns derivation — indexes cast.primary,
     // and one cast-less record must not take the whole scene down.
+    // Newest first — ordered by the SAME time-key the patterns pane uses for
+    // its ◉ recency accent, so the list's top row and the accent always mark
+    // the same reading (a .reverse() would assume strictly chronological append
+    // order and disagree with the pane on an out-of-order / imported journal).
+    // Stable on equal keys → same-day undated casts keep their append order.
     this.entries = entries
       .filter((e) => e?.cast != null && typeof e.cast.primary === "number")
-      .reverse();
+      .sort((a, b) => entryTimeKey(b).localeCompare(entryTimeKey(a)));
     this.filtered = this.entries;
     this.cursor = 0;
     this.scroll = new ScrollableRegion(20, []);

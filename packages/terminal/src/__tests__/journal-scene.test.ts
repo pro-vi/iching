@@ -3,6 +3,7 @@
 
 import { describe, test, expect } from "bun:test";
 import type { Cast, Line } from "@iching/core";
+import { computeJournalPatterns } from "@iching/core";
 import { CellBuffer } from "../render/buffer.ts";
 import { stringWidth } from "../layout/measure.ts";
 import type { SceneContext } from "../scene/types.ts";
@@ -1118,6 +1119,31 @@ describe("count unit pluralizes English, leaves zh measure words invariant", () 
 
     const two = new JournalScene([makeEntry("2026-03-01", 1), makeEntry("2026-03-02", 2)]);
     expect(renderText(two, ctxFor())).toContain("2 readings");
+  });
+});
+
+describe("JournalScene list ordering agrees with the pane's recency accent", () => {
+  test("newest by date sits on top, even when an older reading was recorded last", () => {
+    // File order = oldest-recorded first → newest-recorded last. Here the LAST
+    // entry is an old import (03-25) recorded after a newer reading (03-30); a
+    // plain reverse() would float that old import to the top as "newest".
+    const entries = [
+      makeEntry("2026-03-30", 11), // 泰 — the actual newest by date
+      makeEntry("2026-03-25", 22), // 賁 — older date, recorded last (an import)
+    ];
+    const scene = new JournalScene(entries);
+    const ctx = ctxFor();
+    scene.enter(ctx);
+    const rows = renderText(scene, ctx).split("\n");
+    const rowOfTai = rows.findIndex((l) => l.includes("泰"));
+    const rowOfBi = rows.findIndex((l) => l.includes("賁"));
+    expect(rowOfTai).toBeGreaterThanOrEqual(0);
+    expect(rowOfBi).toBeGreaterThanOrEqual(0);
+    expect(rowOfTai).toBeLessThan(rowOfBi); // newest date on top, not the late import
+
+    // …and the pane's ◉ recency accent marks the SAME reading, by construction:
+    // both order by entryTimeKey, so list-top and field.recent can't disagree.
+    expect(computeJournalPatterns(entries, "2026-04-15").field.recent).toBe(11);
   });
 });
 
