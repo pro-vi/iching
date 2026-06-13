@@ -6,6 +6,7 @@ import { mkdtemp, rm, writeFile, appendFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Cast, HistoryEntry } from "@iching/core";
+import { GUA } from "@iching/core";
 import { localToday } from "../util/today.ts";
 
 const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
@@ -358,6 +359,29 @@ describe("journal command", () => {
     await seedJournal(dataDir, [makeEntry("2026-01-02", 2, null)]);
     const { stdout } = await runCli(dataDir, ["journal", "show", "2026-01-02"]);
     expect(stdout).not.toContain("Method:");
+  }, 20_000);
+
+  test("plain show surfaces the moving lines — the crux of a journalled reading", async () => {
+    // Regression: formatCastPlain prints the moving-line texts at cast time, but
+    // formatJournalShowPlain dropped them — so revisiting a reading via
+    // `journal show` lost the very lines you contemplate. makeCast marks line 1
+    // moving, so the day's reading has one changing line.
+    await seedJournal(dataDir, [makeEntry("2026-02-02", 3, 39)]); // primary 3, becoming 39, [line 1]
+    const { exitCode, stdout } = await runCli(dataDir, ["journal", "show", "2026-02-02"]);
+    expect(exitCode).toBe(0);
+    // The becoming line names which lines moved…
+    expect(stdout).toContain("Hexagram 39 [line 1]");
+    // …and the moving-line text itself is surfaced, not merely the position.
+    expect(stdout).toContain("Changing line:");
+    expect(stdout).toContain(`1: ${GUA[2].yao[0]}`); // hexagram 3, line 1 yao (zh)
+    expect(stdout).toContain(GUA[2].yaoEn[0]); // and its English
+  }, 20_000);
+
+  test("plain show omits the changing-lines section for a static reading", async () => {
+    await seedJournal(dataDir, [makeEntry("2026-02-03", 2, null)]); // no moving lines
+    const { stdout } = await runCli(dataDir, ["journal", "show", "2026-02-03"]);
+    expect(stdout).not.toContain("Changing line");
+    expect(stdout).not.toContain("[line");
   }, 20_000);
 
   test("plain list/show strip terminal control sequences from a stored intention", async () => {

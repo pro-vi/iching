@@ -266,10 +266,32 @@ export function formatJournalShowPlain(
 
   if (entry.cast.becoming !== null) {
     const b = GUA[entry.cast.becoming - 1];
+    const pos = entry.cast.changingPositions;
     lines.push("");
     lines.push(
-      `Becoming: ${b.u} ${b.n} (${b.p}) — Hexagram ${entry.cast.becoming}`,
+      `Becoming: ${b.u} ${b.n} (${b.p}) — Hexagram ${entry.cast.becoming}` +
+        (pos.length > 0 ? ` [${pos.length === 1 ? "line" : "lines"} ${pos.join(",")}]` : ""),
     );
+  }
+
+  // The moving lines are the crux of a reading — the very texts you sit with.
+  // formatCastPlain prints them at cast time; revisiting the same reading via
+  // `journal show` must surface them too, or a journalled reading silently loses
+  // its moving lines once the fresh cast scrolls off. The entry stores
+  // changingPositions, and isCastShaped guarantees they agree with the line
+  // diagram, so the positions index the primary's yao texts directly.
+  if (entry.cast.changingPositions.length > 0) {
+    lines.push("");
+    lines.push(entry.cast.changingPositions.length === 1 ? "Changing line:" : "Changing lines:");
+    for (const pos of entry.cast.changingPositions) {
+      lines.push(`  ${pos}: ${g.yao[pos - 1]}`);
+      lines.push(`     ${g.yaoEn[pos - 1]}`);
+    }
+    // All six moving on hexagram 1/2 reads 用九/用六.
+    if (entry.cast.changingPositions.length === 6 && g.extra) {
+      lines.push(`  ${g.extra.name}: ${g.extra.text}`);
+      lines.push(`     ${g.extra.textEn}`);
+    }
   }
 
   lines.push("");
