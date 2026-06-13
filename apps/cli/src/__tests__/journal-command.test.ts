@@ -2,7 +2,7 @@
 // name-enriched JSON output, method provenance notes, and torn-line survival.
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm, writeFile, appendFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, appendFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Cast, HistoryEntry } from "@iching/core";
@@ -436,6 +436,23 @@ describe("journal command", () => {
     const show = await runCli(dataDir, ["journal", "show", "latest"]);
     expect(show.exitCode).toBe(0);
     expect(show.stderr).toBe("");
+  }, 20_000);
+
+  test("a whole-file read failure is a calm message, not a raw EISDIR", async () => {
+    // Torn LINES are skipped with a quiet note; a whole-file read failure (here
+    // a directory left at the journal path → EISDIR; in the wild a root-owned
+    // file → EACCES) must read as a clear message, not the raw Node error.
+    await mkdir(join(dataDir, "history.jsonl"));
+
+    const list = await runCli(dataDir, ["journal", "list"]);
+    expect(list.exitCode).toBe(1);
+    expect(list.stderr).toMatch(/couldn't read your journal/i); // calm, contextual…
+    expect(list.stderr).not.toMatch(/EISDIR/); // …never the raw Node error
+    expect(list.stdout).toBe(""); // and nothing printed as if it were empty
+
+    const show = await runCli(dataDir, ["journal", "show", "today"]);
+    expect(show.exitCode).toBe(1);
+    expect(show.stderr).toMatch(/couldn't read your journal/i);
   }, 20_000);
 
   // Regression: a syntactically valid record with an empty cast object used

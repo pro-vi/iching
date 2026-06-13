@@ -1,4 +1,6 @@
 import { Command } from "commander";
+import { access, stat } from "node:fs/promises";
+import { constants } from "node:fs";
 import { GUA, computeJournalPatterns, entryTimeKey } from "@iching/core";
 import type { HistoryEntry, ReflectionNote } from "@iching/core";
 import {
@@ -25,6 +27,28 @@ function reportSkippedLines(store: JsonlJournalStore): void {
   }
 }
 
+/**
+ * Calm preflight before any journal read. Torn LINES are tolerated by the
+ * reader (skipped, counted); a whole-file read failure — a directory left at
+ * the path, permission denied — would otherwise surface a raw `EISDIR`/`EACCES`
+ * at the user. A missing journal is fine (the reader yields empty). Mirrors the
+ * calm config-write errors the rest of the app already gives.
+ */
+async function assertJournalReadable(statePath: string): Promise<void> {
+  try {
+    const info = await stat(statePath);
+    if (!info.isDirectory()) {
+      await access(statePath, constants.R_OK);
+      return; // present, a file, readable — proceed to the read
+    }
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return; // no journal yet — reads empty
+    // any other stat/access failure falls through to the calm message below
+  }
+  console.error(`iching: couldn't read your journal at ${statePath} (permission denied, or not a file?).`);
+  process.exit(1);
+}
+
 export function registerJournalCommand(program: Command): void {
   const journal = program
     .command("journal")
@@ -44,6 +68,7 @@ export function registerJournalCommand(program: Command): void {
         globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
       );
       const store = new JsonlJournalStore(paths.state);
+      await assertJournalReadable(paths.state);
 
       // Validate the hexagram filter before reading anything.
       let hexFilter: number | undefined;
@@ -130,6 +155,7 @@ export function registerJournalCommand(program: Command): void {
         globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
       );
       const store = new JsonlJournalStore(paths.state);
+      await assertJournalReadable(paths.state);
 
       if (cmdOpts.since !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(cmdOpts.since)) {
         console.error(
@@ -185,6 +211,7 @@ export function registerJournalCommand(program: Command): void {
         globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
       );
       const store = new JsonlJournalStore(paths.state);
+      await assertJournalReadable(paths.state);
 
       // Resolve special date keywords
       let targetDate: string | null = null;
@@ -244,6 +271,7 @@ export function registerJournalCommand(program: Command): void {
         globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
       );
       const store = new JsonlJournalStore(paths.state);
+      await assertJournalReadable(paths.state);
 
       // Strip terminal control sequences before the text becomes durable —
       // a persisted note is replayed raw on every `journal show`, so ESC/OSC

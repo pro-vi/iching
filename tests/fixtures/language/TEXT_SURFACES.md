@@ -1617,6 +1617,21 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   verifier: "--cli (asserted by journal-command.test.ts torn-line tests)"
   notes: "Surfaces JsonlJournalStore.skippedLines — damage is reported quietly, never hidden, never fatal."
 
+- surface_id: cli-journal-read-failure
+  file: apps/cli/src/commands/journal.ts
+  code_locator: "assertJournalReadable() preflight before list/show/patterns/note reads"
+  current_text: "iching: couldn't read your journal at ${statePath} (permission denied, or not a file?)."
+  surface_class: cli-invalid-paths
+  render_context: "one-line stderr message + exit 1 when the journal FILE itself can't be read (a directory at the path, permission denied) — distinct from torn LINES, which are skipped non-fatally; a raw EISDIR/EACCES would otherwise reach the user"
+  language_policy: translate
+  source_layer: product-ui
+  json_policy: not-json
+  risk: low
+  agentify_required: no
+  status: open
+  verifier: "--cli (asserted by journal-command.test.ts 'a whole-file read failure is a calm message')"
+  notes: "Sibling of cli-journal-skipped-lines-note; mirrors the calm config-write error (cli-config-write-error). A missing journal is fine (reader yields empty) — only a present-but-unreadable file trips it."
+
 - surface_id: cli-commander-framework
   file: node_modules/commander (dependency-generated; surfaced by apps/cli/src/program.ts)
   code_locator: "Commander auto-output: Usage/Options/Commands/Arguments headings; unknown-command, missing-argument, excess-argument, invalid-option errors; auto -h/--help"
@@ -2582,6 +2597,12 @@ Default language **en**; settings order **EN → 繁 → 简** (asserted by
   zh_hant_source: catalog if the CLI reading mode ships (AC-005 reopen)
   zh_hans_strategy: catalog (authored)
   render_context: journal list/show stderr torn-line note
+- id: cli-journal-read-failure
+  language_policy: translate
+  en_source: hardcoded stderr read-failure message (AC-005 dev-exempt)
+  zh_hant_source: catalog if the CLI reading mode ships (AC-005 reopen)
+  zh_hans_strategy: catalog (authored)
+  render_context: journal list/show/patterns/note stderr; whole-file read failure (vs torn lines), exit 1
 - id: cli-journal-patterns
   language_policy: translate
   en_source: formatJournalPatternsPlain() hardcoded labels + command description (AC-005 dev-exempt); structured data via --json (journalPatternsToJson)
