@@ -1,10 +1,12 @@
-// journal-patterns — quiet observation over the journal's entries.
+// journal patterns — quiet observation over the journal's entries.
 //
 // Pure derivation: distribution, cadence, lift, structure, and transitions.
 // It stays descriptive: counts and rates over what arrived, never prediction.
+// Lives in core (pure domain logic) so both the TUI pane and the CLI can read it.
 
-import { GUA, trigramIndex } from "@iching/core";
-import type { CastMethod, HistoryEntry, LineValue } from "@iching/core";
+import { GUA } from "../data/gua.js";
+import { trigramIndex } from "../identify/structure.js";
+import type { CastMethod, HistoryEntry, LineValue } from "../types.js";
 
 export type MethodFamily = "coin" | "yarrow" | "unknown";
 

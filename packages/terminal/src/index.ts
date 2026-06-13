@@ -136,11 +136,12 @@ export {
   type JournalNoteView,
   type JournalSceneOptions,
 } from "./scenes/journal/journal-scene.ts";
+// Re-exported from core (the derivation moved there); kept for API stability.
 export {
   computeJournalPatterns,
   type JournalPatterns,
   type HexagramFrequency,
-} from "./scenes/journal/journal-patterns.ts";
+} from "@iching/core";
 
 // Scenes: toss playground
 export { TossScene } from "./scenes/toss/toss-scene.ts";

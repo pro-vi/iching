@@ -14,7 +14,7 @@ import { stringWidth } from "../../layout/measure.ts";
 import { ScrollableRegion } from "../../widgets/scrollable.ts";
 import { TextInput } from "../../widgets/text-input.ts";
 import { tr } from "../../i18n/messages.ts";
-import { computeJournalPatterns, type JournalPatterns, type StructuralEcho } from "./journal-patterns.ts";
+import { computeJournalPatterns, type JournalPatterns, type StructuralEcho } from "@iching/core";
 
 type TextStyle = Parameters<CellBuffer["writeText"]>[3];
 

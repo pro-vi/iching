@@ -85,3 +85,28 @@ export { type HexagramDetail, buildHexagramDetail } from "./detail.js";
 // Service
 export { selectDisplay } from "./service/display-select.js";
 export type { DisplayChoice } from "./service/display-select.js";
+
+// Journal pattern derivation — pure observation over past readings, shared by
+// the TUI 觀象 pane and the CLI `journal patterns` surface.
+export { computeJournalPatterns } from "./journal/patterns.js";
+export type {
+  JournalPatterns,
+  MethodFamily,
+  MethodFamilyCounts,
+  ExpectedComparison,
+  DirectionComparison,
+  BaselineSummary,
+  HexagramFrequency,
+  MovingLineFrequency,
+  MovingLineCountBin,
+  TrigramFrequency,
+  PairFrequency,
+  CadenceSummary,
+  DiversitySummary,
+  StructuralEchoKind,
+  StructuralEcho,
+  HammingDistanceBin,
+  HammingDriftSummary,
+  FieldSummary,
+  LineBalanceSummary,
+} from "./journal/patterns.js";

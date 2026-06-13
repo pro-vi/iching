@@ -328,6 +328,49 @@ describe("journal command", () => {
     expect(json.exitCode).toBe(0);
     expect(JSON.parse(json.stdout)).toHaveLength(1);
   }, 20_000);
+
+  test("patterns digests the journal in plain text and resolved-name JSON", async () => {
+    await seedJournal(dataDir, [
+      makeEntry("2026-02-01", 3, 8, "coin"),
+      makeEntry("2026-02-05", 3, 39, "yarrow"),
+      makeEntry("2026-02-10", 2, null, "coin"),
+    ]);
+
+    const plain = await runCli(dataDir, ["journal", "patterns"]);
+    expect(plain.exitCode).toBe(0);
+    expect(plain.stdout).toContain("3 readings");
+    expect(plain.stdout).toContain("Most seen:");
+    expect(plain.stdout).toContain("屯"); // KW3, the twice-seen primary
+    expect(plain.stdout).toContain("Two modes (兩儀)");
+
+    const json = await runCli(dataDir, ["--json", "journal", "patterns"]);
+    expect(json.exitCode).toBe(0);
+    const p = JSON.parse(json.stdout);
+    expect(p.total).toBe(3);
+    // kw references resolve to name blocks for a caller without the data table.
+    expect(p.field.recent).toMatchObject({ kw: 2, n: "坤" }); // latest is 02-10
+    expect(p.topHexagrams[0]).toMatchObject({ kw: 3, n: "屯", count: 2 });
+    expect(p.lineBalance).toHaveProperty("yang");
+    expect(p.lineBalance).toHaveProperty("yin");
+  }, 20_000);
+
+  test("patterns on an empty journal is a calm state, not an error", async () => {
+    await seedJournal(dataDir, []);
+    const plain = await runCli(dataDir, ["journal", "patterns"]);
+    expect(plain.exitCode).toBe(0);
+    expect(plain.stdout).toContain("No readings to observe yet");
+
+    const json = await runCli(dataDir, ["--json", "journal", "patterns"]);
+    expect(json.exitCode).toBe(0);
+    expect(JSON.parse(json.stdout).total).toBe(0);
+  }, 20_000);
+
+  test("patterns rejects a malformed --since", async () => {
+    await seedJournal(dataDir, [makeEntry("2026-02-01", 1, null, "coin")]);
+    const { exitCode, stderr } = await runCli(dataDir, ["journal", "patterns", "--since", "nope"]);
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("Invalid --since");
+  }, 20_000);
 });
 
 // Reflection notes — `journal note` appends a kind:"note" line; `journal show`

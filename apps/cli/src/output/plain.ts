@@ -1,4 +1,4 @@
-import type { Cast, CastMethod, DailyCache, Hexagram, RngProvenance, Style, Structure } from "@iching/core";
+import type { Cast, CastMethod, DailyCache, Hexagram, JournalPatterns, RngProvenance, Style, Structure } from "@iching/core";
 import {
   GUA,
   STYLES,
@@ -286,4 +286,49 @@ function formatTime(iso: string): string {
   const h = String(d.getHours()).padStart(2, "0");
   const m = String(d.getMinutes()).padStart(2, "0");
   return `${h}:${m}`;
+}
+
+/**
+ * A concise plain-text digest of the journal patterns (`journal patterns`).
+ * The TUI 觀象 pane is the rich view; this is the calm one-screen summary —
+ * observation over what arrived, never prediction.
+ */
+export function formatJournalPatternsPlain(p: JournalPatterns): string {
+  if (p.total === 0 || !p.cadence) return "No readings to observe yet.";
+  const lines: string[] = [];
+  const name = (kw: number): string => {
+    const g = GUA[kw - 1];
+    return g ? `${g.u} ${g.n} (${g.p})` : `#${kw}`;
+  };
+
+  lines.push(
+    `${p.total} readings · span ${p.cadence.spanDays}d · ${p.cadence.activeDays} active days · this month ${p.thisMonth}`,
+  );
+  lines.push(
+    `Cadence: ${p.cadence.castsPerActiveDay.toFixed(1)}/active day` +
+      (p.cadence.medianGapDays !== null ? ` · usual gap ${p.cadence.medianGapDays}d` : "") +
+      (p.cadence.idleDays !== null ? ` · idle ${p.cadence.idleDays}d` : ""),
+  );
+  lines.push(
+    `Diversity: seen ${p.diversity.distinctHexagrams} of 64` +
+      (p.field.recent !== null ? ` · most recent ${name(p.field.recent)}` : ""),
+  );
+
+  if (p.topHexagrams.length > 0) {
+    lines.push("");
+    lines.push("Most seen:");
+    for (const h of p.topHexagrams.slice(0, 5)) {
+      lines.push(`  ${name(h.kw)} ×${h.count}  (${Math.round(h.share * 100)}%, last ${h.lastDate})`);
+    }
+  }
+
+  lines.push("");
+  lines.push(`Two modes (兩儀): yin ${p.lineBalance.yin} · yang ${p.lineBalance.yang}`);
+  if (p.hammingDrift) {
+    lines.push(`Drift between readings: ${p.hammingDrift.mean.toFixed(1)} of 6 lines, on average`);
+  }
+  const m = p.baseline.methods;
+  lines.push(`Methods: coin ${m.coin} · yarrow ${m.yarrow}` + (m.unknown > 0 ? ` · unmarked ${m.unknown}` : ""));
+
+  return lines.join("\n");
 }

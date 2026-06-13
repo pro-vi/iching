@@ -1672,6 +1672,21 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   verifier: "--inventory-only; apps/cli/src/__tests__/cast.test.ts + hexagram-output.test.ts"
   notes: "Labels follow the existing parenthetical field-code convention (dx/tu/en/te/w); gc/gcEn values are canonical-anchor + verbatim Legge."
 
+- surface_id: cli-journal-patterns
+  file: apps/cli/src/commands/journal.ts, apps/cli/src/output/plain.ts
+  code_locator: "registerJournalCommand patterns subcommand; formatJournalPatternsPlain"
+  current_text: '"Observe patterns across the journal (distribution, cadence, balance)" / "only readings since date (YYYY-MM-DD)" / "No readings to observe yet." / "readings · span" / "active days · this month" / "Cadence: " / "/active day" / "usual gap" / "idle " / "Diversity: seen" / "of 64" / "most recent" / "Most seen:" / "Two modes (兩儀): yin" / "yang" / "Drift between readings" / "of 6 lines, on average" / "Methods: coin" / "yarrow" / "unmarked" / "last "'
+  surface_class: cli-commands
+  render_context: "journal patterns plain digest (the 觀象 pane data as one calm screen); --json is the structured surface via journalPatternsToJson"
+  language_policy: translate
+  source_layer: interpretive-english
+  json_policy: has-json
+  risk: low
+  agentify_required: no
+  status: open
+  verifier: "--inventory-only; --cli"
+  notes: "English-only plain digest like the other CLI plain formatters (HARDWIRED BILINGUAL: prints Chinese hexagram names + 兩儀 seal regardless of language). The rich/structured path is --json (journalPatternsToJson, resolved name blocks). Derivation lives in @iching/core (computeJournalPatterns), shared with the TUI pane."
+
 - surface_id: cli-plain-method-labels
   file: apps/cli/src/output/plain.ts
   code_locator: "methodLabel() + Method:/list-note call sites"
@@ -2567,6 +2582,12 @@ Default language **en**; settings order **EN → 繁 → 简** (asserted by
   zh_hant_source: catalog if the CLI reading mode ships (AC-005 reopen)
   zh_hans_strategy: catalog (authored)
   render_context: journal list/show stderr torn-line note
+- id: cli-journal-patterns
+  language_policy: translate
+  en_source: formatJournalPatternsPlain() hardcoded labels + command description (AC-005 dev-exempt); structured data via --json (journalPatternsToJson)
+  zh_hant_source: catalog if the CLI reading mode ships (AC-005 reopen); 兩儀 seal canonical
+  zh_hans_strategy: convert
+  render_context: journal patterns plain digest; --json is the agent-facing structured surface
 - id: cli-plain-method-labels
   language_policy: translate
   en_source: methodLabel() hardcoded labels (AC-005 dev-exempt); method token preserved in JSON

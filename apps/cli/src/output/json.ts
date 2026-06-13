@@ -1,4 +1,4 @@
-import type { Cast, DailyCache, Hexagram, HistoryEntry, ReflectionNote, RngProvenance, Style } from "@iching/core";
+import type { Cast, DailyCache, Hexagram, HistoryEntry, JournalPatterns, ReflectionNote, RngProvenance, Style } from "@iching/core";
 import { GUA } from "@iching/core";
 import type { UserConfig } from "@iching/storage";
 
@@ -181,6 +181,59 @@ export function journalEntryToJson(
           })),
         }
       : {}),
+  };
+}
+
+/**
+ * Structure the journal patterns for JSON output (`journal patterns --json`).
+ * The same descriptive derivation the TUI 觀象 pane renders, made legible to a
+ * script: kw references in the loved places (most-seen, recent, transitions)
+ * are resolved to name blocks so a caller never needs the data table. Counts
+ * and rates only — observation over what arrived, never prediction.
+ */
+export function journalPatternsToJson(p: JournalPatterns): Record<string, unknown> {
+  const named = (kw: number): Record<string, unknown> => {
+    const g = GUA[kw - 1];
+    return g ? { kw, n: g.n, p: g.p, ename: g.ename, u: g.u } : { kw };
+  };
+  const pair = (from: number, to: number, count: number, lastDate?: string) => ({
+    from: named(from),
+    to: named(to),
+    count,
+    ...(lastDate !== undefined ? { lastDate } : {}),
+  });
+  return {
+    total: p.total,
+    thisMonth: p.thisMonth,
+    cadence: p.cadence,
+    diversity: p.diversity,
+    baseline: p.baseline,
+    lineBalance: p.lineBalance,
+    field: {
+      counts: p.field.counts,
+      maxCount: p.field.maxCount,
+      recent: p.field.recent !== null ? named(p.field.recent) : null,
+    },
+    topHexagrams: p.topHexagrams.map((h) => ({
+      ...named(h.kw),
+      count: h.count,
+      knownCount: h.knownCount,
+      share: h.share,
+      expected: h.expected,
+      lift: h.lift,
+      lastDate: h.lastDate,
+    })),
+    movingLines: p.movingLines,
+    movingLineCounts: p.movingLineCounts,
+    topTrigrams: p.topTrigrams,
+    topTransformations: p.topTransformations.map((t) => pair(t.from, t.to, t.count, t.lastDate)),
+    topTransitions: p.topTransitions.map((t) => pair(t.from, t.to, t.count, t.lastDate)),
+    topStructuralEchoes: p.topStructuralEchoes.map((e) =>
+      e.kind === "kingWenPair"
+        ? { kind: e.kind, pair: [e.pairStart, e.pairEnd], count: e.count, lastDate: e.lastDate }
+        : { kind: e.kind, ...(e.kw !== undefined ? named(e.kw) : {}), count: e.count, lastDate: e.lastDate },
+    ),
+    hammingDrift: p.hammingDrift,
   };
 }
 

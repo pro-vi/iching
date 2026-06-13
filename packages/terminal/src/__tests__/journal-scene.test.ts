@@ -13,7 +13,7 @@ import {
   truncateToWidth,
   type JournalEntryView,
 } from "../scenes/journal/journal-scene.ts";
-import { computeJournalPatterns } from "../scenes/journal/journal-patterns.ts";
+import { computeJournalPatterns } from "@iching/core";
 
 function makeLine(value: 6 | 7 | 8 | 9): Line {
   return {

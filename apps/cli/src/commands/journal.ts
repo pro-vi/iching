@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { GUA } from "@iching/core";
+import { GUA, computeJournalPatterns } from "@iching/core";
 import type { HistoryEntry, ReflectionNote } from "@iching/core";
 import {
   resolvePaths,
@@ -10,8 +10,9 @@ import {
 import {
   formatJournalListPlain,
   formatJournalShowPlain,
+  formatJournalPatternsPlain,
 } from "../output/plain.js";
-import { outputJson, journalEntryToJson } from "../output/json.js";
+import { outputJson, journalEntryToJson, journalPatternsToJson } from "../output/json.js";
 import { localToday } from "../util/today.js";
 
 /**
@@ -97,6 +98,38 @@ export function registerJournalCommand(program: Command): void {
         } else {
           console.log(formatJournalListPlain(entries));
         }
+      }
+      reportSkippedLines(store);
+    });
+
+  journal
+    .command("patterns")
+    .description("Observe patterns across the journal (distribution, cadence, balance)")
+    .option("--since <date>", "only readings since date (YYYY-MM-DD)")
+    .action(async (cmdOpts) => {
+      const globalOpts = program.opts();
+      const paths = resolvePaths(
+        globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
+      );
+      const store = new JsonlJournalStore(paths.state);
+
+      if (cmdOpts.since !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(cmdOpts.since)) {
+        console.error(
+          `Invalid --since "${cmdOpts.since}": expected a date in YYYY-MM-DD format.`,
+        );
+        process.exit(1);
+      }
+
+      const entries: HistoryEntry[] = [];
+      for await (const entry of store.stream({ since: cmdOpts.since })) {
+        entries.push(entry);
+      }
+
+      const patterns = computeJournalPatterns(entries, localToday());
+      if (globalOpts.json) {
+        outputJson(journalPatternsToJson(patterns));
+      } else {
+        console.log(formatJournalPatternsPlain(patterns));
       }
       reportSkippedLines(store);
     });
