@@ -151,6 +151,31 @@ describe("JsonDailyCacheStore", () => {
       await store.write(record);
       expect(await store.read()).toEqual(record);
     });
+
+    test("an unreadable cache file is treated as fresh, never thrown — read() runs at every startup", async () => {
+      // A directory left at the cache path (→ EISDIR; in the wild a root-owned
+      // file → EACCES) is a whole-file read failure, not corrupt bytes. read()
+      // runs every launch, so an unguarded throw would crash startup. Treat it
+      // like a corrupt cache: warn once and start fresh.
+      const { mkdir } = await import("node:fs/promises");
+      const cachePath = join(dir, "blocked-cache.json");
+      await mkdir(cachePath); // a directory where the cache file should be
+      const blocked = new JsonDailyCacheStore(cachePath);
+
+      const errors: string[] = [];
+      const origErr = console.error;
+      console.error = (...a: unknown[]) => {
+        errors.push(a.map(String).join(" "));
+      };
+      let result: Awaited<ReturnType<typeof blocked.read>> | undefined;
+      try {
+        result = await blocked.read();
+      } finally {
+        console.error = origErr;
+      }
+      expect(result).toBeNull(); // started fresh, never threw…
+      expect(errors.join("\n")).toMatch(/daily cache.*is unreadable/i); // …warned once
+    });
   });
 
   // Deep shape validation — every field readers dereference unguarded must

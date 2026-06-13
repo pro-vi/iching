@@ -49,7 +49,17 @@ export class JsonDailyCacheStore implements DailyCacheStore {
       raw = await readFile(this.path, "utf-8");
     } catch (err: unknown) {
       if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
-      throw err;
+      // The cache exists but can't be read at all — a directory left at the
+      // path, permission denied (a root-owned cache after a sudo run). read()
+      // runs every launch, so an unguarded throw here crashes startup. The
+      // cache is a performance mirror, never the source of truth (the journal
+      // is) — warn once, reusing the corrupt-cache notice (we can't quarantine
+      // bytes we couldn't read), and start fresh.
+      if (!this.warnedCorrupt) {
+        this.warnedCorrupt = true;
+        console.error(`iching: daily cache at ${this.path} is unreadable — starting fresh.`);
+      }
+      return null;
     }
     let parsed: unknown;
     try {
