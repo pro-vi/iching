@@ -440,6 +440,35 @@ describe("JournalScene reflection notes ([n])", () => {
     expect(rowText).toContain("…"); // …because the intention clipped to make room
     expect(rowText).not.toContain("means for us"); // the intention tail was what gave way
   });
+
+  test("the ·註 marker survives a long CJK intention (zh-Hant, width-2 marker)", () => {
+    // Same guarantee in zh-Hant, where the marker is ·註 and the intention is
+    // CJK (each glyph width-2). Guards that the marker-reservation + truncation
+    // path holds in the i18n dimension — the marker stays and the CJK intention
+    // clips on a glyph boundary (never mid-character). (It does not isolate
+    // stringWidth-vs-.length: under-reserving by one column there overflows the
+    // budget by one rather than dropping the marker — the column-alignment test
+    // below is what pins display-width measurement.)
+    const ctx = { ...ctxFor(), language: "zh-Hant" as const };
+    const entries = [
+      makeEntry("2026-03-05", 2), // most recent, selected, no note
+      makeEntry("2026-03-01", 11, {
+        timestamp: "2026-03-01T08:00:00.000Z",
+        cast: makeCast(11, 12, [2, 4]),
+        intention: "關於搬到新城市這件事對全家人的意義", // long CJK intention
+        notes: [{ text: "一個安靜的省思", date: "2026-03-01" }],
+      }),
+    ];
+    const scene = new JournalScene(entries);
+    scene.enter(ctx);
+    const rowText =
+      renderText(scene, ctx)
+        .split("\n")
+        .find((l) => l.includes("2026-03-01")) ?? "";
+    expect(rowText).toContain("·註"); // the width-2 marker survived…
+    expect(rowText).toContain("…"); // …the CJK intention clipped to make room
+    expect(rowText).not.toContain("意義"); // the intention tail gave way, on a glyph boundary
+  });
 });
 
 describe("JournalScene note persistence honesty", () => {
@@ -1028,6 +1057,45 @@ describe("JournalScene patterns pane ([p])", () => {
     const text = renderText(scene, ctx);
     expect(text).toContain("◉");
     expect(text).toContain("now");
+  });
+
+  test("the 卦象/爻象/八卦 bars align by display column in zh-Hant, same as English", () => {
+    // The three sparkline sections share one start column so the pane reads as a
+    // single aligned field. CJK labels (乾, 上爻, ☷ 坤) carry different display
+    // widths than their English forms (乾 Qián, line 6 · 上), so the label
+    // padding must measure display width, not character count — a property the
+    // English-only tests can't exercise. Assert every label-aligned bar shares
+    // one column in zh-Hant, and that it's the SAME column English lands on.
+    const entries = [
+      makeEntry("2026-03-01", 1, { method: "coin", cast: makeCast(1, 2, [3]) }),
+      makeEntry("2026-03-02", 2, { method: "yarrow", cast: makeCast(2, 11, [1, 4]) }),
+      makeEntry("2026-03-03", 11, { method: "coin", cast: makeCast(11, 12, [2]) }),
+      makeEntry("2026-03-04", 1, { method: "coin" }),
+      makeEntry("2026-03-05", 29, { method: "yarrow", cast: makeCast(29, 30, [5]) }),
+    ];
+    const barColumns = (language: "en" | "zh-Hant"): Set<number> => {
+      const ctx = { ...ctxFor(45, 80), language };
+      const scene = new JournalScene(entries, { today: () => "2026-03-10" });
+      scene.enter(ctx);
+      press(scene, ctx, "p");
+      const buf = CellBuffer.create(ctx.cols, ctx.rows);
+      scene.render(buf, ctx);
+      const cols = new Set<number>();
+      for (let r = 0; r < buf.height; r++) {
+        const row = buf.getRow(r);
+        // The 兩儀 two-modes bar is a centered split (⚋ ▅▅│▅▅ ⚊), not a
+        // label-aligned section bar — exclude it from the alignment check.
+        if (row.some((cell) => cell.char === "⚋" || cell.char === "⚊")) continue;
+        const c = row.findIndex((cell) => cell.char === "▅" || cell.char === "▁");
+        if (c >= 0) cols.add(c);
+      }
+      return cols;
+    };
+    const en = barColumns("en");
+    const hant = barColumns("zh-Hant");
+    expect(en.size).toBe(1); // English: every section bar starts at one column…
+    expect(hant.size).toBe(1); // …zh-Hant too — CJK widths don't break the field…
+    expect([...hant][0]).toBe([...en][0]); // …and it is the SAME column as English.
   });
 
   test("section rules hinge with ┄ and set notes flush-right as margin whispers", () => {
