@@ -79,7 +79,7 @@ export function formatCastPlain(
   if (cast.becoming !== null) {
     const b = GUA[cast.becoming - 1];
     lines.push(
-      `Becoming: ${b.u} ${b.n} (${b.p}) — Hexagram ${cast.becoming} [lines ${cast.changingPositions.join(",")}]`,
+      `Becoming: ${b.u} ${b.n} (${b.p}) — Hexagram ${cast.becoming} [${cast.changingPositions.length === 1 ? "line" : "lines"} ${cast.changingPositions.join(",")}]`,
     );
     lines.push("");
   }
@@ -91,7 +91,7 @@ export function formatCastPlain(
 
   // Changing lines — the texts the reading turns on
   if (cast.changingPositions.length > 0) {
-    lines.push("Changing lines:");
+    lines.push(cast.changingPositions.length === 1 ? "Changing line:" : "Changing lines:");
     for (const pos of cast.changingPositions) {
       lines.push(`  ${pos}: ${primary.yao[pos - 1]}`);
       lines.push(`     ${primary.yaoEn[pos - 1]}`);

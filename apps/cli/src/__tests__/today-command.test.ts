@@ -114,9 +114,10 @@ describe("today command", () => {
     expect(stdout).toContain("Hexagram 3");
     expect(stdout).toContain("Becoming:");
     expect(stdout).toContain("比");
-    // Judgment + the changing-line text the reading turns on
+    // Judgment + the changing-line text the reading turns on (this cast moves
+    // exactly one line, so the header is singular).
     expect(stdout).toContain("Judgment (gc):");
-    expect(stdout).toContain("Changing lines:");
+    expect(stdout).toContain("Changing line:");
     expect(stdout).toContain("磐桓"); // KW3 line 1 爻辭
   }, 20_000);
 

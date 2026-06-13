@@ -188,6 +188,27 @@ describe("cast output oracle texts", () => {
     }
   });
 
+  test("formatCastPlain singularizes 'line' when exactly one moves", () => {
+    // ~36% of moving casts have exactly one changing line; "[lines 6]" /
+    // "Changing lines:" read wrong there (cf. the journal's "1 active day" fix).
+    const { cast, primary } = makeSeededCast();
+    const oneMoving = {
+      ...cast,
+      becoming: 47,
+      changingPositions: [6],
+      lines: cast.lines.map((l, i) =>
+        i === 5
+          ? { value: 9 as const, isYang: true, isChanging: true }
+          : { ...l, isChanging: false, value: (l.isYang ? 7 : 8) as 7 | 8 },
+      ),
+    };
+    const text = formatCastPlain(oneMoving, primary, buildStructure(oneMoving));
+    expect(text).toContain("[line 6]"); // singular inline indicator…
+    expect(text).not.toContain("[lines 6]");
+    expect(text).toContain("Changing line:"); // …and singular section header
+    expect(text).not.toContain("Changing lines:");
+  });
+
   test("formatCastPlain omits the changing-lines block when none move", () => {
     // Force an unchanging cast by stripping the changing flags
     const { cast, primary } = makeSeededCast();
