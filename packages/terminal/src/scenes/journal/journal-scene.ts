@@ -14,7 +14,7 @@ import { stringWidth } from "../../layout/measure.ts";
 import { ScrollableRegion } from "../../widgets/scrollable.ts";
 import { TextInput } from "../../widgets/text-input.ts";
 import { tr } from "../../i18n/messages.ts";
-import { computeJournalPatterns, type StructuralEcho } from "./journal-patterns.ts";
+import { computeJournalPatterns, type JournalPatterns, type StructuralEcho } from "./journal-patterns.ts";
 
 type TextStyle = Parameters<CellBuffer["writeText"]>[3];
 
@@ -156,8 +156,14 @@ export class JournalScene implements Scene {
   private noteActive = false;
   private noteInput: TextInput;
 
-  // [p] patterns pane
+  // [p] patterns pane. The derivation is pure over (entries, today) and the
+  // entries never change while the pane is open (notes don't touch cast data),
+  // so it is memoized — the 30 FPS loop must not recompute it every frame
+  // (≈3ms/frame over a 2000-reading journal). Keyed on today for the midnight
+  // rollover; the stable entries reference needs no key.
   private patternsOpen = false;
+  private cachedPatterns: JournalPatterns | null = null;
+  private cachedPatternsToday = "";
 
   // Reflection-note persistence honesty: appends still in flight (awaited by
   // exit() so scene teardown can't lose a pending write) and entries whose
@@ -408,7 +414,11 @@ export class JournalScene implements Scene {
   private patternRows(ctx: SceneContext, lang: DisplayLanguage): PatternRow[] {
     const t = getTheme();
     const today = this.opts.today ? this.opts.today() : localToday();
-    const patterns = computeJournalPatterns(this.entries, today);
+    if (!this.cachedPatterns || this.cachedPatternsToday !== today) {
+      this.cachedPatterns = computeJournalPatterns(this.entries, today);
+      this.cachedPatternsToday = today;
+    }
+    const patterns = this.cachedPatterns;
     const cn = (s: string): string => (lang === "zh-Hans" ? toSimplified(s) : s);
     const rows: PatternRow[] = [];
 

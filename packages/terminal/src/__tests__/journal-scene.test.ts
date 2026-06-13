@@ -784,6 +784,25 @@ describe("JournalScene patterns pane ([p])", () => {
     expect(text).toContain("▅▅▅▅▅▅▅▅▅▅▅▅ × 5"); // line 4 (the max) fills solid
   });
 
+  test("the patterns derivation is memoized but recomputes when the day rolls over", () => {
+    // The 30 FPS loop re-renders the open pane continuously; the derivation is
+    // cached so it isn't rebuilt every frame, but the cache is keyed on `today`
+    // so a midnight rollover (idle days, this-month) stays correct.
+    let today = "2026-04-15";
+    const scene = new JournalScene([makeEntry("2026-04-10", 1, { method: "coin" })], {
+      today: () => today,
+    });
+    const ctx = ctxFor(45, 80);
+    scene.enter(ctx);
+    press(scene, ctx, "p");
+    expect(renderText(scene, ctx)).toContain("idle 5d"); // 04-15 − 04-10
+    // Re-rendering the same day must not change anything (served from cache)…
+    expect(renderText(scene, ctx)).toContain("idle 5d");
+    // …but a new day recomputes the day-relative figures.
+    today = "2026-04-20";
+    expect(renderText(scene, ctx)).toContain("idle 10d"); // 04-20 − 04-10
+  });
+
   test("the field marks the most recent reading with accent on the glyph itself", () => {
     const { getTheme } = require("../color/theme.ts");
     const accent = getTheme().accent;
