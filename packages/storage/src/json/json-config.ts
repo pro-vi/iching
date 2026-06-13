@@ -247,7 +247,17 @@ export class JsonConfigStore implements ConfigStore {
       raw = await readFile(this.path, "utf-8");
     } catch (err: unknown) {
       if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
-      throw err;
+      // The config exists but can't be read at all — a directory left at the
+      // path, permission denied (a root-owned config after a sudo run). load()
+      // runs at startup, so an unguarded throw crashes the app before it draws.
+      // Fall back to defaults like a corrupt config — but with no .corrupt
+      // backup (we couldn't read the bytes), so omit the recovery note. Reuses
+      // the corrupt notice's prefix, keeping the language inventory clean.
+      if (!this.warnedCorrupt) {
+        this.warnedCorrupt = true;
+        console.error(`iching: config at ${this.path} is unreadable — using defaults.`);
+      }
+      return "corrupt";
     }
     let parsed: unknown;
     try {

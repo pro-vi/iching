@@ -217,6 +217,32 @@ describe("JsonConfigStore", () => {
     expect(cfg.theme).toBe("bone"); // full defaults, not a crash
   });
 
+  test("load() degrades to defaults on an UNREADABLE config — does not throw at startup", async () => {
+    // A directory left at the config path (→ EISDIR; in the wild a root-owned
+    // file → EACCES) is a whole-file read failure, not corrupt bytes. load()
+    // runs at startup, so an unguarded throw would crash the app before it
+    // draws. Fall back to defaults like a corrupt config, with a warning.
+    const { mkdir } = await import("node:fs/promises");
+    const cfgPath = join(dir, "blocked-config.json");
+    await mkdir(cfgPath); // a directory where the config file should be
+    const blocked = new JsonConfigStore(cfgPath);
+
+    const errors: string[] = [];
+    const origErr = console.error;
+    console.error = (...a: unknown[]) => {
+      errors.push(a.map(String).join(" "));
+    };
+    let cfg: Awaited<ReturnType<typeof blocked.load>> | undefined;
+    try {
+      cfg = await blocked.load();
+    } finally {
+      console.error = origErr;
+    }
+    expect(cfg?.theme).toBe("bone"); // full defaults, not a crash…
+    expect(cfg?.language).toBe("en");
+    expect(errors.join("\n")).toMatch(/config.*is unreadable/i); // …with a warning
+  });
+
   // PIN FLIP (review P1/P2): the recoverable copy is .corrupt — leaving the live
   // file unreadable caused a silent settings-reset at the NEXT save, repeated
   // warnings every load, and an English session for zh-locale users. loadOrSeed
