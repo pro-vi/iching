@@ -21,6 +21,14 @@ export interface JournalStore {
   /** Stream reflection notes in append order (skipping torn lines) */
   streamNotes(): AsyncIterable<ReflectionNote>;
 
-  /** Return the most recently appended readable entry, or null */
+  /**
+   * Return the most recently APPENDED readable entry, or null. The app always
+   * appends in cast order, so for app-written journals this is also the
+   * chronologically latest reading — which is why `journal show latest` and
+   * `journal note` use it. An externally reordered/imported journal can break
+   * that, where it diverges from the time-key ordering the patterns derivation
+   * uses (field.recent); the cheap tail-read is kept since app data never
+   * violates the invariant.
+   */
   latest(): Promise<HistoryEntry | null>;
 }
