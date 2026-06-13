@@ -39,5 +39,12 @@ export function windowFor(
 /** Page indicator like `"2/5"` for a free-scroll region; `"1/1"` when it all fits. */
 export function pageIndicator(offset: number, contentLength: number, viewport: number): string {
   if (contentLength <= viewport) return "1/1";
-  return `${Math.floor(offset / viewport) + 1}/${Math.ceil(contentLength / viewport)}`;
+  const pages = Math.ceil(contentLength / viewport);
+  // Line-at-a-time scrolling lands at the last possible offset (content −
+  // viewport), which need not be a whole-page multiple — so floor(offset/
+  // viewport)+1 can never reach the final page. Snap to it once scrolled to the
+  // bottom, where the last content row is already on screen.
+  const maxOffset = contentLength - viewport;
+  const page = offset >= maxOffset ? pages : Math.floor(offset / viewport) + 1;
+  return `${page}/${pages}`;
 }

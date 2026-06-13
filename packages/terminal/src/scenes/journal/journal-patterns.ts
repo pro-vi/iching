@@ -254,6 +254,14 @@ export function computeJournalPatterns(
     for (const pos of changing) {
       if (pos >= 1 && pos <= 6) lineCounts[pos - 1]++;
     }
+    // Observed old-line tallies count every entry — the pane's convention is
+    // observed = all readings, expected = the method-marked subset (named in
+    // a footnote). Line values 6/9 are recorded regardless of method, so the
+    // observation isn't gated by missing data; only the expectation is.
+    for (const line of entry.cast.lines) {
+      if (line.value === 6) observedOldYin++;
+      if (line.value === 9) observedOldYang++;
+    }
 
     if (family !== "unknown") {
       const known = knownFreq.get(entry.cast.primary) ?? { count: 0, lastDate: "" };
@@ -266,8 +274,6 @@ export function computeJournalPatterns(
         if (pos >= 1 && pos <= 6) knownLineCounts[pos - 1]++;
       }
       for (const line of entry.cast.lines) {
-        if (line.value === 6) observedOldYin++;
-        if (line.value === 9) observedOldYang++;
         expectedOldYin += LINE_PROBABILITIES[family][6];
         expectedOldYang += LINE_PROBABILITIES[family][9];
       }

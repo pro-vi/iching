@@ -33,8 +33,9 @@ interface PatternRow {
 // chance/expected figures render only once this many method-marked readings
 // exist — below that, observed-vs-expected is statistical theatre.
 const CHANCE_MIN_KNOWN = 8;
-// The single label column every section aligns to (display columns).
-const LABEL_W = 16;
+// The single label column every section aligns to (display columns). 17 is the
+// widest en faces label across all 64 hexagrams — 「䷡ 大壯 Dà Zhuàng」.
+const LABEL_W = 17;
 // Eighth-block ramp for the cast-to-cast drift sparkline.
 const SPARK_BLOCKS = "▁▂▃▄▅▆▇█";
 const LINE_KEYS = [
@@ -477,11 +478,19 @@ export class JournalScene implements Scene {
       gate && v !== null
         ? [sep(), lab(`${tr(lang, "journal.patterns.chanceSays")}${chanceNum(v)}`)]
         : [];
-    /** ' · last MM-DD', the most expendable span — dropped outright when narrow. */
-    const lastSeg = (date: string): PatternSegment[] =>
-      narrow || !date
-        ? []
-        : [sep(), quiet(`${tr(lang, "journal.patterns.last")} ${date.slice(5)}`)];
+    const segW = (segs: PatternSegment[]): number =>
+      segs.reduce((sum, seg) => sum + stringWidth(seg.text), 0);
+    const budget = Math.max(0, ctx.cols - 3);
+    /**
+     * ' · last MM-DD' — the most expendable span. It rides a row only when it
+     * fits whole; below that it drops outright rather than truncating to a
+     * half-date. (`narrow` already drops it on very small terminals.)
+     */
+    const withLast = (base: PatternSegment[], date: string): PatternSegment[] => {
+      if (narrow || !date) return base;
+      const tail = [sep(), quiet(`${tr(lang, "journal.patterns.last")} ${date.slice(5)}`)];
+      return segW(base) + segW(tail) <= budget ? [...base, ...tail] : base;
+    };
 
     const joinClauses = (clauses: PatternSegment[][]): PatternSegment[] => {
       const out: PatternSegment[] = [];
@@ -521,7 +530,12 @@ export class JournalScene implements Scene {
         ? []
         : [
             lab(`${tr(lang, "journal.patterns.recurrence")} `),
-            num(`×${div.observedRepeats}`),
+            // Observed counts all readings (matches a2's 'seen N of 64' and the
+            // lit field); div.observedRepeats is the method-marked-only subset
+            // kept internally for repeatLift, and would read ×0 on legacy
+            // journals that visibly recur. The chance figure stays known-based,
+            // covered by the same footnote as a2.
+            num(`×${patterns.total - div.distinctHexagrams}`),
             ...chance(div.expectedRepeats),
           ];
     const a4 = joinClauses([
@@ -585,6 +599,18 @@ export class JournalScene implements Scene {
       return { fg: t.primary, bold: true };
     };
 
+    // The field is 8 width-2 glyphs + 7 two-col gaps = 30 cols from the left
+    // margin (col 2), then a 4-col gutter before annotations begin at col 36.
+    // Reflow the day's facts to full rows beneath the grid whenever the widest
+    // of them would clip beside it — a measured threshold, so zh (narrow
+    // labels) stays side-by-side where en (wider, with pinyin) must drop down.
+    const annoStart = 2 + 30 + 4;
+    const maxAnnoW = annotations.reduce(
+      (m, ann) => Math.max(m, ann.reduce((sum, seg) => sum + stringWidth(seg.text), 0)),
+      0,
+    );
+    const reflowField = annoStart + maxAnnoW > ctx.cols;
+
     for (let r = 0; r < 8; r++) {
       const segs: PatternSegment[] = [];
       for (let c = 0; c < 8; c++) {
@@ -592,20 +618,18 @@ export class JournalScene implements Scene {
         segs.push({ text: GUA[kw - 1].u, style: tierStyle(patterns.field.counts[kw - 1]) });
         if (c < 7) segs.push({ text: "  ", style: stSep });
       }
-      // At width, the day's facts annotate the field; when narrow they reflow
-      // to full rows beneath it instead of clipping mid-clause.
-      if (!narrow && annotations[r].length > 0) {
+      if (!reflowField && annotations[r].length > 0) {
         segs.push({ text: "    ", style: stLabel }, ...annotations[r]);
       }
       rows.push({ segments: segs });
     }
-    if (narrow) {
+    if (reflowField) {
       for (const ann of annotations) rows.push({ segments: ann });
     }
 
     // One quiet footnote names what the chance figures rest on (or why
-    // they are withheld). Aligned to the value column at width.
-    const footPad = narrow ? "" : " ".repeat(LABEL_W + 1);
+    // they are withheld). Aligned to the value column when beside the grid.
+    const footPad = reflowField ? "" : " ".repeat(LABEL_W + 1);
     if (methods.known === 0) {
       row(quiet(footPad + tr(lang, "journal.patterns.noBaseline")));
     } else if (!gate) {
@@ -630,12 +654,16 @@ export class JournalScene implements Scene {
         const labelSegs: PatternSegment[] = [{ text: `${gua.u} ${cn(gua.n)}`, style: stName }];
         if (lang === "en") labelSegs.push(lab(` ${gua.p}`));
         row(
-          ...label(labelSegs),
-          ...bar(hex.count, maxFace),
-          lab(" "),
-          num(`×${hex.count}`),
-          ...chance(hex.expected > 0 ? hex.expected : null),
-          ...lastSeg(hex.lastDate),
+          ...withLast(
+            [
+              ...label(labelSegs),
+              ...bar(hex.count, maxFace),
+              lab(" "),
+              num(`×${hex.count}`),
+              ...chance(hex.expected > 0 ? hex.expected : null),
+            ],
+            hex.lastDate,
+          ),
         );
       }
     }
@@ -687,9 +715,13 @@ export class JournalScene implements Scene {
         ]),
       );
       if (gate) {
+        // A rare bin (six lines moving ≈ 0.002 expected) must not strip to
+        // '~0' beside a real observation — say '<0.1', not an exact zero.
+        const approx = (v: number): string =>
+          v > 0 && v < 0.1 ? "<0.1" : `~${formatNumber(v, 1)}`;
         row(
           ...label([quiet(tr(lang, "journal.patterns.chance"))]),
-          ...shownBins.map((bin) => quiet(padToWidth(`~${formatNumber(bin.expected, 1)}`, 8))),
+          ...shownBins.map((bin) => quiet(padToWidth(approx(bin.expected), 8))),
         );
       }
     }
@@ -718,9 +750,11 @@ export class JournalScene implements Scene {
       rule(
         tr(lang, "journal.patterns.sectionTrigrams"),
         { fg: t.secondary, bold: true },
-        // Uniform geometry, not method probability — survives a missing baseline.
+        // Uniform geometry, not method probability — survives a missing
+        // baseline. The marker (~ / 約) rides the catalog value, like chanceSays,
+        // so zh doesn't double it (各依理數約2.3, not 各依理數約 ~2.3).
         patterns.total >= 8
-          ? `${tr(lang, "journal.patterns.eachByChance")} ~${formatNumber(patterns.topTrigrams[0].expected, 1)}`
+          ? `${tr(lang, "journal.patterns.eachByChance")}${formatNumber(patterns.topTrigrams[0].expected, 1)}`
           : undefined,
       );
       const maxTri = Math.max(...patterns.topTrigrams.map((tri) => tri.count));
@@ -740,15 +774,17 @@ export class JournalScene implements Scene {
       }
     }
 
-    // ── shared pair grammar for S5/S6 ──
+    // ── shared glyph+name grammar for S5/S6 (spaced, matching S2 faces) ──
+    const guaName = (kw: number): string => {
+      const gua = GUA[kw - 1];
+      return gua ? `${gua.u} ${cn(gua.n)}` : String(kw);
+    };
     const pairLabel = (from: number, to: number): PatternSegment[] => {
-      const a = GUA[from - 1];
-      const b = GUA[to - 1];
-      if (!a || !b) return [lab(`${from}→${to}`)];
+      if (!GUA[from - 1] || !GUA[to - 1]) return [lab(`${from}→${to}`)];
       return [
-        { text: `${a.u}${cn(a.n)}`, style: stName },
+        { text: guaName(from), style: stName },
         { text: " → ", style: stLabel },
-        { text: `${b.u}${cn(b.n)}`, style: stName },
+        { text: guaName(to), style: stName },
       ];
     };
     const repeated = (pairs: typeof patterns.topTransitions): typeof patterns.topTransitions =>
@@ -760,7 +796,7 @@ export class JournalScene implements Scene {
       blank();
       rule(tr(lang, "journal.patterns.sectionSuccession"), { fg: t.secondary, bold: true });
       for (const pair of transitions) {
-        row(...label(pairLabel(pair.from, pair.to)), num(`×${pair.count}`), ...lastSeg(pair.lastDate));
+        row(...withLast([...label(pairLabel(pair.from, pair.to)), num(`×${pair.count}`)], pair.lastDate));
       }
       const drift = patterns.hammingDrift;
       if (drift) {
@@ -797,16 +833,14 @@ export class JournalScene implements Scene {
       blank();
       rule(tr(lang, "journal.patterns.sectionTurnings"), { fg: t.secondary, bold: true });
       for (const pair of transformations) {
-        row(...label(pairLabel(pair.from, pair.to)), num(`×${pair.count}`), ...lastSeg(pair.lastDate));
+        row(...withLast([...label(pairLabel(pair.from, pair.to)), num(`×${pair.count}`)], pair.lastDate));
       }
       for (const echo of echoes) {
         const valueSegs: PatternSegment[] = [];
         if (echo.kind === "kingWenPair" && echo.pairStart !== undefined && echo.pairEnd !== undefined) {
-          const a = GUA[echo.pairStart - 1];
-          const b = GUA[echo.pairEnd - 1];
-          if (a && b) {
-            valueSegs.push({ text: `${a.u}${cn(a.n)}`, style: stName }, sep(), {
-              text: `${b.u}${cn(b.n)}`,
+          if (GUA[echo.pairStart - 1] && GUA[echo.pairEnd - 1]) {
+            valueSegs.push({ text: guaName(echo.pairStart), style: stName }, sep(), {
+              text: guaName(echo.pairEnd),
               style: stName,
             });
           } else {
@@ -815,18 +849,22 @@ export class JournalScene implements Scene {
         } else if (echo.kw !== undefined) {
           const gua = GUA[echo.kw - 1];
           if (gua) {
-            valueSegs.push({ text: `${gua.u} ${cn(gua.n)}`, style: stName });
+            valueSegs.push({ text: guaName(echo.kw), style: stName });
             if (lang === "en") valueSegs.push(lab(` ${gua.p}`));
           } else {
             valueSegs.push(lab(String(echo.kw)));
           }
         }
         row(
-          ...label([lab(structuralEchoLabel(echo.kind, lang))]),
-          ...valueSegs,
-          lab(" "),
-          num(`×${echo.count}`),
-          ...lastSeg(echo.lastDate),
+          ...withLast(
+            [
+              ...label([lab(structuralEchoLabel(echo.kind, lang))]),
+              ...valueSegs,
+              lab(" "),
+              num(`×${echo.count}`),
+            ],
+            echo.lastDate,
+          ),
         );
       }
     }

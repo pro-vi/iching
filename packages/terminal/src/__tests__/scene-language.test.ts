@@ -16,6 +16,7 @@ import { DetailModel } from "../scenes/dict/detail-model.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import type { SceneContext } from "../scene/types.ts";
 import type { Cast, Line, HistoryEntry, DisplayLanguage } from "@iching/core";
+import { SIMPLIFIED_MAP, SIMPLIFIED_EXCEPTIONS } from "@iching/core";
 
 function makeLine(value: 7 | 8): Line {
   return { value, isYang: value === 7, isChanging: false };
@@ -490,7 +491,28 @@ describe("JournalScene rows — name conversion (KW20 觀)", () => {
     expect(text).not.toContain("patterns");
     expect(text).not.toContain("coin");
     expect(text).not.toContain("chance");
-    expect(text).not.toContain("觀"); // no Traditional residue anywhere in the pane
+    // Pinyin is suppressed in zh (the `lang === "en"` guard) — 觀 is KW20.
+    expect(text).not.toContain("Guān");
+    expect(text).not.toContain("last");
+    // No Traditional residue anywhere in the rendered pane: sweep the whole
+    // surface against the corpus conversion table, not just one sentinel char.
+    for (const trad of Object.keys(SIMPLIFIED_MAP)) {
+      if (SIMPLIFIED_EXCEPTIONS.includes(trad)) continue;
+      expect(text).not.toContain(trad);
+    }
+  });
+
+  test("Traditional patterns pane keeps the bare seal without the English gloss", () => {
+    const scene = new JournalScene([entry], { today: () => "2026-06-11" });
+    const language: DisplayLanguage = "zh-Hant";
+    const tallCtx = { ...ctxFor(language), rows: 40 };
+    scene.enter(tallCtx);
+    scene.handleKey({ type: "char", char: "p" }, tallCtx);
+    const buf = CellBuffer.create(80, 40);
+    scene.render(buf, tallCtx);
+    const text = bufferText(buf);
+    expect(text).toContain("觀象"); // head seal, Traditional
+    expect(text).not.toContain("· patterns"); // the en gloss must not leak
   });
 });
 

@@ -157,7 +157,7 @@ export const MESSAGES = {
   "journal.patterns.still": { en: "still", zhHant: "六爻皆靜", zhHans: "六爻皆静" },
   "journal.patterns.oldYangLabel": { en: "old yang · 9", zhHant: "老陽九", zhHans: "老阳九" },
   "journal.patterns.oldYinLabel": { en: "old yin · 6", zhHant: "老陰六", zhHans: "老阴六" },
-  "journal.patterns.eachByChance": { en: "each by chance", zhHant: "各依理數約", zhHans: "各依理数约" },
+  "journal.patterns.eachByChance": { en: "each by chance ~", zhHant: "各依理數約", zhHans: "各依理数约" },
   "journal.patterns.role": { en: "upper/lower", zhHant: "上/下", zhHans: "上/下" },
   "journal.patterns.castToCast": { en: "cast to cast", zhHant: "占間", zhHans: "占间" },
   "journal.patterns.linesDiffer": { en: "lines differing", zhHant: "異爻", zhHans: "异爻" },

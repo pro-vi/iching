@@ -687,7 +687,8 @@ describe("JournalScene patterns pane ([p])", () => {
     text = renderText(scene, ctx);
     expect(text).toContain("卦變 · turnings & echoes");
     expect(text).toContain("nuclear");
-    expect(text).toContain("7/8");
+    // End reaches the true last page (the fixed free-scroll indicator), not 7/8.
+    expect(text).toContain("8/8");
 
     scene.handleKey({ type: "home" }, ctx);
     expect(renderText(scene, ctx)).toContain("觀象 · patterns");
@@ -711,6 +712,10 @@ describe("JournalScene patterns pane ([p])", () => {
       makeEntry("2026-03-15", 61, { cast: makeCast(61, 62, [1, 4]), method: "coin-manual" }),
       makeEntry("2026-03-20", 1, { cast: makeCast(1, 2, [1, 2, 3, 4, 5, 6]), method: "coin" }),
       makeEntry("2026-03-25", 64, { cast: makeCast(64, 50, [3]), method: "yarrow-manual" }),
+      // 大壯 (KW 34) — 「䷡ 大壯 Dà Zhuàng」 is the widest en faces label (17 cols);
+      // it must appear in the top-5 faces so the label-column sweep covers it.
+      makeEntry("2026-03-28", 34, { cast: makeCast(34, 1, [2]), method: "coin" }),
+      makeEntry("2026-03-29", 34, { cast: makeCast(34, 5, [4]), method: "yarrow" }),
       makeEntry("2026-04-01", 61, { method: "coin" }),
     ];
     const gateMarks = {
@@ -725,12 +730,32 @@ describe("JournalScene patterns pane ([p])", () => {
         scene.enter(ctx);
         press(scene, ctx, "p");
         const text = renderText(scene, ctx);
-        // 中孚 (Zhōng Fú, KW 61) is the widest label class; the gate is on.
+        // 大壯 (Dà Zhuàng, KW 34) is the widest en label (17 cols); the gate is on.
         for (const mark of gateMarks[language]) expect(text).toContain(mark);
+        if (language === "en") expect(text).toContain("大壯 Dà Zhuàng");
         // An ellipsis means a row crossed the budget and was clipped.
         expect(text).not.toContain("…");
       }
     }
+  });
+
+  test("recurrence counts all readings, not just method-marked ones", () => {
+    // 10 legacy (unmarked) casts, kw1 ×7 + kw2 ×3 — 8 real repeats, 0 marked.
+    // The known-only repeat tally would read ×0 while the field/faces show the
+    // recurrence plainly; the pane must agree with itself.
+    const legacy = [1, 1, 1, 1, 1, 1, 1, 2, 2, 2].map((kw, i) =>
+      makeEntry(`2026-05-${String(i + 1).padStart(2, "0")}`, kw),
+    );
+    const ctx = ctxFor(40, 100);
+    const scene = new JournalScene(legacy, { today: () => "2026-05-20" });
+    scene.enter(ctx);
+    press(scene, ctx, "p");
+    const text = renderText(scene, ctx);
+    expect(text).toContain("recurrence ×8");
+    expect(text).not.toContain("recurrence ×0");
+    // No method baseline → no chance figure, and the footnote says why.
+    expect(text).toContain("legacy entries only; baseline held back");
+    expect(text).not.toContain("chance would say");
   });
 
   test("narrow terminals reflow the field annotations below the grid", () => {
@@ -920,6 +945,21 @@ describe("computeJournalPatterns", () => {
     const p = computeJournalPatterns([makeEntry("2026-04-01", 2)], "2026-04-15");
     expect(p.movingLine).toBeNull();
     expect(p.movingLineCounts[0]).toMatchObject({ movingLines: 0, count: 1, share: 1 });
+  });
+
+  test("old-line observations count all entries; expectation stays method-marked", () => {
+    // Two casts with a moving line each: one coin-marked, one unmarked.
+    // Observed 6s/9s count both; expected rests only on the marked cast.
+    const entries = [
+      makeEntry("2026-03-01", 39, { cast: makeCast(39, 8, [2]), method: "coin" }), // 6 at pos2
+      makeEntry("2026-03-02", 39, { cast: makeCast(39, 8, [2]) }), // unmarked, 6 at pos2
+    ];
+    const p = computeJournalPatterns(entries, "2026-04-15");
+    expect(p.baseline.oldYin.observed).toBe(2); // both entries, not just the marked one
+    expect(p.baseline.oldYang.observed).toBe(0);
+    // Expectation is one coin cast worth of old-yin chance (6 lines × 1/8).
+    expect(p.baseline.oldYin.expected).toBeCloseTo(0.75, 4);
+    expect(p.baseline.methods.known).toBe(1);
   });
 
   test("frequency ties break by lower KW; top list caps at five", () => {
