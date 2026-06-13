@@ -439,22 +439,29 @@ export class JournalScene implements Scene {
     const barW = Math.max(4, Math.min(12, ctx.cols - 56));
     const gate = patterns.baseline.methods.known >= CHANCE_MIN_KNOWN;
 
-    /** Section rule: '── title ────…' with an optional right-set quiet note. */
+    /**
+     * Section rule: '── title ┄────…' with a note set flush right as a margin
+     * whisper. The ┄ is a quiet hinge where the title hands off to the faint
+     * rule; the note ends the line unboxed (no closing ──), reading as an
+     * annotation rather than a label. Total width stays `inner` so rules align.
+     */
     const rule = (title: string, titleStyle: TextStyle, note?: string): void => {
       const titleW = stringWidth(title);
       let noteText = note;
-      let fill = inner - 3 - titleW - 1 - (noteText !== undefined ? stringWidth(noteText) + 4 : 0);
+      // consumed = '── ' + title + ' ┄' + fill + (note ? ' ' + note : '')
+      let fill = inner - 3 - titleW - 2 - (noteText !== undefined ? 1 + stringWidth(noteText) : 0);
       if (noteText !== undefined && fill < 2) {
         noteText = undefined;
-        fill = inner - 3 - titleW - 1;
+        fill = inner - 3 - titleW - 2;
       }
       fill = Math.max(0, fill);
       const segs: PatternSegment[] = [
         { text: "── ", style: stSep },
         { text: title, style: titleStyle },
-        { text: ` ${"─".repeat(fill)}`, style: stSep },
+        { text: " ┄", style: stSep },
+        { text: "─".repeat(fill), style: stSep },
       ];
-      if (noteText !== undefined) segs.push({ text: ` ${noteText} ──`, style: stSep });
+      if (noteText !== undefined) segs.push({ text: ` ${noteText}`, style: stLabel });
       row(...segs);
     };
 

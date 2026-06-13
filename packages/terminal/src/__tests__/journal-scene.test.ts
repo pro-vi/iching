@@ -784,6 +784,32 @@ describe("JournalScene patterns pane ([p])", () => {
     expect(text).toContain("▅▅▅▅▅▅▅▅▅▅▅▅ × 5"); // line 4 (the max) fills solid
   });
 
+  test("section rules hinge with ┄ and set notes flush-right as margin whispers", () => {
+    const ctx = ctxFor(45, 80);
+    const scene = new JournalScene(
+      [
+        makeEntry("2026-03-01", 61, { cast: makeCast(61, 8, [5]), method: "coin" }),
+        makeEntry("2026-03-02", 62, { cast: makeCast(62, 7, [2]), method: "coin" }),
+        makeEntry("2026-03-03", 1, { cast: makeCast(1, 2, [3]), method: "yarrow" }),
+        makeEntry("2026-03-04", 2, { cast: makeCast(2, 1, [4]), method: "yarrow" }),
+        makeEntry("2026-03-05", 14, { cast: makeCast(14, 1, [1]), method: "coin" }),
+        makeEntry("2026-03-06", 50, { cast: makeCast(50, 1, [6]), method: "coin" }),
+        makeEntry("2026-03-07", 11, { cast: makeCast(11, 1, [2]), method: "yarrow" }),
+        makeEntry("2026-03-08", 12, { cast: makeCast(12, 1, [3]), method: "coin" }),
+      ],
+      { today: () => "2026-04-15" },
+    );
+    scene.enter(ctx);
+    press(scene, ctx, "p");
+    const lines = renderText(scene, ctx).split("\n");
+    const faces = lines.find((l) => l.includes("卦象 · faces seen")) ?? "";
+    // The title hands off to the rule via a ┄ hinge…
+    expect(faces).toContain("卦象 · faces seen ┄");
+    // …and the note ends the line unboxed (no trailing ' ──' box).
+    expect(faces.trimEnd()).toMatch(/each by chance ~[\d.]+$/);
+    expect(faces).not.toContain("~0.1 ──");
+  });
+
   test("兩儀 coda renders the yang/yin balance growing from a central axis", () => {
     // 8 all-yang casts (乾) + 3 all-yin casts (坤): 48 yang, 18 yin lines.
     const allYang = (): Cast => ({
