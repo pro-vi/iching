@@ -1,12 +1,31 @@
 import { describe, expect, test } from "bun:test";
 import { DetailModel } from "../scenes/dict/detail-model.ts";
 import { buildContentLines } from "../scenes/dict/detail-renderer.ts";
+import { stringWidth } from "../layout/measure.ts";
 
 function textFor(language: "zh-Hans" | "zh-Hant" | "en", kw = 1): string {
   return buildContentLines(new DetailModel(kw), 100, { language })
     .map((line) => line.text)
     .join("\n");
 }
+
+describe("DetailRenderer fits the text budget", () => {
+  test("no content line overflows the budget at a narrow width", () => {
+    // Regression: derived-link lines ("Mirror  ䷂ Difficulty at the Beginning")
+    // and the locked-pair line weren't truncated, so long English names ran off
+    // the right edge near 40 columns. Every built line must fit width-PADDING*2.
+    const width = 40;
+    const textWidth = width - 4; // PADDING (2) on each side
+    for (const kw of [1, 4, 5, 6, 49, 50, 63]) {
+      for (const language of ["en", "zh-Hant", "zh-Hans"] as const) {
+        const model = new DetailModel(kw, [1, 3, 5]);
+        for (const line of buildContentLines(model, width, { language })) {
+          expect(stringWidth(line.text)).toBeLessThanOrEqual(textWidth);
+        }
+      }
+    }
+  });
+});
 
 describe("DetailRenderer language policy", () => {
   test("traditional Chinese mode hides English commentary and line translations", () => {

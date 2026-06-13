@@ -6,7 +6,7 @@ import type { DetailModel, DerivedLink } from "./detail-model.ts";
 import type { DisplayLanguage } from "@iching/core";
 import { SEQUENCE, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth, centerPad } from "../../layout/measure.ts";
+import { stringWidth, centerPad, truncateToWidth } from "../../layout/measure.ts";
 import { wordWrap } from "./word-wrap.ts";
 import { GLYPHS } from "../../glyphs.ts";
 import { tr } from "../../i18n/messages.ts";
@@ -241,7 +241,9 @@ export function buildContentLines(
       ? `${marker} ${link.label.padEnd(10)} ${link.symbol} ${link.ename}`
       : `${marker} ${zh(link.labelCn, language)} ${link.symbol} ${zh(link.name, language)}`;
     lines.push({
-      text,
+      // A derived link is one navigable line — clip a long English name to the
+      // text budget rather than overrun the right edge on a narrow terminal.
+      text: truncateToWidth(text, textWidth),
       fg: isSelected ? t.primary : t.secondary,
     });
   }
@@ -251,9 +253,12 @@ export function buildContentLines(
     lines.push({ text: "" });
     const partner = model.detail.lockedPartner.gua;
     lines.push({
-      text: english
-        ? `Locked pair: ${partner.ename}`
-        : `${zh("鎖定對卦", language)}: ${zh(partner.n, language)}`,
+      text: truncateToWidth(
+        english
+          ? `Locked pair: ${partner.ename}`
+          : `${zh("鎖定對卦", language)}: ${zh(partner.n, language)}`,
+        textWidth,
+      ),
       fg: t.tertiary,
     });
   }

@@ -10,7 +10,9 @@ import type { KeyEvent } from "../../input/key-parser.ts";
 import type { DisplayLanguage, HistoryEntry } from "@iching/core";
 import { GUA, TRIGRAMS, entryTimeKey, stripTerminalControls, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth } from "../../layout/measure.ts";
+import { stringWidth, truncateToWidth } from "../../layout/measure.ts";
+// Re-exported for callers that have long imported it from here (e.g. tests).
+export { truncateToWidth };
 import { ScrollableRegion } from "../../widgets/scrollable.ts";
 import { TextInput } from "../../widgets/text-input.ts";
 import { tr, countUnit, type MessageKey } from "../../i18n/messages.ts";
@@ -100,27 +102,6 @@ function normalize(str: string): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
-}
-
-/**
- * Truncate to a display-width budget with a trailing one-column ellipsis.
- * List rows and previews must clip by terminal columns, not UTF-16 code
- * units — a CJK string sliced by code units keeps up to twice its budget
- * and runs off the right edge (taking the ellipsis with it).
- */
-export function truncateToWidth(text: string, maxWidth: number): string {
-  if (maxWidth <= 0) return "";
-  if (stringWidth(text) <= maxWidth) return text;
-  const budget = maxWidth - 1; // reserve one column for the ellipsis
-  let out = "";
-  let used = 0;
-  for (const ch of text) {
-    const w = stringWidth(ch);
-    if (used + w > budget) break;
-    out += ch;
-    used += w;
-  }
-  return out + "…";
 }
 
 /** Does this hexagram match the query (name / simplified / pinyin / ename / number)? */

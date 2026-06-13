@@ -121,3 +121,23 @@ export function centerPad(str: string, totalWidth: number): string {
   const rightPad = totalWidth - w - leftPad;
   return " ".repeat(leftPad) + str + " ".repeat(rightPad);
 }
+
+/**
+ * Clip a string to `maxWidth` display columns, appending an ellipsis when it
+ * doesn't fit (reserving one column for the "…"). CJK-aware: never splits a
+ * wide glyph across the boundary.
+ */
+export function truncateToWidth(text: string, maxWidth: number): string {
+  if (maxWidth <= 0) return "";
+  if (stringWidth(text) <= maxWidth) return text;
+  const budget = maxWidth - 1; // reserve one column for the ellipsis
+  let out = "";
+  let used = 0;
+  for (const ch of text) {
+    const w = stringWidth(ch);
+    if (used + w > budget) break;
+    out += ch;
+    used += w;
+  }
+  return out + "…";
+}
