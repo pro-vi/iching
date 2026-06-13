@@ -137,12 +137,15 @@ function hexagramMatches(kw: number, q: string): boolean {
 }
 
 /** Live search predicate: intention text + primary/becoming hexagram. */
-export function entryMatchesQuery(entry: HistoryEntry, query: string): boolean {
+export function entryMatchesQuery(entry: JournalEntryView, query: string): boolean {
   const q = normalize(query.trim());
   if (q.length === 0) return true;
   if (entry.intention && normalize(entry.intention).includes(q)) return true;
   if (hexagramMatches(entry.cast.primary, q)) return true;
   if (entry.cast.becoming !== null && hexagramMatches(entry.cast.becoming, q)) return true;
+  // A reflection note is the richest thing you write about a reading — find a
+  // cast by what you later made of it, not only the question you first asked.
+  if (entry.notes?.some((n) => normalize(n.text).includes(q))) return true;
   return false;
 }
 

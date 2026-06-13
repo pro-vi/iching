@@ -168,6 +168,33 @@ describe("JournalScene search ([/])", () => {
     expect(entryMatchesQuery(entry, "jian")).toBe(true);
   });
 
+  test("matches reflection note text — find a reading by what you wrote about it", () => {
+    const noted = makeEntry("2026-03-05", 2, {
+      intention: "the quiet question",
+      notes: [{ text: "this turned out to be about the job offer", date: "2026-03-06" }],
+    });
+    expect(entryMatchesQuery(noted, "job offer")).toBe(true); // the note
+    expect(entryMatchesQuery(noted, "JOB")).toBe(true); // case-insensitive
+    expect(entryMatchesQuery(noted, "the quiet question")).toBe(true); // intention still matches
+    expect(entryMatchesQuery(noted, "nowhere")).toBe(false);
+    expect(entryMatchesQuery(makeEntry("2026-03-07", 3), "job")).toBe(false); // no notes → unaffected
+  });
+
+  test("live search finds a reading by its reflection note", () => {
+    const ctx = ctxFor();
+    const scene = new JournalScene([
+      makeEntry("2026-03-01", 1, { intention: "the launch question" }),
+      makeEntry("2026-03-02", 39, { notes: [{ text: "the move to Portland", date: "2026-03-02" }] }),
+    ]);
+    scene.enter(ctx);
+    press(scene, ctx, "/");
+    type(scene, ctx, "portland");
+    const text = renderText(scene, ctx);
+    expect(text).toContain("1 reading"); // only the annotated reading matches
+    expect(text).toContain("2026-03-02");
+    expect(text).not.toContain("2026-03-01");
+  });
+
   test("/ activates live filtering; enter opens the filtered selection", () => {
     const ctx = ctxFor();
     const scene = new JournalScene(entries);
