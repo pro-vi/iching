@@ -730,7 +730,14 @@ export class JournalScene implements Scene {
       (m, ann) => Math.max(m, ann.reduce((sum, seg) => sum + stringWidth(seg.text), 0)),
       0,
     );
-    const reflowField = annoStart + maxAnnoW > ctx.cols;
+    // Reflow when the widest annotation won't fit beside the field within the
+    // SAME budget the row renderer enforces. annoStart is absolute (from col 0);
+    // the renderer measures `used` from col 2, so the annotation begins at
+    // used-column annoStart - 2. Comparing against ctx.cols rather than `budget`
+    // let a one-column tail slip past the reflow gate and then get ellipsis-
+    // clipped beside the field — at a single boundary width per language (en 78,
+    // zh 74), the field legend lost its last token to a stray "…".
+    const reflowField = annoStart - 2 + maxAnnoW > budget;
 
     for (let r = 0; r < 8; r++) {
       const segs: PatternSegment[] = [];

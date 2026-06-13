@@ -1562,6 +1562,37 @@ describe("JournalScene patterns pane ([p])", () => {
     expect(text).not.toContain("last 0");
     expect(text).not.toContain("…");
   });
+
+  test("annotations beside the field are never ellipsis-clipped at any width", () => {
+    // Regression: the reflow gate compared annoStart + maxAnnoW against ctx.cols,
+    // but the row renderer clips at ctx.cols - 3 (left + right margin). At one
+    // width per language the widest annotation (the field legend) stayed beside
+    // the field and lost its last token to a stray "…" (en 78, zh-Hant 74). The
+    // gate now uses the same budget the renderer enforces.
+    const marked = Array.from({ length: 30 }, (_, i) =>
+      makeEntry(`2026-05-${String((i % 28) + 1).padStart(2, "0")}`, (i % 10) + 1, {
+        method: i % 2 === 0 ? "coin" : "yarrow",
+        timestamp: `2026-05-${String((i % 28) + 1).padStart(2, "0")}T08:00:00`,
+      }),
+    );
+    const FIELD = /[䷀-䷿]/; // Yijing hexagram symbols block (䷀–䷿)
+    for (const lang of ["en", "zh-Hant", "zh-Hans"] as const) {
+      for (let cols = 60; cols <= 120; cols++) {
+        const scene = new JournalScene(marked, { today: () => "2026-06-13" });
+        const ctx: SceneContext = { ...ctxFor(46, cols), language: lang };
+        scene.enter(ctx);
+        press(scene, ctx, "p");
+        const text = renderText(scene, ctx);
+        for (const line of text.split("\n")) {
+          if (FIELD.test(line) && line.includes("…")) {
+            throw new Error(
+              `lang=${lang} cols=${cols}: field row clipped beside annotations: "${line.trim()}"`,
+            );
+          }
+        }
+      }
+    }
+  });
 });
 
 describe("truncateToWidth", () => {
