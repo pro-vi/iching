@@ -246,4 +246,28 @@ describe("the glyph yields to the texts — and returns when there is room", () 
     expect(lastRow).toBeLessThan(footerRow); // …above the footer…
     expect(rowOf(frame, "…")).toBe(-1); // …and nothing was elided
   });
+
+  test("80x24 en: the headline fix holds across ALL 64 — only the longest few truncate", () => {
+    // Exhaustive lock for the headline regression (it once truncated 53/64 EN
+    // judgments at the standard terminal). The title-yields fix recovers all but
+    // the longest Legge judgments, which can't fit 24 rows even after the title
+    // sheds its optional rows and degrade gracefully (… + the detail view). This
+    // pins the coverage so a regression to the title block re-breaks loudly.
+    let truncated = 0;
+    const footerRow = 24 - 2;
+    for (let kw = 1; kw <= 64; kw++) {
+      const cast = makeCast(kw, []); // 0 changing → the judgment IS the reading
+      const frame = settledRows(cast, 80, 24, "en");
+      const panel = buildReadingLines(cast, "en", readingPanelWidth(80), Number.MAX_SAFE_INTEGER);
+      const lastText = panel.filter((l) => l.role === "text").at(-1);
+      if (!lastText) continue;
+      // Whole iff the real last line reached the screen above the footer; a
+      // truncated panel replaces its tail with "…", so the full line won't show.
+      const lastRow = rowOf(frame, lastText.text.trim());
+      if (lastRow < 0 || lastRow >= footerRow) truncated++;
+    }
+    // ≤15 today (the irreducible long-judgment limit at 80×24). A jump above
+    // this means the title stopped yielding and the headline bug is back.
+    expect(truncated).toBeLessThanOrEqual(15);
+  });
 });
