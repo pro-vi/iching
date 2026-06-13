@@ -78,7 +78,6 @@ describe("computeJournalPatterns", () => {
     expect(p.movingLines.map((line) => line.knownCount)).toEqual([0, 1, 0, 0, 2, 0]);
     expect(p.movingLineCounts.map((bin) => bin.count)).toEqual([1, 1, 1, 0, 0, 0, 0]);
     expect(p.movingLineCounts.map((bin) => bin.knownCount)).toEqual([0, 1, 1, 0, 0, 0, 0]);
-    expect(p.movingLine).toEqual({ position: 5, count: 2 });
     expect(p.topTransformations.map((pair) => [pair.from, pair.to, pair.count])).toEqual([
       [39, 8, 1],
       [39, 15, 1],
@@ -124,12 +123,10 @@ describe("computeJournalPatterns", () => {
       repeatLift: null,
     });
     expect(empty.topHexagrams).toEqual([]);
-    expect(empty.movingLine).toBeNull();
     expect(empty.field.counts).toHaveLength(64);
     expect(empty.field.maxCount).toBe(0);
     expect(empty.field.recent).toBeNull();
     const p = computeJournalPatterns([makeEntry("2026-04-01", 2)], "2026-04-15");
-    expect(p.movingLine).toBeNull();
     expect(p.movingLineCounts[0]).toMatchObject({ movingLines: 0, count: 1, share: 1 });
   });
 

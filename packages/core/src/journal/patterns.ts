@@ -213,8 +213,6 @@ export interface JournalPatterns {
   movingLines: MovingLineFrequency[];
   /** Distribution of how many lines move in each cast (0–6). */
   movingLineCounts: MovingLineCountBin[];
-  /** Most common changing-line position (1–6), or null when nothing moved. */
-  movingLine: { position: number; count: number } | null;
   /** Most common trigrams across primary upper/lower positions. */
   topTrigrams: TrigramFrequency[];
   /** Most common primary → becoming transformations. */
@@ -422,13 +420,6 @@ export function computeJournalPatterns(
     ...comparison(knownLineCounts[i], methodCounts.known / 4),
   }));
 
-  let movingLine: JournalPatterns["movingLine"] = null;
-  for (let i = 0; i < 6; i++) {
-    if (lineCounts[i] > 0 && (movingLine === null || lineCounts[i] > movingLine.count)) {
-      movingLine = { position: i + 1, count: lineCounts[i] };
-    }
-  }
-
   const movingLineCounts: MovingLineCountBin[] = movingCountBins.map((count, movingLines) => ({
     movingLines,
     count,
@@ -495,7 +486,6 @@ export function computeJournalPatterns(
     topHexagrams,
     movingLines,
     movingLineCounts,
-    movingLine,
     topTrigrams,
     topTransformations: pairList(transformations, Math.max(3, Math.min(topN, 5))),
     topTransitions: pairList(transitions, Math.max(3, Math.min(topN, 5))),
