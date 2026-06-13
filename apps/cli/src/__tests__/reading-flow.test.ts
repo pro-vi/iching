@@ -1,7 +1,7 @@
 // Integration tests for the yarrow branch of the reading flow.
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Cast } from "@iching/core";
@@ -232,5 +232,40 @@ describe("runReadingFlow — yarrow source", () => {
     expect(scenesRun).toEqual(["intention", "yarrow"]);
     const cache = await deps.cacheStore.read();
     expect(cache?.cast).toBeUndefined();
+  });
+
+  test("a read-only data dir does not crash the cast — it still reveals, with a warning", async () => {
+    // Persistence runs BEFORE the reveal. Unguarded, a throw here (read-only or
+    // full data dir) would lose the reading AND never show it — a crash at the
+    // moment of revelation. Best-effort: warn and reveal anyway. Block the
+    // journal path by making its parent a FILE, so mkdir(parent) → ENOTDIR.
+    const scenesRun: string[] = [];
+    const run: RunImpl = async (scene) => {
+      if (scene instanceof IntentionScene) return { type: "intentionConfirmed" };
+      if (scene instanceof CastScene) {
+        scenesRun.push("cast");
+        return { type: "home" };
+      }
+    };
+    const deps = makeDeps(dataDir, run);
+    const blocker = join(dataDir, "blocker");
+    await writeFile(blocker, "x", "utf-8");
+    deps.paths = { ...deps.paths, state: join(blocker, "nope", "history.jsonl") };
+
+    const errors: string[] = [];
+    const origErr = console.error;
+    console.error = (...a: unknown[]) => {
+      errors.push(a.map(String).join(" "));
+    };
+    let result;
+    try {
+      result = await runReadingFlow(deps, { purpose: "cast", source: { type: "auto" } });
+    } finally {
+      console.error = origErr;
+    }
+
+    expect(result.shouldExit).toBe(false);
+    expect(scenesRun).toContain("cast"); // the reading still revealed…
+    expect(errors.join("\n")).toMatch(/couldn't save this reading/i); // …with the calm warning
   });
 });

@@ -170,19 +170,31 @@ export async function runReadingFlow(
           : deps.entropy === "bound"
             ? { source: "bound", intentionBound: intention !== undefined && intention !== "" }
             : { source: "crypto", intentionBound: false };
-    if (!usedSeed) {
-      const journal = new JsonlJournalStore(deps.paths.state);
-      await journal.append({ date, cast, intention, timestamp, method, rng });
+    // Best-effort persist: a read-only or full data dir must not swallow the
+    // reading the user just cast. Persisting happens BEFORE the reveal, so an
+    // unguarded throw here would lose the reading AND never show it — crashing
+    // at the moment of revelation. Warn instead (deferred under the alt screen,
+    // flushed on exit) and still reveal; seeing the reading matters more than
+    // recording it. The same grace the settings save and reflection notes give.
+    try {
+      if (!usedSeed) {
+        const journal = new JsonlJournalStore(deps.paths.state);
+        await journal.append({ date, cast, intention, timestamp, method, rng });
+      }
+      await deps.cacheStore.write({
+        date,
+        cast,
+        shown: true,
+        structure,
+        intention,
+        method,
+        rng,
+      });
+    } catch {
+      console.error(
+        "iching: couldn't save this reading (read-only or full data dir?); it's shown but not recorded.",
+      );
     }
-    await deps.cacheStore.write({
-      date,
-      cast,
-      shown: true,
-      structure,
-      intention,
-      method,
-      rng,
-    });
   }
 
   // 4. Reveal.
