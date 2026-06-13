@@ -2,9 +2,10 @@
 //
 // Extracted from reading-renderer.ts so the reveal layout (which budgets
 // vertical space between the glyph, the title block, and these texts) can
-// measure the panel without an import cycle. The texts a reading is
-// classically made of follow readingFocus (the common classical rule), and
-// the text the hint names always comes first: the changing lines' 爻辭
+// measure the panel without an import cycle. The texts a reading is made of
+// follow readingFocus (a simplified modern moving-line rule — see its doc for
+// where it agrees with and departs from the classical 啟蒙 method), and the
+// text the hint names always comes first: the changing lines' 爻辭
 // (governing line first when two or three move, the rest bottom-first as
 // cast), the becoming hexagram's 卦辭 when four or five move, or — when no
 // lines move — the primary 卦辭, since the judgment IS the reading in that

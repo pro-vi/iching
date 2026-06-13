@@ -5,12 +5,19 @@ import { QUOTE_STYLES } from "../data/trigrams.js";
 import { formatTrigrams } from "../identify/structure.js";
 
 /**
- * Which canonical text governs a reading, per the common (Zhu Xi) rules:
+ * Which canonical text governs a reading. This is the common *modern*
+ * moving-line rule (the Wilhelm/Blofeld lineage), NOT the stricter Song
+ * 《易學啟蒙》 "考變占" procedure. It agrees with the classical method for 0, 1,
+ * 2, and 6 moving lines, and simplifies the 3–5 cases to a single foregrounded
+ * text:
  *   0 moving lines  → the primary hexagram's 卦辭 is the reading
  *   1 moving line   → that line's 爻辭 speaks
  *   2-3 moving      → the noted lines' 爻辭, the uppermost governing
  *   4-5 moving      → the becoming hexagram's 卦辭 speaks
  *   6 moving        → 用九 (hex 1) / 用六 (hex 2); otherwise the becoming 卦辭
+ * Strict 啟蒙 instead reads BOTH judgments at 3 (本卦為貞, 之卦為悔) and the
+ * becoming's UNCHANGED 爻辭 at 4–5; we foreground one text by design — a quiet
+ * observation over a full divinatory procedure.
  */
 export type ReadingFocus =
   | { kind: "judgment" }

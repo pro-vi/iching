@@ -178,7 +178,7 @@ describe("buildReadingLines", () => {
   });
 });
 
-// The classical-rule invariant: whatever text the hint names governs the
+// The reading-rule invariant: whatever text the hint names governs the
 // reading, and that text is always the first one the panel shows.
 describe("the text the hint names is always shown first (1–6 moving lines)", () => {
   const becomingOf = (cast: Cast): (typeof GUA)[number] => GUA[cast.becoming! - 1];
