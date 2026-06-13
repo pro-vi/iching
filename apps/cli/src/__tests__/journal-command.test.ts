@@ -718,6 +718,19 @@ describe("journal note command", () => {
     expect(blank.stderr).toContain("Note text is empty.");
   }, 20_000);
 
+  test("note errors calmly on a write failure, not a raw EISDIR/EROFS", async () => {
+    // History readable, but the notes sidecar can't be written (a directory at
+    // notes.jsonl; in the wild a read-only or full dir). The read commands
+    // already degrade calmly — the note WRITE must too, not a raw Node error.
+    await seedJournal(dataDir, [makeEntry("2026-01-01", 1, null)]);
+    await mkdir(join(dataDir, "notes.jsonl")); // block the note write
+
+    const { exitCode, stderr } = await runCli(dataDir, ["journal", "note", "a reflection"]);
+    expect(exitCode).toBe(1);
+    expect(stderr).toMatch(/couldn't save your note/i); // calm, contextual…
+    expect(stderr).not.toMatch(/EISDIR|EROFS/); // …never the raw Node error
+  }, 20_000);
+
   test("show --json carries notes additively; list stays note-free", async () => {
     await seedJournal(dataDir, [makeEntry("2026-01-01", 1, null)]);
     await runCli(dataDir, ["journal", "note", "json check"]);

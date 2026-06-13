@@ -1414,7 +1414,7 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
 - surface_id: cli-journal-errors-empty
   file: apps/cli/src/commands/journal.ts, output/plain.ts
   code_locator: "journal L46,88; plain L113"
-  current_text: '"No readings found." / "No reading found for ${label}" / "No reading found to annotate." / "Note text is empty." / "Note added to ${date}  ${u} ${n} (${p})"'
+  current_text: '"No readings found." / "No reading found for ${label}" / "No reading found to annotate." / "Note text is empty." / "Note added to ${date}  ${u} ${n} (${p})" / iching: couldn't save your note (read-only or full data dir?).'
   surface_class: cli-invalid-paths
   render_context: "stdout empty-state + stderr not-found (exit 1)"
   language_policy: translate

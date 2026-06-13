@@ -308,7 +308,15 @@ export function registerJournalCommand(program: Command): void {
         timestamp: new Date().toISOString(),
         text: trimmed,
       };
-      await store.appendNote(note);
+      try {
+        await store.appendNote(note);
+      } catch {
+        // Write failure (read-only or full data dir, a directory at the sidecar
+        // path) — the read commands already degrade calmly; the note write
+        // should too, not a raw EROFS/EISDIR. Nothing was saved.
+        console.error("iching: couldn't save your note (read-only or full data dir?).");
+        process.exit(1);
+      }
 
       if (globalOpts.json) {
         outputJson({
