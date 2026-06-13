@@ -585,4 +585,23 @@ describe("JsonlJournalStore reflection notes", () => {
     }
     expect(notes).toHaveLength(0);
   });
+
+  test("an unreadable notes sidecar yields nothing and never takes the readings down", async () => {
+    const { mkdir } = await import("node:fs/promises");
+    // A reading exists; its notes sidecar is a directory (→ EISDIR when read;
+    // in the wild a root-owned notes.jsonl → EACCES). Reflection notes are
+    // supplementary, so a sidecar read failure must not throw — it would crash
+    // `journal show` or, in the TUI, empty a journal whose readings are fine.
+    await store.append(makeEntry("2026-04-01"));
+    await mkdir(join(dir, "notes.jsonl")); // unreadable sidecar
+
+    const notes: ReflectionNote[] = [];
+    for await (const note of store.streamNotes()) notes.push(note); // never throws
+    expect(notes).toHaveLength(0);
+
+    // …and the readings stay fully accessible.
+    const entries: HistoryEntry[] = [];
+    for await (const e of store.stream()) entries.push(e);
+    expect(entries.map((e) => e.date)).toEqual(["2026-04-01"]);
+  });
 });

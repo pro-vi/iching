@@ -174,13 +174,22 @@ export class JsonlJournalStore implements JournalStore {
       crlfDelay: Infinity,
     });
 
-    for await (const line of rl) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      const parsed = parseLine(trimmed);
-      if (parsed.type !== "other") continue;
-      const note = parseNoteRecord(parsed.record);
-      if (note) yield note;
+    try {
+      for await (const line of rl) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const parsed = parseLine(trimmed);
+        if (parsed.type !== "other") continue;
+        const note = parseNoteRecord(parsed.record);
+        if (note) yield note;
+      }
+    } catch {
+      // Reflection notes are supplementary annotations, never the reading
+      // itself. A sidecar that can't be read at all — a directory left at the
+      // path, permission denied — must not throw and take the readings down
+      // with it (a crash in `journal show`, or an empty journal in the TUI when
+      // only the notes failed). Yield what we read and stop; the readings stay.
+      rl.close();
     }
   }
 
