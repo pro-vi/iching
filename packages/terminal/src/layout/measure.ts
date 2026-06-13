@@ -123,6 +123,21 @@ export function centerPad(str: string, totalWidth: number): string {
 }
 
 /**
+ * Place a single line in `width` columns: centered when it fits, otherwise
+ * left-anchored and truncated with an ellipsis. A footer (or any one-liner)
+ * wider than the terminal then keeps its LEADING content — the primary
+ * keybinds — instead of clipping both ends off a centered string and losing
+ * the outer hints entirely. Returns the text to draw and the column for it.
+ */
+export function fitLine(text: string, width: number): { text: string; col: number } {
+  const w = stringWidth(text);
+  if (w <= width) {
+    return { text, col: Math.max(0, Math.floor((width - w) / 2)) };
+  }
+  return { text: truncateToWidth(text, width), col: 0 };
+}
+
+/**
  * Clip a string to `maxWidth` display columns, appending an ellipsis when it
  * doesn't fit (reserving one column for the "…"). CJK-aware: never splits a
  * wide glyph across the boundary.

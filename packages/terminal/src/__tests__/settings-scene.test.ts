@@ -57,9 +57,10 @@ describe("SettingsScene language", () => {
     // at the narrowest supported terminal. Locks against a future setting or
     // longer label quietly overflowing it (cf. the yarrow field's 52-col gap).
     //
-    // The keybind FOOTER is excluded: it's shared chrome that, like the journal
-    // and cast footers, runs wider than 40 in English and clips at the minimum
-    // width — an app-wide degradation, not a settings-content concern.
+    // The keybind FOOTER is excluded from the MARGIN check: it now fits the
+    // width via fitLine (centered when it fits, left-anchored + truncated when
+    // not), but a truncated footer fills the row edge-to-edge by design, so it
+    // legitimately has no right margin.
     const cols = 40;
     for (const lang of ["en", "zh-Hant", "zh-Hans"] as const) {
       const buf = CellBuffer.create(cols, 30); // tall enough to show every setting

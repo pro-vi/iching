@@ -12,7 +12,7 @@ import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
 import { composeGlyph } from "../../glyph-anim/compose.ts";
 import { autoGlyphSize } from "../../glyph-anim/auto-size.ts";
 import { getTheme, setTheme, THEME_NAMES, type ThemeName } from "../../color/theme.ts";
-import { stringWidth } from "../../layout/measure.ts";
+import { stringWidth, fitLine } from "../../layout/measure.ts";
 import { type CoinState, INITIAL_VY, stepCoin, coinFrame } from "../toss/coin-physics.ts";
 import { renderCoinSet, CoinAutoPreview } from "../cast/coin-renderer.ts";
 import { renderYarrowFieldStrip, drawApertureCursor } from "../yarrow/field-renderer.ts";
@@ -320,7 +320,8 @@ export class SettingsScene implements Scene {
 
     // Footer
     frame.writeText(footerSepRow, sepCol, sep, { fg: t.border });
-    frame.writeText(footerRow, cx - Math.floor(stringWidth(footer) / 2), footer, { fg: t.tertiary });
+    const { text: shownFooter, col: footerTextCol } = fitLine(footer, frame.width);
+    frame.writeText(footerRow, footerTextCol, shownFooter, { fg: t.tertiary });
   }
 
   private renderPreview(

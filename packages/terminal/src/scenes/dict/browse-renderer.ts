@@ -7,7 +7,7 @@ import type { TextInput } from "../../widgets/text-input.ts";
 import { GUA, getStructure, toSimplified } from "@iching/core";
 import type { DisplayLanguage } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth } from "../../layout/measure.ts";
+import { stringWidth, truncateToWidth } from "../../layout/measure.ts";
 import { tr, countUnit } from "../../i18n/messages.ts";
 
 const HEADER_ROWS = 2; // header + separator
@@ -196,7 +196,11 @@ function renderFooter(
     ? `[↑↓] ${tr(lang, "verb.navigate")}  ·  [enter] ${tr(lang, "verb.open")}  ·  [esc] ${tr(lang, "verb.clearSearch")}`
     : `[↑↓] ${tr(lang, "verb.navigate")}  ·  [enter] ${tr(lang, "verb.open")}  ·  [/] ${tr(lang, "verb.search")}  ·  [esc] ${tr(lang, "verb.back")}`;
 
-  frame.writeText(footerRow, 1, keys, { fg: t.secondary });
+  // Keys are left-anchored, the count right-anchored — clip the keys to the
+  // space before the count so a narrow terminal truncates the hints (keeping
+  // the lead keybinds) instead of writing them over the count.
+  const keysMax = Math.max(0, ctx.cols - stringWidth(count) - 3);
+  frame.writeText(footerRow, 1, truncateToWidth(keys, keysMax), { fg: t.secondary });
   frame.writeText(footerRow, ctx.cols - stringWidth(count) - 1, count, {
     fg: t.tertiary,
   });

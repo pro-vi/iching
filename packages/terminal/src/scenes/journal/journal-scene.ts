@@ -10,7 +10,7 @@ import type { KeyEvent } from "../../input/key-parser.ts";
 import type { DisplayLanguage, HistoryEntry } from "@iching/core";
 import { GUA, TRIGRAMS, entryTimeKey, stripTerminalControls, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth, truncateToWidth } from "../../layout/measure.ts";
+import { stringWidth, truncateToWidth, fitLine } from "../../layout/measure.ts";
 // Re-exported for callers that have long imported it from here (e.g. tests).
 export { truncateToWidth };
 import { ScrollableRegion } from "../../widgets/scrollable.ts";
@@ -1018,8 +1018,10 @@ export class JournalScene implements Scene {
         `[enter] ${tr(lang, "verb.view")} · [n] ${tr(lang, "verb.note")} · [g] ${tr(lang, "verb.detail")}` +
         ` · [/] ${tr(lang, "verb.search")} · [p] ${tr(lang, "verb.patterns")} · [esc] ${tr(lang, "verb.back")}`;
     }
-    const footerCol = Math.max(0, Math.floor((maxW - stringWidth(footer)) / 2));
-    frame.writeText(ctx.rows - 1, footerCol, footer, { fg: t.tertiary });
+    // Center when it fits; on a narrow terminal keep the lead keybinds and
+    // truncate, rather than clip both ends off a centered hint.
+    const { text: shownFooter, col: footerCol } = fitLine(footer, maxW);
+    frame.writeText(ctx.rows - 1, footerCol, shownFooter, { fg: t.tertiary });
   }
 
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {

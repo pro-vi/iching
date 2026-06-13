@@ -14,7 +14,7 @@
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { DisplayLanguage } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth } from "../../layout/measure.ts";
+import { stringWidth, fitLine } from "../../layout/measure.ts";
 import { tr } from "../../i18n/messages.ts";
 
 const HEADER_ROW = 1;
@@ -50,6 +50,8 @@ export function writeChromeFooter(buf: CellBuffer, text: string): void {
   const t = getTheme();
   const row = buf.height - FOOTER_ROW_FROM_BOTTOM;
   if (row < 0) return;
-  const col = Math.max(0, Math.floor((buf.width - stringWidth(text)) / 2));
-  buf.writeText(row, col, text, { fg: t.tertiary });
+  // Center when it fits; on a narrow terminal keep the lead keybinds and
+  // truncate, rather than clip both ends off a centered hint.
+  const { text: shown, col } = fitLine(text, buf.width);
+  buf.writeText(row, col, shown, { fg: t.tertiary });
 }
