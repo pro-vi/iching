@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { GUA, BINARY_TO_KW, TRIGRAMS } from "@iching/core";
@@ -152,5 +152,15 @@ describe("doctor journal check (subprocess)", () => {
     const { exitCode, stdout } = await runDoctor();
     expect(exitCode).toBe(0);
     expect(stdout).toContain("[OK] Journal: no journal yet");
+  }, 20_000);
+
+  test("fails (reports, never crashes) when the journal exists but can't be read", async () => {
+    // A directory at the journal path (→ EISDIR; in the wild a root-owned file
+    // → EACCES). The diagnostic must REPORT the read failure as a failed check —
+    // crashing on the very problem it exists to surface is the worst outcome.
+    await mkdir(join(dataDir, "history.jsonl"));
+    const { exitCode, stdout } = await runDoctor();
+    expect(exitCode).not.toBe(0); // a real failure, surfaced
+    expect(stdout).toContain("[FAIL] Journal: exists but can't be read"); // reported, not crashed
   }, 20_000);
 });

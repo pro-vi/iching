@@ -127,8 +127,20 @@ async function checkJournal(dataDir?: string): Promise<CheckResult> {
   // path existence alone says nothing about whether the entries still read.
   const journal = new JsonlJournalStore(paths.state);
   let entryCount = 0;
-  for await (const _entry of journal.stream()) {
-    entryCount++;
+  try {
+    for await (const _entry of journal.stream()) {
+      entryCount++;
+    }
+  } catch {
+    // The journal exists but can't be read at all — a directory at the path,
+    // permission denied. The diagnostic must REPORT that as a failed check, not
+    // crash on the very read failure it exists to surface. (Torn LINES are a
+    // warn below; a whole-file failure is a fail.)
+    return {
+      name: "Journal",
+      status: "fail",
+      detail: "exists but can't be read (permission denied, or not a file?)",
+    };
   }
 
   const skipped = journal.skippedLines;

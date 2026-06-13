@@ -1455,7 +1455,8 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
     "NO_COLOR is set — color output disabled"; "COLORTERM=${colorterm}, TERM=${term} → ${level}";
     "(< 80 columns — some output may wrap)";
     journal integrity check: "no journal yet — cast in the TUI to begin";
-    "${entryCount} reading(s) recorded"; "${counts}, ${skipped} unreadable line(s) skipped"
+    "${entryCount} reading(s) recorded"; "${counts}, ${skipped} unreadable line(s) skipped";
+    "exists but can't be read (permission denied, or not a file?)"
   surface_class: cli-commands
   render_context: "doctor stdout + (--json name/detail values)"
   language_policy: translate
