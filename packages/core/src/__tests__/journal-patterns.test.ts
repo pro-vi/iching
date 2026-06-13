@@ -216,6 +216,45 @@ describe("computeJournalPatterns", () => {
   });
 });
 
+describe("computeJournalPatterns — the chance baseline rests on correct probabilities", () => {
+  test("moving-line expectations follow P(move)=1/4 and the Binomial(6,1/4) count law", () => {
+    // Eight coin casts — a controlled, all-known baseline.
+    const N = 8;
+    const entries = Array.from({ length: N }, (_, i) =>
+      makeEntry(`2026-03-${String(i + 1).padStart(2, "0")}`, 1, { method: "coin" as const }),
+    );
+    const p = computeJournalPatterns(entries, "2026-04-15");
+
+    // Each of the six positions moves with probability 1/4 → expected N/4.
+    for (const line of p.movingLines) expect(line.expected).toBeCloseTo(N / 4, 10);
+
+    // The number of moving lines per cast ~ Binomial(6, 1/4); the bin
+    // expectations are N × that pmf (which itself sums to 1, so they sum to N).
+    const binom = [729, 1458, 1215, 540, 135, 18, 1].map((x) => x / 4096);
+    p.movingLineCounts.forEach((bin, k) => expect(bin.expected).toBeCloseTo(N * binom[k], 10));
+    expect(p.movingLineCounts.reduce((s, b) => s + b.expected, 0)).toBeCloseTo(N, 9);
+
+    // The foundational identity behind the per-hexagram baseline: both methods
+    // give P(yang line)=1/2, so the primary is uniform over 64 → known/64.
+    expect(p.baseline.primaryExpectedPerHexagram).toBeCloseTo(N / 64, 10);
+  });
+
+  test("yarrow weights old-yang 3:1 over old-yin; coin is symmetric", () => {
+    // One coin cast + one yarrow cast, six lines each. Direction expectations
+    // are summed per entry from LINE_PROBABILITIES, so the two methods differ.
+    const p = computeJournalPatterns(
+      [
+        makeEntry("2026-03-01", 1, { method: "coin" as const }),
+        makeEntry("2026-03-02", 1, { method: "yarrow" as const }),
+      ],
+      "2026-04-15",
+    );
+    // coin: 6×1/8 = 0.75 each; yarrow: yin 6×1/16=0.375, yang 6×3/16=1.125.
+    expect(p.baseline.oldYin.expected).toBeCloseTo(0.75 + 0.375, 10); // 1.125
+    expect(p.baseline.oldYang.expected).toBeCloseTo(0.75 + 1.125, 10); // 1.875
+  });
+});
+
 describe("phaseOfHour — four even six-hour phases of the local day", () => {
   test("maps each hour 0–23 to 晨/午/暮/夜 at the 5/11/17/23 boundaries", () => {
     const expected: Array<[number, 0 | 1 | 2 | 3]> = [
