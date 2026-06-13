@@ -758,6 +758,29 @@ describe("JournalScene patterns pane ([p])", () => {
     expect(text).not.toContain("chance would say");
   });
 
+  test("bars fill in eighths — an uneven ratio shows a partial cell, not a rounded block", () => {
+    // line 5 moves 4× while line 4 moves 5× (the max): 4/5 of 12 cells = 9.6,
+    // which must render as nine full blocks plus a 5/8 partial, never a flat 10.
+    const moving = [
+      makeEntry("2026-03-01", 2, { cast: makeCast(2, 24, [4]), method: "coin" }),
+      makeEntry("2026-03-02", 2, { cast: makeCast(2, 24, [4]), method: "coin" }),
+      makeEntry("2026-03-03", 2, { cast: makeCast(2, 24, [4]), method: "coin" }),
+      makeEntry("2026-03-04", 2, { cast: makeCast(2, 24, [4]), method: "coin" }),
+      makeEntry("2026-03-05", 2, { cast: makeCast(2, 24, [4]), method: "coin" }),
+      makeEntry("2026-03-06", 2, { cast: makeCast(2, 7, [5]), method: "coin" }),
+      makeEntry("2026-03-07", 2, { cast: makeCast(2, 7, [5]), method: "coin" }),
+      makeEntry("2026-03-08", 2, { cast: makeCast(2, 7, [5]), method: "coin" }),
+      makeEntry("2026-03-09", 2, { cast: makeCast(2, 7, [5]), method: "coin" }),
+    ];
+    const ctx = ctxFor(40, 80);
+    const scene = new JournalScene(moving, { today: () => "2026-04-15" });
+    scene.enter(ctx);
+    press(scene, ctx, "p");
+    const text = renderText(scene, ctx);
+    expect(text).toContain("█████████▋"); // line 5: 4/5 → 9 full + 5/8
+    expect(text).toContain("████████████ × 5"); // line 4 (the max) fills the track
+  });
+
   test("narrow terminals reflow the field annotations below the grid", () => {
     const ctx = ctxFor(40, 60);
     const scene = new JournalScene(entries, { today: () => "2026-04-15" });

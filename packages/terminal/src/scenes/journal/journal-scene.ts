@@ -464,11 +464,20 @@ export class JournalScene implements Scene {
       return [...segs, { text: " ".repeat(Math.max(1, LABEL_W - w + 1)), style: stLabel }];
     };
 
+    // Fractional bars: the last cell fills in eighths (▏▎▍▌▋▊▉) rather than
+    // rounding to a whole block, so an uneven ratio reads precisely and the
+    // bars share the drift sparkline's eighth-block grain. Width stays barW.
     const bar = (count: number, max: number): PatternSegment[] => {
-      const filled = count <= 0 || max <= 0 ? 0 : Math.max(1, Math.round((count / max) * barW));
+      if (count <= 0 || max <= 0) {
+        return [{ text: "░".repeat(barW), style: stRest }];
+      }
+      const eighths = Math.max(1, Math.round((count / max) * barW * 8));
+      const full = Math.floor(eighths / 8);
+      const rem = eighths % 8;
+      const fill = "█".repeat(full) + (rem > 0 ? "▏▎▍▌▋▊▉"[rem - 1] : "");
       return [
-        { text: "█".repeat(Math.min(barW, filled)), style: stBar },
-        { text: "░".repeat(Math.max(0, barW - filled)), style: stRest },
+        { text: fill, style: stBar },
+        { text: "░".repeat(Math.max(0, barW - full - (rem > 0 ? 1 : 0))), style: stRest },
       ];
     };
 
