@@ -460,6 +460,38 @@ describe("computeJournalPatterns — invariants over random journals (fuzz)", ()
       expect(p.baseline.oldYin.observed + p.baseline.oldYang.observed, ctx).toBeLessThanOrEqual(
         m.known * 6,
       );
+      // Diversity agrees with the field: distinct = the non-zero cells, and the
+      // method-marked subset's distinct can't exceed it.
+      const nonZero = p.field.counts.filter((c) => c > 0).length;
+      expect(p.diversity.distinctHexagrams, ctx).toBe(nonZero);
+      expect(p.diversity.knownDistinctHexagrams, ctx).toBeLessThanOrEqual(
+        p.diversity.distinctHexagrams,
+      );
+      expect(p.diversity.knownDistinctHexagrams, ctx).toBeGreaterThanOrEqual(0);
+      // Trigrams: each cast spends one upper + one lower slot, so a trigram's
+      // total is its upper+lower split; capped, count-descending, count >= known.
+      for (let i = 0; i < p.topTrigrams.length; i++) {
+        const tg = p.topTrigrams[i];
+        expect(tg.upperCount + tg.lowerCount, ctx).toBe(tg.count);
+        expect(tg.count >= tg.knownCount && tg.knownCount >= 0, ctx).toBe(true);
+        expect(tg.index >= 0 && tg.index <= 7, ctx).toBe(true);
+        if (i > 0) expect(p.topTrigrams[i - 1].count >= tg.count, ctx).toBe(true);
+      }
+      // 卦變 drift: bounded to 0–6 lines, transitions = consecutive pairs, and
+      // the distance histogram accounts for every transition.
+      if (p.hammingDrift) {
+        const h = p.hammingDrift;
+        expect(h.mean >= 0 && h.mean <= 6, ctx).toBe(true);
+        expect(h.max >= 0 && h.max <= 6, ctx).toBe(true);
+        expect(h.transitions, ctx).toBe(entries.length - 1);
+        expect(h.distribution.reduce((a, b) => a + b.count, 0), ctx).toBe(h.transitions);
+      }
+      // 時 phase-of-day: the four buckets account for exactly the timestamped
+      // subset, which never exceeds the total.
+      if (p.timeOfDay) {
+        expect(p.timeOfDay.counts.reduce((a, b) => a + b, 0), ctx).toBe(p.timeOfDay.timestamped);
+        expect(p.timeOfDay.timestamped, ctx).toBeLessThanOrEqual(p.total);
+      }
     }
   });
 
