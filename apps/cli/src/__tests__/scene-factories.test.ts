@@ -80,7 +80,44 @@ describe("makeBrowseFactory", () => {
   });
 });
 
-describe("makeDetailScene — history hydration crash safety", () => {
+describe("makeDetailScene — journal history hydration", () => {
+  const castOf = (primary: number) => ({
+    lines: [1, 2, 3, 4, 5, 6].map(() => ({
+      value: 7 as const,
+      isYang: true,
+      isChanging: false,
+    })),
+    primary,
+    becoming: null,
+    changingPositions: [],
+    nuclear: 1,
+    polarity: 2,
+    mirror: 1,
+    diagonal: 2,
+  });
+
+  test("hydrates a hexagram's cast count and last date from the journal", async () => {
+    // makeDetailScene fires getHexagramHistory → setHistory so opening a
+    // hexagram ([g] from a reading, or the dictionary) shows "Cast N times
+    // (last …)". Only the crash path was pinned; this locks the happy path,
+    // so a broken wiring (wrong kw, dropped .then) can't silently blank it.
+    const dir = await mkdtemp(join(tmpdir(), "detail-history-test-"));
+    const journal = new JsonlJournalStore(join(dir, "history.jsonl"));
+    // Three casts of hexagram 1 across different days, plus an unrelated cast.
+    await journal.append({ date: "2026-01-05", cast: castOf(1), timestamp: "2026-01-05T09:00:00.000Z" });
+    await journal.append({ date: "2026-02-20", cast: castOf(1), timestamp: "2026-02-20T09:00:00.000Z" });
+    await journal.append({ date: "2026-03-28", cast: castOf(1), timestamp: "2026-03-28T09:00:00.000Z" });
+    await journal.append({ date: "2026-03-30", cast: castOf(2), timestamp: "2026-03-30T09:00:00.000Z" });
+
+    const scene = makeDetailScene(1, { journal });
+    // Hydration is async; poll until setHistory lands.
+    for (let i = 0; i < 50 && scene.getModel().castCount === 0; i++) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    expect(scene.getModel().castCount).toBe(3); // counts hexagram 1 only, not the 卦 2 cast…
+    expect(scene.getModel().lastCastDate).toBe("2026-03-28"); // …and its most recent day
+  });
+
   test("a corrupt journal line never escapes as an unhandled rejection", async () => {
     const dir = await mkdtemp(join(tmpdir(), "detail-hydration-test-"));
     const path = join(dir, "history.jsonl");
