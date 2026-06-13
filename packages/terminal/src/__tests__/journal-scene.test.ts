@@ -1308,6 +1308,26 @@ describe("JournalScene patterns pane ([p])", () => {
     }
   });
 
+  test("the field tiers stay distinct after 256-colour quantisation, every theme", () => {
+    // Most terminals are 256-colour, not truecolour, so the theme's tier tones
+    // get quantised. Two tones that rise in luminance can still collapse to the
+    // SAME 256 index (a separate failure the luminance test can't see) — which
+    // would drop a tier from the field's gradient for those users. Lock four
+    // distinct tier indices, and dimmed distinct from bg (unseen stays visible).
+    // (16-colour is coarser and degrades by design — seen hexagrams still show,
+    // only the unseen backdrop fades; it's a rare legacy mode.)
+    const { fgColor } = require("../ansi/sgr.ts");
+    const { THEME_NAMES, THEMES } = require("../color/theme.ts");
+    const c256 = (hex: string): string =>
+      (fgColor(hex, "256").match(/38;5;(\d+)m/)?.[1] ?? hex);
+    for (const name of THEME_NAMES as string[]) {
+      const t = THEMES[name];
+      const tiers = [t.dimmed, t.tertiary, t.secondary, t.primary].map(c256);
+      expect(new Set(tiers).size, `${name} tiers`).toBe(4); // four distinct indices
+      expect(c256(t.dimmed), `${name} dimmed vs bg`).not.toBe(c256(t.bg)); // unseen visible
+    }
+  });
+
   test("the 卦象/爻象/八卦 bars align by display column in zh-Hant, same as English", () => {
     // The three sparkline sections share one start column so the pane reads as a
     // single aligned field. CJK labels (乾, 上爻, ☷ 坤) carry different display
