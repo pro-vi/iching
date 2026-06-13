@@ -1121,7 +1121,7 @@ describe("count unit pluralizes English, leaves zh measure words invariant", () 
   });
 });
 
-describe("觀象 pane — 時 hours-of-asking section", () => {
+describe("觀象 pane — 時 phase-of-day section", () => {
   const timed = (date: string, primary: number, ts: string): JournalEntryView =>
     makeEntry(date, primary, { timestamp: ts });
 
@@ -1166,6 +1166,45 @@ describe("觀象 pane — 時 hours-of-asking section", () => {
     const ctx = ctxFor(44, 100);
     scene.enter(ctx);
     press(scene, ctx, "p");
-    expect(renderText(scene, ctx)).not.toContain("hours of asking");
+    expect(renderText(scene, ctx)).not.toContain("phase of day");
+  });
+
+  test("an empty phase shows a quiet dot; the clustered one a block", () => {
+    // Five readings at the SAME instant-of-day land in ONE phase whatever the
+    // runner's timezone — so exactly one phase fills (█) and the rest are dots.
+    const sameInstant = [1, 2, 3, 4, 5].map((i) =>
+      timed(`2026-03-0${i}`, i, `2026-03-0${i}T18:30:00.000Z`),
+    );
+    const scene = new JournalScene(sameInstant);
+    const ctx = ctxFor(44, 100);
+    scene.enter(ctx);
+    press(scene, ctx, "p");
+    const phaseLine = renderText(scene, ctx)
+      .split("\n")
+      .find((l) => /dawn|midday|dusk|night/.test(l))!;
+    expect(phaseLine).toBeDefined();
+    expect(phaseLine).toContain("█"); // the one clustered phase fills
+    expect(phaseLine).toContain("·"); // the empty phases read as quiet dots
+  });
+
+  test("zh-Hans renders the simplified phase glyphs (时 / 昼 / 记时)", () => {
+    const scene = new JournalScene(fiveTimed());
+    const ctx: SceneContext = {
+      cols: 100,
+      rows: 44,
+      colorSupport: "truecolor",
+      language: "zh-Hans",
+      done: false,
+    };
+    scene.enter(ctx);
+    scene.handleKey({ type: "char", char: "p" }, ctx);
+    const buf = CellBuffer.create(100, 44);
+    scene.render(buf, ctx);
+    const text = Array.from({ length: buf.height }, (_, r) =>
+      buf.getRow(r).map((c) => c.char).join(""),
+    ).join("\n");
+    expect(text).toContain("时"); // simplified section title (時 → 时)
+    expect(text).toContain("昼"); // simplified 晝 day phase (晝 → 昼)
+    expect(text).toContain("记时"); // simplified timed suffix (記時 → 记时)
   });
 });
