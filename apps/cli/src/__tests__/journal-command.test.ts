@@ -6,6 +6,7 @@ import { mkdtemp, rm, writeFile, appendFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Cast, HistoryEntry } from "@iching/core";
+import { localToday } from "../util/today.ts";
 
 const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
 const MAIN_TS = resolve(REPO_ROOT, "apps/cli/src/main.ts");
@@ -332,6 +333,30 @@ describe("journal command", () => {
     expect(exitCode).toBe(0);
     expect(stdout).toContain("Hexagram 29"); // 坎, the 20:00 reading — the latest…
     expect(stdout).not.toContain("Hexagram 11"); // …not the 14:00 one appended last
+  }, 20_000);
+
+  test("show today surfaces today's reading — the CLI daily anchor", async () => {
+    // `show today` resolves the "today" keyword to localToday() and surfaces
+    // that day's reading. Every other show test uses a literal date, so the
+    // keyword path — the CLI side of the daily anchor — was never exercised.
+    const today = localToday();
+    await seedJournal(dataDir, [
+      makeEntry("2025-12-25", 5, null), // an older reading on another day
+      makeEntry(today, 39, null), // today's reading
+    ]);
+    const { exitCode, stdout } = await runCli(dataDir, ["journal", "show", "today"]);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("Hexagram 39"); // today's reading…
+    expect(stdout).not.toContain("Hexagram 5"); // …not the older one
+  }, 20_000);
+
+  test("show today errors calmly when today holds no reading", async () => {
+    // Only an older reading exists; the empty day is reported with its resolved
+    // date — yesterday's reading is never surfaced as today's.
+    await seedJournal(dataDir, [makeEntry("2025-12-25", 5, null)]);
+    const { exitCode, stderr } = await runCli(dataDir, ["journal", "show", "today"]);
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("No reading found for today");
   }, 20_000);
 
   test("plain show carries the quiet entropy line only for bound entries", async () => {
