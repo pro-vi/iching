@@ -143,8 +143,9 @@ export class JsonlJournalStore implements JournalStore {
       if (parsed.type === "other") continue;
       const entry = parsed.entry;
 
-      // Apply since filter
+      // Apply since/until window (both inclusive, by local date).
       if (query?.since && entry.date < query.since) continue;
+      if (query?.until && entry.date > query.until) continue;
 
       yield entry;
       count++;

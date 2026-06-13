@@ -21,6 +21,7 @@ export interface UserConfig {
 
 /** Query options for journal streaming */
 export interface HistoryQuery {
-  since?: string; // ISO date string
+  since?: string; // inclusive lower bound, local YYYY-MM-DD
+  until?: string; // inclusive upper bound, local YYYY-MM-DD
   limit?: number;
 }

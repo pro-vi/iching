@@ -86,6 +86,32 @@ describe("JsonlJournalStore", () => {
     expect(results[1].date).toBe("2025-01-10");
   });
 
+  test("stream with until filter (inclusive upper bound)", async () => {
+    await store.append(makeEntry("2025-01-01"));
+    await store.append(makeEntry("2025-01-05"));
+    await store.append(makeEntry("2025-01-10"));
+
+    const results: HistoryEntry[] = [];
+    for await (const entry of store.stream({ until: "2025-01-05" })) {
+      results.push(entry);
+    }
+
+    expect(results.map((e) => e.date)).toEqual(["2025-01-01", "2025-01-05"]);
+  });
+
+  test("stream with since + until window (both inclusive)", async () => {
+    for (const d of ["2025-01-01", "2025-01-05", "2025-01-10", "2025-01-20"]) {
+      await store.append(makeEntry(d));
+    }
+
+    const results: HistoryEntry[] = [];
+    for await (const entry of store.stream({ since: "2025-01-05", until: "2025-01-10" })) {
+      results.push(entry);
+    }
+
+    expect(results.map((e) => e.date)).toEqual(["2025-01-05", "2025-01-10"]);
+  });
+
   test("stream with limit", async () => {
     await store.append(makeEntry("2025-01-01"));
     await store.append(makeEntry("2025-01-02"));

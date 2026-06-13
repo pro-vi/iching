@@ -176,6 +176,43 @@ describe("journal command", () => {
     expect(stdout).not.toContain("2026-01-01");
   }, 20_000);
 
+  test("list --until rejects non-YYYY-MM-DD values", async () => {
+    await seedJournal(dataDir, [makeEntry("2026-01-01", 1, null)]);
+    for (const bad of ["notadate", "2026/01/01", "2026-1-1"]) {
+      const { exitCode, stderr } = await runCli(dataDir, ["journal", "list", "--until", bad]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain(`Invalid --until "${bad}"`);
+    }
+  }, 20_000);
+
+  test("list --since/--until bound a window (both inclusive)", async () => {
+    await seedJournal(dataDir, [
+      makeEntry("2026-01-01", 1, null),
+      makeEntry("2026-02-15", 2, null), // 賁-era, inside the window
+      makeEntry("2026-04-01", 3, null),
+    ]);
+    const { exitCode, stdout } = await runCli(dataDir, [
+      "journal", "list", "--since", "2026-02-01", "--until", "2026-03-01",
+    ]);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("2026-02-15"); // inside the window
+    expect(stdout).not.toContain("2026-01-01"); // before --since
+    expect(stdout).not.toContain("2026-04-01"); // after --until
+  }, 20_000);
+
+  test("patterns --until bounds the observation to a past period", async () => {
+    await seedJournal(dataDir, [
+      makeEntry("2026-01-10", 1, null),
+      makeEntry("2026-01-20", 2, null),
+      makeEntry("2026-06-01", 3, null), // outside — must not count
+    ]);
+    const { exitCode, stdout } = await runCli(dataDir, [
+      "--json", "journal", "patterns", "--until", "2026-02-01",
+    ]);
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(stdout).total).toBe(2); // only the two within the window
+  }, 20_000);
+
   test("list --json enriches entries with resolved names, raw fields intact", async () => {
     await seedJournal(dataDir, [makeEntry("2026-01-03", 3, 39, "yarrow")]);
 

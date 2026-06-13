@@ -1290,7 +1290,7 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
 - surface_id: cli-command-descriptions
   file: apps/cli/src/commands/{cast,config,dict,doctor,hexagram,journal,paths,today}.ts
   code_locator: ".description()/.argument()/.option() across commands"
-  current_text: '"Perform an I Ching casting" / "question for the oracle" / "Browse the I Ching dictionary" / "hexagram number (1-64) to view directly" / "Verify environment and configuration" / "Look up hexagram by King Wen number (1-64)" / "commentary style: dx|tu|en|te|w" / "--style <style>" / "View reading journal" / "List recent readings (most recent first)" / "show readings since date (YYYY-MM-DD)" / "--since <date>" / "maximum entries to show" / "--limit <n>" / "show all entries (no limit)" / "Show a specific day''s reading" / "date (YYYY-MM-DD), ''today'', or ''latest''" / "Show today''s reading (cast in the TUI)" / "Manage configuration" / "Show all configuration values" / "Read a config value" / "Write a config value" / "config key" / "config value" / "Show config file location" / "Show all resolved file locations" / "--hexagram <n>" / "only readings where hexagram <n> is primary or becoming" / "config key (shorthand for get; with a value, for set)" / "config value (shorthand for set)" / "Attach a reflection note to the latest reading" / "note text" / "--date <date>" / "annotate the reading of a specific day (YYYY-MM-DD)"
+  current_text: '"Perform an I Ching casting" / "question for the oracle" / "Browse the I Ching dictionary" / "hexagram number (1-64) to view directly" / "Verify environment and configuration" / "Look up hexagram by King Wen number (1-64)" / "commentary style: dx|tu|en|te|w" / "--style <style>" / "View reading journal" / "List recent readings (most recent first)" / "show readings since date (YYYY-MM-DD)" / "--since <date>" / "show readings until date (YYYY-MM-DD)" / "--until <date>" / "maximum entries to show" / "--limit <n>" / "show all entries (no limit)" / "Show a specific day''s reading" / "date (YYYY-MM-DD), ''today'', or ''latest''" / "Show today''s reading (cast in the TUI)" / "Manage configuration" / "Show all configuration values" / "Read a config value" / "Write a config value" / "config key" / "config value" / "Show config file location" / "Show all resolved file locations" / "--hexagram <n>" / "only readings where hexagram <n> is primary or becoming" / "config key (shorthand for get; with a value, for set)" / "config value (shorthand for set)" / "Attach a reflection note to the latest reading" / "note text" / "--date <date>" / "annotate the reading of a specific day (YYYY-MM-DD)"
     # verbatim (real punctuation) for verifier fragment-coverage:
     # Show a specific day's reading
     # Show today's reading (cast in the TUI)
@@ -1589,8 +1589,8 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
 
 - surface_id: cli-journal-list-validation
   file: apps/cli/src/commands/journal.ts
-  code_locator: "list --limit/--since validation guards (exit 1)"
-  current_text: 'Invalid --limit "…": expected a positive integer. / Invalid --since "…": expected a date in YYYY-MM-DD format.'
+  code_locator: "list --limit/--since/--until validation guards (exit 1)"
+  current_text: 'Invalid --limit "…": expected a positive integer. / Invalid --since "…": expected a date in YYYY-MM-DD format. / Invalid --until "…": expected a date in YYYY-MM-DD format.'
   surface_class: cli-invalid-paths
   render_context: "stderr validation (exit 1)"
   language_policy: translate
@@ -1675,7 +1675,7 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
 - surface_id: cli-journal-patterns
   file: apps/cli/src/commands/journal.ts, apps/cli/src/output/plain.ts
   code_locator: "registerJournalCommand patterns subcommand; formatJournalPatternsPlain"
-  current_text: '"Observe patterns across the journal (distribution, cadence, balance)" / "only readings since date (YYYY-MM-DD)" / "No readings to observe yet." / "readings · span" / "active days · this month" / "Cadence: " / "/active day" / "usual gap" / "idle " / "Diversity: seen" / "of 64" / "most recent" / "Most seen:" / "Phase of day (over N timed)" / "dawn" / "midday" / "dusk" / "night" / "Two modes (兩儀): yin" / "yang" / "Drift between readings" / "of 6 lines, on average" / "Methods: coin" / "yarrow" / "unmarked" / "last "'
+  current_text: '"Observe patterns across the journal (distribution, cadence, balance)" / "only readings since date (YYYY-MM-DD)" / "only readings until date (YYYY-MM-DD)" / "No readings to observe yet." / "readings · span" / "active days · this month" / "Cadence: " / "/active day" / "usual gap" / "idle " / "Diversity: seen" / "of 64" / "most recent" / "Most seen:" / "Phase of day (over N timed)" / "dawn" / "midday" / "dusk" / "night" / "Two modes (兩儀): yin" / "yang" / "Drift between readings" / "of 6 lines, on average" / "Methods: coin" / "yarrow" / "unmarked" / "last "'
   surface_class: cli-commands
   render_context: "journal patterns plain digest (the 觀象 pane data as one calm screen); --json is the structured surface via journalPatternsToJson"
   language_policy: translate

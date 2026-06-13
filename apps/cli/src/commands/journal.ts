@@ -34,6 +34,7 @@ export function registerJournalCommand(program: Command): void {
     .command("list")
     .description("List recent readings (most recent first)")
     .option("--since <date>", "show readings since date (YYYY-MM-DD)")
+    .option("--until <date>", "show readings until date (YYYY-MM-DD)")
     .option("--limit <n>", "maximum entries to show", "20")
     .option("--all", "show all entries (no limit)")
     .option("--hexagram <n>", "only readings where hexagram <n> is primary or becoming")
@@ -71,9 +72,15 @@ export function registerJournalCommand(program: Command): void {
         );
         process.exit(1);
       }
+      if (cmdOpts.until !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(cmdOpts.until)) {
+        console.error(
+          `Invalid --until "${cmdOpts.until}": expected a date in YYYY-MM-DD format.`,
+        );
+        process.exit(1);
+      }
 
       const allEntries: HistoryEntry[] = [];
-      const query = { since: cmdOpts.since };
+      const query = { since: cmdOpts.since, until: cmdOpts.until };
 
       for await (const entry of store.stream(query)) {
         if (
@@ -108,6 +115,7 @@ export function registerJournalCommand(program: Command): void {
     .command("patterns")
     .description("Observe patterns across the journal (distribution, cadence, balance)")
     .option("--since <date>", "only readings since date (YYYY-MM-DD)")
+    .option("--until <date>", "only readings until date (YYYY-MM-DD)")
     .action(async (cmdOpts) => {
       const globalOpts = program.opts();
       const paths = resolvePaths(
@@ -121,9 +129,15 @@ export function registerJournalCommand(program: Command): void {
         );
         process.exit(1);
       }
+      if (cmdOpts.until !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(cmdOpts.until)) {
+        console.error(
+          `Invalid --until "${cmdOpts.until}": expected a date in YYYY-MM-DD format.`,
+        );
+        process.exit(1);
+      }
 
       const entries: HistoryEntry[] = [];
-      for await (const entry of store.stream({ since: cmdOpts.since })) {
+      for await (const entry of store.stream({ since: cmdOpts.since, until: cmdOpts.until })) {
         entries.push(entry);
       }
 
