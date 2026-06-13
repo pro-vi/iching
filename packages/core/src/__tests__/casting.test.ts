@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { castLine } from "../casting/coins.js";
-import { castHexagram } from "../casting/cast.js";
+import { castHexagram, assembleCast } from "../casting/cast.js";
 import { linesToBinary } from "../casting/binary.js";
 import { CryptoRandomSource, TapeRandomSource, SeededRandomSource } from "../random.js";
 import type { Line } from "../types.js";
@@ -62,6 +62,17 @@ describe("castLine — output distribution", () => {
     expect(Math.abs(tally[7] / N - 3 / 8)).toBeLessThan(0.01); // 0.375 — 少陽 young yang
     expect(Math.abs(tally[8] / N - 3 / 8)).toBeLessThan(0.01); // 0.375 — 少陰 young yin
     expect(Math.abs(tally[9] / N - 1 / 8)).toBeLessThan(0.01); // 0.125 — 老陽 old yang
+  });
+});
+
+describe("assembleCast — input validation", () => {
+  test("rejects a non-six-line array (would corrupt mirror/diagonal)", () => {
+    // mirror/diagonal reverse the whole array; a non-six input mirrors the wrong
+    // six. Fail fast rather than return an internally inconsistent cast.
+    const yang = { value: 7 as const, isYang: true, isChanging: false };
+    expect(() => assembleCast(Array(5).fill(yang))).toThrow(/6 lines/);
+    expect(() => assembleCast(Array(7).fill(yang))).toThrow(/6 lines/);
+    expect(() => assembleCast(Array(6).fill(yang))).not.toThrow(); // exactly six is fine
   });
 });
 
