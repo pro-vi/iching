@@ -231,6 +231,13 @@ describe("JsonlJournalStore", () => {
       const withPositions = (positions: number[]): string => {
         const e = makeEntry("2025-01-02");
         e.cast.changingPositions = positions;
+        // Make in-range positions agree with lines[].isChanging so ONLY the
+        // range discipline (not the consistency check) judges these records —
+        // out-of-range positions can't be applied to lines, so they still fail
+        // the range check, while the valid [2,5] record stays consistent.
+        for (const p of positions) {
+          if (p >= 1 && p <= 6) e.cast.lines[p - 1] = { value: 9, isYang: true, isChanging: true };
+        }
         return JSON.stringify(e);
       };
       const good = JSON.stringify(makeEntry("2025-01-01"));
@@ -277,6 +284,32 @@ describe("JsonlJournalStore", () => {
       for await (const entry of store.stream()) entries.push(entry);
       expect(entries).toHaveLength(1);
       expect(entries[0].timestamp).toBeUndefined(); // normalized; entryTimeKey falls back to date
+    });
+
+    test("a semantically-false cast is torn — value disagreeing with isYang, or changingPositions with the lines", async () => {
+      // isCastShaped exists to reject records that "quietly mislead a reader" —
+      // not just crash one. A shape-valid but INTERNALLY-FALSE cast renders a
+      // reading that looks valid but lies, worse than a loud failure. (Review.)
+      const { writeFile } = await import("node:fs/promises");
+      const good = JSON.stringify(makeEntry("2025-01-01"));
+      // value 7 = young yang, but isYang:false says yin — the diagram would draw
+      // yin while the label says 7.
+      const badLine = makeEntry("2025-01-02");
+      badLine.cast.lines[0] = { value: 7, isYang: false, isChanging: false };
+      // changingPositions claims line 1 moves, but no line is changing — the
+      // reading-method rule and the line diagram would disagree.
+      const badPositions = makeEntry("2025-01-03");
+      badPositions.cast.changingPositions = [1];
+      await writeFile(
+        join(dir, "history.jsonl"),
+        [good, JSON.stringify(badLine), JSON.stringify(badPositions)].join("\n") + "\n",
+        "utf-8",
+      );
+
+      const results: HistoryEntry[] = [];
+      for await (const e of store.stream()) results.push(e);
+      expect(results.map((e) => e.date)).toEqual(["2025-01-01"]); // only the consistent cast
+      expect(store.skippedLines).toBe(2); // both semantically-false casts skipped like torn bytes
     });
 
     test("latest and stream agree on lone-CR (old-Mac) line endings", async () => {
@@ -415,6 +448,7 @@ describe("JsonlJournalStore", () => {
       const entry = makeEntry("2025-01-01");
       entry.cast.becoming = 8;
       entry.cast.changingPositions = [1];
+      entry.cast.lines[0] = { value: 9, isYang: true, isChanging: true }; // line 1 moves, agreeing with changingPositions
       await store.append(entry);
 
       const results: HistoryEntry[] = [];

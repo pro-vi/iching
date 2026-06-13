@@ -283,6 +283,7 @@ describe("JsonDailyCacheStore", () => {
       const record = makeCache("2025-01-15");
       record.cast.becoming = 8;
       record.cast.changingPositions = [1];
+      record.cast.lines[0] = { value: 9, isYang: true, isChanging: true }; // line 1 moves, agreeing with changingPositions
       await store.write(record);
       expect(await store.read()).toEqual(record);
     });

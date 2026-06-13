@@ -5,15 +5,26 @@ function isKingWen(value: unknown): boolean {
   return Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 64;
 }
 
-/** True for a persisted Line: the object every line walker dereferences. */
+/** True for a persisted Line: the object every line walker dereferences, with
+ *  its value and booleans mutually consistent. */
 function isLineShaped(value: unknown): boolean {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const line = value as Record<string, unknown>;
-  return (
-    typeof line.value === "number" &&
-    typeof line.isYang === "boolean" &&
-    typeof line.isChanging === "boolean"
-  );
+  if (
+    typeof line.value !== "number" ||
+    typeof line.isYang !== "boolean" ||
+    typeof line.isChanging !== "boolean"
+  )
+    return false;
+  // The value (6/7/8/9) fully determines isYang and isChanging, so a line where
+  // they disagree is semantically false — it would draw yin while labeled 7, a
+  // reading that looks valid but lies. isCastShaped exists to reject records
+  // that "quietly mislead a reader" (see below), so enforce the relation, not
+  // just the field types. 6 = old yin, 7 = young yang, 8 = young yin, 9 = old
+  // yang (so isYang ⇔ 7|9, isChanging ⇔ 6|9).
+  const v = line.value;
+  if (v !== 6 && v !== 7 && v !== 8 && v !== 9) return false;
+  return line.isYang === (v === 7 || v === 9) && line.isChanging === (v === 6 || v === 9);
 }
 
 /**
@@ -22,15 +33,16 @@ function isLineShaped(value: unknown): boolean {
  * cast replay); becoming does the same when non-null; the derived numbers
  * (nuclear/polarity/mirror/diagonal) index GUA in the hook's display cascade
  * and the detail scene; lines are walked as six {value,isYang,isChanging}
- * objects; changingPositions is joined and iterated, and is held to its own
- * range discipline — 0–6 unique line indices in 1–6, the only shape the cast
- * engine emits — so a hand-edited record can't admit positions out of range,
- * duplicated, or longer than six lines (which would let changingPositions
- * silently disagree with lines[].isChanging). A record that fails any of these
- * would crash or quietly mislead a reader exactly as hard as torn bytes, so the
- * check happens here — at read time, before anything is yielded. Every Cast ever
- * written carries all eight fields in this shape (it predates the first
- * release), so depth never rejects legitimate history.
+ * objects whose value (6/7/8/9) agrees with isYang/isChanging; changingPositions
+ * is joined and iterated, held to BOTH a range discipline (0–6 unique line
+ * indices in 1–6) AND consistency — it must name exactly the lines whose
+ * isChanging is true, so the reading-method rule (which reads changingPositions)
+ * and the diagram (which reads lines[].isChanging) can never silently disagree.
+ * A record that fails any of these would crash OR quietly mislead a reader —
+ * present a reading that looks valid but lies — exactly as bad as torn bytes, so
+ * the check happens here, at read time, before anything is yielded. Every Cast
+ * ever written carries all eight fields in this shape, internally consistent (it
+ * predates the first release), so depth never rejects legitimate history.
  */
 export function isCastShaped(value: unknown): value is Cast {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
@@ -46,6 +58,16 @@ export function isCastShaped(value: unknown): value is Cast {
     !positions.every((p) => Number.isInteger(p) && p >= 1 && p <= 6) ||
     new Set(positions).size !== positions.length
   )
+    return false;
+  // changingPositions must name EXACTLY the moving lines, not merely be in
+  // range: the reading-method rule reads changingPositions while the line
+  // diagram reads lines[].isChanging, so a record where they disagree renders a
+  // reading that looks valid but lies. Hold them to agreement. (External review.)
+  const moving = (cast.lines as Array<{ isChanging: boolean }>).flatMap((line, i) =>
+    line.isChanging ? [i + 1] : [],
+  );
+  const declared = [...(positions as number[])].sort((a, b) => a - b);
+  if (declared.length !== moving.length || declared.some((p, i) => p !== moving[i]))
     return false;
   return (
     isKingWen(cast.nuclear) &&
