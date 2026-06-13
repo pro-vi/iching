@@ -120,7 +120,9 @@ describe("buildReadingLines", () => {
     expect(lines[0].text).toBe("四爻動，以之卦為占");
     const texts = lines.filter((l) => l.role === "text").map((l) => l.text);
     expect(texts).toHaveLength(1);
-    expect(texts[0]).toContain("之卦卦辭");
+    // The label names the text type (卦辭); the hint already names the becoming.
+    expect(texts[0]).toContain("卦辭");
+    expect(texts[0]).not.toContain("之卦卦辭"); // de-duplicated with the hint
     expect(texts[0]).toContain(becoming.gc);
     // The primary's moving-line texts are not the reading here.
     for (const pos of cast.changingPositions) {
@@ -135,7 +137,9 @@ describe("buildReadingLines", () => {
     expect(lines[0].text).toBe("five lines move — the becoming speaks");
     const texts = lines.filter((l) => l.role === "text").map((l) => l.text);
     expect(texts).toHaveLength(1);
-    expect(texts[0]).toContain("Becoming · Judgment");
+    // The label names the text type (Judgment); the hint already names the becoming.
+    expect(texts[0]).toContain("Judgment · ");
+    expect(texts[0]).not.toContain("Becoming · Judgment"); // de-duplicated with the hint
     expect(texts[0]).toContain(becoming.gcEn);
   });
 

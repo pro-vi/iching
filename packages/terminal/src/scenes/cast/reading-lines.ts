@@ -59,7 +59,12 @@ export function buildReadingLines(
 
   const lines: ReadingLine[] = [];
   const hint = readingHint(cast, language);
-  if (hint) lines.push({ text: hint, role: "hint" });
+  // Wrap the hint to the panel width too — a long hint (e.g. the English
+  // four/five-line phrasings) would otherwise overflow the inset texts at
+  // narrow terminals, sitting flush to the panel edge instead of within it.
+  if (hint) {
+    for (const wl of wordWrap(hint, width)) lines.push({ text: wl, role: "hint" });
+  }
 
   const pushText = (text: string): void => {
     for (const wl of wordWrap(text, width)) {
@@ -88,9 +93,11 @@ export function buildReadingLines(
     );
   } else if (focus.kind === "becoming" && cast.becoming !== null) {
     // Four or five lines move (or all six off hex 1/2) — the becoming
-    // hexagram's 卦辭 is the reading, exactly as the hint says.
+    // hexagram's 卦辭 is the reading. The hint already names the becoming as
+    // the speaker and the title block shows it, so the label names only the
+    // text TYPE (Judgment / 卦辭) — repeating "Becoming" here was a stutter.
     const becoming = GUA[cast.becoming - 1];
-    const label = tr(language, "cast.becomingJudgment");
+    const label = tr(language, "cast.judgment");
     pushText(english ? `${label} · ${becoming.gcEn}` : `${label} · ${cn(becoming.gc)}`);
   } else if (focus.kind === "lines") {
     // Two or three lines move — the governing (upper) line speaks first,
