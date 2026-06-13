@@ -43,6 +43,24 @@ export function glyphDisplayMode(
 }
 
 /**
+ * Would the reading panel truncate if the title took `titleLines` rows starting
+ * at `baseRow`? The panel ends at buf.height - 3 (matching reading-renderer),
+ * so the rows it gets are everything between the title and that floor; if it
+ * wants more than that, the texts get cut.
+ */
+function panelStarved(
+  buf: CellBuffer,
+  model: CastModel,
+  language: DisplayLanguage,
+  baseRow: number,
+  titleLines: number,
+): boolean {
+  const wants = readingPanelRows(model.cast, language, readingPanelWidth(buf.width));
+  const available = buf.height - 3 - (baseRow + titleLines) + 1;
+  return wants > available;
+}
+
+/**
  * Title-block layout: where the block starts and which text lines it shows.
  * Shared by renderTitle and the reading panel (which starts below the block).
  * In compact glyph mode the title yields all its rows to the reading texts —
@@ -97,7 +115,13 @@ export function titleLayout(
     } else if (english) {
       const maxWidth = Math.max(20, buf.width - 8);
       const line3 = stringWidth(gua.en) > maxWidth ? gua.en.slice(0, maxWidth - 1) + "…" : gua.en;
-      lines = [line1, line2, line3, structLine];
+      const full = [line1, line2, line3, structLine];
+      // The texts are the heart of the reading. When the full English title
+      // (name · pinyin · image · trigrams) would starve the panel — at 24-row
+      // terminals most judgments need three wrapped lines — shed the optional
+      // image and trigram rows so the reading keeps its space; the detail view
+      // still holds them. Only when the panel would otherwise truncate.
+      lines = panelStarved(buf, model, language, baseRow, full.length) ? [line1, line2] : full;
     } else {
       lines = [line1, line2, structLine];
     }

@@ -360,8 +360,12 @@ describe("CastScene reveal — hexagram name honors language (KW58 兌)", () => 
   function revealText(language: DisplayLanguage): string {
     const scene = new CastScene(cast58, "reduced", 80);
     scene.skipToComplete(false); // fast-forward to the fully revealed title
-    const buf = CellBuffer.create(80, 24);
-    scene.render(buf, ctxFor(language));
+    // Render tall (30 rows) so the title keeps its optional image + trigram
+    // lines: at the cramped 24-row height the reading panel correctly sheds
+    // them to keep the judgment whole (covered by cast-reading-panel.test).
+    // This test is about LANGUAGE honoring, not the constrained layout.
+    const buf = CellBuffer.create(80, 30);
+    scene.render(buf, { ...ctxFor(language), rows: 30 });
     return bufferText(buf);
   }
 

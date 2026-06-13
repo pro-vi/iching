@@ -168,4 +168,22 @@ describe("the glyph yields to the texts — and returns when there is room", () 
     expect(rowOf(frame, readingHint(cast, "en"))).toBeGreaterThanOrEqual(0);
     expect(rowOf(frame, "Shì Kè")).toBeGreaterThanOrEqual(0); // pinyin title kept
   });
+
+  test("80x24 en, 0 changing: the WHOLE English judgment is on screen, not truncated", () => {
+    // Regression for the headline bug: at the standard 24-row terminal the
+    // no-glyph English title used to take four rows, leaving the judgment only
+    // its first wrapped line + "…". The title now sheds its optional image and
+    // trigram rows so the reading is whole. Hex 63's judgment is three lines;
+    // its LAST line (the load-bearing clause) must be on screen, with no "…".
+    const cast = makeCast(63, []);
+    const frame = settledRows(cast, 80, 24, "en");
+    const footerRow = 24 - 2;
+    const panel = buildReadingLines(cast, "en", readingPanelWidth(80), Number.MAX_SAFE_INTEGER);
+    const lastText = panel.filter((l) => l.role === "text").at(-1)!;
+    expect(panel.length).toBeGreaterThan(2); // a genuinely multi-line judgment
+    const lastRow = rowOf(frame, lastText.text.trim());
+    expect(lastRow).toBeGreaterThanOrEqual(0); // the final line rendered…
+    expect(lastRow).toBeLessThan(footerRow); // …above the footer…
+    expect(rowOf(frame, "…")).toBe(-1); // …and nothing was elided
+  });
 });
