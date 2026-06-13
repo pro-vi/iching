@@ -6,6 +6,16 @@ import { cursorTo, clearToEndOfLine, syncOutputOn, syncOutputOff } from "../ansi
 import { fgColor, bgColor, boldStyle, dimStyle, resetStyle } from "../ansi/sgr.ts";
 import { detectColorSupport, type ColorSupport } from "../color/detect.ts";
 
+/**
+ * The final output-boundary guard: a cell should only ever carry a printable
+ * glyph, but setCell bypasses writeText's stripping, so the renderer must be the
+ * last line — a stray control (ESC/CSI/OSC/CR/BEL/C1) emitted raw would be
+ * EXECUTED by the terminal. Replace any control with U+FFFD. (Render review, H5.)
+ */
+function safeCellChar(char: string): string {
+  return /[\u0000-\u001f\u007f-\u009f]/.test(char) ? "\uFFFD" : char;
+}
+
 export class DiffRenderer {
   private output: { write(data: string): boolean };
   private colorSupport: ColorSupport;
@@ -29,8 +39,12 @@ export class DiffRenderer {
     for (let row = 0; row < next.height; row++) {
       if (this.rowsEqual(prev, next, row)) continue;
 
-      // Emit cursor move to start of changed row, clear it first
+      // Emit cursor move to start of changed row, clear it first. Reset style
+      // BEFORE the clear: clearToEndOfLine erases using the current SGR
+      // background, so a leftover bg from the previous row would paint the
+      // cleared span. (Render review, H2.)
       chunks.push(cursorTo(row, 0));
+      chunks.push(resetStyle());
       chunks.push(clearToEndOfLine);
 
       // Emit styled cells for the entire row
@@ -66,11 +80,22 @@ export class DiffRenderer {
           lastDim = cell.dim ?? false;
         }
 
-        chunks.push(cell.char || " ");
+        chunks.push(safeCellChar(cell.char) || " ");
       }
 
       // Reset at end of row
       chunks.push(resetStyle());
+    }
+
+    // The buffer shrank (terminal got shorter): rows from next.height up to
+    // prev.height were painted last frame but the loop above never visits them,
+    // so they'd linger as stale content below the new frame. Clear each. The
+    // scene loop also does a full clear on resize, so this is the renderer's own
+    // safety net rather than the sole guard. (Render review, H1.)
+    for (let row = next.height; row < prev.height; row++) {
+      chunks.push(cursorTo(row, 0));
+      chunks.push(resetStyle());
+      chunks.push(clearToEndOfLine);
     }
 
     // Single write for the entire frame, wrapped in synchronized-output
