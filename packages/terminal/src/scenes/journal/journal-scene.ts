@@ -1116,8 +1116,7 @@ export class JournalScene implements Scene {
     if (key.type === "enter") {
       const entry = this.filtered[this.cursor];
       if (entry) {
-        const entryKey = entry.timestamp || entry.date;
-        return { type: "openJournalReading", key: entryKey };
+        return { type: "openJournalReading", entry };
       }
       return;
     }
@@ -1294,8 +1293,7 @@ export class JournalScene implements Scene {
     if (key.type === "enter") {
       const entry = this.filtered[this.cursor];
       if (entry) {
-        const entryKey = entry.timestamp || entry.date;
-        return { type: "openJournalReading", key: entryKey };
+        return { type: "openJournalReading", entry };
       }
       return;
     }

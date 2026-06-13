@@ -162,7 +162,7 @@ describe("makeJournalFactory", () => {
       entries,
       session: { cols: 80, rows: 24 },
     });
-    const scene = factory({ type: "openJournalReading", key: "2026-01-02T09:00:00.000Z" });
+    const scene = factory({ type: "openJournalReading", entry: entries[0] });
     expect(scene).toBeInstanceOf(CastScene);
 
     const ctx = { cols: 80, rows: 24, colorSupport: "truecolor", done: false } as const;
@@ -192,7 +192,7 @@ describe("makeJournalFactory", () => {
     const open = list.handleKey({ type: "enter" }, ctx);
     expect(open).toEqual({
       type: "openJournalReading",
-      key: "2026-01-02T09:00:00.000Z",
+      entry: entries[1], // newest-first index 1 = 2026-01-02, by reference
     });
 
     // The router pushes the factory's replay scene…
@@ -206,7 +206,7 @@ describe("makeJournalFactory", () => {
     expect(router.current()).toBe(list);
     expect(list.handleKey({ type: "enter" }, ctx)).toEqual({
       type: "openJournalReading",
-      key: "2026-01-02T09:00:00.000Z",
+      entry: entries[1],
     });
 
     // Esc on the list itself pops the router bottom — the home loop resumes.

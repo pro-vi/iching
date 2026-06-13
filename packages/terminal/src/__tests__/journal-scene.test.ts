@@ -142,6 +142,12 @@ describe("JournalScene nav parity (j/k, home/end)", () => {
     makeEntry("2026-03-03", 3),
     makeEntry("2026-03-04", 4),
   ];
+  // [enter] replays the SELECTED entry by reference (signal.entry is the same
+  // object as in `entries`). Identify it by date for readable assertions.
+  const reading = (date: string) => ({
+    type: "openJournalReading",
+    entry: entries.find((e) => e.date === date),
+  });
 
   test("j moves down, k moves up", () => {
     const ctx = ctxFor();
@@ -150,11 +156,11 @@ describe("JournalScene nav parity (j/k, home/end)", () => {
 
     press(scene, ctx, "j", "j");
     let signal = press(scene, ctx, "enter");
-    expect(signal).toEqual({ type: "openJournalReading", key: "2026-03-02" });
+    expect(signal).toEqual(reading("2026-03-02"));
 
     press(scene, ctx, "k");
     signal = press(scene, ctx, "enter");
-    expect(signal).toEqual({ type: "openJournalReading", key: "2026-03-03" });
+    expect(signal).toEqual(reading("2026-03-03"));
   });
 
   test("end jumps to the oldest entry, home back to the newest", () => {
@@ -163,16 +169,10 @@ describe("JournalScene nav parity (j/k, home/end)", () => {
     scene.enter(ctx);
 
     press(scene, ctx, "end");
-    expect(press(scene, ctx, "enter")).toEqual({
-      type: "openJournalReading",
-      key: "2026-03-01",
-    });
+    expect(press(scene, ctx, "enter")).toEqual(reading("2026-03-01"));
 
     press(scene, ctx, "home");
-    expect(press(scene, ctx, "enter")).toEqual({
-      type: "openJournalReading",
-      key: "2026-03-04",
-    });
+    expect(press(scene, ctx, "enter")).toEqual(reading("2026-03-04"));
   });
 
   test("k clamps at the top, j at the bottom", () => {
@@ -181,16 +181,26 @@ describe("JournalScene nav parity (j/k, home/end)", () => {
     scene.enter(ctx);
 
     press(scene, ctx, "k", "k");
-    expect(press(scene, ctx, "enter")).toEqual({
-      type: "openJournalReading",
-      key: "2026-03-04",
-    });
+    expect(press(scene, ctx, "enter")).toEqual(reading("2026-03-04"));
 
     press(scene, ctx, "j", "j", "j", "j", "j", "j");
-    expect(press(scene, ctx, "enter")).toEqual({
-      type: "openJournalReading",
-      key: "2026-03-01",
-    });
+    expect(press(scene, ctx, "enter")).toEqual(reading("2026-03-01"));
+  });
+
+  test("[enter] replays the exact selected reading when a day holds two (legacy, no timestamps)", () => {
+    // Two readings on one day without timestamps share a date. The old signal
+    // carried that date as a key, and the factory's lookup resolved the FIRST
+    // of them for both — replaying the wrong reading. The entry now rides the
+    // signal by reference, so the selected one (here primary 29, the second
+    // row) is replayed exactly.
+    const day = [makeEntry("2026-03-01", 1), makeEntry("2026-03-01", 29)];
+    const scene = new JournalScene(day);
+    const ctx = ctxFor();
+    scene.enter(ctx);
+    press(scene, ctx, "j"); // move off the first same-day row onto the second
+    const signal = press(scene, ctx, "enter") as { type: string; entry: { cast: { primary: number } } };
+    expect(signal.type).toBe("openJournalReading");
+    expect(signal.entry.cast.primary).toBe(29); // the selected reading, not the first
   });
 });
 
@@ -277,7 +287,7 @@ describe("JournalScene search ([/])", () => {
 
     expect(press(scene, ctx, "enter")).toEqual({
       type: "openJournalReading",
-      key: "2026-03-01",
+      entry: entries.find((e) => e.date === "2026-03-01"),
     });
   });
 

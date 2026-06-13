@@ -94,10 +94,10 @@ export function makeJournalScene(deps: JournalDeps): JournalScene {
 export function makeJournalFactory(deps: JournalDeps): SceneFactory {
   return (signal): Scene | null => {
     if (signal.type === "openJournalReading") {
-      const entry = deps.entries.find(
-        (e) => e.timestamp === signal.key || e.date === signal.key,
-      );
-      if (!entry) return makeJournalScene(deps);
+      // The selected entry rides the signal by reference — no date/timestamp
+      // lookup that could resolve the wrong reading when a day holds more than
+      // one (legacy readings without timestamps).
+      const entry = signal.entry;
       const cs = new CastScene(
         entry.cast,
         "reduced",

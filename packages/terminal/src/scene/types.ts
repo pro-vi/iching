@@ -1,6 +1,6 @@
 // Scene interface — lifecycle contract for terminal scenes
 
-import type { Cast, DisplayLanguage } from "@iching/core";
+import type { Cast, DisplayLanguage, HistoryEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
 import type { KeyEvent } from "../input/key-parser.ts";
 import type { ColorSupport } from "../color/detect.ts";
@@ -48,7 +48,10 @@ export type SceneSignal =
   // detail view's prev/next sequence walk so esc still pops straight back
   // to the list (no unbounded stack growth while reading the book).
   | { type: "openDetail"; kw: number; changedPositions?: number[]; replace?: boolean }
-  | { type: "openJournalReading"; key: string }
+  // Carries the entry by reference (the entry objects are shared with the
+  // journal factory's list), not a date/timestamp key: a key round-trip
+  // resolved the wrong reading when two legacy date-only readings shared a day.
+  | { type: "openJournalReading"; entry: HistoryEntry }
   // Inner-flow events
   | { type: "intentionConfirmed" } // intention input completed
   | { type: "tossCompleted"; cast: Cast } // coin-toss ritual produced a cast
