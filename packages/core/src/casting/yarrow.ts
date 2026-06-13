@@ -27,9 +27,10 @@ export interface YarrowRound {
   startCount: number;
   /** Random split point — size of the left heap, in [1, startCount-1]. */
   splitAt: number;
-  /** Left heap counted by fours, remainder 1-4. */
+  /** Left heap counted by fours, remainder 1-4 (the left heap is always ≥ 1). */
   leftRemainder: number;
-  /** Right heap (after the set-aside stalk) counted by fours, remainder 1-4. */
+  /** Right heap (after the set-aside stalk) counted by fours, remainder 1-4 — or
+   *  0 when a manual boundary split (splitAt = startCount-1) leaves it empty. */
   rightRemainder: number;
   /** Stalks removed this round: 1 + leftRemainder + rightRemainder. */
   setAside: number;
