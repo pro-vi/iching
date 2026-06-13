@@ -276,6 +276,25 @@ describe("JournalScene search ([/])", () => {
   });
 });
 
+describe("JournalScene empty state", () => {
+  test("a journal with no readings still shows how to leave, with no dead keys", () => {
+    // The most novice state \u2014 zero readings \u2014 must still tell the user how to
+    // get out. The populated footer advertises view/note/search/patterns, but
+    // those do nothing with no entries; the empty state shows ONLY [esc] back.
+    // Regression: the empty branch returned before renderFooter, so it had no
+    // footer at all \u2014 a new user saw "No readings yet" and no way out.
+    const ctx = ctxFor();
+    const scene = new JournalScene([], { today: () => "2026-05-10" });
+    scene.enter(ctx);
+    const text = renderText(scene, ctx);
+    expect(text).toContain("No readings yet"); // the calm empty message\u2026
+    expect(text).toContain("[esc] back"); // \u2026and the one real action (the footer is back)
+    expect(text).not.toContain("[n] note"); // no dead keys dangled\u2026
+    expect(text).not.toContain("[p] patterns");
+    expect(text).not.toContain("[/] search");
+  });
+});
+
 describe("JournalScene reflection notes ([n])", () => {
   test("n + text + enter commits the note and notifies onNote", () => {
     const ctx = ctxFor();

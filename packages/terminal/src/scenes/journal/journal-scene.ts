@@ -254,6 +254,7 @@ export class JournalScene implements Scene {
       const empty = tr(lang, "journal.empty");
       const emptyCol = Math.max(0, Math.floor((maxW - stringWidth(empty)) / 2));
       frame.writeText(Math.floor(ctx.rows / 2), emptyCol, empty, { fg: t.secondary });
+      this.renderFooter(frame, ctx, lang); // with no readings, still show the way out
       return;
     }
 
@@ -1018,7 +1019,12 @@ export class JournalScene implements Scene {
     const maxW = ctx.cols;
     // Single-space separators: the full key list must fit 80 columns.
     let footer: string;
-    if (this.noteActive) {
+    if (this.entries.length === 0) {
+      // An empty journal offers no view/note/search/patterns — advertising them
+      // would dangle dead keys. Only the way out is real, so show only that:
+      // the most novice state (no readings yet) must still say how to leave.
+      footer = `[esc] ${tr(lang, "verb.back")}`;
+    } else if (this.noteActive) {
       footer = `[enter] ${tr(lang, "verb.confirm")} · [esc] ${tr(lang, "verb.back")}`;
     } else if (this.patternsOpen) {
       // p also closes (a quiet toggle); only the universal key is advertised.
