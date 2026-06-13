@@ -4,7 +4,7 @@
 // SceneSignal objects instead of dotted strings.
 
 import { describe, test, expect, beforeEach } from "bun:test";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { JsonlJournalStore } from "@iching/storage";
@@ -139,6 +139,33 @@ describe("makeDetailScene — journal history hydration", () => {
     } finally {
       process.off("unhandledRejection", onUnhandled);
     }
+  });
+});
+
+describe("loadJournalEntries — read-failure safety", () => {
+  test("opens empty and warns when the journal is unreadable, never crashes", async () => {
+    // A torn line is skipped per-line inside the stream; a whole-file READ
+    // failure (here a directory left at the history path → EISDIR; in the wild
+    // a root-owned file → EACCES) would otherwise throw straight through the
+    // TUI's openJournal and kill the session. It must open empty with a warning.
+    const dir = await mkdtemp(join(tmpdir(), "journal-readfail-test-"));
+    const histPath = join(dir, "history.jsonl");
+    await mkdir(histPath); // a DIRECTORY where the journal file should be
+    const unreadable = new JsonlJournalStore(histPath);
+
+    const errors: string[] = [];
+    const origErr = console.error;
+    console.error = (...a: unknown[]) => {
+      errors.push(a.map(String).join(" "));
+    };
+    let entries: Awaited<ReturnType<typeof loadJournalEntries>> | undefined;
+    try {
+      entries = await loadJournalEntries(unreadable);
+    } finally {
+      console.error = origErr;
+    }
+    expect(entries).toEqual([]); // opened empty, did not throw…
+    expect(errors.join("\n")).toMatch(/couldn't read your journal/i); // …warned honestly
   });
 });
 

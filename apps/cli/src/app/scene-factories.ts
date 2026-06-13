@@ -130,5 +130,18 @@ export function makeJournalFactory(deps: JournalDeps): SceneFactory {
 export async function loadJournalEntries(
   journal: JsonlJournalStore,
 ): Promise<AnnotatedEntry[]> {
-  return loadEntriesWithNotes(journal);
+  try {
+    return await loadEntriesWithNotes(journal);
+  } catch {
+    // A torn LINE is tolerated per-line inside the stream; a whole-file READ
+    // failure (the history is unreadable — owned by root after a sudo run, a
+    // directory left at the path, a failing mount) is different and would
+    // otherwise crash the whole TUI session the moment the journal opens. Warn
+    // honestly (deferred under the alt screen, flushed on exit) and open empty
+    // rather than die — the readings aren't lost, just unreadable right now.
+    console.error(
+      "iching: couldn't read your journal (permission denied?); it opened empty, but your readings are not lost.",
+    );
+    return [];
+  }
 }
