@@ -1,6 +1,6 @@
 // CastScene — main scene orchestrating the full casting ritual
 
-import { type Cast, GUA, toSimplified } from "@iching/core";
+import { type Cast, GUA, toSimplified, stripTerminalControls } from "@iching/core";
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
@@ -390,7 +390,11 @@ function renderPaceFooter(buf: CellBuffer, model: CastModel, language: DisplayLa
 function renderIntention(buf: CellBuffer, intention: string): void {
   const t = getTheme();
   const maxW = buf.width - 4;
-  let text = intention;
+  // Strip control sequences at the render boundary: a replayed journal reading
+  // ([enter]) feeds its STORED intention here, and a synced / imported / hand-
+  // edited journal can carry escapes the input path never sanitized. (Matches
+  // the journal list + plain digest; see journal-scene renderPreviewRow.)
+  let text = stripTerminalControls(intention);
   if (stringWidth(text) > maxW) {
     text = text.slice(0, maxW - 1) + "\u2026";
   }

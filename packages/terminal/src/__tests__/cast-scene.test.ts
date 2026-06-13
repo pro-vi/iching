@@ -92,6 +92,31 @@ describe("CastScene", () => {
     expect(hasContent).toBe(true);
   });
 
+  test("a replayed reading's stored intention renders with control sequences stripped", () => {
+    // [enter] on a journal entry replays it as a CastScene carrying the entry's
+    // STORED intention. A synced / imported / hand-edited journal can carry
+    // escapes the input path never sanitized — they must not reach the frame
+    // (and thence the terminal). ESC + BEL woven between visible words.
+    const cast = makeCast();
+    const evil = "seek]0;pwnedtruth";
+    const scene = new CastScene(cast, "reduced", 80, undefined, 24, evil);
+    const ctx = makeCtx();
+    scene.enter(ctx);
+    scene.skipToComplete(false); // reveal the prompt row where the intention shows
+
+    const frame = CellBuffer.create(80, 24);
+    scene.render(frame, ctx);
+
+    let rendered = "";
+    for (let r = 0; r < frame.height; r++) {
+      for (let c = 0; c < frame.width; c++) rendered += frame.getCell(r, c).char;
+    }
+    expect(rendered).not.toContain(""); // no raw ESC in any cell
+    expect(rendered).not.toContain(""); // no raw BEL
+    expect(rendered).toContain("seek"); // the words survive
+    expect(rendered).toContain("truth");
+  });
+
   test("handleKey('q') returns 'exit'", () => {
     const cast = makeCast();
     const scene = new CastScene(cast);
