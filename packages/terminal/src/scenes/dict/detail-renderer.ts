@@ -353,7 +353,11 @@ export function renderDetail(
       continue;
     }
 
-    frame.writeText(row, PADDING, line.text, {
+    // Structural guard: clip every content line to the build budget at the
+    // render boundary, so no section — present or future — can overflow the
+    // right edge on a narrow terminal (the derived/locked lines once did). A
+    // no-op for the centered, wrapped, and rule lines already sized to fit.
+    frame.writeText(row, PADDING, truncateToWidth(line.text, ctx.cols - PADDING * 2), {
       fg: line.fg,
       bold: line.bold,
       dim: line.dim,
