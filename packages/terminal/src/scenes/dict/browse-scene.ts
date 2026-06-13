@@ -134,10 +134,16 @@ export class BrowseScene implements Scene {
 
     // Type characters — activate search if not active, add to query
     if (key.type === "char" && key.char !== "q") {
+      // Sanitize the char (paste above already is): the parser emits 0x1c–0x1f,
+      // 0x7f and stray bytes as `char` events, and the query echoes in the
+      // search input. A control char is ignored outright — no insert, and no
+      // spurious search activation. Matches the intention / journal-search inputs.
+      const ch = stripTerminalControls(key.char);
+      if (ch.length === 0) return;
       if (!this.model.searchActive) {
         this.model.searchActive = true;
       }
-      this.textInput.insert(key.char);
+      this.textInput.insert(ch);
       this.model.setQuery(this.textInput.value);
       return;
     }

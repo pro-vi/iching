@@ -73,6 +73,19 @@ describe("BrowseScene", () => {
     expect(scene.getModel().filtered[0].ename).toBe("The Creative");
   });
 
+  test("control chars typed into search are dropped, like paste", () => {
+    // The parser emits 0x1c–0x1f / 0x7f / stray bytes as char events; the query
+    // echoes in the search input, so they must be stripped (the char path, not
+    // just paste). Matches the intention and journal-search inputs.
+    const scene = new BrowseScene();
+    scene.enter(makeCtx());
+    scene.handleKey({ type: "char", char: "f" }, makeCtx());
+    scene.handleKey({ type: "char", char: "\x1c" }, makeCtx()); // FS (Ctrl+\)
+    scene.handleKey({ type: "char", char: "\x1f" }, makeCtx()); // US (Ctrl+_)
+    for (const ch of "ire") scene.handleKey({ type: "char", char: ch }, makeCtx());
+    expect(scene.getModel().query).toBe("fire"); // control chars never reach the query
+  });
+
   test("paste activates search and filters results", () => {
     const scene = new BrowseScene();
     scene.enter(makeCtx());
