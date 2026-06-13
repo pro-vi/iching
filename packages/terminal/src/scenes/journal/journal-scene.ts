@@ -337,18 +337,30 @@ export class JournalScene implements Scene {
       frame.writeText(row, col, line, { fg, bold: isSelected });
     }
 
-    // Scroll indicator
-    if (this.filtered.length > viewportH) {
-      const pct = Math.round((this.cursor / (this.filtered.length - 1)) * 100);
-      const indicator = `${this.cursor + 1}/${this.filtered.length} (${pct}%)`;
+    // Scroll indicator — right-anchored on the preview row (rows-2). The
+    // preview reserves this width (see renderPreviewRow) so the two never clash.
+    const indicator = this.scrollIndicatorText(ctx.rows);
+    if (indicator) {
       frame.writeText(ctx.rows - 2, maxW - stringWidth(indicator) - 1, indicator, { fg: t.tertiary });
     }
+  }
+
+  /** The list position indicator ("3/26 (40%)"), or null when the list fits. */
+  private scrollIndicatorText(rows: number): string | null {
+    const viewportH = rows - 4;
+    if (this.filtered.length <= viewportH) return null;
+    const pct = Math.round((this.cursor / (this.filtered.length - 1)) * 100);
+    return `${this.cursor + 1}/${this.filtered.length} (${pct}%)`;
   }
 
   /** Preview row (rows-2): note input > latest note > the entry's image text. */
   private renderPreviewRow(frame: CellBuffer, ctx: SceneContext, lang: DisplayLanguage): void {
     const t = getTheme();
-    const maxW = ctx.cols;
+    // The scroll indicator shares this row (right-anchored). Reserve its width
+    // so a full-width image/note/input ends before it, instead of overrunning
+    // and leaving a stray fragment of the indicator (e.g. a lone ')').
+    const indicator = this.scrollIndicatorText(ctx.rows);
+    const maxW = ctx.cols - (indicator ? stringWidth(indicator) + 2 : 0);
     const detailRow = ctx.rows - 2;
     const selected = this.filtered[this.cursor];
 

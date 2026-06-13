@@ -110,6 +110,28 @@ describe("JournalScene resize", () => {
     expect(selRow).toBeGreaterThanOrEqual(0); // the selection is still on screen…
     expect(selRow).toBeLessThan(short.rows - 2); // …above the preview/footer rows
   });
+
+  test("the image preview reserves room for the scroll indicator (no stray fragment)", () => {
+    // Regression: the scroll indicator (right) and the image preview (left) both
+    // render on rows-2. A full-width image overran the indicator, overwriting
+    // all but its last column — leaving a stray ')' glued to the ellipsis. The
+    // preview now reserves the indicator's width so the two coexist.
+    const entries = [
+      ...Array.from({ length: 12 }, (_, i) =>
+        makeEntry(`2026-05-${String(i + 1).padStart(2, "0")}`, (i % 8) + 1),
+      ),
+      makeEntry("2026-05-20", 15), // most recent → selected; 謙 has the longest image
+    ];
+    const ctx = ctxFor(10, 60); // short height → list overflows → the indicator shows
+    const scene = new JournalScene(entries, { today: () => "2026-06-01" });
+    scene.enter(ctx);
+    const buf = CellBuffer.create(ctx.cols, ctx.rows);
+    scene.render(buf, ctx);
+    const previewRow = buf.getRow(ctx.rows - 2).map((c) => c.char).join("");
+    expect(previewRow).toMatch(/\d+\/\d+ \(\d+%\)/); // the indicator renders in full…
+    expect(previewRow).toContain("mountain"); // …the image previews (謙: "A mountain…")…
+    expect(previewRow).not.toMatch(/…\S/); // …and nothing is glued after its ellipsis.
+  });
 });
 
 describe("JournalScene nav parity (j/k, home/end)", () => {
