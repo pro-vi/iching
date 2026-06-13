@@ -674,6 +674,14 @@ describe("JournalScene patterns pane ([p])", () => {
     // The 觀象 rule is the pane's header, near the top (row 1), not pushed to row 3.
     const ruleRow = lines.findIndex((l) => l.includes("觀象 · patterns"));
     expect(ruleRow).toBe(1);
+
+    // …and the journal-list header returns on the way back out (the toggle
+    // suppresses the chrome, it doesn't destroy it).
+    press(scene, ctx, "escape");
+    const back = renderText(scene, ctx);
+    expect(back).not.toContain("觀象 · patterns"); // pane closed
+    expect(back).toContain("Journal"); // list title restored
+    expect(back).toContain(`${entries.length} readings`); // count restored
   });
 
   test("p closes the pane too, and list keys are inert while it is open", () => {
