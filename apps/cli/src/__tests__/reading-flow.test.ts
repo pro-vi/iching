@@ -175,6 +175,30 @@ describe("runReadingFlow — yarrow source", () => {
     expect(await journal.latest()).toBeNull(); // seeded casts never reach the journal
   });
 
+  test("replaying an existing reading reveals it without re-appending to the journal", async () => {
+    // A replay (source 'existing') shows a past cast but persists nothing —
+    // otherwise reopening a reading (from the journal, or `iching today`) would
+    // silently duplicate it. Guards the !isReplay half of the persist gate.
+    const run: RunImpl = async (scene) => {
+      if (scene instanceof CastScene) return { type: "home" };
+    };
+    const deps = makeDeps(dataDir, run);
+    const journal = new JsonlJournalStore(deps.paths.state);
+    expect(await journal.latest()).toBeNull(); // empty to start
+    const cast: Cast = {
+      lines: [1, 2, 3, 4, 5, 6].map(() => ({ value: 7, isYang: true, isChanging: false })),
+      primary: 1,
+      becoming: null,
+      changingPositions: [],
+      nuclear: 2,
+      polarity: 2,
+      mirror: 1,
+      diagonal: 2,
+    };
+    await runReadingFlow(deps, { purpose: "cast", source: { type: "existing", cast } });
+    expect(await journal.latest()).toBeNull(); // the replay added nothing
+  });
+
   test("quitting the ritual early persists nothing and does not reveal", async () => {
     const scenesRun: string[] = [];
 
