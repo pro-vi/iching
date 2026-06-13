@@ -588,7 +588,8 @@ export class JournalScene implements Scene {
         ? [lab(`${tr(lang, "journal.patterns.methodUnmarked")} `), num(String(methods.unknown))]
         : [],
     ]);
-    // Legend marks mirror the grid's tier styles exactly.
+    // Legend marks mirror the grid's tier styles exactly; the accent mark
+    // teaches the recency channel by showing the accent token itself.
     const legend: PatternSegment[] = [
       { text: "○", style: { fg: t.dimmed } },
       lab(` ${tr(lang, "journal.patterns.legendNever")}  `),
@@ -597,15 +598,18 @@ export class JournalScene implements Scene {
       { text: "◐", style: { fg: t.secondary } },
       lab(` ${tr(lang, "journal.patterns.legendFew")}  `),
       { text: "●", style: { fg: t.primary, bold: true } },
-      lab(` ${tr(lang, "journal.patterns.legendOften")}`),
+      lab(` ${tr(lang, "journal.patterns.legendOften")}  `),
+      { text: "◉", style: { fg: t.accent, bold: true } },
+      lab(` ${tr(lang, "journal.patterns.legendNow")}`),
     ];
     const annotations: PatternSegment[][] = [a1, a2, a3, a4, a5, a6, [], legend];
 
+    // Two channels, no extra glyph: brightness encodes how often a hexagram
+    // has come up; the single accent is reserved for the most recent reading
+    // (recency = attention), styled on the glyph itself — never a prefix mark,
+    // which would read as a cursor on a game board.
     const tierStyle = (count: number): TextStyle => {
       if (count === 0) return { fg: t.dimmed };
-      if (count === patterns.field.maxCount && patterns.field.maxCount >= 2) {
-        return { fg: t.accent, bold: true };
-      }
       if (count === 1) return { fg: t.tertiary };
       if (count <= 3) return { fg: t.secondary };
       return { fg: t.primary, bold: true };
@@ -627,7 +631,11 @@ export class JournalScene implements Scene {
       const segs: PatternSegment[] = [];
       for (let c = 0; c < 8; c++) {
         const kw = r * 8 + c + 1;
-        segs.push({ text: GUA[kw - 1].u, style: tierStyle(patterns.field.counts[kw - 1]) });
+        const style =
+          kw === patterns.field.recent
+            ? { fg: t.accent, bold: true }
+            : tierStyle(patterns.field.counts[kw - 1]);
+        segs.push({ text: GUA[kw - 1].u, style });
         if (c < 7) segs.push({ text: "  ", style: stSep });
       }
       if (!reflowField && annotations[r].length > 0) {

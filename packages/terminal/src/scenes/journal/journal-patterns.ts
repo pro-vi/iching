@@ -158,6 +158,8 @@ export interface FieldSummary {
   counts: number[];
   /** Math.max(0, ...counts). */
   maxCount: number;
+  /** Primary KW of the most recent reading — where the field was last lit. */
+  recent: number | null;
 }
 
 /**
@@ -247,6 +249,8 @@ export function computeJournalPatterns(
   let observedOldYang = 0;
   let yangLines = 0;
   let yinLines = 0;
+  let recentKey = "";
+  let recentKw: number | null = null;
 
   for (const entry of entries) {
     const family = methodFamily(entry.method);
@@ -255,6 +259,13 @@ export function computeJournalPatterns(
     if (family !== "unknown") methodCounts.known++;
 
     if (entry.date.startsWith(month)) thisMonth++;
+
+    // Most recent reading by the same time key the chronological sort uses.
+    const tkey = entryTimeKey(entry);
+    if (recentKw === null || tkey >= recentKey) {
+      recentKey = tkey;
+      recentKw = entry.cast.primary;
+    }
 
     const f = freq.get(entry.cast.primary) ?? { count: 0, lastDate: "" };
     f.count++;
@@ -326,6 +337,7 @@ export function computeJournalPatterns(
   const field: FieldSummary = {
     counts: fieldCounts,
     maxCount: fieldCounts.reduce((m, c) => Math.max(m, c), 0),
+    recent: recentKw,
   };
   const expectedHexagramCount = methodCounts.known > 0 ? methodCounts.known / 64 : null;
   const topHexagrams: HexagramFrequency[] = [...freq.entries()]

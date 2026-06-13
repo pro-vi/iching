@@ -784,6 +784,36 @@ describe("JournalScene patterns pane ([p])", () => {
     expect(text).toContain("▅▅▅▅▅▅▅▅▅▅▅▅ × 5"); // line 4 (the max) fills solid
   });
 
+  test("the field marks the most recent reading with accent on the glyph itself", () => {
+    const { getTheme } = require("../color/theme.ts");
+    const accent = getTheme().accent;
+    const entries = [
+      makeEntry("2026-03-01", 39, { method: "coin" }),
+      makeEntry("2026-03-08", 12, { method: "coin" }),
+      makeEntry("2026-04-02", 1, { method: "coin" }), // most recent → 乾 (kw1, glyph ䷀)
+    ];
+    const ctx = ctxFor(45, 80);
+    const scene = new JournalScene(entries, { today: () => "2026-04-15" });
+    scene.enter(ctx);
+    press(scene, ctx, "p");
+    const buf = CellBuffer.create(ctx.cols, ctx.rows);
+    scene.render(buf, ctx);
+    // Collect every hexagram glyph cell rendered in the accent tone.
+    const accented: string[] = [];
+    for (let r = 0; r < buf.height; r++) {
+      for (const cell of buf.getRow(r)) {
+        const code = cell.char.codePointAt(0) ?? 0;
+        if (code >= 0x4dc0 && code <= 0x4dff && cell.fg === accent) accented.push(cell.char);
+      }
+    }
+    // Exactly one hexagram glyph is accented — the most recent (䷀, kw1).
+    expect(accented).toEqual(["䷀"]);
+    // And the legend teaches the channel.
+    const text = renderText(scene, ctx);
+    expect(text).toContain("◉");
+    expect(text).toContain("now");
+  });
+
   test("section rules hinge with ┄ and set notes flush-right as margin whispers", () => {
     const ctx = ctxFor(45, 80);
     const scene = new JournalScene(
@@ -996,6 +1026,7 @@ describe("computeJournalPatterns", () => {
     expect(p.field.counts[0]).toBe(1); // KW 1
     expect(p.field.counts.reduce((sum, c) => sum + c, 0)).toBe(3);
     expect(p.field.maxCount).toBe(2);
+    expect(p.field.recent).toBe(1); // latest by time key: 2026-04-02, primary kw1
     // 兩儀 — every line's polarity, all 3 casts × 6 lines = 18 lines. makeCast
     // draws yang on odd positions (3) and yin on even (3) → 9 each per cast.
     expect(p.lineBalance.yang + p.lineBalance.yin).toBe(18);
@@ -1025,6 +1056,7 @@ describe("computeJournalPatterns", () => {
     expect(empty.movingLine).toBeNull();
     expect(empty.field.counts).toHaveLength(64);
     expect(empty.field.maxCount).toBe(0);
+    expect(empty.field.recent).toBeNull();
     const p = computeJournalPatterns([makeEntry("2026-04-01", 2)], "2026-04-15");
     expect(p.movingLine).toBeNull();
     expect(p.movingLineCounts[0]).toMatchObject({ movingLines: 0, count: 1, share: 1 });

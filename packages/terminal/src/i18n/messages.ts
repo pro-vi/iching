@@ -141,6 +141,7 @@ export const MESSAGES = {
   "journal.patterns.legendOnce": { en: "once", zhHant: "一度", zhHans: "一度" },
   "journal.patterns.legendFew": { en: "a few", zhHant: "數度", zhHans: "数度" },
   "journal.patterns.legendOften": { en: "often", zhHant: "屢見", zhHans: "屡见" },
+  "journal.patterns.legendNow": { en: "now", zhHant: "此刻", zhHans: "此刻" },
   "journal.patterns.coin": { en: "coin", zhHant: "銅錢", zhHans: "铜钱" },
   "journal.patterns.yarrow": { en: "yarrow", zhHant: "蓍草", zhHans: "蓍草" },
   "journal.patterns.methodUnmarked": { en: "unmarked", zhHant: "未註法", zhHans: "未注法" },
