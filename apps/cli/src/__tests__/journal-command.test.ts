@@ -356,6 +356,12 @@ describe("journal command", () => {
     expect(p.topHexagrams[0]).toMatchObject({ kw: 3, n: "屯", count: 2 });
     expect(p.topHexagrams[0]).not.toHaveProperty("expected"); // not adjacent to count
     expect(p.topHexagrams[0].comparison).toMatchObject({ basis: "method-marked", count: 2 });
+    // The same comparison discipline holds for moving-line surfaces: a
+    // descriptive count, the chance figure namespaced (never adjacent).
+    expect(p.movingLines[0]).not.toHaveProperty("expected");
+    expect(p.movingLines[0]).toHaveProperty("comparison");
+    expect(p.movingLineCounts[0]).not.toHaveProperty("expected");
+    expect(p.movingLineCounts[0]).toHaveProperty("comparison");
     expect(p.lineBalance).toHaveProperty("yang");
     expect(p.lineBalance).toHaveProperty("yin");
   }, 20_000);

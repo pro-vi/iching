@@ -233,8 +233,29 @@ export function journalPatternsToJson(p: JournalPatterns): Record<string, unknow
           ? { basis: "method-marked", count: h.knownCount, expected: h.expected, lift: h.lift }
           : null,
     })),
-    movingLines: p.movingLines,
-    movingLineCounts: p.movingLineCounts,
+    // Same comparison discipline as topHexagrams: descriptive count (all
+    // readings) at the top, the method-marked chance comparison namespaced
+    // (null when no baseline) — so a script never divides the two bases.
+    movingLines: p.movingLines.map((l) => ({
+      position: l.position,
+      count: l.count,
+      share: l.share,
+      comparison:
+        l.expected > 0
+          ? { basis: "method-marked", count: l.knownCount, expected: l.expected, lift: l.lift }
+          : null,
+    })),
+    movingLineCounts: p.movingLineCounts.map((b) => ({
+      movingLines: b.movingLines,
+      count: b.count,
+      share: b.share,
+      comparison:
+        b.expected > 0
+          ? { basis: "method-marked", count: b.knownCount, expected: b.expected, lift: b.lift }
+          : null,
+    })),
+    // Trigram appearance is method-free geometry (each role 1/8 regardless of
+    // method), so its expectation shares the all-readings basis — no split.
     topTrigrams: p.topTrigrams,
     topTransformations: p.topTransformations.map((t) => pair(t.from, t.to, t.count, t.lastDate)),
     topTransitions: p.topTransitions.map((t) => pair(t.from, t.to, t.count, t.lastDate)),
