@@ -322,4 +322,55 @@ describe("makeJournalScene — reflection-note persistence wiring", () => {
     for await (const note of journal.streamNotes()) texts.push(note.text);
     expect(texts).toEqual(["kept through teardown"]);
   });
+
+  test("a note attaches to the reading under the cursor, not the top row", async () => {
+    // Three readings on distinct days. The scene sorts most-recent-first, so
+    // the cursor's top row is the NEWEST. A note must land on whatever reading
+    // the cursor actually sits on — here the OLDEST, two rows down — not
+    // silently on the first row. With one entry the wiring can't tell
+    // `filtered[cursor]` from `filtered[0]`; this seam needs ≥2 to pin it.
+    const days = [
+      "2026-01-01T09:00:00.000Z",
+      "2026-01-02T09:00:00.000Z",
+      "2026-01-03T09:00:00.000Z",
+    ];
+    for (const ts of days) {
+      await journal.append(makeReplayEntry(ts.slice(0, 10), ts));
+    }
+    const entries = await loadJournalEntries(journal);
+    const scene = makeJournalScene({
+      journal,
+      entries,
+      session: { cols: 80, rows: 24 },
+    });
+    const ctx = { cols: 80, rows: 24, colorSupport: "truecolor", done: false } as const;
+    scene.enter(ctx);
+
+    // Walk the cursor down from the newest (top row) to the oldest reading.
+    scene.handleKey({ type: "arrow", direction: "down" }, ctx);
+    scene.handleKey({ type: "arrow", direction: "down" }, ctx);
+
+    scene.handleKey({ type: "char", char: "n" }, ctx);
+    for (const ch of "for the oldest") {
+      scene.handleKey({ type: "char", char: ch }, ctx);
+    }
+    scene.handleKey({ type: "enter" }, ctx);
+    await scene.exit();
+
+    // The note's ref points at the oldest reading (the cursor target), not the
+    // newest one rendered on the top row.
+    const notes = [];
+    for await (const note of journal.streamNotes()) notes.push(note);
+    expect(notes.map((n) => n.text)).toEqual(["for the oldest"]);
+    expect(notes[0].ref).toBe("2026-01-01T09:00:00.000Z");
+    expect(notes[0].ref).not.toBe("2026-01-03T09:00:00.000Z");
+
+    // And on reload the note hangs off the oldest reading alone.
+    const reloaded = await loadJournalEntries(journal);
+    const byTs = (ts: string) => reloaded.find((e) => e.timestamp === ts);
+    expect(byTs("2026-01-01T09:00:00.000Z")?.notes.map((n) => n.text)).toEqual([
+      "for the oldest",
+    ]);
+    expect(byTs("2026-01-03T09:00:00.000Z")?.notes ?? []).toEqual([]);
+  });
 });
