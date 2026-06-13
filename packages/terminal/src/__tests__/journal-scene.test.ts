@@ -323,6 +323,31 @@ describe("JournalScene search ([/])", () => {
     expect(text).toContain("1 reading"); // one match \u2014 singular
     expect(text).toContain("the launch question");
   });
+
+  test("the cursor clamps into bounds when a search shrinks the result set", () => {
+    // With the cursor near the bottom of the full list, a query that filters to
+    // fewer readings must clamp the cursor into the new range \u2014 otherwise it
+    // indexes past `filtered` (a crash on filtered[cursor], or no selection
+    // shown). setQuery clamps; this guards that clamp.
+    const many = Array.from({ length: 18 }, (_, i) =>
+      makeEntry(`2026-05-${String(i + 1).padStart(2, "0")}`, (i % 8) + 1, {
+        intention: i < 3 ? "rare topic" : "common topic",
+      }),
+    );
+    const ctx = ctxFor();
+    const scene = new JournalScene(many);
+    scene.enter(ctx);
+    for (let i = 0; i < many.length; i++) {
+      scene.handleKey({ type: "arrow", direction: "down" }, ctx); // cursor to the last reading (17)
+    }
+    scene.handleKey({ type: "char", char: "/" }, ctx);
+    for (const ch of "rare") scene.handleKey({ type: "char", char: ch }, ctx); // filter 18 \u2192 3
+    const s = scene as unknown as { cursor: number; filtered: unknown[] };
+    expect(s.filtered.length).toBe(3);
+    expect(s.cursor).toBeGreaterThanOrEqual(0);
+    expect(s.cursor).toBeLessThan(s.filtered.length); // clamped into the new range\u2026
+    expect(renderText(scene, ctx)).toContain(">"); // \u2026and a selection still renders.
+  });
 });
 
 describe("JournalScene empty state", () => {
