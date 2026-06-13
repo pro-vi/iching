@@ -462,4 +462,18 @@ describe("computeJournalPatterns — invariants over random journals (fuzz)", ()
       );
     }
   });
+
+  test("the derivation is independent of input entry order", () => {
+    // The TUI passes entries newest-first; the CLI streams them append (oldest-
+    // first) order. Both must derive the SAME patterns, so the compute sorts by
+    // time-key internally. Lock it: a refactor that dropped the sort could keep
+    // the invariants above while silently desyncing the two surfaces. Forward
+    // vs reversed must be byte-identical across many random journals.
+    for (let seed = 1; seed <= 60; seed++) {
+      const entries = randomJournal(lcg(seed));
+      const forward = computeJournalPatterns(entries, "2026-08-01");
+      const reversed = computeJournalPatterns([...entries].reverse(), "2026-08-01");
+      expect(reversed, `seed ${seed}`).toEqual(forward);
+    }
+  });
 });

@@ -618,7 +618,13 @@ function computeDiversity(
   let entropyBits = 0;
   let concentration = 0;
   let maxCount = 0;
-  for (const count of counts) {
+  // Sum in a canonical (ascending) order. `counts` arrives in first-seen order,
+  // which follows the caller's entry order — and float addition isn't
+  // associative, so an unsorted sum makes entropyBits/concentration depend on
+  // whether the TUI (newest-first) or CLI (append-order) called. Sorting makes
+  // the figures byte-identical across surfaces; ascending also minimises
+  // rounding by adding the smallest terms first.
+  for (const count of [...counts].sort((a, b) => a - b)) {
     const p = count / total;
     entropyBits -= p * Math.log2(p);
     concentration += p * p;
@@ -694,7 +700,19 @@ function computeCadence(entries: HistoryEntry[], today: string): CadenceSummary 
 }
 
 function compareEntryTime(a: HistoryEntry, b: HistoryEntry): number {
-  return entryTimeKey(a).localeCompare(entryTimeKey(b));
+  const byTime = entryTimeKey(a).localeCompare(entryTimeKey(b));
+  if (byTime !== 0) return byTime;
+  // Same instant — legacy same-day readings without timestamps, or identical
+  // stamps. Break the tie deterministically by cast content so the derived
+  // order (and the transitions / drift / recency that read it) never depends on
+  // whether the caller passed newest-first (TUI) or append (CLI) order: those
+  // two surfaces must agree on the same journal. Identical readings compare
+  // equal, but their order can't change any output.
+  return (
+    a.cast.primary - b.cast.primary ||
+    (a.cast.becoming ?? 0) - (b.cast.becoming ?? 0) ||
+    a.cast.changingPositions.join(",").localeCompare(b.cast.changingPositions.join(","))
+  );
 }
 
 /**
