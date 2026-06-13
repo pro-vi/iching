@@ -76,6 +76,15 @@ iching config theme cinnabar    # 设置主题
 
 按 `c` 起卦，`t` 回看今日，`j` 查日志，`d` 查卦典，`s` 设置，`q` 退出。
 
+### 供脚本与助手的 JSON
+
+`cast --json`、`today --json` 与 `journal patterns --json` 输出稳定且自描述的结构。
+`journal patterns --json` 有一条约定（输出中以 `basis` 字段写明）：**描述性计数统计所有卦记；
+理数（chance）数值则置于 `comparison` 块内，只就已注法的子集计算**（铜钱／蓍草占法，其爻变概率已知——
+旧占记没有）。切勿用全量的 `count` 去除以某个 `comparison` 块里的 `expected`；应取该块自带的
+`count`／`expected`，二者同基。（`topTrigrams.expected` 是唯一在 `comparison` 块之外的 `expected`——
+属无关占法的几何期望，与其 `count` 同为全量基准。）
+
 ## 数据存储
 
 文件路径遵循 [XDG Base Directory](https://specifications.freedesktop.org/basedir-spec/) 规范：

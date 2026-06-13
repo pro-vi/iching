@@ -79,6 +79,18 @@ iching config theme cinnabar    # set theme
 Press `c` to cast, `t` to return to today's reading, `j` for journal,
 `d` for dictionary, `s` for settings, `q` to quit.
 
+### JSON for scripts and assistants
+
+`cast --json`, `today --json`, and `journal patterns --json` emit stable,
+self-describing payloads. In `journal patterns --json`, mind one contract
+(the output states it in a `basis` field): **descriptive counts tally every
+reading; chance figures live in `comparison` blocks computed only over the
+method-marked subset** (coin/yarrow casts, whose line probabilities are known —
+legacy entries have none). Never divide an all-readings `count` by an `expected`
+from a `comparison` block; use that block's own `count`/`expected`, which share
+a basis. (`topTrigrams.expected` is the one `expected` outside a comparison
+block — method-free geometry, same all-readings basis as its `count`.)
+
 ## Storage
 
 Files follow the [XDG Base Directory](https://specifications.freedesktop.org/basedir-spec/) spec:
