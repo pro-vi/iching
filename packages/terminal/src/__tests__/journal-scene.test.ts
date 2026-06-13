@@ -2,7 +2,7 @@
 // dictionary jump, and the patterns pane.
 
 import { describe, test, expect } from "bun:test";
-import type { Cast, Line } from "@iching/core";
+import type { Cast, Line, ReflectionNote } from "@iching/core";
 import { computeJournalPatterns, GUA } from "@iching/core";
 import { CellBuffer } from "../render/buffer.ts";
 import { stringWidth } from "../layout/measure.ts";
@@ -131,6 +131,51 @@ describe("JournalScene resize", () => {
     expect(previewRow).toMatch(/\d+\/\d+ \(\d+%\)/); // the indicator renders in full…
     expect(previewRow).toContain("mountain"); // …the image previews (謙: "A mountain…")…
     expect(previewRow).not.toMatch(/…\S/); // …and nothing is glued after its ellipsis.
+  });
+
+  test("a wide-content note is truncated before the indicator, which stays intact", () => {
+    // Sibling to the image-preview case above, for the OTHER preview source: a
+    // reflection note. The note path also reserves the indicator's columns and
+    // truncates to fit — but only CJK *image text* ever exercised that. Emoji,
+    // ZWJ family sequences and CJK *notes* measure differently in stringWidth;
+    // a slip would bleed a glyph into the indicator. Drive each: the position
+    // indicator must render in full and nothing may glue after the ellipsis.
+    const note = (text: string): ReflectionNote => ({
+      kind: "note",
+      ref: "2026-03-15T09:00:00.000Z",
+      date: "2026-03-15",
+      timestamp: "2026-03-15T09:00:00.000Z",
+      text,
+    });
+    const widePayloads = [
+      "🔮".repeat(60), // bare emoji
+      "👨‍👩‍👧‍👦".repeat(30), // ZWJ grapheme clusters
+      "明天會更好嗎".repeat(20), // wide CJK
+    ];
+    for (const text of widePayloads) {
+      for (const cols of [30, 50, 80]) {
+        // 15 readings over an 8-row list viewport → the list overflows and the
+        // indicator shows; the newest sorts to the top (selected) and holds the note.
+        const entries = Array.from({ length: 15 }, (_, i) => {
+          const d = `2026-03-${String(i + 1).padStart(2, "0")}`;
+          return makeEntry(d, (i % 8) + 1, {
+            timestamp: `${d}T09:00:00.000Z`,
+            notes: i === 14 ? [note(text)] : [],
+          });
+        });
+        const ctx = ctxFor(12, cols);
+        const scene = new JournalScene(entries);
+        scene.enter(ctx);
+        const buf = CellBuffer.create(ctx.cols, ctx.rows);
+        scene.render(buf, ctx);
+        const previewRow = buf.getRow(ctx.rows - 2).map((c) => c.char).join("");
+        expect(previewRow).toMatch(/\d+\/15 \(\d+%\)/); // the indicator renders in full…
+        expect(previewRow).not.toMatch(/…\S/); // …nothing glues after the note's ellipsis…
+        for (let r = 0; r < buf.height; r++) {
+          expect(buf.getRow(r).length).toBe(cols); // …and no row overruns its width.
+        }
+      }
+    }
   });
 
   test("a single-entry list on a sub-chrome terminal shows no NaN indicator", () => {
