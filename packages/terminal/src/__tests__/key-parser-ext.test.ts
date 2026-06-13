@@ -67,6 +67,27 @@ describe("KeyParser — extended key buffering", () => {
     parser.dispose();
   });
 
+  test("a never-terminating escape sequence is flushed, not buffered without bound", () => {
+    const events: KeyEvent[] = [];
+    const parser = new KeyParser((e) => events.push(e));
+
+    // ESC [ followed by far more param bytes than any real CSI, with no final
+    // byte — it stays "incomplete" forever. Without a cap the parser buffers it
+    // (and every following chunk), since the flush timer is cleared on each
+    // feed; this is the unbounded-accumulation DoS the paste path already caps.
+    const garbage = new Uint8Array([0x1b, 0x5b, ...new Array(2000).fill(0x30)]); // ESC[000…
+    parser.feed(garbage);
+    // It flushed (escape) synchronously rather than swallowing it into a buffer.
+    expect(events.some((e) => e.type === "escape")).toBe(true);
+
+    // And it recovered to a clean state — a normal keystroke now parses.
+    events.length = 0;
+    parser.feed(new Uint8Array([0x61])); // 'a'
+    expect(events).toEqual([{ type: "char", char: "a" }]);
+
+    parser.dispose();
+  });
+
   test("Backspace delivered through KeyParser feed", () => {
     const events: KeyEvent[] = [];
     const parser = new KeyParser((e) => events.push(e));

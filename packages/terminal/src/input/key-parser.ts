@@ -33,6 +33,15 @@ const PASTE_END = new Uint8Array([0x1b, 0x5b, 0x32, 0x30, 0x31, 0x7e]);
 // How long to wait for the rest of an escape sequence before flushing.
 const ESC_TIMEOUT_MS = 50;
 
+// An escape sequence whose final byte never arrives must not buffer stdin
+// without limit (cf. PASTE_MAX_BYTES for paste). The flush timer is cleared on
+// every feed(), so a steady stream of incomplete-CSI bytes (ESC[ followed by
+// endless param/intermediate bytes, no final byte) would otherwise grow the
+// pending buffer forever. Real CSI/SS3 sequences are tens of bytes at most;
+// past this cap the buffer is malformed input that will never complete, so it
+// is flushed as escape and normal parsing resumes.
+const MAX_ESCAPE_BYTES = 256;
+
 // Bracketed-paste guards. Paste accumulation must stay bounded: a lost
 // ESC[201~ terminator would otherwise buffer stdin forever (and look like a
 // dead app). The cap is generous for an intention; past it the paste event
@@ -286,6 +295,15 @@ export class KeyParser {
         // Escape sequence still missing its final byte — buffer and wait.
         // The timeout flushes a lone ESC (or truncated sequence) as escape.
         if (isIncompleteEscape(buf)) {
+          // Bound the wait: a "pending escape" longer than any real sequence is
+          // malformed input that will never complete. Flush it as escape and
+          // resume instead of buffering stdin without limit — the timer is
+          // cleared on every feed(), so a steady stream would never flush.
+          if (buf.length > MAX_ESCAPE_BYTES) {
+            const flushed = parseKeyWithLength(buf);
+            if (flushed?.event) this.callback(flushed.event);
+            return;
+          }
           this.pending = buf.slice();
           this.timer = setTimeout(() => {
             if (this.pending) {
