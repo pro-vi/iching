@@ -22,9 +22,14 @@ export async function getHexagramHistory(
     }
   }
 
+  // The latest date is the MAX, not the last appended — a journal may hold
+  // out-of-order entries (imported, merged, or hand-edited), and the patterns
+  // pane derives its per-hexagram "last" the same way (max over dates). Taking
+  // the append-tail here would make the dictionary and the pane disagree on
+  // when a hexagram was last drawn.
   return {
     castCount: dates.length,
-    lastCastDate: dates.length > 0 ? dates[dates.length - 1] : null,
+    lastCastDate: dates.length > 0 ? dates.reduce((max, d) => (d > max ? d : max)) : null,
     dates,
   };
 }

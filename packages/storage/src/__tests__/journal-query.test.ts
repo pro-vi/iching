@@ -61,6 +61,18 @@ describe("getHexagramHistory", () => {
     expect(history.castCount).toBe(0);
     expect(history.lastCastDate).toBeNull();
   });
+
+  test("lastCastDate is the max date, not the last appended (out-of-order journal)", async () => {
+    // An imported/merged/hand-edited journal need not be chronological. The
+    // dictionary detail and the 觀象 pane must agree on "last drawn", and the
+    // pane uses a max — so this must too, never the append-tail.
+    await store.append({ date: "2026-03-30", cast: makeCast(1) }); // newest, appended first
+    await store.append({ date: "2026-03-25", cast: makeCast(1) }); // older, appended last
+
+    const history = await getHexagramHistory(store, 1);
+    expect(history.castCount).toBe(2);
+    expect(history.lastCastDate).toBe("2026-03-30"); // the max, not "2026-03-25"
+  });
 });
 
 describe("loadEntriesWithNotes", () => {
