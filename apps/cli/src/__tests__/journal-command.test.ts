@@ -308,6 +308,23 @@ describe("journal command", () => {
     expect(yarrowLine).toContain("· yarrow stalks");
   }, 20_000);
 
+  test("an unknown method value shows its name, never 'undefined' (forward-compat)", async () => {
+    // A reading written by a newer version with a cast method this build does
+    // not know must show the raw method name, not "undefined" — parity with
+    // parseLine tolerating unknown record kinds. methodLabel had no default case.
+    const entry = { ...makeEntry("2026-01-01", 1, null), method: "plumblossom" } as unknown as HistoryEntry;
+    await seedJournal(dataDir, [entry]);
+
+    const list = await runCli(dataDir, ["journal", "list"]);
+    expect(list.exitCode).toBe(0);
+    expect(list.stdout).toContain("· plumblossom"); // the raw method name…
+    expect(list.stdout).not.toContain("undefined"); // …never "undefined"
+
+    const show = await runCli(dataDir, ["journal", "show", "latest"]);
+    expect(show.stdout).toContain("Method: plumblossom");
+    expect(show.stdout).not.toContain("undefined");
+  }, 20_000);
+
   test("plain show carries a Method line when provenance exists", async () => {
     await seedJournal(dataDir, [makeEntry("2026-01-02", 2, null, "yarrow-manual")]);
     const { stdout } = await runCli(dataDir, ["journal", "show", "2026-01-02"]);

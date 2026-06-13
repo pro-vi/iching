@@ -172,6 +172,17 @@ function methodLabel(method: CastMethod): string {
       return "yarrow stalks";
     case "yarrow-manual":
       return "yarrow stalks, by hand";
+    default: {
+      // A method this build doesn't recognize — corrupt data, or a reading
+      // written by a newer version that added a cast method. Show the raw name,
+      // never "undefined" (the switch returns undefined without this). Parity
+      // with parseLine skipping unknown record kinds: tolerate, don't garble.
+      // The `never` binding keeps compile-time exhaustiveness — adding a
+      // CastMethod errors here until it gets a real label — while the String()
+      // still handles genuinely out-of-union runtime values (the erased type).
+      const unknownMethod: never = method;
+      return String(unknownMethod);
+    }
   }
 }
 
