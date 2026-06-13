@@ -181,6 +181,54 @@ describe("the glyph yields to the texts — and returns when there is room", () 
     }
   });
 
+  test("the type-label dims and leads; the canonical text is brighter and follows", () => {
+    // 0 changing → "卦辭 · <judgment>" on one row at 100x30. The label glyphs
+    // ("卦辭 · ") render dim/tertiary; the oracle text after the separator is
+    // the brighter secondary. Assert the row carries both, label-cells first.
+    const cast = makeCast(63, []);
+    const scene = new CastScene(cast, "default", 100, GLYPH_CFG, 30, undefined, {
+      language: "zh-Hant",
+    });
+    scene.skipToComplete();
+    const ctx: SceneContext = {
+      cols: 100,
+      rows: 30,
+      done: false,
+      colorSupport: "truecolor",
+      language: "zh-Hant",
+    };
+    scene.update(0, 0, ctx);
+    scene.update(120_000, 33, ctx);
+    const frame = CellBuffer.create(100, 30);
+    scene.render(frame, ctx);
+
+    // Locate the judgment row (the one bearing 卦辭).
+    let judgRow = -1;
+    for (let r = 0; r < frame.height && judgRow < 0; r++) {
+      let line = "";
+      for (let c = 0; c < frame.width; c++) line += frame.getCell(r, c).char;
+      if (line.includes("卦辭")) judgRow = r;
+    }
+    expect(judgRow).toBeGreaterThanOrEqual(0);
+
+    // Walk the non-space cells: the label ones are dim, the text ones are not,
+    // and every dim cell precedes every bright cell (label leads, text follows).
+    const cells: Array<{ col: number; dim: boolean; fg?: string }> = [];
+    for (let c = 0; c < frame.width; c++) {
+      const cell = frame.getCell(judgRow, c);
+      if (cell.char.trim() !== "") cells.push({ col: c, dim: cell.dim === true, fg: cell.fg });
+    }
+    const dimCols = cells.filter((x) => x.dim).map((x) => x.col);
+    const brightCols = cells.filter((x) => !x.dim).map((x) => x.col);
+    expect(dimCols.length).toBeGreaterThan(0); // a dim label is present
+    expect(brightCols.length).toBeGreaterThan(0); // and brighter oracle text
+    expect(Math.max(...dimCols)).toBeLessThan(Math.min(...brightCols)); // label leads
+    // The two registers are genuinely different colors.
+    const labelFg = cells.find((x) => x.dim)!.fg;
+    const textFg = cells.find((x) => !x.dim)!.fg;
+    expect(labelFg).not.toBe(textFg);
+  });
+
   test("80x24 en, 0 changing: the WHOLE English judgment is on screen, not truncated", () => {
     // Regression for the headline bug: at the standard 24-row terminal the
     // no-glyph English title used to take four rows, leaving the judgment only

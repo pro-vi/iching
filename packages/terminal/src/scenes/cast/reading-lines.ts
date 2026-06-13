@@ -19,6 +19,14 @@ import { tr, type MessageKey } from "../../i18n/messages.ts";
 export interface ReadingLine {
   text: string;
   role: "hint" | "text" | "more";
+  /**
+   * True on the one wrapped line that leads with a dim type-label
+   * ("卦辭 · ", "Judgment · ", "4 · "). The renderer dims everything up to the
+   * separator so the canonical text itself carries the weight — the same
+   * label/subject hierarchy as the 觀象 pane. Continuation lines and the bare
+   * zh 爻辭 (which the hint already names) carry no label.
+   */
+  labeled?: boolean;
 }
 
 const HINT_KEYS: Record<number, MessageKey> = {
@@ -67,30 +75,33 @@ export function buildReadingLines(
     for (const wl of wordWrap(hint, width)) lines.push({ text: wl, role: "hint" });
   }
 
-  const pushText = (text: string): void => {
-    for (const wl of wordWrap(text, width)) {
-      lines.push({ text: wl, role: "text" });
-    }
+  // `labeled` marks the first wrapped line when the text leads with a dim
+  // type-label ("卦辭 · ", "Judgment · ", "4 · "); only that line bears it.
+  const pushText = (text: string, labeled = false): void => {
+    const wrapped = wordWrap(text, width);
+    wrapped.forEach((wl, i) => {
+      lines.push(labeled && i === 0 ? { text: wl, role: "text", labeled: true } : { text: wl, role: "text" });
+    });
   };
 
   const pushYao = (pos: number): void => {
-    pushText(
-      english
-        ? `${pos} · ${gua.yaoEn[pos - 1]}`
-        : cn(gua.yao[pos - 1]),
-    );
+    // en prefixes the line position ("4 · …") — a label to dim; zh shows the
+    // bare 爻辭 (the hint already names which line), so nothing to dim.
+    if (english) pushText(`${pos} · ${gua.yaoEn[pos - 1]}`, true);
+    else pushText(cn(gua.yao[pos - 1]));
   };
 
   if (focus.kind === "judgment") {
     // No moving lines — the judgment is the reading.
     const label = tr(language, "cast.judgment");
-    pushText(english ? `${label} · ${gua.gcEn}` : `${label} · ${cn(gua.gc)}`);
+    pushText(english ? `${label} · ${gua.gcEn}` : `${label} · ${cn(gua.gc)}`, true);
   } else if (focus.kind === "extra" && gua.extra) {
     // All six lines move on hex 1/2 — the 用九/用六 text governs.
     pushText(
       english
         ? `${gua.extra.name} · ${gua.extra.textEn}`
         : `${cn(gua.extra.name)} · ${cn(gua.extra.text)}`,
+      true,
     );
   } else if (focus.kind === "becoming" && cast.becoming !== null) {
     // Four or five lines move (or all six off hex 1/2) — the becoming
@@ -99,7 +110,7 @@ export function buildReadingLines(
     // text TYPE (Judgment / 卦辭) — repeating "Becoming" here was a stutter.
     const becoming = GUA[cast.becoming - 1];
     const label = tr(language, "cast.judgment");
-    pushText(english ? `${label} · ${becoming.gcEn}` : `${label} · ${cn(becoming.gc)}`);
+    pushText(english ? `${label} · ${becoming.gcEn}` : `${label} · ${cn(becoming.gc)}`, true);
   } else if (focus.kind === "lines") {
     // Two or three lines move — the governing (upper) line speaks first,
     // the other noted lines follow bottom-first as quieter context.

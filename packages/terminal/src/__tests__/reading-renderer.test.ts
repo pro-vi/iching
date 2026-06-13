@@ -103,6 +103,35 @@ describe("buildReadingLines", () => {
     expect(texts[0]).toBe(`4 · ${GUA[20].yaoEn[3]}`);
   });
 
+  test("the type-label line is flagged so the renderer can dim it", () => {
+    // judgment (卦辭 · …) → labeled
+    const jud = buildReadingLines(makeCast(21, [], null), "zh-Hant", 200, 6);
+    expect(jud.find((l) => l.role === "text")!.labeled).toBe(true);
+    // en 爻辭 ("4 · …") carries a position label → labeled
+    const yaoEn = buildReadingLines(makeCast(21, [4], 42), "en", 200, 6);
+    expect(yaoEn.find((l) => l.role === "text")!.labeled).toBe(true);
+    // zh 爻辭 is the bare text (the hint names the line) → not labeled
+    const yaoZh = buildReadingLines(makeCast(21, [4], 42), "zh-Hant", 200, 6);
+    expect(yaoZh.find((l) => l.role === "text")!.labeled).toBeUndefined();
+    // becoming 卦辭 and 用九/用六 are labeled too
+    expect(
+      buildReadingLines(realCast(21, [1, 2, 3, 4]), "en", 500, 6).find((l) => l.role === "text")!
+        .labeled,
+    ).toBe(true);
+    expect(
+      buildReadingLines(makeCast(1, [1, 2, 3, 4, 5, 6], 2), "zh-Hant", 200, 6).find(
+        (l) => l.role === "text",
+      )!.labeled,
+    ).toBe(true);
+    // only the FIRST wrapped line of a labeled text bears the flag
+    const wrapped = buildReadingLines(makeCast(21, [], null), "en", 24, 12).filter(
+      (l) => l.role === "text",
+    );
+    expect(wrapped.length).toBeGreaterThan(1); // genuinely wrapped
+    expect(wrapped[0].labeled).toBe(true);
+    expect(wrapped.slice(1).every((l) => l.labeled === undefined)).toBe(true);
+  });
+
   test("all six on hexagram 1 shows the 用九 text instead of six lines", () => {
     const lines = buildReadingLines(makeCast(1, [1, 2, 3, 4, 5, 6], 2), "zh-Hant", 70, 8);
     const texts = lines.filter((l) => l.role === "text").map((l) => l.text);

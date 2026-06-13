@@ -49,6 +49,16 @@ export function renderReadingPanel(
     const col = Math.max(0, Math.floor((buf.width - w) / 2));
     if (line.role === "hint" || line.role === "more") {
       buf.writeText(row, col, line.text, { fg: t.tertiary, dim: true });
+    } else if (line.labeled) {
+      // Dim the type-label ("卦辭 · ", "Judgment · ", "4 · ") up to and including
+      // the separator, so the canonical text leads — the 觀象 label hierarchy.
+      // The first "·" is always the separator (it precedes any oracle text).
+      const dot = line.text.indexOf("·");
+      const split = dot >= 0 ? Math.min(line.text.length, dot + 2) : 0;
+      const label = line.text.slice(0, split);
+      const rest = line.text.slice(split);
+      if (label) buf.writeText(row, col, label, { fg: t.tertiary, dim: true });
+      buf.writeText(row, col + stringWidth(label), rest, { fg: t.secondary });
     } else {
       buf.writeText(row, col, line.text, { fg: t.secondary });
     }
