@@ -538,8 +538,13 @@ function runGlossary(): void {
 // incomplete (residue). 乾 is deliberately ABSENT — it must stay 乾, not become 干.
 const TRAD_ONLY = new Set(
   // 陽 added per C-004 adversarial audit (was missing from the map; 陰 was present).
+  // Second block: Traditional-only characters introduced by the gc (卦辭) /
+  // yaoXiao (小象傳) / extra fields and the SEQUENCE (序卦/雜卦) corpus — added
+  // when the residue scan was widened to cover those fields (it previously
+  // scanned only n/dx/tu/yao, contradicting its "ACTUAL rendered corpus" claim).
   Array.from(
-    "傳與無學萬龍風澤離錯綜對歸師謙來時開關東車馬鳥魚為義樂處觀見興養業從國圖後復陽陰險隨雜難雲電順飛餘體麗龜貞賁蠱節記過進遠違適鎖嚴喪應損敗斷會極樹殘沒災牽獲當發盜終結維縣羅聽虛號衆裏訟貫趨跡輔辭驚",
+    "傳與無學萬龍風澤離錯綜對歸師謙來時開關東車馬鳥魚為義樂處觀見興養業從國圖後復陽陰險隨雜難雲電順飛餘體麗龜貞賁蠱節記過進遠違適鎖嚴喪應損敗斷會極樹殘沒災牽獲當發盜終結維縣羅聽虛號衆裏訟貫趨跡輔辭驚" +
+      "馴貴賤縱瀆辯傷際願誰備聰試憊晝玆愛飽絕暉間輕飭飾盡爛誅稺",
   ),
 );
 // Spot-check mappings the conversion MUST get right.
@@ -598,6 +603,7 @@ async function runSimplified(): Promise<void> {
   // Residue scan over the ACTUAL rendered corpus (consumer-side oracle).
   let gmod: { GUA?: Array<Record<string, unknown>> };
   let tmod: { TRIGRAMS?: Array<Record<string, unknown>> };
+  let smod: { SEQUENCE?: Array<Record<string, unknown>> };
   try {
     gmod = (await import(resolve(ROOT, "packages/core/src/data/gua.ts"))) as {
       GUA: Array<Record<string, unknown>>;
@@ -605,16 +611,25 @@ async function runSimplified(): Promise<void> {
     tmod = (await import(resolve(ROOT, "packages/core/src/data/trigrams.ts"))) as {
       TRIGRAMS: Array<Record<string, unknown>>;
     };
+    smod = (await import(resolve(ROOT, "packages/core/src/data/sequence.ts"))) as {
+      SEQUENCE: Array<Record<string, unknown>>;
+    };
   } catch {
     fail("cannot load corpus for residue scan");
     return;
   }
   const strings: string[] = [];
+  // The FULL rendered Chinese corpus — every field a zh-Hans reader sees go
+  // through toSimplified: name, 大象傳, 彖傳, 爻辭, 卦辭, 小象傳, extra, and the
+  // 序卦/雜卦 sequence texts. (Previously only n/dx/tu/yao were scanned.)
   for (const g of gmod.GUA ?? []) {
-    strings.push(String(g.n), String(g.dx), String(g.tu));
+    strings.push(String(g.n), String(g.dx), String(g.tu), String(g.gc));
     for (const y of (g.yao as string[]) ?? []) strings.push(y);
+    for (const y of (g.yaoXiao as string[]) ?? []) strings.push(y);
+    if (typeof g.extra === "string") strings.push(g.extra);
   }
   for (const t of tmod.TRIGRAMS ?? []) strings.push(String(t.n));
+  for (const s of smod.SEQUENCE ?? []) strings.push(String(s.xu), String(s.za));
   const residue = new Set<string>();
   for (const s of strings) for (const ch of toS(s)) if (TRAD_ONLY.has(ch)) residue.add(ch);
   if (residue.size > 0)
