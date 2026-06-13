@@ -383,6 +383,14 @@ describe("journal command", () => {
     expect(p.lineBalance).toHaveProperty("yin");
   }, 20_000);
 
+  test("patterns plain text says '1 reading' (singular) for a lone entry", async () => {
+    await seedJournal(dataDir, [makeEntry("2026-02-01", 3, 8, "coin")]);
+    const plain = await runCli(dataDir, ["journal", "patterns"]);
+    expect(plain.exitCode).toBe(0);
+    expect(plain.stdout).toContain("1 reading ·"); // singular unit, not "1 readings"
+    expect(plain.stdout).not.toContain("1 readings");
+  }, 20_000);
+
   test("patterns on an empty journal is a calm state, not an error", async () => {
     await seedJournal(dataDir, []);
     const plain = await runCli(dataDir, ["journal", "patterns"]);

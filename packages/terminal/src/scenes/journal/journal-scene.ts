@@ -13,7 +13,7 @@ import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { ScrollableRegion } from "../../widgets/scrollable.ts";
 import { TextInput } from "../../widgets/text-input.ts";
-import { tr, type MessageKey } from "../../i18n/messages.ts";
+import { tr, countUnit, type MessageKey } from "../../i18n/messages.ts";
 import {
   computeJournalPatterns,
   type DirectionComparison,
@@ -240,7 +240,7 @@ export class JournalScene implements Scene {
     const titleCol = Math.max(0, Math.floor((maxW - stringWidth(title)) / 2));
     frame.writeText(0, titleCol, title, { fg: t.primary, bold: true });
 
-    const countText = `${this.filtered.length} ${tr(lang, "journal.countSuffix")}`;
+    const countText = `${this.filtered.length} ${countUnit(lang, this.filtered.length, "journal.countSuffix")}`;
     frame.writeText(0, maxW - stringWidth(countText) - 1, countText, { fg: t.tertiary });
 
     // Separator row doubles as the search input when search is live.
@@ -558,7 +558,7 @@ export class JournalScene implements Scene {
     const methods = patterns.baseline.methods;
 
     const a1 = joinClauses([
-      [num(String(patterns.total)), lab(` ${tr(lang, "journal.countSuffix")}`)],
+      [num(String(patterns.total)), lab(` ${countUnit(lang, patterns.total, "journal.countSuffix")}`)],
       [num(String(cadence.spanDays)), lab(tr(lang, "journal.patterns.days"))],
       [lab(`${tr(lang, "journal.patterns.activeDays")} `), num(String(cadence.activeDays))],
     ]);

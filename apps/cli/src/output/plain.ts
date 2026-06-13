@@ -302,7 +302,7 @@ export function formatJournalPatternsPlain(p: JournalPatterns): string {
   };
 
   lines.push(
-    `${p.total} readings · span ${p.cadence.spanDays}d · ${p.cadence.activeDays} active days · this month ${p.thisMonth}`,
+    `${p.total} ${p.total === 1 ? "reading" : "readings"} · span ${p.cadence.spanDays}d · ${p.cadence.activeDays} active days · this month ${p.thisMonth}`,
   );
   lines.push(
     `Cadence: ${p.cadence.castsPerActiveDay.toFixed(1)}/active day` +

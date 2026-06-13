@@ -13,6 +13,7 @@ import {
   truncateToWidth,
   type JournalEntryView,
 } from "../scenes/journal/journal-scene.ts";
+import { countUnit } from "../i18n/messages.ts";
 
 function makeLine(value: 6 | 7 | 8 | 9): Line {
   return {
@@ -175,7 +176,7 @@ describe("JournalScene search ([/])", () => {
     type(scene, ctx, "launch");
 
     const text = renderText(scene, ctx);
-    expect(text).toContain("1 readings");
+    expect(text).toContain("1 reading"); // one match — singular, not "1 readings"
     expect(text).toContain("the launch question");
     expect(text).not.toContain("2026-03-02");
 
@@ -192,7 +193,7 @@ describe("JournalScene search ([/])", () => {
 
     press(scene, ctx, "/");
     type(scene, ctx, "jian");
-    expect(renderText(scene, ctx)).toContain("1 readings");
+    expect(renderText(scene, ctx)).toContain("1 reading"); // one match — singular
 
     press(scene, ctx, "escape");
     const text = renderText(scene, ctx);
@@ -229,7 +230,7 @@ describe("JournalScene search ([/])", () => {
     // A C1 byte inside the pasted query must not poison the filter.
     scene.handleKey({ type: "paste", text: "lau\u009bnch" }, ctx);
     const text = renderText(scene, ctx);
-    expect(text).toContain("1 readings");
+    expect(text).toContain("1 reading"); // one match \u2014 singular
     expect(text).toContain("the launch question");
   });
 });
@@ -1094,3 +1095,28 @@ describe("JournalScene CJK display-width truncation", () => {
 // The pure-derivation tests for computeJournalPatterns moved to the core
 // package alongside the module (packages/core/src/__tests__/journal-patterns.test.ts).
 // This suite keeps the rendering tests — the 觀象 pane — above.
+
+describe("count unit pluralizes English, leaves zh measure words invariant", () => {
+  test("countUnit: 1 is singular in en, plural otherwise; zh is count-invariant", () => {
+    expect(countUnit("en", 1, "journal.countSuffix")).toBe("reading");
+    expect(countUnit("en", 0, "journal.countSuffix")).toBe("readings");
+    expect(countUnit("en", 2, "journal.countSuffix")).toBe("readings");
+    expect(countUnit("en", 1, "dict.countSuffix")).toBe("hexagram");
+    expect(countUnit("en", 5, "dict.countSuffix")).toBe("hexagrams");
+    // 則 / 卦 are measure words — the same at every count.
+    expect(countUnit("zh-Hant", 1, "journal.countSuffix")).toBe("則");
+    expect(countUnit("zh-Hant", 9, "journal.countSuffix")).toBe("則");
+    expect(countUnit("zh-Hans", 1, "journal.countSuffix")).toBe("则");
+    expect(countUnit("zh-Hant", 1, "dict.countSuffix")).toBe("卦");
+  });
+
+  test("the journal list header reads '1 reading', not '1 readings'", () => {
+    // ctxFor() renders in en; the list header count lives on row 0.
+    const one = new JournalScene([makeEntry("2026-03-01", 1)]);
+    expect(renderText(one, ctxFor())).toContain("1 reading");
+    expect(renderText(one, ctxFor())).not.toContain("1 readings");
+
+    const two = new JournalScene([makeEntry("2026-03-01", 1), makeEntry("2026-03-02", 2)]);
+    expect(renderText(two, ctxFor())).toContain("2 readings");
+  });
+});

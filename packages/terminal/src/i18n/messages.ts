@@ -92,12 +92,16 @@ export const MESSAGES = {
   "dict.title": { en: "I Ching Dictionary", zhHant: "易經卦典", zhHans: "易经卦典" },
   "dict.searchPrompt": { en: "Search: ", zhHant: "搜尋：", zhHans: "搜寻：" },
   "dict.countSuffix": { en: "hexagrams", zhHant: "卦", zhHans: "卦" },
+  // Singular for n=1 — English pluralizes ("1 hexagram"); zh 卦 is invariant.
+  "dict.countSuffix.one": { en: "hexagram", zhHant: "卦", zhHans: "卦" },
   // Quiet centered hint when a search matches nothing (instead of a blank list).
   "dict.emptyHint": { en: "nothing answers · esc to clear", zhHant: "無所應 · esc 清除", zhHans: "无所应 · esc 清除" },
 
   // ── journal chrome ──
   "journal.title": { en: "Journal", zhHant: "占記", zhHans: "占记" },
   "journal.countSuffix": { en: "readings", zhHant: "則", zhHans: "则" },
+  // Singular for n=1 — English pluralizes ("1 reading"); zh 則 is invariant.
+  "journal.countSuffix.one": { en: "reading", zhHant: "則", zhHans: "则" },
   "journal.empty": { en: "No readings yet", zhHant: "尚無占記", zhHans: "尚无占记" },
   // Reflection notes — the quiet marker on annotated rows + the input prompt.
   "journal.noteMarker": { en: "note", zhHant: "註", zhHans: "注" },
@@ -215,4 +219,19 @@ export type MessageKey = keyof typeof MESSAGES;
 export function tr(language: DisplayLanguage, key: MessageKey): string {
   const m = MESSAGES[key];
   return language === "en" ? m.en : language === "zh-Hant" ? m.zhHant : m.zhHans;
+}
+
+/**
+ * The localized count unit for `n`, English-pluralized. The zh unit words
+ * (則, 卦) are count-invariant, so only English distinguishes singular —
+ * "1 reading" vs "2 readings". Pass the plural base key; its singular lives
+ * at `${base}.one`. Returns the unit only (the patterns pane styles the
+ * number and unit as separate spans, so it can't take a joined string).
+ */
+export function countUnit(
+  language: DisplayLanguage,
+  n: number,
+  base: "journal.countSuffix" | "dict.countSuffix",
+): string {
+  return tr(language, (n === 1 ? `${base}.one` : base) as MessageKey);
 }

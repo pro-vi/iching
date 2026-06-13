@@ -8,7 +8,7 @@ import { GUA, getStructure, toSimplified } from "@iching/core";
 import type { DisplayLanguage } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
-import { tr } from "../../i18n/messages.ts";
+import { tr, countUnit } from "../../i18n/messages.ts";
 
 const HEADER_ROWS = 2; // header + separator
 const FOOTER_ROWS = 2; // separator + footer
@@ -191,7 +191,7 @@ function renderFooter(
 
   // Footer keybindings
   const lang = ctx.language ?? "en";
-  const count = `${model.filtered.length} ${tr(lang, "dict.countSuffix")}`;
+  const count = `${model.filtered.length} ${countUnit(lang, model.filtered.length, "dict.countSuffix")}`;
   const keys = model.searchActive
     ? `[↑↓] ${tr(lang, "verb.navigate")}  ·  [enter] ${tr(lang, "verb.open")}  ·  [esc] ${tr(lang, "verb.clearSearch")}`
     : `[↑↓] ${tr(lang, "verb.navigate")}  ·  [enter] ${tr(lang, "verb.open")}  ·  [/] ${tr(lang, "verb.search")}  ·  [esc] ${tr(lang, "verb.back")}`;
