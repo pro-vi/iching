@@ -119,6 +119,10 @@ export const MESSAGES = {
   "journal.patterns.sectionTrigrams": { en: "八卦 · trigrams", zhHant: "八卦", zhHans: "八卦" },
   "journal.patterns.sectionSuccession": { en: "次第 · one cast to the next", zhHant: "次第", zhHans: "次第" },
   "journal.patterns.sectionTurnings": { en: "卦變 · turnings & echoes", zhHant: "卦變 · 錯綜", zhHans: "卦变 · 错综" },
+  // 兩儀 coda — the yang/yin balance of every line drawn (易有太極，是生兩儀).
+  "journal.patterns.sectionBalance": { en: "兩儀 · two modes", zhHant: "兩儀", zhHans: "两仪" },
+  "journal.patterns.balanceYin": { en: "yin", zhHant: "陰", zhHans: "阴" },
+  "journal.patterns.balanceYang": { en: "yang", zhHant: "陽", zhHans: "阳" },
   "journal.patterns.noData": { en: "no readings to analyze yet", zhHant: "尚無占記可觀", zhHans: "尚无占记可观" },
   "journal.patterns.days": { en: "d", zhHant: "日", zhHans: "日" },
   "journal.patterns.activeDays": { en: "active days", zhHant: "有占日", zhHans: "有占日" },

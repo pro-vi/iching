@@ -685,8 +685,8 @@ describe("JournalScene patterns pane ([p])", () => {
 
     scene.handleKey({ type: "end" }, ctx);
     text = renderText(scene, ctx);
-    expect(text).toContain("卦變 · turnings & echoes");
-    expect(text).toContain("nuclear");
+    expect(text).toContain("兩儀 · two modes"); // the bottom coda
+    expect(text).toContain("yin 12 · yang 12");
     // End reaches the true last page (the fixed free-scroll indicator), not 7/8.
     expect(text).toContain("8/8");
 
@@ -782,6 +782,32 @@ describe("JournalScene patterns pane ([p])", () => {
     const text = renderText(scene, ctx);
     expect(text).toContain("█████████▋"); // line 5: 4/5 → 9 full + 5/8
     expect(text).toContain("████████████ × 5"); // line 4 (the max) fills the track
+  });
+
+  test("兩儀 coda renders the yang/yin balance growing from a central axis", () => {
+    // 8 all-yang casts (乾) + 3 all-yin casts (坤): 48 yang, 18 yin lines.
+    const allYang = (): Cast => ({
+      lines: [1, 2, 3, 4, 5, 6].map(() => makeLine(7)),
+      primary: 1, becoming: null, changingPositions: [], nuclear: 1, polarity: 2, mirror: 1, diagonal: 2,
+    });
+    const allYin = (): Cast => ({
+      lines: [1, 2, 3, 4, 5, 6].map(() => makeLine(8)),
+      primary: 2, becoming: null, changingPositions: [], nuclear: 1, polarity: 2, mirror: 1, diagonal: 2,
+    });
+    const entries = [
+      ...Array.from({ length: 8 }, (_, i) => makeEntry(`2026-03-0${i + 1}`, 1, { cast: allYang() })),
+      ...Array.from({ length: 3 }, (_, i) => makeEntry(`2026-03-1${i + 1}`, 2, { cast: allYin() })),
+    ];
+    const ctx = ctxFor(45, 80);
+    const scene = new JournalScene(entries, { today: () => "2026-04-15" });
+    scene.enter(ctx);
+    press(scene, ctx, "p");
+    const text = renderText(scene, ctx);
+    expect(text).toContain("兩儀 · two modes");
+    expect(text).toContain("yin 18 · yang 48");
+    expect(text).toContain("│"); // the still central axis
+    expect(text).toContain("⚋");
+    expect(text).toContain("⚊");
   });
 
   test("narrow terminals reflow the field annotations below the grid", () => {
@@ -944,6 +970,11 @@ describe("computeJournalPatterns", () => {
     expect(p.field.counts[0]).toBe(1); // KW 1
     expect(p.field.counts.reduce((sum, c) => sum + c, 0)).toBe(3);
     expect(p.field.maxCount).toBe(2);
+    // 兩儀 — every line's polarity, all 3 casts × 6 lines = 18 lines. makeCast
+    // draws yang on odd positions (3) and yin on even (3) → 9 each per cast.
+    expect(p.lineBalance.yang + p.lineBalance.yin).toBe(18);
+    expect(p.lineBalance.yang).toBe(9);
+    expect(p.lineBalance.yin).toBe(9);
   });
 
   test("empty journal and no moving lines stay calm", () => {

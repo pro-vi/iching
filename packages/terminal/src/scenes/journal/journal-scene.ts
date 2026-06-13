@@ -887,6 +887,37 @@ export class JournalScene implements Scene {
       }
     }
 
+    // ── 兩儀 — the yang/yin balance, a coda that grows from a still axis ──
+    const balance = patterns.lineBalance;
+    if (balance.yang + balance.yin > 0) {
+      blank();
+      rule(tr(lang, "journal.patterns.sectionBalance"), { fg: t.secondary, bold: true });
+      const armW = Math.max(4, Math.min(11, barW - 1));
+      const peak = Math.max(balance.yang, balance.yin, 1);
+      const arm = (n: number): number => (n <= 0 ? 0 : Math.max(1, Math.round((n / peak) * armW)));
+      const yinArm = arm(balance.yin);
+      const yangArm = arm(balance.yang);
+      // 陰 darker, 陽 lighter; both grow from the central axis outward.
+      const yinFill: TextStyle = { fg: t.tertiary };
+      const yangFill: TextStyle = { fg: t.secondary };
+      row(
+        ...label([]),
+        { text: "⚋ ", style: yinFill },
+        { text: "░".repeat(armW - yinArm), style: stRest },
+        { text: "█".repeat(yinArm), style: yinFill },
+        { text: "│", style: stSep },
+        { text: "█".repeat(yangArm), style: yangFill },
+        { text: "░".repeat(armW - yangArm), style: stRest },
+        { text: " ⚊", style: yangFill },
+        lab("  "),
+        lab(`${tr(lang, "journal.patterns.balanceYin")} `),
+        num(String(balance.yin)),
+        sep(),
+        lab(`${tr(lang, "journal.patterns.balanceYang")} `),
+        num(String(balance.yang)),
+      );
+    }
+
     return rows;
   }
 

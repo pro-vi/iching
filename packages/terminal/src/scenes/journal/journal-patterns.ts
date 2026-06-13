@@ -160,6 +160,15 @@ export interface FieldSummary {
   maxCount: number;
 }
 
+/**
+ * 兩儀 — the yang/yin balance across every line of every reading. All entries
+ * count (a line's polarity is recorded regardless of method). 6 lines per cast.
+ */
+export interface LineBalanceSummary {
+  yang: number;
+  yin: number;
+}
+
 export interface JournalPatterns {
   /** Total readings loaded. */
   total: number;
@@ -173,6 +182,8 @@ export interface JournalPatterns {
   diversity: DiversitySummary;
   /** Dense counts across all 64 hexagrams (the 8×8 field). */
   field: FieldSummary;
+  /** 兩儀 — yang vs yin lines drawn across every reading. */
+  lineBalance: LineBalanceSummary;
   /** Most-seen primary hexagrams, count desc then KW asc. */
   topHexagrams: HexagramFrequency[];
   /** Moving-line position distribution (1–6). */
@@ -234,6 +245,8 @@ export function computeJournalPatterns(
   let expectedOldYang = 0;
   let observedOldYin = 0;
   let observedOldYang = 0;
+  let yangLines = 0;
+  let yinLines = 0;
 
   for (const entry of entries) {
     const family = methodFamily(entry.method);
@@ -257,10 +270,13 @@ export function computeJournalPatterns(
     // Observed old-line tallies count every entry — the pane's convention is
     // observed = all readings, expected = the method-marked subset (named in
     // a footnote). Line values 6/9 are recorded regardless of method, so the
-    // observation isn't gated by missing data; only the expectation is.
+    // observation isn't gated by missing data; only the expectation is. The
+    // 兩儀 balance counts every line's polarity the same way.
     for (const line of entry.cast.lines) {
       if (line.value === 6) observedOldYin++;
       if (line.value === 9) observedOldYang++;
+      if (line.isYang) yangLines++;
+      else yinLines++;
     }
 
     if (family !== "unknown") {
@@ -400,6 +416,7 @@ export function computeJournalPatterns(
       methodCounts.known,
     ),
     field,
+    lineBalance: { yang: yangLines, yin: yinLines },
     topHexagrams,
     movingLines,
     movingLineCounts,

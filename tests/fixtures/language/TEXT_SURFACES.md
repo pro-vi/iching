@@ -1060,7 +1060,7 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   code_locator: "L39,43,52,120"
   current_text: '"Journal" / "${n} readings" / "No readings yet" / "[enter] view · [n] note · [g] detail · [/] search · [p] patterns · [esc] back" (catalog: verb.note/verb.patterns, journal.noteMarker/journal.notePrompt, journal.patterns.*)'
   surface_class: terminal-journal
-  render_context: "journal title/count/empty-state/footer + note input + patterns pane (觀象: 8×8 hexagram field, ruled sections, chance-vs-observed labels — all via tr(); section seals carry classical terms in en per the 用九 corpus precedent)"
+  render_context: "journal title/count/empty-state/footer + note input + patterns pane (觀象: 8×8 hexagram field, ruled sections incl. the 兩儀 yin/yang balance coda, chance-vs-observed labels — all via tr(); section seals carry classical terms in en per the 用九 corpus precedent)"
   language_policy: translate
   source_layer: product-ui
   risk: low
