@@ -21,7 +21,8 @@ Set an intention. Cast a hexagram. Sit with what shows up.
   append-only JSONL — your own divination history.
 - **Observe** quiet patterns over that history (`p` in the journal, or
   `iching journal patterns`) — a field of all 64 lit by what you've drawn,
-  where movement falls, the yin/yang balance. Observation, never prediction.
+  where movement falls, the yin/yang balance, the phase of day each was cast.
+  Observation, never prediction.
 - **Hook into LLMs** the assistant can read your cast for further interpretation.
 
 Raw ANSI, five hand-tuned themes (ink, bone, cinnabar, jade, river),
@@ -89,7 +90,10 @@ method-marked subset** (coin/yarrow casts, whose line probabilities are known �
 legacy entries have none). Never divide an all-readings `count` by an `expected`
 from a `comparison` block; use that block's own `count`/`expected`, which share
 a basis. (`topTrigrams.expected` is the one `expected` outside a comparison
-block — method-free geometry, same all-readings basis as its `count`.)
+block — method-free geometry, same all-readings basis as its `count`.) One
+further basis: `timeOfDay` rests on the **timestamped** subset — its phase
+counts sum to `timeOfDay.timestamped`, not `total`, since readings without a
+recorded local hour are omitted rather than guessed.
 
 ## Storage
 
