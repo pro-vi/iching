@@ -52,6 +52,18 @@ export function registerDictCommand(program: Command): void {
 
       const session = new TerminalSession();
       const router = new SceneRouter(initial, makeBrowseFactory(factoryDeps));
+      // Crash safety: a floating rejection or a callback throw that escapes the
+      // awaited router.run (a scene timer, an un-awaited promise) would kill the
+      // process with the terminal still in raw mode on the alt screen. Restore
+      // before dying — the same guard the home TUI holds (main.ts); this
+      // interactive session was the uneven twin that lacked it.
+      const onFatal = (err: unknown) => {
+        session.exit();
+        console.error(err instanceof Error ? (err.stack ?? err.message) : String(err));
+        process.exit(1);
+      };
+      process.once("uncaughtException", onFatal);
+      process.once("unhandledRejection", onFatal);
       // Hold one alt-screen session across the router run — scene hops repaint
       // in place instead of flashing the user's shell (runScene is
       // ownership-aware and leaves an outer-held session alone).
