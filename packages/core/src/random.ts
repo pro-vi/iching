@@ -109,6 +109,13 @@ export class BoundRandomSource implements RandomSource {
 /**
  * Deterministic PRNG from a seed number.
  * Uses xorshift128+ for fast, reproducible sequences.
+ *
+ * For REPRODUCIBILITY (the --seed flag, exact-output tests), not distributional
+ * fidelity: nextBytes emits xorshift's low byte, whose lower bits are its
+ * weakest, so a distribution-sensitive consumer (e.g. yarrow's rejection
+ * sampling) drifts ~0.01 off true probabilities. Production casting uses
+ * CryptoRandomSource / BoundRandomSource, which do not have this skew. Do not
+ * use this source where the OUTPUT DISTRIBUTION (not just repeatability) matters.
  */
 export class SeededRandomSource implements RandomSource {
   private s0: number;
