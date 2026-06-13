@@ -218,6 +218,30 @@ describe("journal command", () => {
     expect(pat.stdout).not.toContain("No readings to observe yet");
   }, 20_000);
 
+  test("a bounded patterns report discloses its window and drops now-relative copy", async () => {
+    await seedJournal(dataDir, [
+      makeEntry("2023-02-10", 1, null),
+      makeEntry("2023-02-20", 2, null),
+    ]);
+    // Historical window (ends in the past): disclose the period, drop "this month".
+    const hist = await runCli(dataDir, [
+      "journal", "patterns", "--since", "2023-01-01", "--until", "2023-12-31",
+    ]);
+    expect(hist.exitCode).toBe(0);
+    expect(hist.stdout).toContain("Observing 2023-01-01 through 2023-12-31");
+    expect(hist.stdout).not.toContain("this month"); // now-relative, out of frame
+
+    // Open-ended --since (window includes now): disclose, but "this month" stays.
+    const open = await runCli(dataDir, ["journal", "patterns", "--since", "2023-01-01"]);
+    expect(open.exitCode).toBe(0);
+    expect(open.stdout).toContain("Observing 2023-01-01 through now");
+    expect(open.stdout).toContain("this month");
+
+    // No window: no disclosure line at all.
+    const all = await runCli(dataDir, ["journal", "patterns"]);
+    expect(all.stdout).not.toContain("Observing");
+  }, 20_000);
+
   test("patterns --until bounds the observation to a past period", async () => {
     await seedJournal(dataDir, [
       makeEntry("2026-01-10", 1, null),

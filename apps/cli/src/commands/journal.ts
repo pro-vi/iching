@@ -157,11 +157,20 @@ export function registerJournalCommand(program: Command): void {
         entries.push(entry);
       }
 
-      const patterns = computeJournalPatterns(entries, localToday());
+      const today = localToday();
+      const patterns = computeJournalPatterns(entries, today);
       if (globalOpts.json) {
         outputJson(journalPatternsToJson(patterns));
       } else {
-        console.log(formatJournalPatternsPlain(patterns));
+        // Disclose the window so a bounded report reads as the retrospective it
+        // is; drop the now-relative "this month" when the window ends in the past.
+        if (cmdOpts.since || cmdOpts.until) {
+          const from = cmdOpts.since ?? "the beginning";
+          const to = cmdOpts.until ?? "now";
+          console.log(`Observing ${from} through ${to}`);
+        }
+        const historical = cmdOpts.until !== undefined && cmdOpts.until < today;
+        console.log(formatJournalPatternsPlain(patterns, { omitThisMonth: historical }));
       }
       reportSkippedLines(store);
     });

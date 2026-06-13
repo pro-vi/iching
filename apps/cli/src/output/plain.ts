@@ -293,7 +293,10 @@ function formatTime(iso: string): string {
  * The TUI 觀象 pane is the rich view; this is the calm one-screen summary —
  * observation over what arrived, never prediction.
  */
-export function formatJournalPatternsPlain(p: JournalPatterns): string {
+export function formatJournalPatternsPlain(
+  p: JournalPatterns,
+  opts?: { omitThisMonth?: boolean },
+): string {
   if (p.total === 0 || !p.cadence) return "No readings to observe yet.";
   const lines: string[] = [];
   const name = (kw: number): string => {
@@ -301,8 +304,12 @@ export function formatJournalPatternsPlain(p: JournalPatterns): string {
     return g ? `${g.u} ${g.n} (${g.p})` : `#${kw}`;
   };
 
+  // Under a historical window, "this month" is relative to real today, not the
+  // period — always 0 and meaningless — so the caller drops it. The other
+  // figures (span, active days, gaps) are window-internal and stand.
   lines.push(
-    `${p.total} ${p.total === 1 ? "reading" : "readings"} · span ${p.cadence.spanDays}d · ${p.cadence.activeDays} active days · this month ${p.thisMonth}`,
+    `${p.total} ${p.total === 1 ? "reading" : "readings"} · span ${p.cadence.spanDays}d · ${p.cadence.activeDays} active days` +
+      (opts?.omitThisMonth ? "" : ` · this month ${p.thisMonth}`),
   );
   lines.push(
     `Cadence: ${p.cadence.castsPerActiveDay.toFixed(1)}/active day` +

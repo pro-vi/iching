@@ -1675,7 +1675,7 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
 - surface_id: cli-journal-patterns
   file: apps/cli/src/commands/journal.ts, apps/cli/src/output/plain.ts
   code_locator: "registerJournalCommand patterns subcommand; formatJournalPatternsPlain"
-  current_text: '"Observe patterns across the journal (distribution, cadence, balance)" / "only readings since date (YYYY-MM-DD)" / "only readings until date (YYYY-MM-DD)" / "No readings to observe yet." / "readings · span" / "active days · this month" / "Cadence: " / "/active day" / "usual gap" / "idle " / "Diversity: seen" / "of 64" / "most recent" / "Most seen:" / "Phase of day (over N timed)" / "dawn" / "midday" / "dusk" / "night" / "Two modes (兩儀): yin" / "yang" / "Drift between readings" / "of 6 lines, on average" / "Methods: coin" / "yarrow" / "unmarked" / "last "'
+  current_text: '"Observe patterns across the journal (distribution, cadence, balance)" / "only readings since date (YYYY-MM-DD)" / "only readings until date (YYYY-MM-DD)" / "No readings to observe yet." / "readings · span" / "active days · this month" / "Cadence: " / "/active day" / "usual gap" / "idle " / "Diversity: seen" / "of 64" / "most recent" / "Most seen:" / "Phase of day (over N timed)" / "dawn" / "midday" / "dusk" / "night" / "Observing X through Y" / "the beginning" / "now" / "Two modes (兩儀): yin" / "yang" / "Drift between readings" / "of 6 lines, on average" / "Methods: coin" / "yarrow" / "unmarked" / "last "'
   surface_class: cli-commands
   render_context: "journal patterns plain digest (the 觀象 pane data as one calm screen); --json is the structured surface via journalPatternsToJson"
   language_policy: translate
