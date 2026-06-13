@@ -178,6 +178,42 @@ describe("computeJournalPatterns", () => {
     // The lines-less entry adds nothing to the 兩儀 balance (only the good cast).
     expect(p.lineBalance.yang + p.lineBalance.yin).toBe(6);
   });
+
+  test("malformed changingPositions normalize so the two moving-line distributions agree", () => {
+    // A hand-edited record can carry out-of-range / duplicate / >6 positions
+    // (the store only checks integer-array). Normalizing to a unique 1–6 set
+    // keeps the per-position tally (movingLines) and the per-cast bin
+    // (movingLineCounts) over the SAME population — they must never disagree.
+    const bad = (date: string, positions: number[]): HistoryEntry =>
+      ({
+        date,
+        method: "coin",
+        cast: {
+          lines: [1, 2, 3, 4, 5, 6].map(() => makeLine(8)),
+          primary: 1,
+          becoming: null,
+          changingPositions: positions,
+          nuclear: 1,
+          polarity: 1,
+          mirror: 1,
+          diagonal: 1,
+        },
+      }) as unknown as HistoryEntry;
+    const entries = [
+      bad("2026-03-01", [0, 3, 3, 99, -1, 7]), // → {3}: one moving line
+      bad("2026-03-02", [1, 2, 3, 4, 5, 6, 3, 4]), // → {1..6}: six moving lines
+    ];
+    const p = computeJournalPatterns(entries, "2026-04-15");
+    const perPosition = p.movingLines.reduce((a, l) => a + l.count, 0);
+    const viaBins = p.movingLineCounts.reduce((a, b) => a + b.movingLines * b.count, 0);
+    expect(perPosition).toBe(7); // 1 + 6
+    expect(viaBins).toBe(perPosition); // the two distributions agree
+    expect(p.movingLineCounts.reduce((a, b) => a + b.count, 0)).toBe(2); // every cast binned once
+    expect(p.movingLineCounts[1].count).toBe(1); // the {3} cast → bin 1
+    expect(p.movingLineCounts[6].count).toBe(1); // the {1..6} cast → bin 6
+    // No position counted twice despite the duplicate 3s.
+    expect(p.movingLines[2].count).toBe(2); // position 3 appears in both casts, once each
+  });
 });
 
 describe("computeJournalPatterns — invariants over random journals (fuzz)", () => {

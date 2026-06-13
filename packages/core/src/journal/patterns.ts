@@ -274,12 +274,18 @@ export function computeJournalPatterns(
     if (entry.date > f.lastDate) f.lastDate = entry.date;
     freq.set(entry.cast.primary, f);
 
-    const changing = entry.cast.changingPositions ?? [];
-    if (changing.length <= 6) movingCountBins[changing.length]++;
+    // Normalize the moving positions once so every distribution describes the
+    // SAME population. The app's writer only ever emits unique values in 1–6,
+    // but the store admits any integer array (a hand-edited or corrupt record),
+    // and feeding raw length to the per-cast bin while range-filtering the
+    // per-position tally would desync the two — and inflate the rare-bin chance
+    // figure. Dedup + keep 1–6: for well-formed casts this is a no-op.
+    const changing = [
+      ...new Set((entry.cast.changingPositions ?? []).filter((p) => p >= 1 && p <= 6)),
+    ];
+    movingCountBins[changing.length]++; // length is now always 0–6
     totalMovingLines += changing.length;
-    for (const pos of changing) {
-      if (pos >= 1 && pos <= 6) lineCounts[pos - 1]++;
-    }
+    for (const pos of changing) lineCounts[pos - 1]++;
     // The 兩儀 balance is descriptive — every line's polarity across all
     // readings (a malformed entry missing its lines contributes nothing rather
     // than crashing the pane). The old-yang/yin tally, by contrast, is the
@@ -299,10 +305,8 @@ export function computeJournalPatterns(
       if (entry.date > known.lastDate) known.lastDate = entry.date;
       knownFreq.set(entry.cast.primary, known);
 
-      if (changing.length <= 6) knownMovingCountBins[changing.length]++;
-      for (const pos of changing) {
-        if (pos >= 1 && pos <= 6) knownLineCounts[pos - 1]++;
-      }
+      knownMovingCountBins[changing.length]++; // changing is normalized to 0–6 unique
+      for (const pos of changing) knownLineCounts[pos - 1]++;
       for (const line of lines) {
         if (line.value === 6) observedOldYin++;
         if (line.value === 9) observedOldYang++;
