@@ -179,3 +179,94 @@ describe("computeJournalPatterns", () => {
     expect(p.lineBalance.yang + p.lineBalance.yin).toBe(6);
   });
 });
+
+describe("computeJournalPatterns — invariants over random journals (fuzz)", () => {
+  // Deterministic LCG so any failure is reproducible from the printed seed.
+  function lcg(seed: number): () => number {
+    let s = seed >>> 0;
+    return () => {
+      s = (s * 1664525 + 1013904223) >>> 0;
+      return s / 0x100000000;
+    };
+  }
+  const METHODS = ["coin", "coin-manual", "yarrow", "yarrow-manual", undefined] as const;
+  const KNOWN_METHODS = new Set(["coin", "coin-manual", "yarrow", "yarrow-manual"]);
+
+  function randomJournal(rng: () => number): HistoryEntry[] {
+    const n = Math.floor(rng() * 40); // 0–39 entries
+    const entries: HistoryEntry[] = [];
+    for (let i = 0; i < n; i++) {
+      const primary = 1 + Math.floor(rng() * 64);
+      const changing = [1, 2, 3, 4, 5, 6].filter(() => rng() < 0.25);
+      const method = METHODS[Math.floor(rng() * METHODS.length)];
+      // Random day in a ~200-day window, random intra-day time — order shuffled.
+      const day = 1 + Math.floor(rng() * 200);
+      const date = new Date(Date.UTC(2026, 0, day)).toISOString().slice(0, 10);
+      const hh = String(Math.floor(rng() * 24)).padStart(2, "0");
+      entries.push({
+        date,
+        timestamp: `${date}T${hh}:00:00.000Z`,
+        method,
+        cast: makeCast(primary, rng() < 0.5 ? 1 + Math.floor(rng() * 64) : null, changing),
+      });
+    }
+    return entries;
+  }
+
+  test("invariants hold across many random journals", () => {
+    for (let seed = 1; seed <= 400; seed++) {
+      const rng = lcg(seed);
+      const entries = randomJournal(rng);
+      let p;
+      try {
+        p = computeJournalPatterns(entries, "2026-08-01");
+      } catch (err) {
+        throw new Error(`computeJournalPatterns threw on seed ${seed}: ${String(err)}`);
+      }
+      const ctx = `seed ${seed}`;
+      // Totals and the dense field.
+      expect(p.total, ctx).toBe(entries.length);
+      const fieldSum = p.field.counts.reduce((a, b) => a + b, 0);
+      expect(fieldSum, ctx).toBe(entries.length); // every primary is in 1–64
+      expect(p.field.counts, ctx).toHaveLength(64);
+      expect(p.field.maxCount, ctx).toBe(Math.max(0, ...p.field.counts));
+      // Method partition.
+      const m = p.baseline.methods;
+      expect(m.coin + m.yarrow + m.unknown, ctx).toBe(p.total);
+      expect(m.known, ctx).toBe(m.coin + m.yarrow);
+      const knownInput = entries.filter((e) => KNOWN_METHODS.has(e.method as string)).length;
+      expect(m.known, ctx).toBe(knownInput);
+      // 兩儀: every well-formed cast contributes exactly 6 lines.
+      expect(p.lineBalance.yang + p.lineBalance.yin, ctx).toBe(entries.length * 6);
+      // topHexagrams: capped, count-descending, count >= knownCount >= 0.
+      expect(p.topHexagrams.length, ctx).toBeLessThanOrEqual(5);
+      for (let i = 1; i < p.topHexagrams.length; i++) {
+        expect(p.topHexagrams[i - 1].count >= p.topHexagrams[i].count, ctx).toBe(true);
+      }
+      for (const h of p.topHexagrams) {
+        expect(h.count >= h.knownCount && h.knownCount >= 0, ctx).toBe(true);
+        expect(h.kw >= 1 && h.kw <= 64, ctx).toBe(true);
+      }
+      // Moving lines: six positions, each observed count >= method-marked count.
+      expect(p.movingLines, ctx).toHaveLength(6);
+      for (const line of p.movingLines) {
+        expect(line.count >= line.knownCount && line.knownCount >= 0, ctx).toBe(true);
+      }
+      // field.recent = primary of the chronologically latest entry, or null.
+      if (entries.length === 0) {
+        expect(p.field.recent, ctx).toBeNull();
+        expect(p.cadence, ctx).toBeNull();
+      } else {
+        const latest = [...entries].sort((a, b) =>
+          (a.timestamp ?? a.date).localeCompare(b.timestamp ?? b.date),
+        )[entries.length - 1];
+        expect(p.field.recent, ctx).toBe(latest.cast.primary);
+      }
+      // Old-line comparisons stay same-basis: observed never exceeds what the
+      // method-marked casts could have produced (6 old-line slots each).
+      expect(p.baseline.oldYin.observed + p.baseline.oldYang.observed, ctx).toBeLessThanOrEqual(
+        m.known * 6,
+      );
+    }
+  });
+});
