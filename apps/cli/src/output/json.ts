@@ -214,7 +214,28 @@ export function journalPatternsToJson(p: JournalPatterns): Record<string, unknow
     total: p.total,
     thisMonth: p.thisMonth,
     cadence: p.cadence,
-    diversity: p.diversity,
+    // Descriptive spread (all readings) at the top; the distinct-vs-expected
+    // and repeats comparisons namespaced under the method-marked basis, so the
+    // all-readings distinctHexagrams can't be divided by a method-only expected.
+    diversity: {
+      distinctHexagrams: p.diversity.distinctHexagrams,
+      entropyBits: p.diversity.entropyBits,
+      maxEntropyBits: p.diversity.maxEntropyBits,
+      normalizedEntropy: p.diversity.normalizedEntropy,
+      topShare: p.diversity.topShare,
+      concentration: p.diversity.concentration,
+      comparison:
+        p.diversity.expectedDistinctHexagrams !== null
+          ? {
+              basis: "method-marked",
+              distinctHexagrams: p.diversity.knownDistinctHexagrams,
+              expectedDistinctHexagrams: p.diversity.expectedDistinctHexagrams,
+              observedRepeats: p.diversity.observedRepeats,
+              expectedRepeats: p.diversity.expectedRepeats,
+              repeatLift: p.diversity.repeatLift,
+            }
+          : null,
+    },
     baseline: p.baseline,
     lineBalance: p.lineBalance,
     field: {

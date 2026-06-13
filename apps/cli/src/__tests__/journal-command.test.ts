@@ -362,6 +362,12 @@ describe("journal command", () => {
     expect(p.movingLines[0]).toHaveProperty("comparison");
     expect(p.movingLineCounts[0]).not.toHaveProperty("expected");
     expect(p.movingLineCounts[0]).toHaveProperty("comparison");
+    // diversity: descriptive spread at top, the distinct/repeats comparison
+    // namespaced — distinctHexagrams (all) is never adjacent to a method-only
+    // expectedDistinctHexagrams.
+    expect(p.diversity).toHaveProperty("distinctHexagrams");
+    expect(p.diversity).not.toHaveProperty("expectedDistinctHexagrams");
+    expect(p.diversity.comparison).toMatchObject({ basis: "method-marked" });
     expect(p.lineBalance).toHaveProperty("yang");
     expect(p.lineBalance).toHaveProperty("yin");
   }, 20_000);
