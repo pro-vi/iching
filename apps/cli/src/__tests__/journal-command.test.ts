@@ -243,6 +243,29 @@ describe("journal command", () => {
     expect(all.stdout).not.toContain("Observing");
   }, 20_000);
 
+  test("the plain digest pluralizes 'active day' to match its sibling count", async () => {
+    // A first-day journal (every reading on one date) has activeDays === 1, and
+    // cadence renders from a single dated day. The a1 line already pluralizes
+    // "reading" by count; "active day(s)" must match it — never "1 active days".
+    await seedJournal(dataDir, [
+      makeEntry("2026-03-10", 1, null),
+      makeEntry("2026-03-10", 2, null),
+    ]);
+    const oneDay = await runCli(dataDir, ["journal", "patterns"]);
+    expect(oneDay.exitCode).toBe(0);
+    expect(oneDay.stdout).toContain("1 active day");
+    expect(oneDay.stdout).not.toContain("1 active days"); // the guard: never the plural at count 1
+
+    // Two distinct days → the plural stands.
+    await seedJournal(dataDir, [
+      makeEntry("2026-03-10", 1, null),
+      makeEntry("2026-03-12", 2, null),
+    ]);
+    const twoDays = await runCli(dataDir, ["journal", "patterns"]);
+    expect(twoDays.exitCode).toBe(0);
+    expect(twoDays.stdout).toContain("2 active days");
+  }, 20_000);
+
   test("patterns --until bounds the observation to a past period", async () => {
     await seedJournal(dataDir, [
       makeEntry("2026-01-10", 1, null),

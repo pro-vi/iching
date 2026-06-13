@@ -319,7 +319,7 @@ export function formatJournalPatternsPlain(
   // period — always 0 and meaningless — so the caller drops it. The other
   // figures (span, active days, gaps) are window-internal and stand.
   lines.push(
-    `${p.total} ${p.total === 1 ? "reading" : "readings"} · span ${p.cadence.spanDays}d · ${p.cadence.activeDays} active days` +
+    `${p.total} ${p.total === 1 ? "reading" : "readings"} · span ${p.cadence.spanDays}d · ${p.cadence.activeDays} active ${p.cadence.activeDays === 1 ? "day" : "days"}` +
       (opts?.omitThisMonth ? "" : ` · this month ${p.thisMonth}`),
   );
   lines.push(
