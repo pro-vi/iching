@@ -484,6 +484,42 @@ describe("journal command", () => {
     expect(p.lineBalance).toHaveProperty("yin");
   }, 20_000);
 
+  test("JSON diversity comparison rests on the method-marked subset, not all readings", async () => {
+    // Contract-boundary lock for the basis discipline (GPT-Pro review: the
+    // observed side of a chance comparison must share the method-marked basis
+    // of its expectation, never cross an all-readings count with a method-only
+    // expectation). The core derivation is tested with mixed methods in
+    // journal-patterns.test.ts; this guards the json.ts MAPPING — that it routes
+    // the method-marked distinct into the comparison block, not the descriptive
+    // one. Earlier all-marked fixtures couldn't catch a swapped field because
+    // both counts coincide; here unknown-method readings make them diverge.
+    await seedJournal(dataDir, [
+      // 8 method-marked readings, all hexagram 1 → method-marked distinct = 1.
+      ...Array.from({ length: 8 }, (_, i) =>
+        makeEntry(`2026-02-${String(i + 1).padStart(2, "0")}`, 1, null, "coin"),
+      ),
+      // 4 unknown-method readings over NEW hexagrams → descriptive distinct += 4.
+      makeEntry("2026-02-20", 20, null),
+      makeEntry("2026-02-21", 21, null),
+      makeEntry("2026-02-22", 22, null),
+      makeEntry("2026-02-23", 23, null),
+    ]);
+    const json = await runCli(dataDir, ["--json", "journal", "patterns"]);
+    expect(json.exitCode).toBe(0);
+    const p = JSON.parse(json.stdout);
+    expect(p.total).toBe(12);
+    // Descriptive spread spans ALL readings: {1, 20, 21, 22, 23} = 5 distinct.
+    expect(p.diversity.distinctHexagrams).toBe(5);
+    // The comparison's OBSERVED distinct is the method-marked subset only (the
+    // 8 hexagram-1 casts) = 1 — never the descriptive 5.
+    expect(p.diversity.comparison.distinctHexagrams).toBe(1);
+    // …and its EXPECTED rests on the method-marked count n=8, not n=12:
+    // 64·(1−(63/64)^8) ≈ 7.56 (n=12 would give ≈11.0), so 7 < x < 8 proves the
+    // expectation used the known subset, sharing the observed side's basis.
+    expect(p.diversity.comparison.expectedDistinctHexagrams).toBeGreaterThan(7);
+    expect(p.diversity.comparison.expectedDistinctHexagrams).toBeLessThan(8);
+  }, 20_000);
+
   test("patterns plain text says '1 reading' (singular) for a lone entry", async () => {
     await seedJournal(dataDir, [makeEntry("2026-02-01", 3, 8, "coin")]);
     const plain = await runCli(dataDir, ["journal", "patterns"]);
