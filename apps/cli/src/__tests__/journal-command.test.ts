@@ -433,6 +433,12 @@ describe("journal command", () => {
     expect(p.movingLines[0]).toHaveProperty("comparison");
     expect(p.movingLineCounts[0]).not.toHaveProperty("expected");
     expect(p.movingLineCounts[0]).toHaveProperty("comparison");
+    // trigrams follow the SAME discipline now (no longer an all-readings
+    // exception): descriptive count + a method-marked comparison block.
+    expect(p.topTrigrams[0]).not.toHaveProperty("expected");
+    expect(p.topTrigrams[0]).not.toHaveProperty("lift");
+    expect(p.topTrigrams[0]).toHaveProperty("count");
+    expect(p.topTrigrams[0].comparison).toMatchObject({ basis: "method-marked" });
     // diversity: descriptive spread at top, the distinct/repeats comparison
     // namespaced — distinctHexagrams (all) is never adjacent to a method-only
     // expectedDistinctHexagrams.

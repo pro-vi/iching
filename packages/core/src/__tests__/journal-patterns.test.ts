@@ -87,7 +87,13 @@ describe("computeJournalPatterns", () => {
       [39, 39, 1],
     ]);
     expect(p.topTrigrams.length).toBeGreaterThan(0);
-    expect(p.topTrigrams[0].expected).toBeCloseTo(6 / 8, 4);
+    // Trigram chance rests on the method-marked subset (known=2), like the
+    // per-hexagram expectation — NOT all 3 readings (which would give 6/8).
+    expect(p.topTrigrams[0].expected).toBeCloseTo((2 * 2) / 8, 4); // 0.5, not 0.75
+    expect(p.topTrigrams[0].lift).toBeCloseTo(
+      p.topTrigrams[0].knownCount / p.topTrigrams[0].expected,
+      4,
+    );
     expect(p.topStructuralEchoes.length).toBeGreaterThan(0);
     expect(p.hammingDrift?.transitions).toBe(2);
     // The dense field behind the 8×8 grid: every KW slot, all methods counted.
@@ -234,6 +240,38 @@ describe("computeJournalPatterns — the chance baseline rests on correct probab
     // The foundational identity behind the per-hexagram baseline: both methods
     // give P(yang line)=1/2, so the primary is uniform over 64 → known/64.
     expect(p.baseline.primaryExpectedPerHexagram).toBeCloseTo(N / 64, 10);
+  });
+
+  test("trigram chance rests on the method-marked subset, null without a baseline", () => {
+    // Mixed: 2 coin + 1 unknown. Counts are over all 3; the expectation/lift
+    // rest only on the 2 known (uniform 1/8 needs a known method, like primaries).
+    const mixed = computeJournalPatterns(
+      [
+        makeEntry("2026-03-01", 1, { method: "coin" as const }),
+        makeEntry("2026-03-02", 2, { method: "coin" as const }),
+        makeEntry("2026-03-03", 3), // unknown
+      ],
+      "2026-04-15",
+    );
+    for (const t of mixed.topTrigrams) {
+      expect(t.expected).toBeCloseTo((2 * 2) / 8, 6); // known=2, not total=3
+      expect(t.lift).toBeCloseTo(t.knownCount / t.expected, 6);
+      expect(t.knownCount).toBeLessThanOrEqual(t.count); // method-marked ⊆ all readings
+    }
+
+    // All-unknown journal → no method-marked baseline → expected 0, lift null,
+    // but the descriptive counts still stand.
+    const legacy = computeJournalPatterns(
+      [makeEntry("2026-03-01", 1), makeEntry("2026-03-02", 2)],
+      "2026-04-15",
+    );
+    expect(legacy.topTrigrams.length).toBeGreaterThan(0);
+    for (const t of legacy.topTrigrams) {
+      expect(t.count).toBeGreaterThan(0);
+      expect(t.knownCount).toBe(0);
+      expect(t.expected).toBe(0);
+      expect(t.lift).toBeNull();
+    }
   });
 
   test("yarrow weights old-yang 3:1 over old-yin; coin is symmetric", () => {

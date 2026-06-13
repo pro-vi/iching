@@ -90,9 +90,11 @@ reading; chance figures live in `comparison` blocks computed only over the
 method-marked subset** (coin/yarrow casts, whose line probabilities are known —
 legacy entries have none). Never divide an all-readings `count` by an `expected`
 from a `comparison` block; use that block's own `count`/`expected`, which share
-a basis. (`topTrigrams.expected` is the one `expected` outside a comparison
-block — method-free geometry, same all-readings basis as its `count`.) One
-further basis: `timeOfDay` rests on the **timestamped** subset — its phase
+a basis. (Every chance figure — including `topTrigrams` — lives in a
+`comparison` block over the method-marked subset; uniform trigram geometry
+still needs P(yang)=½, a property of the method, so it rests on the same basis
+as the rest.) One further basis: `timeOfDay` rests on the **timestamped**
+subset — its phase
 counts sum to `timeOfDay.timestamped`, not `total`, since readings without a
 recorded local hour are omitted rather than guessed.
 

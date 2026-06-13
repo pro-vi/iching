@@ -80,15 +80,23 @@ export interface MovingLineCountBin {
 
 export interface TrigramFrequency {
   index: number;
+  /** All-readings appearances across primary upper+lower positions (descriptive). */
   count: number;
   upperCount: number;
   lowerCount: number;
-  /** Share of all primary upper/lower trigram appearances. */
+  /** Appearances among method-marked readings — the basis the comparison rests on. */
+  knownCount: number;
+  /** Share of all primary upper/lower trigram appearances (all readings). */
   share: number;
-  /** Count divided by the uniform 1/8 expectation for trigram appearances. */
-  lift: number;
-  /** Uniform appearance expectation per trigram: (total * 2) / 8. */
+  /**
+   * Method-marked appearance expectation per trigram: (known * 2) / 8. Trigram
+   * uniformity (each 1/8) needs P(yang line)=1/2, which is a property of the
+   * casting METHOD (true for coin and yarrow) — so, like the per-hexagram
+   * expectation, it must rest on the known subset, not all readings.
+   */
   expected: number;
+  /** knownCount / expected; null when there is no method-marked baseline. */
+  lift: number | null;
 }
 
 export interface PairFrequency {
@@ -271,6 +279,9 @@ export function computeJournalPatterns(
   const movingCountBins = [0, 0, 0, 0, 0, 0, 0];
   const knownMovingCountBins = [0, 0, 0, 0, 0, 0, 0];
   const trigramFreq = new Map<number, { count: number; upperCount: number; lowerCount: number }>();
+  // Method-marked appearances per trigram — the basis the chance comparison
+  // rests on, parallel to knownFreq for hexagrams.
+  const knownTrigramCounts = new Map<number, number>();
   const transformations = new Map<string, { from: number; to: number; count: number; lastDate: string }>();
   const structural = new Map<string, StructuralEcho>();
   const methodCounts: MethodFamilyCounts = { coin: 0, yarrow: 0, unknown: 0, known: 0, total: 0 };
@@ -366,6 +377,10 @@ export function computeJournalPatterns(
       const upper = trigramIndex(gua.l.slice(3, 6));
       addTrigram(trigramFreq, lower, "lower");
       addTrigram(trigramFreq, upper, "upper");
+      if (family !== "unknown") {
+        knownTrigramCounts.set(lower, (knownTrigramCounts.get(lower) ?? 0) + 1);
+        knownTrigramCounts.set(upper, (knownTrigramCounts.get(upper) ?? 0) + 1);
+      }
     }
 
     if (entry.cast.becoming !== null) {
@@ -428,19 +443,27 @@ export function computeJournalPatterns(
     ...comparison(knownMovingCountBins[movingLines], methodCounts.known * MOVING_COUNT_PROBABILITIES[movingLines]),
   }));
 
-  const expectedTrigramCount = total > 0 ? (total * 2) / 8 : 0;
+  // Counts are descriptive (all readings); the chance comparison rests on the
+  // method-marked subset, like the per-hexagram expectation — uniform 1/8 per
+  // trigram requires P(yang)=1/2, a property of the method, so legacy/unknown
+  // readings must not silently participate in expected/lift.
+  const expectedTrigramCount = methodCounts.known > 0 ? (methodCounts.known * 2) / 8 : 0;
   const totalTrigramAppearances = total * 2;
   const topTrigrams: TrigramFrequency[] = [...trigramFreq.entries()]
-    .map(([index, t]) => ({
-      index,
-      count: t.count,
-      upperCount: t.upperCount,
-      lowerCount: t.lowerCount,
-      share: totalTrigramAppearances > 0 ? t.count / totalTrigramAppearances : 0,
-      lift: expectedTrigramCount > 0 ? t.count / expectedTrigramCount : 0,
-      expected: expectedTrigramCount,
-    }))
-    .sort((a, b) => b.count - a.count || b.lift - a.lift || a.index - b.index)
+    .map(([index, t]) => {
+      const knownCount = knownTrigramCounts.get(index) ?? 0;
+      return {
+        index,
+        count: t.count,
+        upperCount: t.upperCount,
+        lowerCount: t.lowerCount,
+        knownCount,
+        share: totalTrigramAppearances > 0 ? t.count / totalTrigramAppearances : 0,
+        expected: expectedTrigramCount,
+        lift: expectedTrigramCount > 0 ? knownCount / expectedTrigramCount : null,
+      };
+    })
+    .sort((a, b) => b.count - a.count || nullableDesc(a.lift, b.lift) || a.index - b.index)
     .slice(0, topN);
 
   const chronological = [...entries].sort(compareEntryTime);

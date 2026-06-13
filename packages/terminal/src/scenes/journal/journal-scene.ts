@@ -811,10 +811,11 @@ export class JournalScene implements Scene {
       rule(
         tr(lang, "journal.patterns.sectionTrigrams"),
         { fg: t.secondary, bold: true },
-        // Uniform geometry, not method probability — survives a missing
-        // baseline. The marker (~ / 約) rides the catalog value, like chanceSays,
-        // so zh doesn't double it (各依理數約2.3, not 各依理數約 ~2.3).
-        patterns.total >= 8
+        // The chance figure is method-marked like every other section (uniform
+        // 1/8 needs P(yang)=1/2, a property of the method), so it shows only
+        // once enough method-marked casts exist. The marker (~ / 約) rides the
+        // catalog value, like chanceSays, so zh doesn't double it.
+        gate
           ? `${tr(lang, "journal.patterns.eachByChance")}${formatNumber(patterns.topTrigrams[0].expected, 1)}`
           : undefined,
       );
