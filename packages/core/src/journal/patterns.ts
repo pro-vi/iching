@@ -293,8 +293,7 @@ export function computeJournalPatterns(
   let observedOldYang = 0;
   let yangLines = 0;
   let yinLines = 0;
-  let recentKey = "";
-  let recentKw: number | null = null;
+  let recentEntry: HistoryEntry | null = null;
   const phaseCounts: [number, number, number, number] = [0, 0, 0, 0];
   let timestampedCount = 0;
 
@@ -318,11 +317,12 @@ export function computeJournalPatterns(
       }
     }
 
-    // Most recent reading by the same time key the chronological sort uses.
-    const tkey = entryTimeKey(entry);
-    if (recentKw === null || tkey >= recentKey) {
-      recentKey = tkey;
-      recentKw = entry.cast.primary;
+    // The most recent reading — the compareEntryTime-maximum, so a same-instant
+    // tie (legacy same-day readings sharing a date key) resolves by content, not
+    // input order. field.recent then agrees across the TUI (newest-first) and
+    // the CLI (append-order), like the chronological sort the transitions use.
+    if (recentEntry === null || compareEntryTime(entry, recentEntry) >= 0) {
+      recentEntry = entry;
     }
 
     const f = freq.get(entry.cast.primary) ?? { count: 0, lastDate: "" };
@@ -337,7 +337,9 @@ export function computeJournalPatterns(
     // per-position tally would desync the two — and inflate the rare-bin chance
     // figure. Dedup + keep 1–6: for well-formed casts this is a no-op.
     const changing = [
-      ...new Set((entry.cast.changingPositions ?? []).filter((p) => p >= 1 && p <= 6)),
+      ...new Set(
+        (entry.cast.changingPositions ?? []).filter((p) => Number.isInteger(p) && p >= 1 && p <= 6),
+      ),
     ];
     movingCountBins[changing.length]++; // length is now always 0–6
     totalMovingLines += changing.length;
@@ -406,7 +408,7 @@ export function computeJournalPatterns(
   const field: FieldSummary = {
     counts: fieldCounts,
     maxCount: fieldCounts.reduce((m, c) => Math.max(m, c), 0),
-    recent: recentKw,
+    recent: recentEntry?.cast.primary ?? null,
   };
   // Uniform over 64: both methods give P(yang line)=1/2 (see LINE_PROBABILITIES),
   // so every known cast lands on one of 64 equally-likely primaries → known/64.
@@ -699,7 +701,13 @@ function computeCadence(entries: HistoryEntry[], today: string): CadenceSummary 
   };
 }
 
-function compareEntryTime(a: HistoryEntry, b: HistoryEntry): number {
+/**
+ * Canonical chronological order for readings: by time-key, then deterministically
+ * by cast content so same-instant ties (legacy same-day readings) resolve the
+ * same regardless of input order. Exported so callers/tests can reproduce the
+ * exact order the derivation (transitions, drift, field.recent) reads.
+ */
+export function compareEntryTime(a: HistoryEntry, b: HistoryEntry): number {
   const byTime = entryTimeKey(a).localeCompare(entryTimeKey(b));
   if (byTime !== 0) return byTime;
   // Same instant — legacy same-day readings without timestamps, or identical

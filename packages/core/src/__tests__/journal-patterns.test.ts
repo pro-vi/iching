@@ -4,7 +4,12 @@
 
 import { describe, test, expect } from "bun:test";
 import type { Cast, Line, HistoryEntry } from "../types.js";
-import { computeJournalPatterns, phaseOfHour, PHASE_MIN_TIMESTAMPED } from "../journal/patterns.js";
+import {
+  computeJournalPatterns,
+  phaseOfHour,
+  PHASE_MIN_TIMESTAMPED,
+  compareEntryTime,
+} from "../journal/patterns.js";
 
 function makeLine(value: 6 | 7 | 8 | 9): Line {
   return {
@@ -376,10 +381,12 @@ describe("computeJournalPatterns — invariants over random journals (fuzz)", ()
       const primary = 1 + Math.floor(rng() * 64);
       let changing = [1, 2, 3, 4, 5, 6].filter(() => rng() < 0.25);
       // 1-in-6 entries carry deliberately malformed positions (out-of-range,
-      // duplicate, >6) — the compute must normalize them and keep the two
-      // moving-line distributions in agreement (the desync the review found).
+      // duplicate, >6, and NON-INTEGER) — the compute must normalize them and
+      // keep the two moving-line distributions in agreement (the desync the
+      // review found) without ever producing a 7th bin or a NaN. A fractional
+      // value like 2.5 must be dropped, not survive into changing.length.
       if (rng() < 0.16) {
-        changing = [...changing, [0, 7, 99, -1][Math.floor(rng() * 4)], changing[0] ?? 3];
+        changing = [...changing, [0, 7, 99, -1, 2.5, 3.5][Math.floor(rng() * 6)], changing[0] ?? 3];
       }
       const method = METHODS[Math.floor(rng() * METHODS.length)];
       // Random day in a ~200-day window, random intra-day time — order shuffled.
@@ -445,14 +452,14 @@ describe("computeJournalPatterns — invariants over random journals (fuzz)", ()
       const viaBinsKnown = p.movingLineCounts.reduce((a, b) => a + b.movingLines * b.knownCount, 0);
       expect(perPositionKnown, ctx).toBe(viaBinsKnown);
       expect(p.movingLineCounts.reduce((a, b) => a + b.count, 0), ctx).toBe(entries.length);
-      // field.recent = primary of the chronologically latest entry, or null.
+      // field.recent = primary of the chronologically latest entry (by the SAME
+      // canonical order the derivation uses, so same-instant ties resolve the
+      // same way), or null when empty.
       if (entries.length === 0) {
         expect(p.field.recent, ctx).toBeNull();
         expect(p.cadence, ctx).toBeNull();
       } else {
-        const latest = [...entries].sort((a, b) =>
-          (a.timestamp ?? a.date).localeCompare(b.timestamp ?? b.date),
-        )[entries.length - 1];
+        const latest = [...entries].sort(compareEntryTime)[entries.length - 1];
         expect(p.field.recent, ctx).toBe(latest.cast.primary);
       }
       // Old-line comparisons stay same-basis: observed never exceeds what the
@@ -507,5 +514,19 @@ describe("computeJournalPatterns — invariants over random journals (fuzz)", ()
       const reversed = computeJournalPatterns([...entries].reverse(), "2026-08-01");
       expect(reversed, `seed ${seed}`).toEqual(forward);
     }
+  });
+
+  test("field.recent (the ◉ accent) is order-independent for same-time-key readings", () => {
+    // The fuzz above rarely ties at the chronological MAX, so it can miss a
+    // recency that flips with input order. Two readings sharing a time key —
+    // legacy same-day entries without timestamps — must mark the SAME most-
+    // recent reading regardless of order, or the TUI (newest-first) and CLI
+    // (append-order) would light different hexagrams. (External review found
+    // this: field.recent had its own >= tie-break, not the chronological sort's.)
+    const a = makeEntry("2025-01-05", 1, { method: "coin" }); // same date, no
+    const b = makeEntry("2025-01-05", 29, { method: "coin" }); // timestamps → tie
+    const ab = computeJournalPatterns([a, b], "2025-02-01").field.recent;
+    const ba = computeJournalPatterns([b, a], "2025-02-01").field.recent;
+    expect(ab).toBe(ba);
   });
 });
