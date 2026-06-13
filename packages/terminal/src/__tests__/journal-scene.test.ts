@@ -1090,8 +1090,12 @@ describe("JournalScene patterns pane ([p])", () => {
     scene.handleKey({ type: "home" }, ctx);
     expect(renderText(scene, ctx)).toContain("觀象 · patterns");
 
-    press(scene, ctx, "p"); // close and reset
-    press(scene, ctx, "p"); // reopen
+    // Scroll back down before closing so reopening actually exercises the
+    // close-handler's own scrollToTop — not a reset `home` already performed.
+    scene.handleKey({ type: "end" }, ctx);
+    expect(renderText(scene, ctx)).toContain("6/6");
+    press(scene, ctx, "p"); // close resets the scroll…
+    press(scene, ctx, "p"); // …so reopen lands at the head, not page 6
     text = renderText(scene, ctx);
     expect(text).toContain("觀象 · patterns");
     expect(text).toContain("1/6");
