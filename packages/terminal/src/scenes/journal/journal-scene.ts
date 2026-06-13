@@ -146,14 +146,20 @@ export class JournalScene implements Scene {
   private noteActive = false;
   private noteInput: TextInput;
 
-  // [p] patterns pane. The derivation is pure over (entries, today) and the
-  // entries never change while the pane is open (notes don't touch cast data),
-  // so it is memoized — the 30 FPS loop must not recompute it every frame
-  // (≈3ms/frame over a 2000-reading journal). Keyed on today for the midnight
-  // rollover; the stable entries reference needs no key.
+  // [p] patterns pane. The derivation is pure over (cast-set, today), so it is
+  // memoized — the 30 FPS loop must not recompute it every frame (≈3ms/frame
+  // over a 2000-reading journal). The key carries BOTH today (midnight rollover)
+  // and the reading count: `entries` is append-only for casts (reflection notes
+  // land in entry.notes, which the cast-based derivation ignores, so they leave
+  // the count — and the cache — untouched), and a new cast bumps the length,
+  // invalidating precisely when the patterns would actually change. Keying on
+  // the count rather than the stable reference keeps the cache correct even if
+  // a future caller mutates the array in place instead of constructing afresh
+  // (external review, GPT-Pro: a date-only key is a latent same-day staleness
+  // vector if that invariant ever breaks).
   private patternsOpen = false;
   private cachedPatterns: JournalPatterns | null = null;
-  private cachedPatternsToday = "";
+  private cachedPatternsKey = "";
 
   // Reflection-note persistence honesty: appends still in flight (awaited by
   // exit() so scene teardown can't lose a pending write) and entries whose
@@ -431,9 +437,10 @@ export class JournalScene implements Scene {
   private patternRows(ctx: SceneContext, lang: DisplayLanguage): PatternRow[] {
     const t = getTheme();
     const today = this.opts.today ? this.opts.today() : localToday();
-    if (!this.cachedPatterns || this.cachedPatternsToday !== today) {
+    const key = `${today}:${this.entries.length}`;
+    if (!this.cachedPatterns || this.cachedPatternsKey !== key) {
       this.cachedPatterns = computeJournalPatterns(this.entries, today);
-      this.cachedPatternsToday = today;
+      this.cachedPatternsKey = key;
     }
     const patterns = this.cachedPatterns;
     const cn = (s: string): string => (lang === "zh-Hans" ? toSimplified(s) : s);

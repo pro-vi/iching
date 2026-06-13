@@ -953,6 +953,27 @@ describe("JournalScene patterns pane ([p])", () => {
     expect(renderText(scene, ctx)).toContain("idle 10d"); // 04-20 − 04-10
   });
 
+  test("the patterns cache recomputes when a new cast lands on the same day", () => {
+    // The memo key carries the reading count, not just `today` — so a cast
+    // arriving while the pane lives (same calendar day) invalidates the cache
+    // instead of serving a stale derivation until midnight. Guards the
+    // GPT-Pro review's same-day-staleness vector even if a future caller
+    // mutates the entries array in place rather than constructing afresh.
+    const scene = new JournalScene(
+      [makeEntry("2026-04-10", 1, { method: "coin" }), makeEntry("2026-04-11", 2, { method: "coin" })],
+      { today: () => "2026-04-15" },
+    );
+    const ctx = ctxFor(45, 80);
+    scene.enter(ctx);
+    press(scene, ctx, "p");
+    expect(renderText(scene, ctx)).toContain("2 readings"); // derivation over the two casts
+    // A new cast lands in-place on the same day (count 2 → 3).
+    (scene as unknown as { entries: JournalEntryView[] }).entries.push(
+      makeEntry("2026-04-15", 3, { method: "coin" }),
+    );
+    expect(renderText(scene, ctx)).toContain("3 readings"); // cache invalidated, not stale at "2 readings"
+  });
+
   test("the field marks the most recent reading with accent on the glyph itself", () => {
     const { getTheme } = require("../color/theme.ts");
     const accent = getTheme().accent;
