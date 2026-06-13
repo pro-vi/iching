@@ -925,6 +925,47 @@ export class JournalScene implements Scene {
       }
     }
 
+    // ── 時 — the phase of day a reading was recorded ──
+    // A quiet footnote in the chance-free tail (kept well away from the faces/
+    // lines/trigram sections and their by-chance notes): not how often, but WHEN
+    // in the local day the readings fell. Circumstance, never a claim about the
+    // oracle or the practitioner — sparkline shape only, no per-phase tally to
+    // optimise, no streak, no target, no chance comparison. The note discloses
+    // the honest population as a fraction (N/total); readings without a recorded
+    // local hour are omitted, never defaulted to a false midnight.
+    const tod = patterns.timeOfDay;
+    if (tod) {
+      blank();
+      const timed =
+        tod.timestamped < patterns.total
+          ? `${tod.timestamped}/${patterns.total}`
+          : `${tod.timestamped}`;
+      rule(
+        tr(lang, "journal.patterns.sectionHours"),
+        { fg: t.secondary, bold: true },
+        `${timed}${tr(lang, "journal.patterns.timedSuffix")}`,
+      );
+      const PHASE_KEYS: MessageKey[] = [
+        "journal.patterns.phaseDawn",
+        "journal.patterns.phaseMidday",
+        "journal.patterns.phaseDusk",
+        "journal.patterns.phaseNight",
+      ];
+      const maxPhase = Math.max(...tod.counts, 1);
+      const phaseCells = tod.counts.flatMap((c, i): PatternSegment[] => [
+        ...(i > 0 ? [{ text: "  ", style: stSep }] : []),
+        { text: tr(lang, PHASE_KEYS[i]), style: stName },
+        { text: " ", style: stLabel },
+        c > 0
+          ? {
+              text: SPARK_BLOCKS[Math.max(0, Math.min(7, Math.round((c / maxPhase) * 8) - 1))],
+              style: stBar,
+            }
+          : { text: "·", style: { fg: t.dimmed } },
+      ]);
+      row(...label([]), ...phaseCells);
+    }
+
     // ── 兩儀 — the yang/yin balance, a coda that grows from a still axis ──
     const balance = patterns.lineBalance;
     if (balance.yang + balance.yin > 0) {

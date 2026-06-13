@@ -1120,3 +1120,52 @@ describe("count unit pluralizes English, leaves zh measure words invariant", () 
     expect(renderText(two, ctxFor())).toContain("2 readings");
   });
 });
+
+describe("觀象 pane — 時 hours-of-asking section", () => {
+  const timed = (date: string, primary: number, ts: string): JournalEntryView =>
+    makeEntry(date, primary, { timestamp: ts });
+
+  // Five readings with a recorded hour clears PHASE_MIN_TIMESTAMPED.
+  const fiveTimed = (): JournalEntryView[] => [
+    timed("2026-03-01", 1, "2026-03-01T07:00:00.000Z"),
+    timed("2026-03-02", 2, "2026-03-02T13:00:00.000Z"),
+    timed("2026-03-03", 3, "2026-03-03T19:00:00.000Z"),
+    timed("2026-03-04", 4, "2026-03-04T20:00:00.000Z"),
+    timed("2026-03-05", 5, "2026-03-05T21:00:00.000Z"),
+  ];
+
+  test("renders the phase section, its four labels, and the honest timed count", () => {
+    const scene = new JournalScene(fiveTimed());
+    const ctx = ctxFor(44, 100); // tall + wide: the whole pane fits, no scroll
+    scene.enter(ctx);
+    press(scene, ctx, "p");
+    const text = renderText(scene, ctx);
+    expect(text).toContain("phase of day"); // circumstance, not "hours of asking"
+    expect(text).toContain("5 timed"); // all five timestamped → bare count, no fraction
+    for (const label of ["dawn", "midday", "dusk", "night"]) expect(text).toContain(label);
+  });
+
+  test("discloses the timed fraction when some readings lack a recorded hour", () => {
+    const scene = new JournalScene([...fiveTimed(), makeEntry("2026-03-06", 6)]); // +1 legacy
+    const ctx = ctxFor(44, 100);
+    scene.enter(ctx);
+    press(scene, ctx, "p");
+    const text = renderText(scene, ctx);
+    expect(text).toContain("phase of day");
+    expect(text).toContain("5/6 timed"); // 5 of 6 have a usable hour — 1 omitted, disclosed
+  });
+
+  test("absent when too few readings carry a timestamp (legacy entries don't count)", () => {
+    const entries = [
+      timed("2026-03-01", 1, "2026-03-01T07:00:00.000Z"),
+      timed("2026-03-02", 2, "2026-03-02T13:00:00.000Z"),
+      makeEntry("2026-03-03", 3), // legacy, no recorded hour
+      makeEntry("2026-03-04", 4),
+    ];
+    const scene = new JournalScene(entries);
+    const ctx = ctxFor(44, 100);
+    scene.enter(ctx);
+    press(scene, ctx, "p");
+    expect(renderText(scene, ctx)).not.toContain("hours of asking");
+  });
+});

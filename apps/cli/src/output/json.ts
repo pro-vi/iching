@@ -224,6 +224,18 @@ export function journalPatternsToJson(p: JournalPatterns): Record<string, unknow
     total: p.total,
     thisMonth: p.thisMonth,
     cadence: p.cadence,
+    // 時 — phase-of-day counts over the TIMESTAMPED subset (its own basis,
+    // named by `timestamped`); legacy entries without a recorded hour are
+    // excluded, never defaulted. Descriptive counts, no chance comparison.
+    timeOfDay: p.timeOfDay
+      ? {
+          dawn: p.timeOfDay.counts[0],
+          midday: p.timeOfDay.counts[1],
+          dusk: p.timeOfDay.counts[2],
+          night: p.timeOfDay.counts[3],
+          timestamped: p.timeOfDay.timestamped,
+        }
+      : null,
     // Descriptive spread (all readings) at the top; the distinct-vs-expected
     // and repeats comparisons namespaced under the method-marked basis, so the
     // all-readings distinctHexagrams can't be divided by a method-only expected.

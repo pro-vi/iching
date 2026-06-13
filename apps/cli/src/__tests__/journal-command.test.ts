@@ -391,6 +391,31 @@ describe("journal command", () => {
     expect(plain.stdout).not.toContain("1 readings");
   }, 20_000);
 
+  test("patterns surfaces the 時 phase-of-day shape once enough readings are timed", async () => {
+    // makeEntry stamps every record with a real timestamp, so five readings
+    // clear the timestamped floor. Buckets are local (tz-dependent), so assert
+    // the tz-free facts: the line is present, names the honest population, and
+    // its four phase counts sum to that population.
+    await seedJournal(dataDir, [
+      makeEntry("2026-02-01", 1, null),
+      makeEntry("2026-02-02", 2, null),
+      makeEntry("2026-02-03", 3, null),
+      makeEntry("2026-02-04", 4, null),
+      makeEntry("2026-02-05", 5, null),
+    ]);
+
+    const plain = await runCli(dataDir, ["journal", "patterns"]);
+    expect(plain.exitCode).toBe(0);
+    expect(plain.stdout).toContain("Phase of day (over 5 timed):");
+
+    const json = await runCli(dataDir, ["--json", "journal", "patterns"]);
+    const p = JSON.parse(json.stdout);
+    expect(p.timeOfDay).not.toBeNull();
+    expect(p.timeOfDay.timestamped).toBe(5);
+    const sum = p.timeOfDay.dawn + p.timeOfDay.midday + p.timeOfDay.dusk + p.timeOfDay.night;
+    expect(sum).toBe(5);
+  }, 20_000);
+
   test("patterns on an empty journal is a calm state, not an error", async () => {
     await seedJournal(dataDir, []);
     const plain = await runCli(dataDir, ["journal", "patterns"]);

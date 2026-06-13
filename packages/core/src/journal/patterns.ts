@@ -111,6 +111,23 @@ export interface CadenceSummary {
   idleDays: number | null;
 }
 
+/**
+ * 時 — the phase of day at which readings were cast, a quiet mirror of when
+ * the questions tend to arise. A plain distribution, never a metric: no
+ * streak, no target, no claim that the hour bears on the reading.
+ *
+ * Rests ONLY on readings that carry a real local timestamp. Legacy/imported
+ * entries without one are excluded rather than defaulted to midnight — a false
+ * spike would be worse than silence — so `timestamped` (= sum of `counts`)
+ * names the honest population the shape is drawn from.
+ */
+export interface PhaseDistribution {
+  /** Counts per phase, in order: [晨 dawn, 晝 day, 暮 dusk, 夜 night]. */
+  counts: [number, number, number, number];
+  /** Readings carrying a real timestamp — the population behind the shape. */
+  timestamped: number;
+}
+
 export interface DiversitySummary {
   distinctHexagrams: number;
   knownDistinctHexagrams: number;
@@ -182,6 +199,8 @@ export interface JournalPatterns {
   baseline: BaselineSummary;
   /** Date-window and sampling cadence over active casting days. */
   cadence: CadenceSummary | null;
+  /** 時 — phase-of-day distribution over timestamped readings (null if too few). */
+  timeOfDay: PhaseDistribution | null;
   /** Primary-hexagram diversity and concentration. */
   diversity: DiversitySummary;
   /** Dense counts across all 64 hexagrams (the 8×8 field). */
@@ -253,6 +272,8 @@ export function computeJournalPatterns(
   let yinLines = 0;
   let recentKey = "";
   let recentKw: number | null = null;
+  const phaseCounts: [number, number, number, number] = [0, 0, 0, 0];
+  let timestampedCount = 0;
 
   for (const entry of entries) {
     const family = methodFamily(entry.method);
@@ -261,6 +282,18 @@ export function computeJournalPatterns(
     if (family !== "unknown") methodCounts.known++;
 
     if (entry.date.startsWith(month)) thisMonth++;
+
+    // 時 — bin by the LOCAL phase of day, but only for readings that carry a
+    // real timestamp. A legacy entry has none (the store leaves it ""); count
+    // it here and it would pile at a false midnight phase. An unparseable
+    // timestamp is likewise skipped, never bucketed into 夜 by a NaN hour.
+    if (entry.timestamp) {
+      const hour = new Date(entry.timestamp).getHours();
+      if (!Number.isNaN(hour)) {
+        phaseCounts[phaseOfHour(hour)]++;
+        timestampedCount++;
+      }
+    }
 
     // Most recent reading by the same time key the chronological sort uses.
     const tkey = entryTimeKey(entry);
@@ -430,6 +463,10 @@ export function computeJournalPatterns(
       primaryExpectedPerHexagram: expectedHexagramCount,
     },
     cadence: computeCadence(entries, today),
+    timeOfDay:
+      timestampedCount >= PHASE_MIN_TIMESTAMPED
+        ? { counts: phaseCounts, timestamped: timestampedCount }
+        : null,
     diversity: computeDiversity(
       [...freq.values()].map((f) => f.count),
       total,
@@ -454,6 +491,22 @@ function methodFamily(method: CastMethod | undefined): MethodFamily {
   if (method === "coin" || method === "coin-manual") return "coin";
   if (method === "yarrow" || method === "yarrow-manual") return "yarrow";
   return "unknown";
+}
+
+/** Below this many timestamped readings, a phase shape is noise — withhold it. */
+export const PHASE_MIN_TIMESTAMPED = 5;
+
+/**
+ * Map a local hour (0–23) to a day phase: 0 晨 dawn / 1 晝 day / 2 暮 dusk /
+ * 3 夜 night — four even six-hour quarters (5–10 / 11–16 / 17–22 / 23–4), each
+ * spanning three classical 時辰. Pure and timezone-free: the caller supplies
+ * the local hour, so this is testable without pinning a runtime zone.
+ */
+export function phaseOfHour(hour: number): 0 | 1 | 2 | 3 {
+  if (hour >= 5 && hour < 11) return 0; // 晨 dawn (卯辰巳)
+  if (hour >= 11 && hour < 17) return 1; // 晝 day (午未申)
+  if (hour >= 17 && hour < 23) return 2; // 暮 dusk (酉戌亥)
+  return 3; // 夜 night (子丑寅, wraps 23–4)
 }
 
 function comparison(observed: number, expected: number | null): ExpectedComparison {

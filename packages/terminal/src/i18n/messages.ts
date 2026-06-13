@@ -122,6 +122,20 @@ export const MESSAGES = {
   "journal.patterns.sectionTrigrams": { en: "八卦 · trigrams", zhHant: "八卦", zhHans: "八卦" },
   "journal.patterns.sectionSuccession": { en: "次第 · one cast to the next", zhHant: "次第", zhHans: "次第" },
   "journal.patterns.sectionTurnings": { en: "卦變 · turnings & echoes", zhHant: "卦變 · 錯綜", zhHans: "卦变 · 错综" },
+  // 時 — a quiet mirror of the phase of day a reading was recorded, NOT a
+  // claim about the user or the oracle. Four six-hour phases of the local day
+  // (each spans three classical 時辰): 晨 卯辰巳 / 晝 午未申 / 暮 酉戌亥 / 夜 子丑寅.
+  // A plain distribution, never a metric; the note names the honest population
+  // (only readings with a recorded local hour) so the shape never over-reads
+  // legacy entries. Title stays circumstantial ("phase of day"), not behavioural.
+  "journal.patterns.sectionHours": { en: "時 · phase of day", zhHant: "時", zhHans: "时" },
+  "journal.patterns.phaseDawn": { en: "dawn", zhHant: "晨", zhHans: "晨" },
+  "journal.patterns.phaseMidday": { en: "midday", zhHant: "晝", zhHans: "昼" },
+  "journal.patterns.phaseDusk": { en: "dusk", zhHant: "暮", zhHans: "暮" },
+  "journal.patterns.phaseNight": { en: "night", zhHant: "夜", zhHans: "夜" },
+  // Margin whisper after the count, e.g. "9/10 timed" / "9/10則記時" — the
+  // fraction discloses readings without a usable local timestamp (omitted).
+  "journal.patterns.timedSuffix": { en: " timed", zhHant: "則記時", zhHans: "则记时" },
   // 兩儀 coda — the yang/yin balance of every line drawn (易有太極，是生兩儀).
   "journal.patterns.sectionBalance": { en: "兩儀 · two modes", zhHant: "兩儀", zhHans: "两仪" },
   "journal.patterns.balanceYin": { en: "yin", zhHant: "陰", zhHans: "阴" },

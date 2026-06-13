@@ -313,6 +313,16 @@ export function formatJournalPatternsPlain(p: JournalPatterns): string {
     `Diversity: seen ${p.diversity.distinctHexagrams} of 64` +
       (p.field.recent !== null ? ` · most recent ${name(p.field.recent)}` : ""),
   );
+  if (p.timeOfDay) {
+    const td = p.timeOfDay;
+    // Circumstance, not a claim: the phase of day readings were recorded, over
+    // the timestamped subset (n/total discloses entries without a usable hour).
+    const timed = td.timestamped < p.total ? `${td.timestamped}/${p.total}` : `${td.timestamped}`;
+    lines.push(
+      `Phase of day (over ${timed} timed): ` +
+        `dawn ${td.counts[0]} · midday ${td.counts[1]} · dusk ${td.counts[2]} · night ${td.counts[3]}`,
+    );
+  }
 
   if (p.topHexagrams.length > 0) {
     lines.push("");

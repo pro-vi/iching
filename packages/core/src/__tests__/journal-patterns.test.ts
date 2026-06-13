@@ -4,7 +4,7 @@
 
 import { describe, test, expect } from "bun:test";
 import type { Cast, Line, HistoryEntry } from "../types.js";
-import { computeJournalPatterns } from "../journal/patterns.js";
+import { computeJournalPatterns, phaseOfHour, PHASE_MIN_TIMESTAMPED } from "../journal/patterns.js";
 
 function makeLine(value: 6 | 7 | 8 | 9): Line {
   return {
@@ -213,6 +213,73 @@ describe("computeJournalPatterns", () => {
     expect(p.movingLineCounts[6].count).toBe(1); // the {1..6} cast → bin 6
     // No position counted twice despite the duplicate 3s.
     expect(p.movingLines[2].count).toBe(2); // position 3 appears in both casts, once each
+  });
+});
+
+describe("phaseOfHour — four even six-hour phases of the local day", () => {
+  test("maps each hour 0–23 to 晨/午/暮/夜 at the 5/11/17/23 boundaries", () => {
+    const expected: Array<[number, 0 | 1 | 2 | 3]> = [
+      [0, 3], [4, 3], // 夜 night wraps midnight
+      [5, 0], [10, 0], // 晨 dawn 5–10
+      [11, 1], [16, 1], // 午 midday 11–16
+      [17, 2], [22, 2], // 暮 dusk 17–22
+      [23, 3], // 夜 again
+    ];
+    for (const [hour, phase] of expected) expect(phaseOfHour(hour)).toBe(phase);
+    // The four phases partition all 24 hours exactly once.
+    const tally = [0, 0, 0, 0];
+    for (let h = 0; h < 24; h++) tally[phaseOfHour(h)]++;
+    expect(tally).toEqual([6, 6, 6, 6]);
+  });
+});
+
+describe("computeJournalPatterns — 時 phase-of-day distribution", () => {
+  // Phase is bucketed by the LOCAL hour, so derive the expected phase the same
+  // way the impl does (runtime tz) — keeps the assertion deterministic anywhere.
+  const expectedPhase = (ts: string): number => phaseOfHour(new Date(ts).getHours());
+
+  test("null below the timestamped floor, present at or above it", () => {
+    const few = Array.from({ length: PHASE_MIN_TIMESTAMPED - 1 }, (_, i) =>
+      makeEntry(`2026-03-0${i + 1}`, i + 1, { timestamp: `2026-03-0${i + 1}T14:00:00.000Z` }),
+    );
+    expect(computeJournalPatterns(few, "2026-04-15").timeOfDay).toBeNull();
+
+    const enough = Array.from({ length: PHASE_MIN_TIMESTAMPED }, (_, i) =>
+      makeEntry(`2026-03-0${i + 1}`, i + 1, { timestamp: `2026-03-0${i + 1}T14:00:00.000Z` }),
+    );
+    const tod = computeJournalPatterns(enough, "2026-04-15").timeOfDay;
+    expect(tod).not.toBeNull();
+    expect(tod!.timestamped).toBe(PHASE_MIN_TIMESTAMPED);
+    expect(tod!.counts.reduce((a, b) => a + b, 0)).toBe(PHASE_MIN_TIMESTAMPED);
+  });
+
+  test("only timestamped entries count — legacy and invalid are excluded, not midnight-defaulted", () => {
+    const entries: HistoryEntry[] = [
+      makeEntry("2026-03-01", 1, { timestamp: "2026-03-01T07:00:00.000Z" }),
+      makeEntry("2026-03-02", 2, { timestamp: "2026-03-02T13:00:00.000Z" }),
+      makeEntry("2026-03-03", 3, { timestamp: "2026-03-03T19:00:00.000Z" }),
+      makeEntry("2026-03-04", 4, { timestamp: "2026-03-04T20:00:00.000Z" }),
+      makeEntry("2026-03-05", 5, { timestamp: "2026-03-05T21:00:00.000Z" }),
+      makeEntry("2026-03-06", 6, { timestamp: "" }), // legacy: no recorded hour
+      makeEntry("2026-03-07", 7), // missing timestamp entirely
+      makeEntry("2026-03-08", 8, { timestamp: "not-a-date" }), // unparseable
+    ];
+    const tod = computeJournalPatterns(entries, "2026-04-15").timeOfDay;
+    expect(tod).not.toBeNull();
+    // Five real timestamps; the three without a usable hour never participate.
+    expect(tod!.timestamped).toBe(5);
+    // The distribution matches phaseOfHour over exactly the five timed entries.
+    const want: [number, number, number, number] = [0, 0, 0, 0];
+    for (const ts of [
+      "2026-03-01T07:00:00.000Z",
+      "2026-03-02T13:00:00.000Z",
+      "2026-03-03T19:00:00.000Z",
+      "2026-03-04T20:00:00.000Z",
+      "2026-03-05T21:00:00.000Z",
+    ]) {
+      want[expectedPhase(ts)]++;
+    }
+    expect(tod!.counts).toEqual(want);
   });
 });
 
