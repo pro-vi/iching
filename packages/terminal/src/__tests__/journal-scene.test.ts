@@ -1282,12 +1282,16 @@ describe("JournalScene patterns pane ([p])", () => {
     expect(cellFor(10)?.fg).toBe(t.accent); // ×1 but most recent → ◉ now overrides the tier
   });
 
-  test("the field's frequency tiers rise in luminance for every theme", () => {
+  test("the field's tones rise in luminance from the background up, every theme", () => {
     // The tier mapping above pins which TONE each frequency gets; this pins the
-    // tones themselves into the right order. The field reads frequency as
-    // brightness (rarer dimmer), so dimmed < tertiary < secondary < primary must
-    // hold in actual luminance — for every theme, present and future. A palette
-    // that broke the order would silently invert the field's gradient.
+    // tones into the right order. The field reads frequency as brightness
+    // (rarer dimmer), so the whole chain must rise in actual luminance:
+    //   bg < dimmed < tertiary < secondary < primary
+    // The bg < dimmed step keeps unseen hexagrams a faint-but-present backdrop
+    // (the grid reads as a FIELD of 64, not a sparse scatter); the rest keeps
+    // the gradient from inverting. Held for every theme (all five are dark);
+    // a future palette that broke the order — or a light theme, which would
+    // need the gradient rethought — trips this.
     const { THEME_NAMES, THEMES } = require("../color/theme.ts");
     const lum = (hex: string): number => {
       const h = hex.replace("#", "");
@@ -1297,9 +1301,9 @@ describe("JournalScene patterns pane ([p])", () => {
     };
     for (const name of THEME_NAMES as string[]) {
       const th = THEMES[name];
-      const tiers = [th.dimmed, th.tertiary, th.secondary, th.primary].map(lum);
-      for (let i = 1; i < tiers.length; i++) {
-        expect(tiers[i], `${name} tier ${i}`).toBeGreaterThan(tiers[i - 1]);
+      const chain = [th.bg, th.dimmed, th.tertiary, th.secondary, th.primary].map(lum);
+      for (let i = 1; i < chain.length; i++) {
+        expect(chain[i], `${name} step ${i}`).toBeGreaterThan(chain[i - 1]);
       }
     }
   });
