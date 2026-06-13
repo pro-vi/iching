@@ -374,7 +374,11 @@ describe("journal command", () => {
     expect(p.baseline).not.toHaveProperty("primaryExpectedPerHexagram");
     expect(p.baseline.comparison).toMatchObject({ basis: "method-marked" });
     expect(p.baseline.comparison).toHaveProperty("expectedPerHexagram");
-    expect(p.baseline.comparison.oldYang).toHaveProperty("expected");
+    // Uniform comparison shape — count/expected/lift everywhere (the README's
+    // "use the block's own count" holds for baseline too), not observed/residual.
+    expect(p.baseline.comparison.oldYang).toHaveProperty("count");
+    expect(p.baseline.comparison.oldYang).not.toHaveProperty("observed");
+    expect(p.baseline.comparison.oldYang).not.toHaveProperty("residual");
     expect(p.lineBalance).toHaveProperty("yang");
     expect(p.lineBalance).toHaveProperty("yin");
   }, 20_000);

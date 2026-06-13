@@ -202,6 +202,16 @@ export function journalPatternsToJson(p: JournalPatterns): Record<string, unknow
     count,
     ...(lastDate !== undefined ? { lastDate } : {}),
   });
+  // An old-yang/yin direction comparison in the uniform block shape: the
+  // method-marked observed named `count` (DirectionComparison calls it
+  // `observed`), keeping `value` (6/9) as the line discriminant; `residual` is
+  // dropped to match the other comparison blocks.
+  const oldLine = (dir: { value: 6 | 9; observed: number; expected: number; lift: number | null }) => ({
+    value: dir.value,
+    count: dir.observed,
+    expected: dir.expected,
+    lift: dir.lift,
+  });
   return {
     // One note so a consuming script never crosses bases: descriptive `count`
     // fields tally every reading; a `comparison` block (when present) holds
@@ -247,8 +257,12 @@ export function journalPatternsToJson(p: JournalPatterns): Record<string, unknow
           ? {
               basis: "method-marked",
               expectedPerHexagram: p.baseline.primaryExpectedPerHexagram,
-              oldYin: p.baseline.oldYin,
-              oldYang: p.baseline.oldYang,
+              // Uniform comparison shape — count/expected/lift, same as every
+              // other block — so the README's "use the block's own count" holds
+              // here too (DirectionComparison's field is named `observed`; the
+              // line `value` 6/9 stays as the discriminant).
+              oldYin: oldLine(p.baseline.oldYin),
+              oldYang: oldLine(p.baseline.oldYang),
             }
           : null,
     },
