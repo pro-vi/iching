@@ -247,6 +247,30 @@ describe("computeJournalPatterns — the chance baseline rests on correct probab
     expect(p.baseline.primaryExpectedPerHexagram).toBeCloseTo(N / 64, 10);
   });
 
+  test("distinct/recurrence chance follows the occupancy law 64·(1−(63/64)^N)", () => {
+    // The "seen N of 64 · by chance ~M" and "recurrence ×R · by chance ~K"
+    // figures rest on the occupancy expectation E[distinct] = 64·(1−(63/64)^N).
+    // It is otherwise pinned only at N=2, where the (63/64)^N curvature is
+    // invisible — a refactor to a wrong base or a linear approximation would
+    // pass there yet skew the honesty figure at journal scale. Pin it at N=42
+    // against MC-verified ground truth (300k trials, Δ < 0.02): E[distinct] =
+    // 30.9688, so E[repeats] = 42 − 30.9688 = 11.0312.
+    const N = 42;
+    const entries = Array.from({ length: N }, (_, i) =>
+      makeEntry(`2026-03-${String((i % 28) + 1).padStart(2, "0")}`, (i % 10) + 1, {
+        method: "coin" as const,
+      }),
+    );
+    const p = computeJournalPatterns(entries, "2026-06-13");
+    expect(p.diversity.expectedDistinctHexagrams).toBeCloseTo(30.968816, 4);
+    // Recurrence expectation is N − E[distinct] by linearity of expectation.
+    expect(p.diversity.expectedRepeats).toBeCloseTo(11.031184, 4);
+    // The two partition N exactly (no double-count, no gap).
+    expect(
+      (p.diversity.expectedDistinctHexagrams ?? 0) + (p.diversity.expectedRepeats ?? 0),
+    ).toBeCloseTo(N, 9);
+  });
+
   test("trigram chance rests on the method-marked subset, null without a baseline", () => {
     // Mixed: 2 coin + 1 unknown. Counts are over all 3; the expectation/lift
     // rest only on the 2 known (uniform 1/8 needs a known method, like primaries).
