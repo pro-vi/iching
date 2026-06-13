@@ -685,6 +685,34 @@ describe("JournalScene note persistence honesty", () => {
     expect(text).toContain("·note");
   });
 
+  test("a later saved note is not masked by an earlier attempt's failure", async () => {
+    // Two notes on one entry: the first append rejects, the second persists.
+    // The entry must show the latest, SAVED note — not a stale "save failed"
+    // from the earlier attempt. Entry-level failure tracking used to mask the
+    // saved note (external GPT-Pro review, highest-priority finding); failure
+    // now lives on the note, so the latest note's state decides the display.
+    const ctx = ctxFor();
+    const entries = [makeEntry("2026-03-01", 1)];
+    let calls = 0;
+    const scene = new JournalScene(entries, {
+      today: () => "2026-03-05",
+      onNote: () => (++calls === 1 ? Promise.reject(new Error("ENOSPC")) : Promise.resolve()),
+    });
+    scene.enter(ctx);
+    press(scene, ctx, "n");
+    type(scene, ctx, "first attempt");
+    press(scene, ctx, "enter"); // attempt 1 — will reject
+    press(scene, ctx, "n");
+    type(scene, ctx, "second attempt saved");
+    press(scene, ctx, "enter"); // attempt 2 — resolves
+    await scene.notesSettled();
+
+    const text = renderText(scene, ctx);
+    expect(text).not.toContain("the note could not be saved"); // the failure must not mask…
+    expect(text).toContain("second attempt saved"); // …the latest, saved note
+    expect(text).toContain("·note"); // and the entry reads as annotated
+  });
+
   test("exit() awaits in-flight appends so teardown cannot lose the write", async () => {
     const ctx = ctxFor();
     const entries = [makeEntry("2026-03-01", 1)];

@@ -61,11 +61,14 @@ export interface JournalNoteView {
   date: string;
   /**
    * Persistence state for notes committed this session: "pending" while the
-   * append is in flight (rendered dim), "saved" once it lands. A failed
-   * append removes the note from its entry instead. Notes loaded from disk
-   * carry no state — they are already durable.
+   * append is in flight (rendered dim), "saved" once it lands, "failed" if the
+   * bytes never reached disk. A failed attempt is KEPT in the entry's note list
+   * (in commit order) but excluded from the list marker and search; the preview
+   * shows the failure only when the failed note is the entry's latest — so a
+   * later successful note is never masked by an earlier failure. Notes loaded
+   * from disk carry no state — they are already durable.
    */
-  state?: "pending" | "saved";
+  state?: "pending" | "saved" | "failed";
 }
 
 /** Journal entry plus its attached reflection notes. */
@@ -126,7 +129,8 @@ export function entryMatchesQuery(entry: JournalEntryView, query: string): boole
   if (entry.cast.becoming !== null && hexagramMatches(entry.cast.becoming, q)) return true;
   // A reflection note is the richest thing you write about a reading — find a
   // cast by what you later made of it, not only the question you first asked.
-  if (entry.notes?.some((n) => normalize(n.text).includes(q))) return true;
+  // A failed attempt never reached disk, so it is not searchable.
+  if (entry.notes?.some((n) => n.state !== "failed" && normalize(n.text).includes(q))) return true;
   return false;
 }
 
@@ -161,11 +165,11 @@ export class JournalScene implements Scene {
   private cachedPatterns: JournalPatterns | null = null;
   private cachedPatternsKey = "";
 
-  // Reflection-note persistence honesty: appends still in flight (awaited by
-  // exit() so scene teardown can't lose a pending write) and entries whose
-  // last append failed (one calm line in the preview row).
+  // Reflection-note persistence honesty: appends still in flight, awaited by
+  // exit() so scene teardown can't lose a pending write. (Failure is recorded
+  // per-note via note.state === "failed", not per-entry, so a later success on
+  // the same entry can't be masked.)
   private inFlightNotes = new Set<Promise<void>>();
-  private failedNoteEntries = new Set<JournalEntryView>();
 
   constructor(entries: JournalEntryView[], opts: JournalSceneOptions = {}) {
     // Most recent first. Drop any entry without a usable cast at the boundary
@@ -323,7 +327,9 @@ export class JournalScene implements Scene {
       // its width and append it AFTER truncation. A long intention then clips
       // with an ellipsis instead of pushing the marker off the row end, where
       // it would vanish silently and the row would read as un-annotated.
-      const noteMarker = entry.notes?.length ? `  ·${tr(lang, "journal.noteMarker")}` : "";
+      const noteMarker = entry.notes?.some((n) => n.state !== "failed")
+        ? `  ·${tr(lang, "journal.noteMarker")}`
+        : "";
 
       // Truncate the content to the viewport budget, holding room for the marker.
       line = truncateToWidth(line, maxW - 4 - stringWidth(noteMarker)) + noteMarker;
@@ -374,14 +380,16 @@ export class JournalScene implements Scene {
 
     if (!selected) return;
 
-    // A failed append withdrew its note (marker gone) — one calm line says so.
-    if (this.failedNoteEntries.has(selected)) {
+    const latestNote = selected.notes?.[selected.notes.length - 1];
+    // The latest attempt on this entry never reached disk — one calm line. Only
+    // the latest note's failure surfaces, so an earlier failure can't mask a
+    // later saved note (which renders below as a normal note).
+    if (latestNote?.state === "failed") {
       const failed = truncateToWidth(tr(lang, "journal.noteSaveFailed"), maxW - 4);
       frame.writeText(detailRow, 2, failed, { fg: t.tertiary, dim: true });
       return;
     }
 
-    const latestNote = selected.notes?.[selected.notes.length - 1];
     if (latestNote) {
       const text = truncateToWidth(
         `·${tr(lang, "journal.noteMarker")} ${latestNote.date}  ${latestNote.text}`,
@@ -1219,7 +1227,6 @@ export class JournalScene implements Scene {
    * reaches disk.
    */
   private commitNote(entry: JournalEntryView, note: JournalNoteView): void {
-    this.failedNoteEntries.delete(entry);
     entry.notes = [...(entry.notes ?? []), note];
     const result = this.opts.onNote?.(entry, note.text);
     if (!result) {
@@ -1232,9 +1239,11 @@ export class JournalScene implements Scene {
         note.state = "saved";
       },
       () => {
-        // The bytes never landed — withdrawing the marker is the honest render.
-        entry.notes = (entry.notes ?? []).filter((n) => n !== note);
-        this.failedNoteEntries.add(entry);
+        // The bytes never landed — mark THIS attempt failed (kept in commit
+        // order). The marker and search skip failed notes, and the preview
+        // shows the failure only when it is the entry's latest note, so a
+        // later success on the same entry is never masked by this failure.
+        note.state = "failed";
       },
     );
     this.inFlightNotes.add(settle);
