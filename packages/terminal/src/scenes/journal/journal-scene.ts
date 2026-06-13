@@ -270,6 +270,17 @@ export class JournalScene implements Scene {
       return;
     }
 
+    // A live search that matches nothing — a quiet centered hint (and how to
+    // clear it) instead of a bare blank list, the same grace the dict offers.
+    // filtered is only empty while searching (otherwise it mirrors entries).
+    if (this.filtered.length === 0) {
+      const hint = tr(lang, "journal.emptyHint");
+      const hintCol = Math.max(0, Math.floor((maxW - stringWidth(hint)) / 2));
+      frame.writeText(Math.floor(ctx.rows / 2), hintCol, hint, { fg: t.tertiary, dim: true });
+      this.renderFooter(frame, ctx, lang);
+      return;
+    }
+
     this.renderList(frame, ctx, lang);
     this.renderPreviewRow(frame, ctx, lang);
     this.renderFooter(frame, ctx, lang);

@@ -242,6 +242,19 @@ describe("JournalScene search ([/])", () => {
     expect(renderText(scene, ctx)).toContain("0 readings");
   });
 
+  test("a search matching nothing shows a quiet hint, not a blank list", () => {
+    const ctx = ctxFor();
+    const scene = new JournalScene(entries);
+    scene.enter(ctx);
+
+    press(scene, ctx, "/");
+    type(scene, ctx, "zzznomatch");
+    const text = renderText(scene, ctx);
+    expect(text).toContain("0 readings");
+    expect(text).toContain("no reading answers that"); // the empty-search hint
+    expect(text).toContain("clear search"); // the footer still offers the way out
+  });
+
   test("footer documents the search key", () => {
     const ctx = ctxFor();
     const scene = new JournalScene(entries);

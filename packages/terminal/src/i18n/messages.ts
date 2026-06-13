@@ -103,6 +103,8 @@ export const MESSAGES = {
   // Singular for n=1 — English pluralizes ("1 reading"); zh 則 is invariant.
   "journal.countSuffix.one": { en: "reading", zhHant: "則", zhHans: "则" },
   "journal.empty": { en: "No readings yet", zhHant: "尚無占記", zhHans: "尚无占记" },
+  // Quiet centered hint when a search matches no reading (parallels dict.emptyHint).
+  "journal.emptyHint": { en: "no reading answers that · esc to clear", zhHant: "無占應此 · esc 清除", zhHans: "无占应此 · esc 清除" },
   // Reflection notes — the quiet marker on annotated rows + the input prompt.
   "journal.noteMarker": { en: "note", zhHant: "註", zhHans: "注" },
   "journal.notePrompt": { en: "Note: ", zhHant: "註記：", zhHans: "注记：" },
