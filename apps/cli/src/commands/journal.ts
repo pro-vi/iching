@@ -78,6 +78,14 @@ export function registerJournalCommand(program: Command): void {
         );
         process.exit(1);
       }
+      // An inverted window can never hold a reading — catch the typo loudly
+      // instead of printing a misleading "no readings found".
+      if (cmdOpts.since && cmdOpts.until && cmdOpts.since > cmdOpts.until) {
+        console.error(
+          `Invalid range: --since "${cmdOpts.since}" is after --until "${cmdOpts.until}".`,
+        );
+        process.exit(1);
+      }
 
       const allEntries: HistoryEntry[] = [];
       const query = { since: cmdOpts.since, until: cmdOpts.until };
@@ -132,6 +140,14 @@ export function registerJournalCommand(program: Command): void {
       if (cmdOpts.until !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(cmdOpts.until)) {
         console.error(
           `Invalid --until "${cmdOpts.until}": expected a date in YYYY-MM-DD format.`,
+        );
+        process.exit(1);
+      }
+      // An inverted window can never hold a reading — catch the typo loudly
+      // instead of the calm "No readings to observe yet" (which implies none exist).
+      if (cmdOpts.since && cmdOpts.until && cmdOpts.since > cmdOpts.until) {
+        console.error(
+          `Invalid range: --since "${cmdOpts.since}" is after --until "${cmdOpts.until}".`,
         );
         process.exit(1);
       }

@@ -200,6 +200,24 @@ describe("journal command", () => {
     expect(stdout).not.toContain("2026-04-01"); // after --until
   }, 20_000);
 
+  test("an inverted --since/--until window fails loudly, not as an empty result", async () => {
+    await seedJournal(dataDir, [makeEntry("2026-02-15", 1, null)]);
+    // list: clear error instead of "No readings found."
+    const list = await runCli(dataDir, [
+      "journal", "list", "--since", "2026-05-01", "--until", "2026-03-01",
+    ]);
+    expect(list.exitCode).toBe(1);
+    expect(list.stderr).toContain('Invalid range: --since "2026-05-01" is after --until "2026-03-01"');
+    expect(list.stdout).not.toContain("No readings found.");
+    // patterns: clear error instead of the calm "No readings to observe yet."
+    const pat = await runCli(dataDir, [
+      "journal", "patterns", "--since", "2026-05-01", "--until", "2026-03-01",
+    ]);
+    expect(pat.exitCode).toBe(1);
+    expect(pat.stderr).toContain("Invalid range:");
+    expect(pat.stdout).not.toContain("No readings to observe yet");
+  }, 20_000);
+
   test("patterns --until bounds the observation to a past period", async () => {
     await seedJournal(dataDir, [
       makeEntry("2026-01-10", 1, null),

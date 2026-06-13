@@ -1590,7 +1590,7 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
 - surface_id: cli-journal-list-validation
   file: apps/cli/src/commands/journal.ts
   code_locator: "list --limit/--since/--until validation guards (exit 1)"
-  current_text: 'Invalid --limit "…": expected a positive integer. / Invalid --since "…": expected a date in YYYY-MM-DD format. / Invalid --until "…": expected a date in YYYY-MM-DD format.'
+  current_text: 'Invalid --limit "…": expected a positive integer. / Invalid --since "…": expected a date in YYYY-MM-DD format. / Invalid --until "…": expected a date in YYYY-MM-DD format. / Invalid range: --since "…" is after --until "…".'
   surface_class: cli-invalid-paths
   render_context: "stderr validation (exit 1)"
   language_policy: translate
