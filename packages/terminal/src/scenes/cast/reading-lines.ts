@@ -106,7 +106,13 @@ export function buildReadingLines(
   }
 
   if (lines.length > maxRows) {
-    return [...lines.slice(0, Math.max(0, maxRows - 1)), { text: "…", role: "more" }];
+    // Only show the "…" when at least one oracle text survives above it — a
+    // lone ellipsis (or a hint with no text beneath) is not a reading. The
+    // renderer's contract is to skip cleanly and let the detail view be the
+    // full reference, so drop the panel entirely in that case.
+    const kept = lines.slice(0, Math.max(0, maxRows - 1));
+    if (!kept.some((l) => l.role === "text")) return [];
+    return [...kept, { text: "…", role: "more" }];
   }
   return lines;
 }

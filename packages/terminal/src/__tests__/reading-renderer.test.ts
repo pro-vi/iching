@@ -159,6 +159,19 @@ describe("buildReadingLines", () => {
     expect(buildReadingLines(makeCast(21, [1], 42), "en", 60, 0)).toEqual([]);
     expect(buildReadingLines(makeCast(21, [1], 42), "en", 2, 4)).toEqual([]);
   });
+
+  test("never paints a lone … (or a hint with no text) — drops the panel instead", () => {
+    // maxRows so tight that no oracle text survives above the "…" is not a
+    // reading; the renderer's contract is to skip cleanly. A 2-3 moving cast
+    // has a hint, so maxRows=1 would have left [{…}] and maxRows=2 [hint, {…}].
+    const cast = makeCast(21, [1, 3], 42); // n=2 → has a hint line
+    expect(buildReadingLines(cast, "en", 40, 1)).toEqual([]); // not [{ text:"…" }]
+    expect(buildReadingLines(cast, "en", 40, 2)).toEqual([]); // not [hint, "…"]
+    // Once one text row fits, the "…" is meaningful again.
+    const three = buildReadingLines(cast, "en", 40, 3);
+    expect(three.some((l) => l.role === "text")).toBe(true);
+    expect(three.at(-1)).toEqual({ text: "…", role: "more" });
+  });
 });
 
 // The classical-rule invariant: whatever text the hint names governs the
