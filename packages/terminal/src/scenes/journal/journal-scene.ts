@@ -378,12 +378,15 @@ export class JournalScene implements Scene {
       return;
     }
 
-    // Image preview: English image in en mode; the 大象傳 (converted for 简) in zh modes
+    // Image preview: English image in en mode; the 大象傳 (converted for 简) in zh modes.
     const gua = GUA[selected.cast.primary - 1];
     const detail = lang === "en" ? gua.en : lang === "zh-Hans" ? toSimplified(gua.dx) : gua.dx;
-    if (stringWidth(detail) <= maxW - 4) {
-      frame.writeText(detailRow, 2, detail, { fg: t.tertiary, dim: true });
-    }
+    // Truncate to fit rather than drop. Most 大象傳 lines are wider than one
+    // preview row at common widths (33/64 vanish at 80 cols, every one below
+    // ~60), so a fits-or-nothing guard left the row blank for most readings.
+    // The opening — the natural image (大象) itself — is the evocative part and
+    // survives the clip; the full text is one [enter]/[g] away.
+    frame.writeText(detailRow, 2, truncateToWidth(detail, maxW - 4), { fg: t.tertiary, dim: true });
   }
 
   /** The quiet observatory: the field of 64, then ruled sections of observation. */

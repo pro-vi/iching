@@ -1283,6 +1283,24 @@ describe("JournalScene CJK display-width truncation", () => {
     expect(painted.endsWith("…")).toBe(true);
     expect(stringWidth(painted)).toBeLessThanOrEqual(40);
   });
+
+  test("the 大象傳 image preview truncates to fit rather than vanishing", () => {
+    // Regression: the image teaser used a fits-or-nothing guard, so at common
+    // widths most readings showed a BLANK preview row (33/64 vanish at 80 cols,
+    // every one below ~60). It now truncates like every other row — the
+    // evocative opening (the natural image itself) stays, with an ellipsis.
+    const ctx = ctxFor(24, 60); // every hexagram image overflows 60 cols
+    // hexagram 15 謙 carries the longest image; it must preview, not vanish.
+    const scene = new JournalScene([makeEntry("2026-03-01", 15)]);
+    scene.enter(ctx);
+    const buf = CellBuffer.create(ctx.cols, ctx.rows);
+    scene.render(buf, ctx);
+    const painted = buf.getRow(ctx.rows - 2).map((c) => c.char).join("").trimEnd();
+    expect(painted.trim().length).toBeGreaterThan(0); // not the old blank row…
+    expect(painted).toContain("mountain"); // …the natural-image opening survives…
+    expect(painted.endsWith("…")).toBe(true); // …with a visible ellipsis…
+    expect(stringWidth(painted)).toBeLessThanOrEqual(60); // …and no overflow.
+  });
 });
 
 // The pure-derivation tests for computeJournalPatterns moved to the core
