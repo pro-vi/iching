@@ -67,6 +67,21 @@ describe("KeyParser — extended key buffering", () => {
     parser.dispose();
   });
 
+  test("a truncated multibyte lead before an ESC sequence doesn't swallow the sequence", () => {
+    // A 3-byte UTF-8 lead cut off by a read boundary, then an arrow key. The
+    // parser must not decode [lead, ESC, []] as one bogus char (eating the arrow
+    // and emitting a raw ESC) — the lead is replaced, the arrow survives.
+    const ev: KeyEvent[] = [];
+    const parser = new KeyParser((e) => ev.push(e));
+    parser.feed(new Uint8Array([0xe4])); // lone 3-byte lead (truncated multibyte)
+    parser.feed(new Uint8Array([0x1b, 0x5b, 0x41])); // ESC [ A — arrow up
+    expect(ev[0]).toEqual({ type: "char", char: "�" }); // lead → one replacement char
+    expect(ev).toContainEqual({ type: "arrow", direction: "up" }); // arrow NOT eaten
+    // No event leaked a raw ESC into its text.
+    for (const e of ev) if (e.type === "char") expect(e.char).not.toContain("");
+    parser.dispose();
+  });
+
   test("a never-terminating escape sequence is flushed, not buffered without bound", () => {
     const events: KeyEvent[] = [];
     const parser = new KeyParser((e) => events.push(e));

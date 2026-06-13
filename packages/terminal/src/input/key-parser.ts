@@ -168,6 +168,17 @@ export function parseKeyWithLength(buf: Uint8Array): ParseResult | null {
   if (byte >= 0x80) {
     const charLen = utf8CharLen(byte);
     if (buf.length < charLen) return null; // incomplete UTF-8 — need more bytes
+    // Verify the trailing bytes are continuation bytes (0b10xxxxxx). A valid lead
+    // followed by a non-continuation is a TRUNCATED multibyte — e.g. a lead byte
+    // cut off by a read boundary, then an ESC sequence. Decoding charLen bytes
+    // anyway would swallow that sequence (and a raw ESC) into one bogus char and
+    // eat the keypress. Instead, emit ONE replacement char for the lead and
+    // consume just it, so the following bytes (the real sequence) re-parse.
+    for (let i = 1; i < charLen; i++) {
+      if ((buf[i] & 0xc0) !== 0x80) {
+        return { event: { type: "char", char: "�" }, consumed: 1 };
+      }
+    }
     const charBuf = buf.subarray(0, charLen);
     const decoded = new TextDecoder().decode(charBuf);
     if (decoded.length > 0) {
