@@ -229,6 +229,24 @@ describe("JournalScene search ([/])", () => {
     expect(entryMatchesQuery(makeEntry("2026-03-07", 3), "job")).toBe(false); // no notes → unaffected
   });
 
+  test("a failed note's text is not searchable (it never reached disk)", () => {
+    // Search skips failed attempts — a note whose append rejected was never
+    // persisted, so finding a reading by it would be a lie. Saved, pending, and
+    // disk-loaded (stateless) notes remain searchable.
+    const failed = makeEntry("2026-03-01", 1, {
+      notes: [{ text: "ghost reflection", date: "2026-03-01", state: "failed" }],
+    });
+    expect(entryMatchesQuery(failed, "ghost")).toBe(false); // failed → not found
+    const saved = makeEntry("2026-03-02", 2, {
+      notes: [{ text: "real reflection", date: "2026-03-02", state: "saved" }],
+    });
+    expect(entryMatchesQuery(saved, "real")).toBe(true); // saved → found
+    const loaded = makeEntry("2026-03-03", 3, {
+      notes: [{ text: "from disk", date: "2026-03-03" }], // no state → durable
+    });
+    expect(entryMatchesQuery(loaded, "disk")).toBe(true); // loaded → found
+  });
+
   test("live search finds a reading by its reflection note", () => {
     const ctx = ctxFor();
     const scene = new JournalScene([
