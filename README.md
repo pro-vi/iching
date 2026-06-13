@@ -70,6 +70,7 @@ iching journal list --hexagram 29   # readings where hexagram 29 appears
 iching journal show today       # today's reading
 iching journal note "..."       # attach a reflection note to the latest reading
 iching journal patterns         # quiet observation over every past reading
+iching journal patterns --since 2026-01-01 --until 2026-03-31  # bound it to one season
 iching journal patterns --json  # the same derivation, structured for scripts
 iching hexagram 1               # look up hexagram by number or name
 iching dict water               # open the dictionary on a search
