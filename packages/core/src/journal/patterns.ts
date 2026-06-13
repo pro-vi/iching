@@ -280,17 +280,15 @@ export function computeJournalPatterns(
     for (const pos of changing) {
       if (pos >= 1 && pos <= 6) lineCounts[pos - 1]++;
     }
-    // Observed old-line tallies count every entry — the pane's convention is
-    // observed = all readings, expected = the method-marked subset (named in
-    // a footnote). Line values 6/9 are recorded regardless of method, so the
-    // observation isn't gated by missing data; only the expectation is. The
-    // 兩儀 balance counts every line's polarity the same way. A malformed entry
-    // missing its lines (corrupt or pre-format record) contributes nothing here
-    // rather than crashing the whole pane — one bad reading is tolerated.
+    // The 兩儀 balance is descriptive — every line's polarity across all
+    // readings (a malformed entry missing its lines contributes nothing rather
+    // than crashing the pane). The old-yang/yin tally, by contrast, is the
+    // observed side of a chance *comparison*, so it counts only the
+    // method-marked subset its expectation rests on — same basis on both sides.
+    // (Pairing an all-readings count with a method-only expectation would
+    // inflate the comparison in journals holding many legacy entries.)
     const lines = Array.isArray(entry.cast.lines) ? entry.cast.lines : [];
     for (const line of lines) {
-      if (line.value === 6) observedOldYin++;
-      if (line.value === 9) observedOldYang++;
       if (line.isYang) yangLines++;
       else yinLines++;
     }
@@ -305,7 +303,9 @@ export function computeJournalPatterns(
       for (const pos of changing) {
         if (pos >= 1 && pos <= 6) knownLineCounts[pos - 1]++;
       }
-      for (const _line of lines) {
+      for (const line of lines) {
+        if (line.value === 6) observedOldYin++;
+        if (line.value === 9) observedOldYang++;
         expectedOldYin += LINE_PROBABILITIES[family][6];
         expectedOldYang += LINE_PROBABILITIES[family][9];
       }

@@ -347,9 +347,15 @@ describe("journal command", () => {
     expect(json.exitCode).toBe(0);
     const p = JSON.parse(json.stdout);
     expect(p.total).toBe(3);
+    // A basis note tells a script not to cross descriptive counts with the
+    // method-marked comparison block.
+    expect(p.basis).toContain("method-marked");
     // kw references resolve to name blocks for a caller without the data table.
     expect(p.field.recent).toMatchObject({ kw: 2, n: "坤" }); // latest is 02-10
+    // Descriptive count at the top; the chance comparison namespaced + same-basis.
     expect(p.topHexagrams[0]).toMatchObject({ kw: 3, n: "屯", count: 2 });
+    expect(p.topHexagrams[0]).not.toHaveProperty("expected"); // not adjacent to count
+    expect(p.topHexagrams[0].comparison).toMatchObject({ basis: "method-marked", count: 2 });
     expect(p.lineBalance).toHaveProperty("yang");
     expect(p.lineBalance).toHaveProperty("yin");
   }, 20_000);

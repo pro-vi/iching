@@ -133,19 +133,24 @@ describe("computeJournalPatterns", () => {
     expect(p.movingLineCounts[0]).toMatchObject({ movingLines: 0, count: 1, share: 1 });
   });
 
-  test("old-line observations count all entries; expectation stays method-marked", () => {
-    // Two casts with a moving line each: one coin-marked, one unmarked.
-    // Observed 6s/9s count both; expected rests only on the marked cast.
+  test("old-line comparison stays same-basis: observed and expected are both method-marked", () => {
+    // Two casts with one old-yin (6) each: one coin-marked, one unmarked. The
+    // old-yang/yin row is a chance comparison, so observed counts ONLY the
+    // method-marked cast — same basis as the expectation. (Counting the legacy
+    // cast too would inflate the comparison against a method-only expectation.)
     const entries = [
       makeEntry("2026-03-01", 39, { cast: makeCast(39, 8, [2]), method: "coin" }), // 6 at pos2
       makeEntry("2026-03-02", 39, { cast: makeCast(39, 8, [2]) }), // unmarked, 6 at pos2
     ];
     const p = computeJournalPatterns(entries, "2026-04-15");
-    expect(p.baseline.oldYin.observed).toBe(2); // both entries, not just the marked one
+    expect(p.baseline.oldYin.observed).toBe(1); // the coin cast only, not the legacy one
     expect(p.baseline.oldYang.observed).toBe(0);
     // Expectation is one coin cast worth of old-yin chance (6 lines × 1/8).
     expect(p.baseline.oldYin.expected).toBeCloseTo(0.75, 4);
+    expect(p.baseline.oldYin.lift).toBeCloseTo(1 / 0.75, 4); // same-basis ratio
     expect(p.baseline.methods.known).toBe(1);
+    // The 兩儀 balance, by contrast, IS descriptive — both casts' lines count.
+    expect(p.lineBalance.yang + p.lineBalance.yin).toBe(12);
   });
 
   test("frequency ties break by lower KW; top list caps at five", () => {

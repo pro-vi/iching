@@ -203,6 +203,14 @@ export function journalPatternsToJson(p: JournalPatterns): Record<string, unknow
     ...(lastDate !== undefined ? { lastDate } : {}),
   });
   return {
+    // One note so a consuming script never crosses bases: descriptive `count`
+    // fields tally every reading; a `comparison` block (when present) holds
+    // chance figures computed ENTIRELY within the method-marked subset (coin/
+    // yarrow casts, whose line probabilities are known). Never divide an
+    // all-readings count by a method-marked expectation — use the comparison
+    // block's own count/expected, which share a basis. `comparison` is null
+    // when there is no method-marked baseline.
+    basis: "count = all readings · comparison = method-marked subset only",
     total: p.total,
     thisMonth: p.thisMonth,
     cadence: p.cadence,
@@ -216,12 +224,14 @@ export function journalPatternsToJson(p: JournalPatterns): Record<string, unknow
     },
     topHexagrams: p.topHexagrams.map((h) => ({
       ...named(h.kw),
-      count: h.count,
-      knownCount: h.knownCount,
-      share: h.share,
-      expected: h.expected,
-      lift: h.lift,
+      count: h.count, // all readings of this primary
+      share: h.share, // count / total
       lastDate: h.lastDate,
+      // Same-basis comparison: method-marked count vs method-marked expectation.
+      comparison:
+        h.expected > 0
+          ? { basis: "method-marked", count: h.knownCount, expected: h.expected, lift: h.lift }
+          : null,
     })),
     movingLines: p.movingLines,
     movingLineCounts: p.movingLineCounts,
