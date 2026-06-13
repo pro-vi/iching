@@ -33,6 +33,27 @@ describe("YarrowScene", () => {
     expect(sig).toEqual({ type: "home" });
   });
 
+  test("gates on its 52-col field need — a narrow terminal gets a calm notice", () => {
+    const s = scene(42);
+    const render = (cols: number): string => {
+      const buf = CellBuffer.create(cols, 16);
+      s.render(buf, { cols, rows: 16, colorSupport: "truecolor", language: "en", done: false });
+      return Array.from({ length: 16 }, (_, r) => buf.getRow(r).map((c) => c.char).join("")).join(
+        "\n",
+      );
+    };
+    // Below the field's 52-col need but above the global 40 floor: the ritual
+    // would render a clipped half-field, so it shows the too-small notice with
+    // its OWN requirement (52), not the misleading global 40.
+    for (const cols of [41, 45, 51]) {
+      const out = render(cols);
+      expect(out).toContain("the window is too small");
+      expect(out).toContain("52 × 12");
+    }
+    // At a comfortable width the field renders (its pace-control footer shows).
+    expect(render(80)).toContain("[space]");
+  });
+
   test("ctrl-c exits at any point", () => {
     const sig = scene().handleKey(key({ type: "ctrl", char: "c" }), ctx);
     expect(sig).toEqual({ type: "exit" });

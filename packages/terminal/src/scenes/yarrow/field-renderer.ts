@@ -28,7 +28,10 @@ import type { YarrowModel } from "./model.ts";
 const STALK = "│";
 const TOTAL_STALKS = 49;
 const GAP_CELLS = 2; // minimum visible gap between heaps during split
-const BAR_AREA_WIDTH = TOTAL_STALKS + GAP_CELLS + 1; // 52 — fits any split
+// The stalk field needs this many columns to show all 49 stalks at any split;
+// below it the field clips. Exported so the yarrow scenes can gate on it
+// (the global too-small floor of 40 is narrower than the ritual requires).
+export const BAR_AREA_WIDTH = TOTAL_STALKS + GAP_CELLS + 1; // 52
 
 /** A row of N stalks: `███████` (n cells of `█`). */
 function stalkBar(n: number): string {

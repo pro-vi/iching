@@ -26,11 +26,17 @@ export const MIN_ROWS = 12;
 /**
  * Render the centered too-small notice into a frame. Exported for tests.
  */
-export function renderTooSmallNotice(frame: CellBuffer, ctx: SceneContext): void {
+export function renderTooSmallNotice(
+  frame: CellBuffer,
+  ctx: SceneContext,
+  minCols: number = MIN_COLS,
+): void {
   const t = getTheme();
   const lang = ctx.language ?? "en";
   const msg = tr(lang, "notice.tooSmall");
-  const dims = `${MIN_COLS} × ${MIN_ROWS}`;
+  // A scene that needs more than the global floor (e.g. the yarrow field)
+  // shows its own larger requirement so the hint is honest.
+  const dims = `${minCols} × ${MIN_ROWS}`;
   const msgRow = Math.max(0, Math.floor(frame.height / 2) - 1);
   frame.writeText(msgRow, Math.max(0, Math.floor((frame.width - stringWidth(msg)) / 2)), msg, {
     fg: t.secondary,

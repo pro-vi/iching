@@ -17,7 +17,8 @@ import { getYarrowTiming } from "../../animation/yarrow-presets.ts";
 import { TimelineRunner } from "../../animation/runner.ts";
 import { YarrowModel } from "./model.ts";
 import { buildYarrowTimeline } from "./yarrow-timeline.ts";
-import { renderYarrowField } from "./field-renderer.ts";
+import { renderYarrowField, BAR_AREA_WIDTH } from "./field-renderer.ts";
+import { renderTooSmallNotice } from "../../scene/loop.ts";
 import { writeChromeFooter } from "../cast/ritual-chrome.ts";
 import { tr } from "../../i18n/messages.ts";
 import type { DisplayLanguage } from "@iching/core";
@@ -51,7 +52,14 @@ export class YarrowScene implements Scene {
     this.complete = this.timeline.advance(this.virtualElapsed, this.model);
   }
 
-  render(frame: CellBuffer, _ctx: SceneContext): void {
+  render(frame: CellBuffer, ctx: SceneContext): void {
+    // The 49-stalk field needs BAR_AREA_WIDTH columns; the global too-small
+    // floor (40) is narrower, so gate here too — a clipped half-field reads as
+    // broken, where a calm notice reads as honest.
+    if (frame.width < BAR_AREA_WIDTH) {
+      renderTooSmallNotice(frame, { ...ctx, language: this.language }, BAR_AREA_WIDTH);
+      return;
+    }
     // Captions are baked into the timeline at construction with this.language;
     // use the same language for the live field + footer to stay consistent.
     renderYarrowField(frame, this.model, this.language);
