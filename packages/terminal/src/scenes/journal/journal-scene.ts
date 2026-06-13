@@ -646,7 +646,17 @@ export class JournalScene implements Scene {
     // ── S2 卦象 — faces seen ──
     if (patterns.topHexagrams.length > 0) {
       blank();
-      rule(tr(lang, "journal.patterns.sectionFaces"), { fg: t.secondary, bold: true });
+      // The per-hexagram expectation is uniform (known/64), so it belongs once
+      // in the rule — not repeated identically down every row — matching the
+      // 爻象/八卦 shared-note idiom.
+      const perHex = patterns.baseline.primaryExpectedPerHexagram;
+      rule(
+        tr(lang, "journal.patterns.sectionFaces"),
+        { fg: t.secondary, bold: true },
+        gate && perHex !== null
+          ? `${tr(lang, "journal.patterns.eachByChance")}${chanceNum(perHex)}`
+          : undefined,
+      );
       const maxFace = Math.max(...patterns.topHexagrams.map((hex) => hex.count));
       for (const hex of patterns.topHexagrams.slice(0, 5)) {
         const gua = GUA[hex.kw - 1];
@@ -660,7 +670,6 @@ export class JournalScene implements Scene {
               ...bar(hex.count, maxFace),
               lab(" "),
               num(`×${hex.count}`),
-              ...chance(hex.expected > 0 ? hex.expected : null),
             ],
             hex.lastDate,
           ),
