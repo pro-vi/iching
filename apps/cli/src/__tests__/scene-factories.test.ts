@@ -11,6 +11,7 @@ import { JsonlJournalStore } from "@iching/storage";
 import {
   BrowseScene,
   CastScene,
+  CellBuffer,
   DetailScene,
   JournalScene,
   type JournalEntryView,
@@ -211,6 +212,48 @@ describe("makeJournalFactory", () => {
 
     // Esc on the list itself pops the router bottom — the home loop resumes.
     expect(list.handleKey({ type: "escape" }, ctx)).toEqual({ type: "back" });
+  });
+
+  test("a replayed reading opens settled, not re-animating the cast ritual", () => {
+    // The factory calls skipToComplete(false) so reopening a past reading shows
+    // it at rest at once — not redrawing line by line the ritual you already
+    // watched when you first cast it. Dropping that call still satisfies the
+    // scene-type and exit tests above, so pin the settled render directly: the
+    // resting footer ([enter] detail) shows, the cast animation's controls
+    // ([s] skip / [space] pause) do not.
+    const entry: JournalEntryView = {
+      date: "2026-01-02",
+      timestamp: "2026-01-02T09:00:00.000Z",
+      cast: {
+        lines: [1, 2, 3, 4, 5, 6].map((p) =>
+          p === 1
+            ? { value: 9, isYang: true, isChanging: true }
+            : { value: 7, isYang: true, isChanging: false },
+        ),
+        primary: 1,
+        becoming: 44,
+        changingPositions: [1],
+        nuclear: 1,
+        polarity: 2,
+        mirror: 1,
+        diagonal: 2,
+      },
+    };
+    const factory = makeJournalFactory({
+      journal,
+      entries: [entry],
+      session: { cols: 80, rows: 24 },
+    });
+    const scene = factory({ type: "openJournalReading", entry }) as CastScene;
+    const ctx = { cols: 80, rows: 24, colorSupport: "truecolor", done: false } as const;
+    const buf = CellBuffer.create(80, 24);
+    scene.render(buf, ctx);
+    const text = Array.from({ length: 24 }, (_, r) =>
+      buf.getRow(r).map((c) => c.char).join(""),
+    ).join("\n");
+    expect(text).toContain("detail"); // the settled reading's footer…
+    expect(text).not.toContain("[s] skip"); // …not the cast animation controls
+    expect(text).not.toContain("[space] pause");
   });
 });
 
