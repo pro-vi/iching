@@ -97,7 +97,12 @@ export class IntentionScene implements Scene {
     }
 
     if (key.type === "char") {
-      this.textInput.insert(key.char);
+      // Sanitize single chars too, not just paste (above) — the parser emits
+      // 0x1c–0x1f (Ctrl+\/]/^/_), 0x7f and stray bytes as `char` events, and an
+      // intention is replayed to the terminal in the journal list/preview and
+      // the reading panel. Matches the search and note inputs' char handling.
+      const ch = stripTerminalControls(key.char);
+      if (ch.length > 0) this.textInput.insert(ch);
       return;
     }
 

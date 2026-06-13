@@ -73,3 +73,19 @@ describe("IntentionScene — paste", () => {
     expect(scene.getIntention()).toBe("問 x");
   });
 });
+
+describe("IntentionScene — single-char sanitization", () => {
+  test("control chars arriving as single char events are dropped, like paste", () => {
+    // The parser routes ESC and 0x01–0x1a to escape/ctrl, but 0x1c–0x1f
+    // (Ctrl+\/]/^/_), 0x7f and stray bytes arrive as `char` events. An intention
+    // is replayed to the terminal in the journal list/preview and the reading
+    // panel, so they must be stripped at entry — the char path, not just paste.
+    const scene = new IntentionScene();
+    scene.handleKey({ type: "char", char: "w" }, ctx());
+    scene.handleKey({ type: "char", char: "\x1c" }, ctx()); // FS (Ctrl+\)
+    scene.handleKey({ type: "char", char: "\x1f" }, ctx()); // US (Ctrl+_)
+    scene.handleKey({ type: "char", char: "i" }, ctx());
+    scene.handleKey({ type: "enter" }, ctx());
+    expect(scene.getIntention()).toBe("wi"); // not "w\x1c\x1fi"
+  });
+});
