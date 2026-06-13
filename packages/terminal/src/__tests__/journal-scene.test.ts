@@ -350,6 +350,43 @@ describe("JournalScene search ([/])", () => {
   });
 });
 
+describe("JournalScene mode exclusivity", () => {
+  test("cross-mode keys are captured as input, never open a second mode", () => {
+    // Key routing checks noteActive → patternsOpen → searchActive and returns,
+    // so a key that would open another mode (e.g. [p] while searching) lands in
+    // the active handler as input instead. Guards against two of
+    // note/patterns/search being live at once, or a flag leaking on esc.
+    const entries = [makeEntry("2026-03-01", 1, { intention: "topic" }), makeEntry("2026-03-02", 2)];
+    const scene = new JournalScene(entries);
+    const ctx = ctxFor();
+    scene.enter(ctx);
+    const activeModes = (): number => {
+      const s = scene as unknown as { noteActive: boolean; patternsOpen: boolean; searchActive: boolean };
+      return [s.noteActive, s.patternsOpen, s.searchActive].filter(Boolean).length;
+    };
+    const send = (...keys: Array<{ type: string; char?: string }>): void => {
+      for (const k of keys) scene.handleKey(k as never, ctx);
+    };
+    const C = (c: string) => ({ type: "char", char: c });
+    const ESC = { type: "escape" };
+    // In search, [p]/[n] are query text — not patterns/note:
+    send(C("/"), C("p"), C("n"));
+    expect(activeModes()).toBe(1); // only search, not three
+    send(ESC);
+    expect(activeModes()).toBe(0); // esc returns to the clean list
+    // In patterns, [n]/[/] don't open note/search:
+    send(C("p"), C("n"), C("/"));
+    expect(activeModes()).toBe(1);
+    send(ESC);
+    expect(activeModes()).toBe(0);
+    // In note, [/]/[p] don't open search/patterns:
+    send(C("n"), C("/"), C("p"));
+    expect(activeModes()).toBe(1);
+    send(ESC);
+    expect(activeModes()).toBe(0);
+  });
+});
+
 describe("JournalScene empty state", () => {
   test("a journal with no readings still shows how to leave, with no dead keys", () => {
     // The most novice state \u2014 zero readings \u2014 must still tell the user how to
