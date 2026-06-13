@@ -332,7 +332,12 @@ export class JournalScene implements Scene {
 
       // Intention — a 30-column budget (CJK counts double)
       if (entry.intention) {
-        line += `  “${truncateToWidth(entry.intention, 30)}”`;
+        // Strip control sequences from stored text at the render boundary: a
+        // hand-edited / synced / imported journal can carry escapes the TUI
+        // input path never sanitized. The cell buffer drops width-0 controls
+        // by accident (they get overwritten in-column), but that is luck, not
+        // a defense — make it explicit, as the plain digest already does.
+        line += `  “${truncateToWidth(stripTerminalControls(entry.intention), 30)}”`;
       }
 
       // Quiet marker for annotated entries (·註 / ·note). It is a STRUCTURAL
@@ -409,8 +414,11 @@ export class JournalScene implements Scene {
     }
 
     if (latestNote) {
+      // Strip control sequences from the stored note at the render boundary —
+      // same reasoning as the list-row intention above (the plain digest's
+      // note line already does this).
       const text = truncateToWidth(
-        `·${tr(lang, "journal.noteMarker")} ${latestNote.date}  ${latestNote.text}`,
+        `·${tr(lang, "journal.noteMarker")} ${latestNote.date}  ${stripTerminalControls(latestNote.text)}`,
         maxW - 4,
       );
       // Dim only while the append is in flight — a settled note holds the

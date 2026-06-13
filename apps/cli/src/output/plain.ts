@@ -42,7 +42,7 @@ export function formatCastPlain(
   const lines: string[] = [];
 
   if (question) {
-    lines.push(`Question: ${question}`);
+    lines.push(`Question: ${stripTerminalControls(question)}`);
     lines.push("");
   }
 
@@ -198,7 +198,7 @@ export function formatTodayPlain(cache: DailyCache): string {
 
   lines.push(`Date: ${cache.date}`);
   if (cache.intention) {
-    lines.push(`Intention: ${cache.intention}`);
+    lines.push(`Intention: ${stripTerminalControls(cache.intention)}`);
   }
   if (cache.method) {
     lines.push(`Method: ${methodLabel(cache.method)}`);
@@ -223,7 +223,7 @@ export function formatJournalListPlain(
         ? ` → ${GUA[entry.cast.becoming - 1].u} ${GUA[entry.cast.becoming - 1].n}`
         : "";
     const time = entry.timestamp ? `  ${formatTime(entry.timestamp)}` : "";
-    const intention = entry.intention ? `  "${entry.intention}"` : "";
+    const intention = entry.intention ? `  "${stripTerminalControls(entry.intention)}"` : "";
     // Coins are the ambient default; only the slower rituals earn a quiet note.
     const method =
       entry.method && entry.method !== "coin" ? `  · ${methodLabel(entry.method)}` : "";
@@ -244,7 +244,7 @@ export function formatJournalShowPlain(
   const ename = g.ename ? ` — ${g.ename}` : "";
   lines.push(`Date: ${entry.date}${entry.timestamp ? `  ${formatTime(entry.timestamp)}` : ""}`);
   if (entry.intention) {
-    lines.push(`Intention: ${entry.intention}`);
+    lines.push(`Intention: ${stripTerminalControls(entry.intention)}`);
   }
   if (entry.method) {
     lines.push(`Method: ${methodLabel(entry.method)}`);

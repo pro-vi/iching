@@ -360,6 +360,26 @@ describe("journal command", () => {
     expect(stdout).not.toContain("Method:");
   }, 20_000);
 
+  test("plain list/show strip terminal control sequences from a stored intention", async () => {
+    // The CLI/TUI input paths sanitize what a user types, but a journal file of
+    // external provenance (synced, restored, imported, hand-edited) can carry
+    // escapes the app never wrote. Plain output goes straight to the terminal
+    // with no cell-buffer backstop, so an unstripped intention would inject
+    // (set the title, clear the screen). The note line already strips; the
+    // intention must too. Payload: ESC + BEL between two words.
+    const evil = { ...makeEntry("2026-05-01", 1, null), intention: "calm[2Jmind" };
+    await seedJournal(dataDir, [evil]);
+
+    for (const argv of [["journal", "list"], ["journal", "show", "2026-05-01"]]) {
+      const { exitCode, stdout } = await runCli(dataDir, argv);
+      expect(exitCode).toBe(0);
+      expect(stdout).not.toContain(""); // no raw ESC reaches the terminal
+      expect(stdout).not.toContain(""); // no raw BEL either
+      expect(stdout).toContain("calm"); // the words survive, only the controls are gone
+      expect(stdout).toContain("mind");
+    }
+  }, 20_000);
+
   test("show <date> surfaces the day's LATEST reading, even appended out of order", async () => {
     // Three readings on one day, appended out of chronological order (as an
     // imported journal can be). `show` must surface the latest by time-key, not
