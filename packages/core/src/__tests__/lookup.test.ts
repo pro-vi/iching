@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { BINARY_TO_KW } from "../identify/lookup.js";
+import { BINARY_TO_KW, hexagramByBinary, hexagramByKW } from "../identify/lookup.js";
 import { GUA } from "../data/gua.js";
 
 describe("BINARY_TO_KW", () => {
@@ -30,6 +30,20 @@ describe("BINARY_TO_KW", () => {
       const index = lower + upper * 8;
       expect(BINARY_TO_KW[index]).toBe(kw);
     }
+  });
+});
+
+describe("hexagramByKW / hexagramByBinary — input validation", () => {
+  test("valid inputs return the right hexagram", () => {
+    expect(hexagramByKW(1)).toBe(GUA[0]);
+    expect(hexagramByKW(64)).toBe(GUA[63]);
+    expect(hexagramByBinary(63)).toBe(GUA[BINARY_TO_KW[63] - 1]);
+    expect(hexagramByBinary(0)).toBe(GUA[BINARY_TO_KW[0] - 1]);
+  });
+
+  test("out-of-range / non-integer throws instead of returning undefined-as-Hexagram", () => {
+    for (const bad of [0, 65, -1, 1.5, NaN]) expect(() => hexagramByKW(bad)).toThrow();
+    for (const bad of [-1, 64, 1.5, NaN]) expect(() => hexagramByBinary(bad)).toThrow();
   });
 });
 
