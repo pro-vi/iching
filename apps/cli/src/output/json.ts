@@ -236,7 +236,22 @@ export function journalPatternsToJson(p: JournalPatterns): Record<string, unknow
             }
           : null,
     },
-    baseline: p.baseline,
+    // Method counts are descriptive; every method-marked chance figure — the
+    // old-yang/yin comparisons and the uniform per-hexagram expectation — lives
+    // under one `comparison` block so none of them sits loose where a script
+    // could divide an all-readings count by it. Null when there is no baseline.
+    baseline: {
+      methods: p.baseline.methods,
+      comparison:
+        p.baseline.methods.known > 0
+          ? {
+              basis: "method-marked",
+              expectedPerHexagram: p.baseline.primaryExpectedPerHexagram,
+              oldYin: p.baseline.oldYin,
+              oldYang: p.baseline.oldYang,
+            }
+          : null,
+    },
     lineBalance: p.lineBalance,
     field: {
       counts: p.field.counts,

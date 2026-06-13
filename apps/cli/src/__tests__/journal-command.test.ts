@@ -368,6 +368,13 @@ describe("journal command", () => {
     expect(p.diversity).toHaveProperty("distinctHexagrams");
     expect(p.diversity).not.toHaveProperty("expectedDistinctHexagrams");
     expect(p.diversity.comparison).toMatchObject({ basis: "method-marked" });
+    // baseline: descriptive method counts; every method-marked chance figure
+    // (per-hexagram expectation + old-line comparisons) namespaced together, so
+    // no loose method-marked scalar sits where field.counts could be divided by it.
+    expect(p.baseline).not.toHaveProperty("primaryExpectedPerHexagram");
+    expect(p.baseline.comparison).toMatchObject({ basis: "method-marked" });
+    expect(p.baseline.comparison).toHaveProperty("expectedPerHexagram");
+    expect(p.baseline.comparison.oldYang).toHaveProperty("expected");
     expect(p.lineBalance).toHaveProperty("yang");
     expect(p.lineBalance).toHaveProperty("yin");
   }, 20_000);
