@@ -264,9 +264,18 @@ export class JournalScene implements Scene {
     }
 
     if (this.entries.length === 0) {
+      const midRow = Math.floor(ctx.rows / 2);
       const empty = tr(lang, "journal.empty");
       const emptyCol = Math.max(0, Math.floor((maxW - stringWidth(empty)) / 2));
-      frame.writeText(Math.floor(ctx.rows / 2), emptyCol, empty, { fg: t.secondary });
+      frame.writeText(midRow, emptyCol, empty, { fg: t.secondary });
+      // A quieter line beneath orients what this space holds — but only when it
+      // clears the footer (a sub-chrome height would otherwise overwrite it).
+      const invite = tr(lang, "journal.emptyInvite");
+      const inviteRow = midRow + 1;
+      if (inviteRow < ctx.rows - 1) {
+        const inviteCol = Math.max(0, Math.floor((maxW - stringWidth(invite)) / 2));
+        frame.writeText(inviteRow, inviteCol, invite, { fg: t.tertiary, dim: true });
+      }
       this.renderFooter(frame, ctx, lang); // with no readings, still show the way out
       return;
     }

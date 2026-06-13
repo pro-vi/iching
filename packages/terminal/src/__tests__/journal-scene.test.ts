@@ -493,6 +493,27 @@ describe("JournalScene empty state", () => {
     expect(text).not.toContain("[p] patterns");
     expect(text).not.toContain("[/] search");
   });
+
+  test("the empty journal orients with a quiet line, dropped on a tiny screen", () => {
+    // Under "No readings yet" a dimmer line says what this space holds, so a
+    // new journal's first impression isn't a bare void. It sits just above the
+    // footer, so on a sub-chrome height it yields rather than overwrite it.
+    const scene = new JournalScene([]);
+    const tall = ctxFor(18, 64);
+    scene.enter(tall);
+    const text = renderText(scene, tall);
+    expect(text).toContain("No readings yet"); // the state…
+    expect(text).toContain("what you cast gathers here"); // …and the orienting line
+
+    const tiny = ctxFor(4, 64); // header(2) + state + footer leaves no room for the line
+    scene.enter(tiny);
+    const tinyText = renderText(scene, tiny);
+    expect(tinyText).toContain("No readings yet"); // the state still shows…
+    // Without the guard the centered footer overwrites the line's middle and
+    // its ends flank it ("what you[esc] backers here") — assert no fragment leaks.
+    expect(tinyText).not.toContain("what you"); // …the line yields cleanly…
+    expect(tinyText).toContain("[esc] back"); // …so the way out is never overwritten
+  });
 });
 
 describe("JournalScene reflection notes ([n])", () => {
