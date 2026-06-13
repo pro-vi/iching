@@ -111,8 +111,8 @@ export const MESSAGES = {
   // 觀象 from 繫辭傳's 觀象玩辭 (observe the images, savor the words).
   // Section seals carry the classical term in every language (corpus
   // vocabulary, like 用九 in cast hints); en adds a plain gloss. The pane's
-  // whole statistical register is "chance would say ~" / 理數約 — observed
-  // counts sit next to what the method's probabilities expect, said plainly.
+  // whole statistical register is "by chance ~" / 理數約 — observed counts sit
+  // beside what the method's probabilities expect: observational, not explaining.
   "journal.patterns.head": { en: "觀象 · patterns", zhHant: "觀象", zhHans: "观象" },
   "journal.patterns.sectionFaces": { en: "卦象 · faces seen", zhHant: "卦象", zhHans: "卦象" },
   "journal.patterns.sectionLines": { en: "爻象 · where movement falls", zhHant: "爻象", zhHans: "爻象" },
@@ -131,7 +131,7 @@ export const MESSAGES = {
   "journal.patterns.seenOf": { en: "seen", zhHant: "已見", zhHans: "已见" },
   "journal.patterns.ofSixtyFour": { en: "of 64", zhHant: "/ 64 卦", zhHans: "/ 64 卦" },
   "journal.patterns.recurrence": { en: "recurrence", zhHant: "重現", zhHans: "重现" },
-  "journal.patterns.chanceSays": { en: "chance would say ~", zhHant: "理數約", zhHans: "理数约" },
+  "journal.patterns.chanceSays": { en: "by chance ~", zhHant: "理數約", zhHans: "理数约" },
   "journal.patterns.chance": { en: "chance", zhHant: "理數", zhHans: "理数" },
   "journal.patterns.legendNever": { en: "not yet", zhHant: "未見", zhHans: "未见" },
   "journal.patterns.legendOnce": { en: "once", zhHant: "一度", zhHans: "一度" },
@@ -155,8 +155,8 @@ export const MESSAGES = {
   "journal.patterns.eachLine": { en: "each line", zhHant: "每爻", zhHans: "每爻" },
   "journal.patterns.noMovement": { en: "no line has yet moved", zhHant: "未有動爻", zhHans: "未有动爻" },
   "journal.patterns.still": { en: "still", zhHant: "六爻皆靜", zhHans: "六爻皆静" },
-  "journal.patterns.oldYangLabel": { en: "old yang · 9", zhHant: "老陽九", zhHans: "老阳九" },
-  "journal.patterns.oldYinLabel": { en: "old yin · 6", zhHant: "老陰六", zhHans: "老阴六" },
+  "journal.patterns.oldYangLabel": { en: "9 · old yang", zhHant: "老陽九", zhHans: "老阳九" },
+  "journal.patterns.oldYinLabel": { en: "6 · old yin", zhHant: "老陰六", zhHans: "老阴六" },
   "journal.patterns.eachByChance": { en: "each by chance ~", zhHant: "各依理數約", zhHans: "各依理数约" },
   "journal.patterns.role": { en: "upper/lower", zhHant: "上/下", zhHans: "上/下" },
   "journal.patterns.castToCast": { en: "cast to cast", zhHant: "占間", zhHans: "占间" },

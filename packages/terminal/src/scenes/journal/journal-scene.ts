@@ -482,7 +482,7 @@ export class JournalScene implements Scene {
     };
 
     const chanceNum = (v: number): string => formatNumber(v, v < 10 ? 1 : 0);
-    /** ' · chance would say ~N' — only once enough method-marked casts exist. */
+    /** ' · by chance ~N' — only once enough method-marked casts exist. */
     const chance = (v: number | null): PatternSegment[] =>
       gate && v !== null
         ? [sep(), lab(`${tr(lang, "journal.patterns.chanceSays")}${chanceNum(v)}`)]

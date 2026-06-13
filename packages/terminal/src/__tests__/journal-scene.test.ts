@@ -617,7 +617,7 @@ describe("JournalScene patterns pane ([p])", () => {
 
     // 3 method-marked readings < 8: observed-vs-chance is withheld, honestly.
     expect(text).toContain("too few readings yet to weigh against chance");
-    expect(text).not.toContain("chance would say");
+    expect(text).not.toContain("by chance");
 
     // S2 — faces seen: aligned labels, bars, counts, last dates
     expect(text).toContain("卦象 · faces seen");
@@ -719,7 +719,7 @@ describe("JournalScene patterns pane ([p])", () => {
       makeEntry("2026-04-01", 61, { method: "coin" }),
     ];
     const gateMarks = {
-      en: ["chance would say", "old yang"],
+      en: ["by chance", "old yang"],
       "zh-Hant": ["理數約", "老陽九"],
       "zh-Hans": ["理数约", "老阳九"],
     } as const;
@@ -753,9 +753,12 @@ describe("JournalScene patterns pane ([p])", () => {
     const text = renderText(scene, ctx);
     expect(text).toContain("recurrence ×8");
     expect(text).not.toContain("recurrence ×0");
-    // No method baseline → no chance figure, and the footnote says why.
+    // No method baseline → no baseline chance clause (those render with a
+    // '· by chance' joiner), and the footnote says why. The 八卦 note is
+    // method-free geometry ('each by chance'), so it may still appear.
     expect(text).toContain("legacy entries only; baseline held back");
-    expect(text).not.toContain("chance would say");
+    expect(text).not.toContain("· by chance");
+    expect(text).not.toContain("old yang");
   });
 
   test("bars fill in eighths — an uneven ratio shows a partial cell, not a rounded block", () => {
