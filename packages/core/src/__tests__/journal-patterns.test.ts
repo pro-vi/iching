@@ -141,6 +141,23 @@ describe("computeJournalPatterns", () => {
     expect(p.movingLineCounts[0]).toMatchObject({ movingLines: 0, count: 1, share: 1 });
   });
 
+  test("castsPerActiveDay rests on the date-parseable population, not all entries", () => {
+    // Two readings on one parseable day, plus a third whose date is unparseable
+    // (a legacy/hand-edited/imported record). The cadence average must use the
+    // same population as its denominator: 2 dated casts / 1 active day = 2 — not
+    // 3 / 1, which crosses populations (numerator counts a cast the day base
+    // excludes).
+    const entries = [
+      makeEntry("2026-03-01", 1),
+      makeEntry("2026-03-01", 2),
+      makeEntry("not-a-date", 3),
+    ];
+    const p = computeJournalPatterns(entries, "2026-03-15");
+    expect(p.total).toBe(3); // every reading still counts toward the total…
+    expect(p.cadence?.activeDays).toBe(1);
+    expect(p.cadence?.castsPerActiveDay).toBe(2); // …but the cadence base does not
+  });
+
   test("old-line comparison stays same-basis: observed and expected are both method-marked", () => {
     // Two casts with one old-yin (6) each: one coin-marked, one unmarked. The
     // old-yang/yin row is a chance comparison, so observed counts ONLY the

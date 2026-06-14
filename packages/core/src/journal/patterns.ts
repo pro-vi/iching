@@ -658,10 +658,12 @@ function computeCadence(entries: HistoryEntry[], today: string): CadenceSummary 
 
   const ordinals = new Map<number, string>();
   let recent30 = 0;
+  let datedCasts = 0; // readings whose date parses — the population the day base counts
   const todayOrdinal = dayOrdinal(today);
   for (const entry of entries) {
     const ord = dayOrdinal(entry.date);
     if (ord === null) continue;
+    datedCasts++;
     ordinals.set(ord, entry.date);
     if (todayOrdinal !== null && ord >= todayOrdinal - 29 && ord <= todayOrdinal) recent30++;
   }
@@ -694,7 +696,7 @@ function computeCadence(entries: HistoryEntry[], today: string): CadenceSummary 
     spanDays: last - first + 1,
     activeDays: activeOrdinals.length,
     recent30,
-    castsPerActiveDay: entries.length / activeOrdinals.length,
+    castsPerActiveDay: datedCasts / activeOrdinals.length,
     medianGapDays: gaps.length > 0 ? median(gaps) : null,
     longestGapDays: gaps.length > 0 ? Math.max(...gaps) : null,
     idleDays: todayOrdinal !== null ? Math.max(0, todayOrdinal - last) : null,
