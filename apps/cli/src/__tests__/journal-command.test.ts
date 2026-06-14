@@ -780,6 +780,31 @@ describe("journal note command", () => {
     expect(show.stdout).toContain("what happened after");
   }, 20_000);
 
+  test("note --date annotates the day's LATEST cast, so show surfaces it (out-of-order)", async () => {
+    // Two readings on the same day, written out of chronological order: the
+    // 15:00 泰 is recorded FIRST, the 09:00 坤 LAST. `note --date` must annotate
+    // the same reading `journal show` displays — the latest by time-key (泰),
+    // not the last appended (坤) — or the note lands on a reading show never
+    // surfaces and is silently invisible.
+    const latest = { ...makeEntry("2026-01-01", 11, null), timestamp: "2026-01-01T15:00:00.000Z" };
+    const earlier = { ...makeEntry("2026-01-01", 2, null), timestamp: "2026-01-01T09:00:00.000Z" };
+    await seedJournal(dataDir, [latest, earlier]);
+
+    const noted = await runCli(dataDir, [
+      "journal", "note", "after the storm", "--date", "2026-01-01",
+    ]);
+    expect(noted.exitCode).toBe(0);
+    // The note attaches to 泰 (the 15:00 reading), not 坤 (the last appended).
+    expect(noted.stdout).toContain("泰");
+    expect(noted.stdout).not.toContain("坤");
+
+    // …and `journal show` — which selects the same latest cast — surfaces it.
+    const show = await runCli(dataDir, ["journal", "show", "2026-01-01"]);
+    expect(show.stdout).toContain("泰");
+    expect(show.stdout).toContain("Notes:");
+    expect(show.stdout).toContain("after the storm");
+  }, 20_000);
+
   test("note record on disk matches the schema shape", async () => {
     await seedJournal(dataDir, [makeEntry("2026-01-01", 1, null)]);
     await runCli(dataDir, ["journal", "note", "shape check"]);

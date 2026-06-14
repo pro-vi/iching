@@ -284,9 +284,13 @@ export function registerJournalCommand(program: Command): void {
 
       let target: HistoryEntry | null = null;
       if (cmdOpts.date !== undefined) {
-        // Last reading of that day (same rule the TUI uses for date refs).
+        // A day's reading is its chronologically LATEST cast (by time-key), not
+        // merely the last appended — so `note --date` annotates the same reading
+        // that `journal show <date>` displays, even for an out-of-order journal.
         for await (const entry of store.stream()) {
-          if (entry.date === cmdOpts.date) target = entry;
+          if (entry.date === cmdOpts.date && (target === null || entryTimeKey(entry) >= entryTimeKey(target))) {
+            target = entry;
+          }
         }
       } else {
         target = await store.latest();
