@@ -997,17 +997,16 @@ export class JournalScene implements Scene {
             valueSegs.push(lab(String(echo.kw)));
           }
         }
-        row(
-          ...withLast(
-            [
-              ...label([lab(structuralEchoLabel(echo.kind, lang))]),
-              ...valueSegs,
-              lab(" "),
-              num(`×${echo.count}`),
-            ],
-            echo.lastDate,
-          ),
-        );
+        const echoLabel = label([lab(structuralEchoLabel(echo.kind, lang))]);
+        const countSeg = num(`×${echo.count}`);
+        // The recurrence count is the finding and must survive; the hexagram
+        // name is its identity but expendable under width pressure. Show the
+        // name only when the whole row fits the budget (the same fit-or-drop
+        // rule withLast uses for the date) — so a narrow pane keeps "nuclear ×4"
+        // rather than clipping the load-bearing count to a bare "×".
+        const full = [...echoLabel, ...valueSegs, lab(" "), countSeg];
+        const base = segW(full) <= budget ? full : [...echoLabel, lab(" "), countSeg];
+        row(...withLast(base, echo.lastDate));
       }
     }
 

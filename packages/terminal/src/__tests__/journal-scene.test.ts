@@ -1141,6 +1141,22 @@ describe("JournalScene patterns pane ([p])", () => {
     }
   });
 
+  test("a narrow pane keeps the structural-echo count, dropping the name not the ×N", () => {
+    // The S6 echo rows recur ×4 across this fixture. At 32 cols the hexagram name
+    // no longer fits beside the count, so the name yields and the count — the
+    // recurrence finding — survives intact, never clipped to a bare "×". Tall
+    // enough (70 rows) that every reflowed row renders without scrolling.
+    const ctx = ctxFor(70, 32);
+    const scene = new JournalScene(entries, { today: () => "2026-04-15" });
+    scene.enter(ctx);
+    press(scene, ctx, "p");
+    const lines = renderText(scene, ctx).split("\n");
+    const nuclearLine = lines.find((l) => l.includes("nuclear"));
+    expect(nuclearLine).toBeDefined();
+    expect(nuclearLine).toContain("×4"); // the count survives…
+    expect(nuclearLine).not.toContain("乾"); // …the name yields to make room
+  });
+
   test("a mixed journal withholds all-count chance figures but keeps the method-marked direction comparison", () => {
     // 8 method-marked casts (>= CHANCE_MIN_KNOWN, gate on), varied primaries with
     // movement, so faces / lines / trigrams / direction all have data. Each cast
