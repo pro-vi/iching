@@ -844,6 +844,30 @@ describe("journal note command", () => {
     expect(blank.stderr).toContain("Note text is empty.");
   }, 20_000);
 
+  test("show and note --date reject a malformed date loudly, matching list/patterns", async () => {
+    // A format typo must read as the format error it is — not the misleading
+    // "No reading found", which implies the day genuinely holds no reading. The
+    // same YYYY-MM-DD guard list/patterns apply to --since/--until.
+    await seedJournal(dataDir, [makeEntry("2026-01-01", 1, null)]);
+    for (const bad of ["2026-1-1", "01/01/2026", "not-a-date"]) {
+      const show = await runCli(dataDir, ["journal", "show", bad]);
+      expect(show.exitCode).toBe(1);
+      expect(show.stderr).toContain(`Invalid date "${bad}"`);
+      expect(show.stderr).toContain("YYYY-MM-DD");
+      expect(show.stderr).not.toContain("No reading found");
+
+      const note = await runCli(dataDir, ["journal", "note", "x", "--date", bad]);
+      expect(note.exitCode).toBe(1);
+      expect(note.stderr).toContain(`Invalid --date "${bad}"`);
+      expect(note.stderr).not.toContain("No reading found");
+    }
+
+    // The "today"/"latest" keywords are NOT dates and stay exempt from the guard.
+    const latest = await runCli(dataDir, ["journal", "show", "latest"]);
+    expect(latest.exitCode).toBe(0);
+    expect(latest.stdout).not.toContain("Invalid");
+  }, 20_000);
+
   test("note errors calmly on a write failure, not a raw EISDIR/EROFS", async () => {
     // History readable, but the notes sidecar can't be written (a directory at
     // notes.jsonl; in the wild a read-only or full dir). The read commands

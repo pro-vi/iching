@@ -49,6 +49,19 @@ async function assertJournalReadable(statePath: string): Promise<void> {
   process.exit(1);
 }
 
+/**
+ * Reject a malformed date argument loudly, the same way `list`/`patterns` guard
+ * `--since`/`--until` — so a typo ("2025-1-1", "01/01/2025") reads as the format
+ * error it is, not a misleading "No reading found" that implies an empty day.
+ * One helper so every date-taking surface shares the rule (no parity drift).
+ */
+function assertValidDateArg(value: string, label: string): void {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    console.error(`Invalid ${label} "${value}": expected a date in YYYY-MM-DD format.`);
+    process.exit(1);
+  }
+}
+
 export function registerJournalCommand(program: Command): void {
   const journal = program
     .command("journal")
@@ -91,18 +104,8 @@ export function registerJournalCommand(program: Command): void {
         );
         process.exit(1);
       }
-      if (cmdOpts.since !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(cmdOpts.since)) {
-        console.error(
-          `Invalid --since "${cmdOpts.since}": expected a date in YYYY-MM-DD format.`,
-        );
-        process.exit(1);
-      }
-      if (cmdOpts.until !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(cmdOpts.until)) {
-        console.error(
-          `Invalid --until "${cmdOpts.until}": expected a date in YYYY-MM-DD format.`,
-        );
-        process.exit(1);
-      }
+      if (cmdOpts.since !== undefined) assertValidDateArg(cmdOpts.since, "--since");
+      if (cmdOpts.until !== undefined) assertValidDateArg(cmdOpts.until, "--until");
       // An inverted window can never hold a reading — catch the typo loudly
       // instead of printing a misleading "no readings found".
       if (cmdOpts.since && cmdOpts.until && cmdOpts.since > cmdOpts.until) {
@@ -157,18 +160,8 @@ export function registerJournalCommand(program: Command): void {
       const store = new JsonlJournalStore(paths.state);
       await assertJournalReadable(paths.state);
 
-      if (cmdOpts.since !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(cmdOpts.since)) {
-        console.error(
-          `Invalid --since "${cmdOpts.since}": expected a date in YYYY-MM-DD format.`,
-        );
-        process.exit(1);
-      }
-      if (cmdOpts.until !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(cmdOpts.until)) {
-        console.error(
-          `Invalid --until "${cmdOpts.until}": expected a date in YYYY-MM-DD format.`,
-        );
-        process.exit(1);
-      }
+      if (cmdOpts.since !== undefined) assertValidDateArg(cmdOpts.since, "--since");
+      if (cmdOpts.until !== undefined) assertValidDateArg(cmdOpts.until, "--until");
       // An inverted window can never hold a reading — catch the typo loudly
       // instead of the calm "No readings to observe yet" (which implies none exist).
       if (cmdOpts.since && cmdOpts.until && cmdOpts.since > cmdOpts.until) {
@@ -220,6 +213,7 @@ export function registerJournalCommand(program: Command): void {
       } else if (dateArg === "latest") {
         targetDate = null; // find the last entry
       } else {
+        assertValidDateArg(dateArg, "date");
         targetDate = dateArg;
       }
 
@@ -284,6 +278,7 @@ export function registerJournalCommand(program: Command): void {
 
       let target: HistoryEntry | null = null;
       if (cmdOpts.date !== undefined) {
+        assertValidDateArg(cmdOpts.date, "--date");
         // A day's reading is its chronologically LATEST cast (by time-key), not
         // merely the last appended — so `note --date` annotates the same reading
         // that `journal show <date>` displays, even for an out-of-order journal.
