@@ -69,6 +69,33 @@ describe("DetailRenderer language policy", () => {
   });
 });
 
+describe("DetailRenderer derived bilingual parity", () => {
+  test("English derived links carry the hexagram's Chinese glyph before the English name", () => {
+    const model = new DetailModel(3); // 屯 — distinct derived hexagrams
+    const lines = buildContentLines(model, 100, { language: "en" }).map((l) => l.text);
+    // The English label stays…
+    const nuclearLine = lines.find((l) => l.includes("Nuclear"));
+    expect(nuclearLine).toBeDefined();
+    // …and the derived hexagram's Chinese name now rides beside the symbol, the
+    // same bilingual accent the page header already shows in English mode.
+    const cn = model.detail.nuclear.gua.n;
+    const en = model.detail.nuclear.gua.ename;
+    expect(nuclearLine).toContain(cn);
+    // Chinese glyph precedes the English name, so width-truncation clips the
+    // English half and never the glyph.
+    expect(nuclearLine!.indexOf(cn)).toBeLessThan(nuclearLine!.indexOf(en));
+  });
+
+  test("English locked-pair line carries the partner's Chinese glyph", () => {
+    const model = new DetailModel(11); // 泰 — a locked pair (mirror === polarity)
+    expect(model.detail.isLocked).toBe(true);
+    const lines = buildContentLines(model, 100, { language: "en" }).map((l) => l.text);
+    const lockedLine = lines.find((l) => l.startsWith("Locked pair:"));
+    expect(lockedLine).toBeDefined();
+    expect(lockedLine).toContain(model.detail.lockedPartner!.gua.n);
+  });
+});
+
 describe("DetailRenderer oracle texts", () => {
   test("the 卦辭 section comes before the wing commentary", () => {
     const lines = buildContentLines(new DetailModel(1), 100, { language: "zh-Hant" })

@@ -237,8 +237,11 @@ export function buildContentLines(
     const link = model.derivedLinks[i];
     const isSelected = model.focus === "derived" && model.derivedCursor === i;
     const marker = isSelected ? ">" : " ";
+    // English mode keeps the Chinese name beside the symbol (placed before the
+    // English name, so truncation clips the English half — never the glyph),
+    // matching the bilingual accent the page header already carries.
     const text = english
-      ? `${marker} ${link.label.padEnd(10)} ${link.symbol} ${link.ename}`
+      ? `${marker} ${link.label.padEnd(10)} ${link.symbol} ${link.name} ${link.ename}`
       : `${marker} ${zh(link.labelCn, language)} ${link.symbol} ${zh(link.name, language)}`;
     lines.push({
       // A derived link is one navigable line — clip a long English name to the
@@ -255,7 +258,7 @@ export function buildContentLines(
     lines.push({
       text: truncateToWidth(
         english
-          ? `Locked pair: ${partner.ename}`
+          ? `Locked pair: ${partner.n} ${partner.ename}`
           : `${zh("鎖定對卦", language)}: ${zh(partner.n, language)}`,
         textWidth,
       ),
