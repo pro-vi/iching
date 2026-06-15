@@ -36,6 +36,8 @@ export const MESSAGES = {
   "verb.explore": { en: "explore", zhHant: "探看", zhHans: "探看" },
   "verb.switch": { en: "switch", zhHant: "切換", zhHans: "切换" },
   "verb.detail": { en: "detail", zhHant: "詳情", zhHans: "详情" },
+  "verb.hideReading": { en: "hide reading", zhHant: "收起經文", zhHans: "收起经文" },
+  "verb.showReading": { en: "show reading", zhHant: "展開經文", zhHans: "展开经文" },
   "verb.navigate": { en: "navigate", zhHant: "導覽", zhHans: "导览" },
   "verb.open": { en: "open", zhHant: "開啟", zhHans: "开启" },
   "verb.search": { en: "search", zhHant: "搜尋", zhHans: "搜寻" },

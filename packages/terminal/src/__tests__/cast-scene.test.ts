@@ -432,20 +432,26 @@ describe("CastScene reading panel", () => {
     scene.enter(ctx);
     scene.update(scene.getTimeline().duration + 100, 33, ctx);
 
-    // Shown by default — the reading is the heart of the cast.
-    expect(frameText(scene, ctx).join("\n")).toContain("two lines move — the upper speaks");
+    // Shown by default — the reading is the heart of the cast — and the footer
+    // advertises the toggle so it's discoverable.
+    const shown = frameText(scene, ctx).join("\n");
+    expect(shown).toContain("two lines move — the upper speaks");
+    expect(shown).toContain("[r] hide reading");
 
     // [r] hides the reading texts…
     scene.handleKey({ type: "char", char: "r" }, ctx);
     const hidden = frameText(scene, ctx).join("\n");
     expect(hidden).not.toContain("two lines move — the upper speaks");
     expect(hidden).not.toContain("Biting on dried gristly meat");
-    // …but the prompt (and the figure beneath it) remain — only the texts hid.
+    // …the prompt (and figure beneath it) remain, and the hint flips to show.
     expect(hidden).toContain("[esc] back");
+    expect(hidden).toContain("[r] show reading");
 
     // [r] again restores them.
     scene.handleKey({ type: "char", char: "r" }, ctx);
-    expect(frameText(scene, ctx).join("\n")).toContain("two lines move — the upper speaks");
+    const reshown = frameText(scene, ctx).join("\n");
+    expect(reshown).toContain("two lines move — the upper speaks");
+    expect(reshown).toContain("[r] hide reading");
   });
 });
 

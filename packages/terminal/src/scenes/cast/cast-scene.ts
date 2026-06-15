@@ -367,11 +367,19 @@ function renderPrompt(buf: CellBuffer, model: CastModel, language: DisplayLangua
   const t = getTheme();
   // Footer only shows contextual actions. j/d still work as silent shortcuts
   // to journal/dictionary — they live on the home menu, accessible via esc.
-  const text = model.explorationMode
+  // [r] toggles the reading texts — advertised dynamically so the affordance is
+  // discoverable (and tells you which way it goes), not a hidden shortcut.
+  const reading = `[r] ${tr(language, model.readingHidden ? "verb.showReading" : "verb.hideReading")}`;
+  const nav = model.explorationMode
     ? (model.cast.becoming !== null
-        ? `[←→] ${tr(language, "verb.switch")}  ·  [enter] ${tr(language, "verb.detail")}  ·  [esc] ${tr(language, "verb.back")}`
-        : `[enter] ${tr(language, "verb.detail")}  ·  [esc] ${tr(language, "verb.back")}`)
-    : `[enter] ${tr(language, "verb.explore")}  ·  [esc] ${tr(language, "verb.back")}`;
+        ? [`[←→] ${tr(language, "verb.switch")}`, `[enter] ${tr(language, "verb.detail")}`]
+        : [`[enter] ${tr(language, "verb.detail")}`])
+    : [`[enter] ${tr(language, "verb.explore")}`];
+  const back = `[esc] ${tr(language, "verb.back")}`;
+  // Width-aware: show the reading hint when it fits, but never at the cost of
+  // clipping the essential nav/esc on a narrow terminal — drop it first.
+  const full = [...nav, reading, back].join("  ·  ");
+  const text = stringWidth(full) <= buf.width ? full : [...nav, back].join("  ·  ");
   const row = buf.height - 2;
   if (row < 0) return;
   const w = stringWidth(text);
