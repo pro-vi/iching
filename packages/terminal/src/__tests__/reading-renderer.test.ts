@@ -72,6 +72,16 @@ describe("buildReadingLines", () => {
     expect(texts.join("\n")).not.toContain(GUA[20].yaoEn[4]);
   });
 
+  test("dual judgment separates the two judgments with a blank line", () => {
+    const lines = buildReadingLines(realCast(21, [1, 3, 5]), "en", 200, 12);
+    const texts = lines.filter((l) => l.role === "text");
+    expect(texts).toHaveLength(2); // both judgments, un-wrapped at this width
+    expect(lines.filter((l) => l.role === "gap")).toHaveLength(1); // one blank between
+    const i0 = lines.indexOf(texts[0]);
+    const i1 = lines.indexOf(texts[1]);
+    expect(lines.slice(i0 + 1, i1).every((l) => l.role === "gap")).toBe(true);
+  });
+
   test("en mode shows yaoEn prefixed with the line position", () => {
     const lines = buildReadingLines(makeCast(21, [4], 42), "en", 200, 8);
     const texts = lines.filter((l) => l.role === "text").map((l) => l.text);
