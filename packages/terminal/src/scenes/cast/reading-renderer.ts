@@ -14,7 +14,7 @@ import { titleLayout } from "./reveal-renderer.ts";
 import { buildReadingLines, readingPanelWidth } from "./reading-lines.ts";
 
 // Re-exports — the panel's line construction lives in reading-lines.ts.
-export { buildReadingLines, type ReadingLine } from "./reading-lines.ts";
+export { buildReadingLines, readingHint, type ReadingLine } from "./reading-lines.ts";
 
 /**
  * Render the reading panel between the title block and the prompt bar.
@@ -50,7 +50,7 @@ export function renderReadingPanel(
     const row = startRow + i;
     if (row < 0 || row >= buf.height) break;
     const line = panel[i];
-    if (line.role === "more") {
+    if (line.role === "more" || line.role === "hint") {
       buf.writeText(row, leftCol, line.text, { fg: t.tertiary, dim: true });
     } else if (line.labeled) {
       // Dim the type-label ("卦辭 · ", "Judgment · ", "4 · ") up to and including

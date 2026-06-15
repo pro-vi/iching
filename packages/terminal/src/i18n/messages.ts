@@ -80,6 +80,15 @@ export const MESSAGES = {
   // name the becoming as the speaker, so it names only the text type).
   "cast.judgment": { en: "Judgment", zhHant: "卦辭", zhHans: "卦辞" },
 
+  // One dim line naming which text the reading turns on, by the 啟蒙 rule — shown
+  // only where it isn't self-evident (2–6 moving lines). Descriptive of primacy,
+  // never an imperative; provenance (啟蒙) lives in the legend, not each line.
+  "cast.hint.upperLeads": { en: "the upper line leads", zhHant: "以上爻為主", zhHans: "以上爻为主" },
+  "cast.hint.dualJudgment": { en: "both judgments — primary and becoming", zhHant: "以本卦、之卦為占", zhHans: "以本卦、之卦为占" },
+  "cast.hint.stillLines": { en: "the becoming's still lines — lower leads", zhHant: "之卦靜爻，以下爻為主", zhHans: "之卦静爻，以下爻为主" },
+  "cast.hint.stillLine": { en: "the becoming's still line", zhHant: "之卦靜爻", zhHans: "之卦静爻" },
+  "cast.hint.becomingJudgment": { en: "the becoming's judgment", zhHant: "以之卦為占", zhHans: "以之卦为占" },
+
   // ── dictionary chrome ──
   "dict.title": { en: "I Ching Dictionary", zhHant: "易經卦典", zhHans: "易经卦典" },
   "dict.searchPrompt": { en: "Search: ", zhHant: "搜尋：", zhHans: "搜寻：" },

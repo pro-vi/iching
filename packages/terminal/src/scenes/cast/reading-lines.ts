@@ -3,11 +3,10 @@
 // Extracted from reading-renderer.ts so the reveal layout (which budgets
 // vertical space between the glyph, the title block, and these texts) can
 // measure the panel without an import cycle. The texts a reading is made of
-// follow readingFocus (a simplified modern moving-line rule — see its doc for
-// where it agrees with and departs from the classical 啟蒙 method): the changing
-// lines' 爻辭 read top-down (line 6 at the top down to line 1, so the upper line
-// leads), the becoming hexagram's 卦辭 when four or five move, or — when no lines
-// move — the primary 卦辭, since the judgment IS the reading in that case. Quiet,
+// follow readingFocus — Zhu Xi's 《易學啟蒙·考變占》 rule (see its doc): line 爻辭
+// read top-down at 1–2 moving; both 卦辭 at 3; the becoming's UNCHANGED 爻辭 at
+// 4–5; the becoming 卦辭 (用九/用六 on 乾/坤) at 6; the primary 卦辭 at 0. A single
+// dim hint names which text it turns on, where that isn't self-evident. Quiet,
 // observational, never interpretive.
 
 import { type Cast, type DisplayLanguage, GUA, readingFocus, toSimplified } from "@iching/core";
@@ -16,7 +15,7 @@ import { tr } from "../../i18n/messages.ts";
 
 export interface ReadingLine {
   text: string;
-  role: "text" | "more";
+  role: "hint" | "text" | "more";
   /**
    * True on the one wrapped line that leads with a dim type-label
    * ("卦辭 · ", "Judgment · ", "4 · "). The renderer dims everything up to the
@@ -25,6 +24,28 @@ export interface ReadingLine {
    * zh 爻辭 (which the hint already names) carry no label.
    */
   labeled?: boolean;
+}
+
+/**
+ * The one-line method hint — names which text the reading turns on (by the 啟蒙
+ * rule), descriptive of primacy, never an imperative. Empty where the text's own
+ * label already names it (0 lines → the 卦辭 label; 1 line → the 爻 label; the
+ * 用九/用六 text labels itself).
+ */
+export function readingHint(cast: Cast, language: DisplayLanguage): string {
+  const focus = readingFocus(cast);
+  switch (focus.kind) {
+    case "lines":
+      return tr(language, "cast.hint.upperLeads");
+    case "dualJudgment":
+      return tr(language, "cast.hint.dualJudgment");
+    case "stillLines":
+      return tr(language, focus.positions.length > 1 ? "cast.hint.stillLines" : "cast.hint.stillLine");
+    case "becoming":
+      return tr(language, "cast.hint.becomingJudgment");
+    default:
+      return "";
+  }
 }
 
 /**
@@ -47,6 +68,10 @@ export function buildReadingLines(
 
   const lines: ReadingLine[] = [];
 
+  // The method hint leads the panel (dim), where it isn't self-evident.
+  const hint = readingHint(cast, language);
+  if (hint) for (const wl of wordWrap(hint, width)) lines.push({ text: wl, role: "hint" });
+
   // `labeled` marks the first wrapped line when the text leads with a dim
   // type-label ("卦辭 · ", "Judgment · ", "4 · "); only that line bears it.
   const pushText = (text: string, labeled = false): void => {
@@ -56,38 +81,45 @@ export function buildReadingLines(
     });
   };
 
-  const pushYao = (pos: number): void => {
+  const judgmentLabel = tr(language, "cast.judgment");
+  const pushJudgment = (g: (typeof GUA)[number]): void =>
+    pushText(english ? `${judgmentLabel} · ${g.gcEn}` : `${judgmentLabel} · ${cn(g.gc)}`, true);
+
+  const pushYaoFrom = (g: (typeof GUA)[number], pos: number): void => {
     // en prefixes the line position ("4 · …") — a label to dim; the zh 爻辭 opens
     // with its own line name (初九/上六…), so it is self-labeling and stays bare.
-    if (english) pushText(`${pos} · ${gua.yaoEn[pos - 1]}`, true);
-    else pushText(cn(gua.yao[pos - 1]));
+    if (english) pushText(`${pos} · ${g.yaoEn[pos - 1]}`, true);
+    else pushText(cn(g.yao[pos - 1]));
   };
+  const becoming = cast.becoming !== null ? GUA[cast.becoming - 1] : null;
 
   if (focus.kind === "judgment") {
-    // No moving lines — the judgment is the reading.
-    const label = tr(language, "cast.judgment");
-    pushText(english ? `${label} · ${gua.gcEn}` : `${label} · ${cn(gua.gc)}`, true);
+    // No moving lines — the primary judgment is the reading.
+    pushJudgment(gua);
   } else if (focus.kind === "extra" && gua.extra) {
-    // All six lines move on hex 1/2 — the 用九/用六 text governs.
+    // All six lines move on hex 1/2 — the 用九/用六 text.
     pushText(
       english
         ? `${gua.extra.name} · ${gua.extra.textEn}`
         : `${cn(gua.extra.name)} · ${cn(gua.extra.text)}`,
       true,
     );
-  } else if (focus.kind === "becoming" && cast.becoming !== null) {
-    // Four or five lines move (or all six off hex 1/2) — the becoming
-    // hexagram's 卦辭 is the reading. The hint already names the becoming as
-    // the speaker and the title block shows it, so the label names only the
-    // text TYPE (Judgment / 卦辭) — repeating "Becoming" here was a stutter.
-    const becoming = GUA[cast.becoming - 1];
-    const label = tr(language, "cast.judgment");
-    pushText(english ? `${label} · ${becoming.gcEn}` : `${label} · ${cn(becoming.gc)}`, true);
+  } else if (focus.kind === "dualJudgment" && becoming) {
+    // Three lines move — both 卦辭, the primary (本卦) first, then the becoming
+    // (之卦). The hint names the pair; the title block shows both hexagrams.
+    pushJudgment(gua);
+    pushJudgment(becoming);
+  } else if (focus.kind === "stillLines" && becoming) {
+    // Four or five lines move — the becoming's UNCHANGED lines' 爻辭, read
+    // top-down (the figure's order); the hint names the lower as primary.
+    for (const pos of [...focus.positions].sort((a, b) => b - a)) pushYaoFrom(becoming, pos);
+  } else if (focus.kind === "becoming" && becoming) {
+    // Six lines move off 乾/坤 — the becoming hexagram's 卦辭.
+    pushJudgment(becoming);
   } else {
-    // The moving lines' 爻辭, read top-down — the same order the figure shows
-    // them (line 6 at the top down to line 1), so the upper line leads. Covers
-    // one moving line, the 2–3 "lines" case, and any fallback.
-    for (const pos of [...cast.changingPositions].sort((a, b) => b - a)) pushYao(pos);
+    // One or two moving lines (or any fallback) — the moving lines' 爻辭, read
+    // top-down (line 6 at the top down to line 1, so the upper line leads).
+    for (const pos of [...cast.changingPositions].sort((a, b) => b - a)) pushYaoFrom(gua, pos);
   }
 
   if (lines.length > maxRows) {

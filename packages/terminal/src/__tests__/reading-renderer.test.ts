@@ -51,20 +51,25 @@ describe("buildReadingLines", () => {
     expect(lines[0].text).toContain("狱");
   });
 
-  test("two changing lines read top-down: the upper line first, no hint", () => {
+  test("two changing lines: a hint leads, then the 爻辭 top-down (upper first)", () => {
     const lines = buildReadingLines(makeCast(21, [4, 1], 42), "zh-Hant", 70, 8);
-    expect(lines[0].role).toBe("text"); // no hint line precedes the reading
+    expect(lines[0].role).toBe("hint"); // the method hint leads
+    expect(lines[0].text).toBe("以上爻為主");
     const texts = lines.filter((l) => l.role === "text").map((l) => l.text);
     expect(texts[0]).toBe(GUA[20].yao[3]); // line 4 first — the upper line
     expect(texts[1]).toBe(GUA[20].yao[0]); // line 1 below it
   });
 
-  test("three changing lines read strictly top-down (5, 3, 1)", () => {
-    const lines = buildReadingLines(realCast(21, [1, 3, 5]), "en", 200, 12);
+  test("three changing lines: both judgments (本卦 first, then 之卦), with a hint", () => {
+    const cast = realCast(21, [1, 3, 5]);
+    const becoming = GUA[cast.becoming! - 1];
+    const lines = buildReadingLines(cast, "en", 200, 12);
+    expect(lines[0]).toEqual({ text: "both judgments — primary and becoming", role: "hint" });
     const texts = lines.filter((l) => l.role === "text").map((l) => l.text);
-    expect(texts[0]).toBe(`5 · ${GUA[20].yaoEn[4]}`); // top line first
-    expect(texts[1]).toBe(`3 · ${GUA[20].yaoEn[2]}`);
-    expect(texts[2]).toBe(`1 · ${GUA[20].yaoEn[0]}`); // bottom line last
+    expect(texts[0]).toBe(`Judgment · ${GUA[20].gcEn}`); // primary first
+    expect(texts[1]).toBe(`Judgment · ${becoming.gcEn}`); // becoming second
+    // not the moving lines' 爻辭
+    expect(texts.join("\n")).not.toContain(GUA[20].yaoEn[4]);
   });
 
   test("en mode shows yaoEn prefixed with the line position", () => {
@@ -83,9 +88,9 @@ describe("buildReadingLines", () => {
     // zh 爻辭 is the bare text (it opens with its own line name) → not labeled
     const yaoZh = buildReadingLines(makeCast(21, [4], 42), "zh-Hant", 200, 6);
     expect(yaoZh.find((l) => l.role === "text")!.labeled).toBeUndefined();
-    // becoming 卦辭 and 用九/用六 are labeled too
+    // becoming 卦辭 (6 off 乾/坤) and 用九/用六 are labeled too
     expect(
-      buildReadingLines(realCast(21, [1, 2, 3, 4]), "en", 500, 6).find((l) => l.role === "text")!
+      buildReadingLines(realCast(63, [1, 2, 3, 4, 5, 6]), "en", 500, 6).find((l) => l.role === "text")!
         .labeled,
     ).toBe(true);
     expect(
@@ -110,33 +115,30 @@ describe("buildReadingLines", () => {
     expect(texts[0]).toContain("見群龍無首");
   });
 
-  test("four changing lines: the becoming 卦辭 is the reading, not the moving lines (zh-Hant)", () => {
-    const cast = realCast(21, [1, 2, 3, 4]);
-    expect(cast.becoming).not.toBeNull();
+  test("four changing lines: the becoming's two UNCHANGED lines, top-down (zh-Hant)", () => {
+    const cast = realCast(21, [1, 2, 3, 4]); // still lines = 5, 6
     const becoming = GUA[cast.becoming! - 1];
     const lines = buildReadingLines(cast, "zh-Hant", 500, 12);
+    expect(lines[0]).toEqual({ text: "之卦靜爻，以下爻為主", role: "hint" });
     const texts = lines.filter((l) => l.role === "text").map((l) => l.text);
-    expect(texts).toHaveLength(1);
-    // The label names the text type (卦辭); the hint already names the becoming.
-    expect(texts[0]).toContain("卦辭");
-    expect(texts[0]).not.toContain("之卦卦辭"); // de-duplicated with the hint
-    expect(texts[0]).toContain(becoming.gc);
-    // The primary's moving-line texts are not the reading here.
+    expect(texts).toHaveLength(2);
+    // read from the BECOMING, top-down: line 6 then line 5
+    expect(texts[0]).toBe(becoming.yao[5]);
+    expect(texts[1]).toBe(becoming.yao[4]);
+    // not the primary's moving-line texts
     for (const pos of cast.changingPositions) {
-      expect(texts[0]).not.toContain(GUA[20].yao[pos - 1]);
+      expect(texts.join("\n")).not.toContain(GUA[20].yao[pos - 1]);
     }
   });
 
-  test("five changing lines: the becoming 卦辭 is the reading (en)", () => {
-    const cast = realCast(21, [1, 2, 3, 4, 5]);
+  test("five changing lines: the becoming's one UNCHANGED line (en)", () => {
+    const cast = realCast(21, [1, 2, 3, 4, 5]); // still line = 6
     const becoming = GUA[cast.becoming! - 1];
     const lines = buildReadingLines(cast, "en", 1000, 12);
+    expect(lines[0]).toEqual({ text: "the becoming's still line", role: "hint" });
     const texts = lines.filter((l) => l.role === "text").map((l) => l.text);
     expect(texts).toHaveLength(1);
-    // The label names the text type (Judgment); the hint already names the becoming.
-    expect(texts[0]).toContain("Judgment · ");
-    expect(texts[0]).not.toContain("Becoming · Judgment"); // de-duplicated with the hint
-    expect(texts[0]).toContain(becoming.gcEn);
+    expect(texts[0]).toBe(`6 · ${becoming.yaoEn[5]}`); // the becoming's line 6
   });
 
   test("all six changing off hex 1/2: the becoming 卦辭 is the reading", () => {
@@ -149,11 +151,10 @@ describe("buildReadingLines", () => {
   });
 
   test("truncates to maxRows with a trailing … row", () => {
-    // Three moving lines (5, 3, 1) at a wide width are three un-wrapped rows;
-    // maxRows 2 keeps the first and stands the rest down behind a "…".
-    const lines = buildReadingLines(realCast(21, [1, 3, 5]), "en", 200, 2);
-    expect(lines).toHaveLength(2);
-    expect(lines[1]).toEqual({ text: "…", role: "more" });
+    // A long judgment wraps past the budget; the tail stands down behind a "…".
+    const lines = buildReadingLines(makeCast(21, [], null), "en", 40, 3);
+    expect(lines).toHaveLength(3);
+    expect(lines[2]).toEqual({ text: "…", role: "more" });
   });
 
   test("returns empty when there is no room", () => {
@@ -161,22 +162,24 @@ describe("buildReadingLines", () => {
     expect(buildReadingLines(makeCast(21, [1], 42), "en", 2, 4)).toEqual([]);
   });
 
-  test("never paints a lone … — drops the panel when no text survives above it", () => {
+  test("never paints a lone … (or a hint with no text) — drops the panel", () => {
     // maxRows so tight that no oracle text survives above the "…" is not a
-    // reading; the renderer's contract is to skip cleanly rather than paint a
-    // lone "…".
-    const cast = makeCast(21, [1, 3], 42);
+    // reading; the renderer skips cleanly. A 2-moving cast has a hint, so
+    // maxRows=1 would leave [{…}] and maxRows=2 [hint, {…}] — both drop.
+    const cast = makeCast(21, [1, 3], 42); // n=2 → has a hint line
     expect(buildReadingLines(cast, "en", 40, 1)).toEqual([]); // not [{ text:"…" }]
-    // Once one text row fits, the "…" is meaningful again.
-    const two = buildReadingLines(cast, "en", 40, 2);
-    expect(two.some((l) => l.role === "text")).toBe(true);
-    expect(two.at(-1)).toEqual({ text: "…", role: "more" });
+    expect(buildReadingLines(cast, "en", 40, 2)).toEqual([]); // not [hint, "…"]
+    // Once a text row fits above the …, it's meaningful again.
+    const three = buildReadingLines(cast, "en", 40, 3);
+    expect(three.some((l) => l.role === "text")).toBe(true);
+    expect(three.at(-1)).toEqual({ text: "…", role: "more" });
   });
 });
 
-// The reading-rule invariant: the governing text (the upper moving line, the
-// becoming's 卦辭, or 用九/用六) is always the first one the panel shows.
-describe("the governing text is always shown first (1–6 moving lines)", () => {
+// The reading-rule invariant (Zhu Xi 啟蒙): the leading text the rule turns on
+// is always the first one the panel shows (the hint precedes it but is not a
+// text). 3 → primary 卦辭 first; 4/5 → the becoming's top still line.
+describe("the leading text is shown first (1–6 moving lines, 啟蒙)", () => {
   const becomingOf = (cast: Cast): (typeof GUA)[number] => GUA[cast.becoming! - 1];
   const cases: Array<{
     label: string;
@@ -184,42 +187,42 @@ describe("the governing text is always shown first (1–6 moving lines)", () => 
     named: (cast: Cast, english: boolean) => string;
   }> = [
     {
-      label: "1 moving — that line speaks",
+      label: "1 moving — that line's 爻辭",
       cast: realCast(21, [4]),
       named: (_c, en) => (en ? GUA[20].yaoEn[3] : GUA[20].yao[3]),
     },
     {
-      label: "2 moving — the upper speaks",
+      label: "2 moving — the upper line's 爻辭",
       cast: realCast(21, [1, 4]),
       named: (_c, en) => (en ? GUA[20].yaoEn[3] : GUA[20].yao[3]),
     },
     {
-      label: "3 moving — the upper speaks",
+      label: "3 moving — the primary 卦辭 (first of the pair)",
       cast: realCast(21, [1, 3, 5]),
-      named: (_c, en) => (en ? GUA[20].yaoEn[4] : GUA[20].yao[4]),
+      named: (_c, en) => (en ? GUA[20].gcEn : GUA[20].gc),
     },
     {
-      label: "4 moving — the becoming speaks",
+      label: "4 moving — the becoming's top still line",
       cast: realCast(21, [1, 2, 3, 4]),
-      named: (c, en) => (en ? becomingOf(c).gcEn : becomingOf(c).gc),
+      named: (c, en) => (en ? becomingOf(c).yaoEn[5] : becomingOf(c).yao[5]),
     },
     {
-      label: "5 moving — the becoming speaks",
+      label: "5 moving — the becoming's still line",
       cast: realCast(21, [1, 2, 3, 4, 5]),
-      named: (c, en) => (en ? becomingOf(c).gcEn : becomingOf(c).gc),
+      named: (c, en) => (en ? becomingOf(c).yaoEn[5] : becomingOf(c).yao[5]),
     },
     {
-      label: "6 moving on hex 1 — 用九 speaks",
+      label: "6 moving on hex 1 — 用九",
       cast: realCast(1, [1, 2, 3, 4, 5, 6]),
       named: (_c, en) => (en ? GUA[0].extra!.textEn : GUA[0].extra!.text),
     },
     {
-      label: "6 moving on hex 2 — 用六 speaks",
+      label: "6 moving on hex 2 — 用六",
       cast: realCast(2, [1, 2, 3, 4, 5, 6]),
       named: (_c, en) => (en ? GUA[1].extra!.textEn : GUA[1].extra!.text),
     },
     {
-      label: "6 moving elsewhere — the becoming speaks",
+      label: "6 moving elsewhere — the becoming 卦辭",
       cast: realCast(63, [1, 2, 3, 4, 5, 6]),
       named: (c, en) => (en ? becomingOf(c).gcEn : becomingOf(c).gc),
     },

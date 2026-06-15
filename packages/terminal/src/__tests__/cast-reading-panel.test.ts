@@ -149,11 +149,11 @@ describe("the glyph yields to the texts — and returns when there is room", () 
     expect(rowOf(frame, "用九 ·")).toBeGreaterThanOrEqual(0);
   });
 
-  test("100x30 en, 3 changing: the longer English texts win — the glyph yields", () => {
-    const cast = makeCast(21, [1, 3, 4]);
+  test("100x30 en, 3 changing: both judgments (longer) win — the glyph yields", () => {
+    const cast = makeCast(21, [1, 3, 4]); // 3 moving → primary + becoming 卦辭
     const frame = settledRows(cast, 100, 30, "en");
     expect(hasGlyph(frame)).toBe(false);
-    expect(rowOf(frame, "Biting on dried gristly meat")).toBeGreaterThanOrEqual(0); // line 4
+    expect(rowOf(frame, "Shih Ho indicates")).toBeGreaterThanOrEqual(0); // the primary 卦辭
   });
 
   test("100x40 en, 1 changing: room for everything — glyph, title, texts", () => {

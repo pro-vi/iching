@@ -25,20 +25,25 @@ describe("readingFocus", () => {
     });
   });
 
-  test("three moving lines → noted, upper governs", () => {
+  test("three moving lines → both judgments (本卦 and 之卦)", () => {
     expect(readingFocus({ primary: 21, changingPositions: [2, 5, 3] })).toEqual({
-      kind: "lines",
-      positions: [2, 3, 5],
+      kind: "dualJudgment",
+    });
+  });
+
+  test("four moving lines → the becoming's two unchanged lines, lower primary", () => {
+    expect(readingFocus({ primary: 21, changingPositions: [1, 2, 3, 4] })).toEqual({
+      kind: "stillLines",
+      positions: [5, 6],
       governing: 5,
     });
   });
 
-  test("four and five moving lines → the becoming", () => {
-    expect(readingFocus({ primary: 21, changingPositions: [1, 2, 3, 4] })).toEqual({
-      kind: "becoming",
-    });
+  test("five moving lines → the becoming's one unchanged line", () => {
     expect(readingFocus({ primary: 21, changingPositions: [1, 2, 3, 4, 5] })).toEqual({
-      kind: "becoming",
+      kind: "stillLines",
+      positions: [6],
+      governing: 6,
     });
   });
 
