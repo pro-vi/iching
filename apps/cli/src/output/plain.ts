@@ -34,15 +34,15 @@ function entropyLine(rng?: RngProvenance, seed?: number): string | null {
 /**
  * The 啟蒙 reading as plain lines — the texts a cast turns on, ordered
  * governing-first by the shared core rule (readingTexts), each naming its
- * hexagram so the source is unambiguous: at 3 moving lines both judgments; at
- * 4–5 the becoming's UNCHANGED 爻辭 (not the moving ones); at 6 the becoming
- * 卦辭, or 用九/用六 on 乾/坤. Empty when nothing moves — the reading is then the
- * primary judgment, already printed in its own block. Shared by formatCastPlain
- * and formatJournalShowPlain so a reading reads the same freshly cast and when
- * revisited.
+ * hexagram so the source is unambiguous: nothing moving → the primary 卦辭; at
+ * 1–2 the moving 爻辭; at 3 both judgments; at 4–5 the becoming's UNCHANGED 爻辭
+ * (not the moving ones); at 6 the becoming 卦辭, or 用九/用六 on 乾/坤. This is a
+ * faithful rendering of readingTexts (no case suppressed), so it matches the TUI
+ * panel exactly; the shared helper keeps formatCastPlain and formatJournalShowPlain
+ * reading the same texts freshly cast and when revisited. (formatCastPlain skips
+ * it for a static cast — its own Judgment block already prints that 卦辭.)
  */
 function readingPlainLines(cast: Cast): string[] {
-  if (cast.changingPositions.length === 0) return [];
   const reading = readingTexts(cast);
   if (reading.length === 0) return [];
   const lines: string[] = ["Reading (啟蒙):"];
@@ -126,7 +126,10 @@ export function formatCastPlain(
 
   // The reading (啟蒙) — the texts this cast turns on, from the shared core rule
   // (readingTexts via readingPlainLines), so plain / JSON / TUI never disagree.
-  const readingBlock = readingPlainLines(cast);
+  // Skipped for a static cast: the reading is then the primary 卦辭, already
+  // printed in the Judgment block above (gc + verbatim Legge) — the Reading
+  // section would only repeat it in the Wilhelm register.
+  const readingBlock = cast.changingPositions.length > 0 ? readingPlainLines(cast) : [];
   if (readingBlock.length > 0) {
     lines.push(...readingBlock);
     lines.push("");

@@ -439,11 +439,16 @@ describe("journal command", () => {
     expect(stdout).not.toContain(`爻5: ${primary.yao[4]}`);
   }, 20_000);
 
-  test("plain show omits the reading section for a static reading", async () => {
+  test("plain show surfaces the 卦辭 as the reading for a static reading", async () => {
+    // A static cast turns on its 卦辭 — the fresh cast prints it (Judgment block)
+    // and the TUI panel shows it, so `journal show` must too (it has no separate
+    // Judgment block, so the reading section carries it). Regression guard for
+    // the fresh-vs-revisited parity at 0 moving lines.
     await seedJournal(dataDir, [makeEntry("2026-02-03", 2, null)]); // no moving lines
     const { stdout } = await runCli(dataDir, ["journal", "show", "2026-02-03"]);
-    expect(stdout).not.toContain("Reading (啟蒙)");
-    expect(stdout).not.toContain("[line");
+    expect(stdout).toContain("Reading (啟蒙):");
+    expect(stdout).toContain(`卦辭: ${GUA[1].gc}`); // hexagram 2 (坤) judgment
+    expect(stdout).not.toContain("[line"); // …but no moving-line bracket
   }, 20_000);
 
   test("plain list/show strip terminal control sequences from a stored intention", async () => {

@@ -123,7 +123,13 @@ export async function runHookAdapter(): Promise<void> {
   // surfaces the warning for anyone casting there.
   try {
     // Journal first — if interrupted, failure is a recoverable duplicate
-    // (vs cache-first where journal entry is permanently lost)
+    // (vs cache-first where journal entry is permanently lost). The
+    // cache-write-failure case is fully recovered above (the journal-recovery
+    // branch suppresses the re-append on the next prompt). The one residual is
+    // CONCURRENT hooks: two shell prompts firing in the same instant both see no
+    // cache and each append once — bounded to a single duplicate per collision,
+    // and shell prompts are effectively sequential, so file-locking is left out
+    // of scope. (failure-mode axis 3 — accepted with this bound.)
     if (!shown) {
       const timestamp = new Date().toISOString();
       await journal.append({ date: today, cast, timestamp, method, rng });
