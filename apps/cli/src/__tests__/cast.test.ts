@@ -191,8 +191,10 @@ describe("cast output oracle texts", () => {
     for (const part of readingTexts(cast)) {
       const g = GUA[part.kw - 1];
       if (part.kind === "judgment") {
+        // The reading speaks Wilhelm (gcEnW), the displayed register — not the
+        // Legge anchor (gcEn), which only the standalone reference block carries.
         expect(text).toContain(`  ${g.u} ${g.n} 卦辭: ${g.gc}`);
-        expect(text).toContain(`     ${g.gcEn}`);
+        expect(text).toContain(`     ${g.gcEnW}`);
       } else if (part.kind === "line") {
         expect(text).toContain(`  ${g.u} ${g.n} 爻${part.position}: ${g.yao[part.position - 1]}`);
         expect(text).toContain(`     ${g.yaoEn[part.position - 1]}`);

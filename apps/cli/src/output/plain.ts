@@ -49,8 +49,11 @@ function readingPlainLines(cast: Cast): string[] {
   for (const part of reading) {
     const g = GUA[part.kw - 1];
     if (part.kind === "judgment") {
+      // The reading speaks in one voice: the Wilhelm-interpretive judgment
+      // (gcEnW), the same register as the 爻辭 below and the TUI panel. The
+      // verbatim Legge anchor (gcEn) stays in formatCastPlain's reference block.
       lines.push(`  ${g.u} ${g.n} 卦辭: ${g.gc}`);
-      lines.push(`     ${g.gcEn}`);
+      lines.push(`     ${g.gcEnW}`);
     } else if (part.kind === "line") {
       lines.push(`  ${g.u} ${g.n} 爻${part.position}: ${g.yao[part.position - 1]}`);
       lines.push(`     ${g.yaoEn[part.position - 1]}`);

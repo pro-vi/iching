@@ -31,7 +31,9 @@ export function castToJson(
   const reading = readingTexts(cast).map((part) => {
     const g = GUA[part.kw - 1];
     if (part.kind === "judgment") {
-      return { kind: "judgment" as const, kw: part.kw, gc: g.gc, gcEn: g.gcEn };
+      // gcEnW is the displayed register (TUI + plain reading); gcEn is the
+      // verbatim Legge anchor. The reading carries both so a consumer can pick.
+      return { kind: "judgment" as const, kw: part.kw, gc: g.gc, gcEn: g.gcEn, gcEnW: g.gcEnW };
     }
     if (part.kind === "line") {
       return {
