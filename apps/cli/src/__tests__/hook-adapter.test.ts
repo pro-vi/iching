@@ -130,6 +130,26 @@ describe("hook adapter", () => {
     expect(cache.rng).toEqual({ source: "crypto", intentionBound: false });
   }, 20_000);
 
+  test("a lost cache after a hook cast does not duplicate the journal row", async () => {
+    // The hook journals first, then writes the cache. If the cache write fails
+    // (here: the file is lost afterward), the next prompt would see no valid
+    // cache and — without the journal-recovery guard — recast and append a
+    // SECOND row, then a third, on every prompt. The journal is the durable
+    // record; a cache-less re-run must recover today's reading from it.
+    expect(await runHook(dataDir)).toBe(0); // fresh cast: one row + cache
+    const firstLine = (await readFile(join(dataDir, "history.jsonl"), "utf-8")).trim();
+    await rm(join(dataDir, "daily-cache.json"), { force: true }); // simulate the failed/lost cache
+
+    expect(await runHook(dataDir)).toBe(0); // recovers from the journal, no recast
+
+    const lines = (await readFile(join(dataDir, "history.jsonl"), "utf-8")).trim().split("\n");
+    expect(lines).toHaveLength(1); // still exactly one reading for today — no duplicate
+    expect(lines[0]).toBe(firstLine); // and it's the same reading, untouched
+    // The cache is rebuilt from the recovered reading, restoring the daily anchor.
+    const cache = JSON.parse(await readFile(join(dataDir, "daily-cache.json"), "utf-8"));
+    expect(cache.date).toBe(utcToday());
+  }, 20_000);
+
   test("a blocked data dir doesn't crash the hook — the reading still displays", async () => {
     // The hook persists (journal + cache) BEFORE it displays the reading. A
     // directory at the journal path (→ EISDIR; in the wild a read-only/full dir

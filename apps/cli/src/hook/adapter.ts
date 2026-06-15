@@ -62,6 +62,12 @@ export async function runHookAdapter(): Promise<void> {
 
   // Check cache
   const cached = await cacheStore.read();
+  // Recover today's reading from the journal only when the cache misses. This
+  // read is best-effort like every persist below — a blocked/unreadable data
+  // dir must never crash the hook before it displays (latest() → null, then a
+  // fresh cast falls through to the swallowing persist).
+  const recovered =
+    cached && cached.date === today ? null : await journal.latest().catch(() => null);
   if (cached && cached.date === today) {
     cast = cached.cast;
     structure = cached.structure;
@@ -72,6 +78,20 @@ export async function runHookAdapter(): Promise<void> {
     // after a bound/seeded TUI cast must not strip the honest source story.
     rng = cached.rng;
     // No new cast: entropy is only needed for the display cascade.
+    source = new CryptoRandomSource();
+  } else if (recovered && recovered.date === today) {
+    // Cache miss/stale, but the journal already holds today's reading — a prior
+    // hook run that appended the entry then failed to write the cache. Recasting
+    // here would append a DUPLICATE row, and again on every prompt while the
+    // cache stays unwritten. The journal is the durable record, so adopt today's
+    // entry instead: derive its structure, mark it shown (so the append guard
+    // below does NOT re-record it), and just re-attempt the cache write.
+    cast = recovered.cast;
+    structure = buildStructure(cast);
+    shown = true;
+    intention = recovered.intention;
+    method = recovered.method;
+    rng = recovered.rng;
     source = new CryptoRandomSource();
   } else {
     // Fresh cast — instant coins, recorded as such. Honor the saved entropy
