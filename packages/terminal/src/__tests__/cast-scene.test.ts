@@ -392,24 +392,29 @@ describe("CastScene pace control", () => {
 });
 
 describe("CastScene reading panel", () => {
-  test("changing lines' texts appear after the reveal", () => {
+  test("[r] reveals the changing lines' texts, read top-down", () => {
     const scene = new CastScene(makeChangingCast(), "reduced", 80);
     const ctx = makeCtx();
     scene.enter(ctx);
     scene.update(scene.getTimeline().duration + 100, 33, ctx);
 
+    // Hidden by default — the bare figure settles first.
+    expect(frameText(scene, ctx).join("\n")).not.toContain("Biting on dried gristly meat");
+
+    // [r] reveals it: hexagram 21, lines 1 and 4 read top-down (the upper, 4,
+    // first). No method hint line precedes it.
+    scene.handleKey({ type: "char", char: "r" }, ctx);
     const text = frameText(scene, ctx).join("\n");
-    // Hexagram 21, changing lines 1 and 4 — read top-down, the upper line (4)
-    // first. No method hint line precedes it.
     expect(text).not.toContain("lines move —");
     expect(text).toContain("4 · Biting on dried gristly meat");
   });
 
-  test("judgment shown when no lines move", () => {
+  test("[r] reveals the judgment when no lines move", () => {
     const scene = new CastScene(makeCast(), "reduced");
     const ctx = makeCtx();
     scene.enter(ctx);
     scene.update(scene.getTimeline().duration + 100, 33, ctx);
+    scene.handleKey({ type: "char", char: "r" }, ctx); // reveal the reading
 
     const text = frameText(scene, ctx).join("\n");
     // Hexagram 63 既濟 — the judgment is the reading
@@ -435,6 +440,7 @@ describe("CastScene reading panel", () => {
     const ctx: SceneContext = { cols, rows: 40, done: false, colorSupport: "truecolor", language: "en" };
     scene.enter(ctx);
     scene.update(scene.getTimeline().duration + 100, 33, ctx);
+    scene.handleKey({ type: "char", char: "r" }, ctx); // reveal the reading
 
     const rows = frameText(scene, ctx);
     const indent = (s: string): number => s.length - s.trimStart().length;
@@ -452,25 +458,25 @@ describe("CastScene reading panel", () => {
     scene.enter(ctx);
     scene.update(scene.getTimeline().duration + 100, 33, ctx);
 
-    // Shown by default — the reading is the heart of the cast — and the footer
+    // Hidden by default — the bare figure settles first — and the footer
     // advertises the toggle so it's discoverable.
-    const shown = frameText(scene, ctx).join("\n");
-    expect(shown).toContain("Biting on dried gristly meat");
-    expect(shown).toContain("[r] hide reading");
-
-    // [r] hides the reading texts…
-    scene.handleKey({ type: "char", char: "r" }, ctx);
     const hidden = frameText(scene, ctx).join("\n");
     expect(hidden).not.toContain("Biting on dried gristly meat");
-    // …the prompt (and figure beneath it) remain, and the hint flips to show.
-    expect(hidden).toContain("[esc] back");
     expect(hidden).toContain("[r] show reading");
 
-    // [r] again restores them.
+    // [r] reveals the reading texts…
     scene.handleKey({ type: "char", char: "r" }, ctx);
-    const reshown = frameText(scene, ctx).join("\n");
-    expect(reshown).toContain("Biting on dried gristly meat");
-    expect(reshown).toContain("[r] hide reading");
+    const shown = frameText(scene, ctx).join("\n");
+    expect(shown).toContain("Biting on dried gristly meat");
+    // …the prompt (and figure beneath it) remain, and the hint flips to hide.
+    expect(shown).toContain("[esc] back");
+    expect(shown).toContain("[r] hide reading");
+
+    // [r] again hides them.
+    scene.handleKey({ type: "char", char: "r" }, ctx);
+    const rehidden = frameText(scene, ctx).join("\n");
+    expect(rehidden).not.toContain("Biting on dried gristly meat");
+    expect(rehidden).toContain("[r] show reading");
   });
 });
 
@@ -527,11 +533,17 @@ describe("CastScene journal replay (skipToComplete(false))", () => {
     const ctx = makeCtx();
     scene.enter(ctx);
 
-    const text = frameText(scene, ctx).join("\n");
+    // Intention shows regardless; the reading is hidden by default and revealed
+    // with [r].
     expect(scene.getModel().showPrompt).toBe(true);
+    const before = frameText(scene, ctx).join("\n");
+    expect(before).toContain("the launch question");
+    expect(before).not.toContain("Biting on dried gristly meat");
+
+    scene.handleKey({ type: "char", char: "r" }, ctx);
+    const text = frameText(scene, ctx).join("\n");
     expect(text).not.toContain("lines move —"); // no method hint line
     expect(text).toContain("4 · Biting on dried gristly meat");
-    expect(text).toContain("the launch question");
   });
 
   test("replayed still cast shows the judgment as the reading", () => {
@@ -541,6 +553,7 @@ describe("CastScene journal replay (skipToComplete(false))", () => {
     scene.skipToComplete(false);
     const ctx = makeCtx();
     scene.enter(ctx);
+    scene.handleKey({ type: "char", char: "r" }, ctx); // reveal the reading
 
     const text = frameText(scene, ctx).join("\n");
     expect(text).toContain("Judgment · ");

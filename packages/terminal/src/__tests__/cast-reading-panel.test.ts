@@ -46,6 +46,10 @@ function settledRows(
   scene.update(0, 0, ctx); // anchor the glyph animator's clock
   scene.update(120_000, 33, ctx); // then advance far past any glyph animation
   expect(scene.getModel().showPrompt).toBe(true);
+  // The reading is hidden by default; reveal it with [r] — these tests verify
+  // how the reading renders (survives the glyph, fits, left-aligns), so it must
+  // be on screen.
+  scene.handleKey({ type: "char", char: "r" }, ctx);
   const frame = CellBuffer.create(cols, rows);
   scene.render(frame, ctx);
   const out: string[] = [];
@@ -190,6 +194,7 @@ describe("the glyph yields to the texts — and returns when there is room", () 
     };
     scene.update(0, 0, ctx);
     scene.update(120_000, 33, ctx);
+    scene.handleKey({ type: "char", char: "r" }, ctx); // reveal the reading
     const frame = CellBuffer.create(100, 30);
     scene.render(frame, ctx);
 
