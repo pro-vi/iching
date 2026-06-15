@@ -80,8 +80,8 @@ export const MESSAGES = {
   // One-line reading-method hints — the classical rule for which text governs,
   // stated observationally (one dim line, never a lecture).
   "cast.hint.one": { en: "one line moves — it speaks", zhHant: "一爻動，以動爻為占", zhHans: "一爻动，以动爻为占" },
-  "cast.hint.two": { en: "two lines move — the upper governs", zhHant: "二爻動，以上爻為占", zhHans: "二爻动，以上爻为占" },
-  "cast.hint.three": { en: "three lines move — the upper governs", zhHant: "三爻動，以上爻為占", zhHans: "三爻动，以上爻为占" },
+  "cast.hint.two": { en: "two lines move — the upper speaks", zhHant: "二爻動，以上爻為占", zhHans: "二爻动，以上爻为占" },
+  "cast.hint.three": { en: "three lines move — the upper speaks", zhHant: "三爻動，以上爻為占", zhHans: "三爻动，以上爻为占" },
   "cast.hint.four": { en: "four lines move — the becoming speaks", zhHant: "四爻動，以之卦為占", zhHans: "四爻动，以之卦为占" },
   "cast.hint.five": { en: "five lines move — the becoming speaks", zhHant: "五爻動，以之卦為占", zhHans: "五爻动，以之卦为占" },
   "cast.hint.all": { en: "all six lines move — the becoming speaks", zhHant: "六爻皆動，以之卦為占", zhHans: "六爻皆动，以之卦为占" },

@@ -401,7 +401,7 @@ describe("CastScene reading panel", () => {
     const text = frameText(scene, ctx).join("\n");
     // Hexagram 21, changing lines 1 and 4 — the hint plus the governing
     // (upper) line's text first
-    expect(text).toContain("two lines move — the upper governs");
+    expect(text).toContain("two lines move — the upper speaks");
     expect(text).toContain("4 · Biting on dried gristly meat");
   });
 
@@ -482,7 +482,7 @@ describe("CastScene journal replay (skipToComplete(false))", () => {
 
     const text = frameText(scene, ctx).join("\n");
     expect(scene.getModel().showPrompt).toBe(true);
-    expect(text).toContain("two lines move — the upper governs");
+    expect(text).toContain("two lines move — the upper speaks");
     expect(text).toContain("4 · Biting on dried gristly meat");
     expect(text).toContain("the launch question");
   });

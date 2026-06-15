@@ -46,9 +46,9 @@ describe("readingHint", () => {
     expect(readingHint(makeCast(21, [4], 42), "zh-Hans")).toBe("一爻动，以动爻为占");
   });
 
-  test("two moving lines — upper governs", () => {
+  test("two moving lines — the upper speaks", () => {
     expect(readingHint(makeCast(21, [1, 4], 42), "en")).toBe(
-      "two lines move — the upper governs",
+      "two lines move — the upper speaks",
     );
   });
 
@@ -222,12 +222,12 @@ describe("the text the hint names is always shown first (1–6 moving lines)", (
       named: (_c, en) => (en ? GUA[20].yaoEn[3] : GUA[20].yao[3]),
     },
     {
-      label: "2 moving — the upper governs",
+      label: "2 moving — the upper speaks",
       cast: realCast(21, [1, 4]),
       named: (_c, en) => (en ? GUA[20].yaoEn[3] : GUA[20].yao[3]),
     },
     {
-      label: "3 moving — the upper governs",
+      label: "3 moving — the upper speaks",
       cast: realCast(21, [1, 3, 5]),
       named: (_c, en) => (en ? GUA[20].yaoEn[4] : GUA[20].yao[4]),
     },
