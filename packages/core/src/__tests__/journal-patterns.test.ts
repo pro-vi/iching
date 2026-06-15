@@ -9,6 +9,7 @@ import {
   phaseOfHour,
   PHASE_MIN_TIMESTAMPED,
   compareEntryTime,
+  entryTimeKey,
 } from "../journal/patterns.js";
 
 function makeLine(value: 6 | 7 | 8 | 9): Line {
@@ -569,5 +570,35 @@ describe("computeJournalPatterns — invariants over random journals (fuzz)", ()
     const ab = computeJournalPatterns([a, b], "2025-02-01").field.recent;
     const ba = computeJournalPatterns([b, a], "2025-02-01").field.recent;
     expect(ab).toBe(ba);
+  });
+});
+
+describe("entryTimeKey", () => {
+  test("a real timestamp is the key", () => {
+    expect(entryTimeKey({ date: "2026-01-02", cast: makeCast(1), timestamp: "2026-01-02T09:30:00.000Z" }))
+      .toBe("2026-01-02T09:30:00.000Z");
+  });
+
+  test("a missing timestamp falls back to the date at midnight", () => {
+    expect(entryTimeKey({ date: "2026-01-02", cast: makeCast(1) })).toBe("2026-01-02T00:00:00.000Z");
+  });
+
+  test("an empty or malformed timestamp falls back to the date — never the epoch 'oldest'", () => {
+    // `??` only catches null/undefined, so "" / garbage strings would otherwise
+    // become the sort key and displace the entry's own date to the very start.
+    for (const bad of ["", "   ", "not-a-date", "garbage"]) {
+      expect(
+        entryTimeKey({ date: "2026-01-02", cast: makeCast(1), timestamp: bad } as HistoryEntry),
+      ).toBe("2026-01-02T00:00:00.000Z");
+    }
+  });
+
+  test("an entry with a blank timestamp sorts by its date, not before everything", () => {
+    // The bug in the field: a blank-stamped recent reading sorted as the OLDEST,
+    // so field.recent (the ◉ accent) lit the wrong hexagram.
+    const blank = { date: "2026-03-01", cast: makeCast(29), timestamp: "" } as HistoryEntry;
+    const older = makeEntry("2026-01-01", 1, { timestamp: "2026-01-01T09:00:00.000Z" });
+    const recent = computeJournalPatterns([older, blank], "2026-03-15").field.recent;
+    expect(recent).toBe(29); // the blank-stamped 2026-03-01 reading is the newest, by date
   });
 });

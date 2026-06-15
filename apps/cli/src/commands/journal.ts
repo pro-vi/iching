@@ -177,7 +177,13 @@ export function registerJournalCommand(program: Command): void {
       }
 
       const today = localToday();
-      const patterns = computeJournalPatterns(entries, today);
+      // A historical window (--until in the past) is a retrospective: measure
+      // cadence and "this month" AS OF the window's end, not real today.
+      // Otherwise idleDays counts the months since the window closed and
+      // recent30/thisMonth read 0 — numbers about now, not about the period
+      // observed. An open-ended or future --until keeps real today.
+      const asOf = cmdOpts.until && cmdOpts.until < today ? cmdOpts.until : today;
+      const patterns = computeJournalPatterns(entries, asOf);
       if (globalOpts.json) {
         outputJson(journalPatternsToJson(patterns));
       } else {

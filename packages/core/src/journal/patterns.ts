@@ -732,7 +732,15 @@ export function compareEntryTime(a: HistoryEntry, b: HistoryEntry): number {
  * surface that wants "newest" must order by this to agree with the pane.
  */
 export function entryTimeKey(entry: HistoryEntry): string {
-  return entry.timestamp ?? `${entry.date}T00:00:00.000Z`;
+  // A timestamp can only act as the sort key if it is a non-empty, parseable
+  // instant. An empty or malformed string (a hand-edit or a bad import — the
+  // store already normalizes non-STRING stamps to absent, but "" and garbage
+  // survive) is NOT caught by `??`, so it would sort as the epoch "oldest",
+  // displacing the entry's own date. Fall back to date-at-midnight — the same
+  // key a timestamp-less entry uses — whenever the stamp can't be trusted.
+  const ts = entry.timestamp;
+  if (ts && !Number.isNaN(Date.parse(ts))) return ts;
+  return `${entry.date}T00:00:00.000Z`;
 }
 
 function dayOrdinal(date: string): number | null {

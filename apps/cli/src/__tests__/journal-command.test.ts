@@ -284,6 +284,24 @@ describe("journal command", () => {
     expect(JSON.parse(stdout).total).toBe(2); // only the two within the window
   }, 20_000);
 
+  test("patterns --until measures cadence as of the window end, not real today", async () => {
+    // A retrospective's cadence must read AS OF the window's close: the last
+    // reading inside the window is 2026-01-20, so with --until 2026-02-01 the
+    // idle span is 12 days (to the window end), not the years since to real now.
+    await seedJournal(dataDir, [
+      makeEntry("2026-01-10", 1, null),
+      makeEntry("2026-01-20", 2, null),
+      makeEntry("2026-06-01", 3, null), // outside the window
+    ]);
+    const { exitCode, stdout } = await runCli(dataDir, [
+      "--json", "journal", "patterns", "--until", "2026-02-01",
+    ]);
+    expect(exitCode).toBe(0);
+    const p = JSON.parse(stdout);
+    expect(p.total).toBe(2);
+    expect(p.cadence.idleDays).toBe(12); // 2026-01-20 → 2026-02-01, not "now"
+  }, 20_000);
+
   test("list --json enriches entries with resolved names, raw fields intact", async () => {
     await seedJournal(dataDir, [makeEntry("2026-01-03", 3, 39, "yarrow")]);
 
