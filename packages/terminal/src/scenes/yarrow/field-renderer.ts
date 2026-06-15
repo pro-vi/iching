@@ -9,6 +9,8 @@
 // the form.
 
 import type { CellBuffer } from "../../render/buffer.ts";
+import type { SceneContext } from "../../scene/types.ts";
+import { renderTooSmallNotice } from "../../scene/loop.ts";
 import type { StyledCell } from "../../render/cell.ts";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
@@ -39,6 +41,32 @@ export const BAR_AREA_WIDTH = TOTAL_STALKS + GAP_CELLS + 1; // 52
 // h <= 20. Below 21 rows the field collides with the keybinds; gate there,
 // the height analog of BAR_AREA_WIDTH's width gate.
 export const YARROW_MIN_ROWS = 21;
+
+/**
+ * Whether a terminal of `width × height` can show the 49-stalk field without
+ * clipping (the global too-small floor of 40 × 12 is smaller on both axes). The
+ * single floor predicate both yarrow scenes gate on — render measures the frame,
+ * update/handleKey measure the SceneContext, so the same check answers all three.
+ */
+export function canShowYarrowField(width: number, height: number): boolean {
+  return width >= BAR_AREA_WIDTH && height >= YARROW_MIN_ROWS;
+}
+
+/**
+ * Render the calm too-small notice (with the field's own larger requirement)
+ * when the frame can't fit the field, returning true so the caller can bail:
+ * `if (renderYarrowTooSmall(frame, ctx, this.language)) return;`. `language` is
+ * passed explicitly because the scene owns it (ctx.language may be unset).
+ */
+export function renderYarrowTooSmall(
+  frame: CellBuffer,
+  ctx: SceneContext,
+  language: DisplayLanguage,
+): boolean {
+  if (canShowYarrowField(frame.width, frame.height)) return false;
+  renderTooSmallNotice(frame, { ...ctx, language }, BAR_AREA_WIDTH, YARROW_MIN_ROWS);
+  return true;
+}
 
 /** A row of N stalks: `███████` (n cells of `█`). */
 function stalkBar(n: number): string {

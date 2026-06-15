@@ -17,8 +17,7 @@ import { getYarrowTiming } from "../../animation/yarrow-presets.ts";
 import { TimelineRunner } from "../../animation/runner.ts";
 import { YarrowModel } from "./model.ts";
 import { buildYarrowTimeline } from "./yarrow-timeline.ts";
-import { renderYarrowField, BAR_AREA_WIDTH, YARROW_MIN_ROWS } from "./field-renderer.ts";
-import { renderTooSmallNotice } from "../../scene/loop.ts";
+import { renderYarrowField, canShowYarrowField, renderYarrowTooSmall } from "./field-renderer.ts";
 import { writeChromeFooter } from "../cast/ritual-chrome.ts";
 import { tr } from "../../i18n/messages.ts";
 import type { DisplayLanguage } from "@iching/core";
@@ -44,17 +43,12 @@ export class YarrowScene implements Scene {
     this.beatOffsets = built.beatOffsets;
   }
 
-  /** The 49-stalk field needs BAR_AREA_WIDTH × YARROW_MIN_ROWS to render. */
-  private fieldFits(ctx: SceneContext): boolean {
-    return ctx.cols >= BAR_AREA_WIDTH && ctx.rows >= YARROW_MIN_ROWS;
-  }
-
   update(_elapsed: number, dt: number, ctx: SceneContext): void {
     if (this.complete) return;
     // Below the yarrow floor the field is hidden behind the too-small notice;
     // freeze the ritual rather than let the clock advance (and silently
     // complete) unseen. It resumes the moment there is room again.
-    if (!this.fieldFits(ctx)) return;
+    if (!canShowYarrowField(ctx.cols, ctx.rows)) return;
     if (!this.model.paused) {
       this.virtualElapsed += dt * this.model.speed;
     }
@@ -62,14 +56,9 @@ export class YarrowScene implements Scene {
   }
 
   render(frame: CellBuffer, ctx: SceneContext): void {
-    // The 49-stalk field needs BAR_AREA_WIDTH columns and YARROW_MIN_ROWS rows;
-    // the global too-small floor (40 × 12) is smaller on both axes, so gate here
-    // too — a clipped half-field or a stalk bar overlapping the footer reads as
-    // broken, where a calm notice reads as honest.
-    if (frame.width < BAR_AREA_WIDTH || frame.height < YARROW_MIN_ROWS) {
-      renderTooSmallNotice(frame, { ...ctx, language: this.language }, BAR_AREA_WIDTH, YARROW_MIN_ROWS);
-      return;
-    }
+    // A clipped half-field or a stalk bar overlapping the footer reads as broken,
+    // where a calm notice reads as honest — so gate above the global floor.
+    if (renderYarrowTooSmall(frame, ctx, this.language)) return;
     // Captions are baked into the timeline at construction with this.language;
     // use the same language for the live field + footer to stay consistent.
     renderYarrowField(frame, this.model, this.language);
@@ -84,7 +73,7 @@ export class YarrowScene implements Scene {
     // Below the yarrow floor the field is hidden behind the too-small notice;
     // ignore ritual keys (pace, step, receive) so the user can't act blind.
     // Leaving (ctrl-c / esc / q) is handled above and stays available.
-    if (!this.fieldFits(ctx)) return;
+    if (!canShowYarrowField(ctx.cols, ctx.rows)) return;
 
     // Once the figure stands, space receives the reading.
     if (this.model.hexagramComplete) {

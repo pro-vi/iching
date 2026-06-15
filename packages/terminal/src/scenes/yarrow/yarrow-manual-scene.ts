@@ -33,10 +33,9 @@ import {
   yarrowFieldGeometry,
   drawApertureCursor,
   bounceAperture,
-  BAR_AREA_WIDTH,
-  YARROW_MIN_ROWS,
+  canShowYarrowField,
+  renderYarrowTooSmall,
 } from "./field-renderer.ts";
-import { renderTooSmallNotice } from "../../scene/loop.ts";
 import { writeChromeFooter } from "../cast/ritual-chrome.ts";
 import { tr } from "../../i18n/messages.ts";
 import type { DisplayLanguage } from "@iching/core";
@@ -94,16 +93,11 @@ export class YarrowManualScene implements Scene {
     this.model.resetActiveLine(0);
   }
 
-  /** The 49-stalk field needs BAR_AREA_WIDTH × YARROW_MIN_ROWS to render. */
-  private fieldFits(ctx: SceneContext): boolean {
-    return ctx.cols >= BAR_AREA_WIDTH && ctx.rows >= YARROW_MIN_ROWS;
-  }
-
   update(_elapsed: number, dt: number, ctx: SceneContext): void {
     // Below the yarrow floor the field is hidden behind the too-small notice;
     // freeze the sweep/snap/play so the ritual doesn't advance unseen. It
     // resumes the moment there is room again.
-    if (!this.fieldFits(ctx)) return;
+    if (!canShowYarrowField(ctx.cols, ctx.rows)) return;
     if (this.phase === "sweeping") {
       this.sweepAccumMs += dt;
       while (this.sweepAccumMs >= SWEEP_INTERVAL_MS) {
@@ -125,13 +119,9 @@ export class YarrowManualScene implements Scene {
   }
 
   render(frame: CellBuffer, ctx: SceneContext): void {
-    // The 49-stalk field needs BAR_AREA_WIDTH columns and YARROW_MIN_ROWS rows —
-    // gate above the global too-small floor on both axes so a cramped terminal
-    // sees a calm notice, not a half-field or a stalk bar over the footer.
-    if (frame.width < BAR_AREA_WIDTH || frame.height < YARROW_MIN_ROWS) {
-      renderTooSmallNotice(frame, { ...ctx, language: this.language }, BAR_AREA_WIDTH, YARROW_MIN_ROWS);
-      return;
-    }
+    // Gate above the global too-small floor so a cramped terminal sees a calm
+    // notice, not a half-field or a stalk bar overlapping the footer.
+    if (renderYarrowTooSmall(frame, ctx, this.language)) return;
     renderYarrowField(frame, this.model, this.language);
     if (this.phase === "sweeping" || this.phase === "snapping") {
       const g = yarrowFieldGeometry(frame);
@@ -160,7 +150,7 @@ export class YarrowManualScene implements Scene {
     // Below the yarrow floor the field is hidden behind the too-small notice;
     // ignore the cut/commit/receive key so the user can't act blind. Leaving
     // (ctrl-c / esc / q) is handled above and stays available.
-    if (!this.fieldFits(ctx)) return;
+    if (!canShowYarrowField(ctx.cols, ctx.rows)) return;
     if (key.type !== "char" || key.char !== " ") return;
 
     switch (this.phase) {
