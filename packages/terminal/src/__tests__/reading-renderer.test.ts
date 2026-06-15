@@ -66,20 +66,11 @@ describe("buildReadingLines", () => {
     const lines = buildReadingLines(cast, "en", 200, 12);
     expect(lines[0]).toEqual({ text: "both judgments — primary and becoming", role: "hint" });
     const texts = lines.filter((l) => l.role === "text").map((l) => l.text);
-    expect(texts[0]).toBe(`Judgment · ${GUA[20].gcEnW}`); // primary first (Wilhelm-interp.)
-    expect(texts[1]).toBe(`Judgment · ${becoming.gcEnW}`); // becoming second
+    // each judgment carries its own hexagram glyph+name (not a bare "Judgment ·")
+    expect(texts[0]).toBe(`${GUA[20].u} ${GUA[20].n} · ${GUA[20].gcEnW}`); // primary first
+    expect(texts[1]).toBe(`${becoming.u} ${becoming.n} · ${becoming.gcEnW}`); // becoming second
     // not the moving lines' 爻辭
     expect(texts.join("\n")).not.toContain(GUA[20].yaoEn[4]);
-  });
-
-  test("dual judgment separates the two judgments with a blank line", () => {
-    const lines = buildReadingLines(realCast(21, [1, 3, 5]), "en", 200, 12);
-    const texts = lines.filter((l) => l.role === "text");
-    expect(texts).toHaveLength(2); // both judgments, un-wrapped at this width
-    expect(lines.filter((l) => l.role === "gap")).toHaveLength(1); // one blank between
-    const i0 = lines.indexOf(texts[0]);
-    const i1 = lines.indexOf(texts[1]);
-    expect(lines.slice(i0 + 1, i1).every((l) => l.role === "gap")).toBe(true);
   });
 
   test("en mode shows yaoEn prefixed with the line position", () => {

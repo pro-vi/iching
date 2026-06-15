@@ -15,7 +15,7 @@ import { tr } from "../../i18n/messages.ts";
 
 export interface ReadingLine {
   text: string;
-  role: "hint" | "text" | "gap" | "more";
+  role: "hint" | "text" | "more";
   /**
    * True on the one wrapped line that leads with a dim type-label
    * ("卦辭 · ", "Judgment · ", "4 · "). The renderer dims everything up to the
@@ -81,17 +81,13 @@ export function buildReadingLines(
     });
   };
 
-  // A blank line between consecutive oracle blocks — so two judgments (or long,
-  // wrapped readings) don't run together. Not counted as oracle text.
-  const pushGap = (): void => {
-    lines.push({ text: "", role: "gap" });
-  };
-
   const judgmentLabel = tr(language, "cast.judgment");
   // en shows the Wilhelm-interpretive judgment (gcEnW) for one register with the
-  // line texts; Legge (gcEn) stays in the corpus for a future toggle.
-  const pushJudgment = (g: (typeof GUA)[number]): void =>
-    pushText(english ? `${judgmentLabel} · ${g.gcEnW}` : `${judgmentLabel} · ${cn(g.gc)}`, true);
+  // line texts; Legge (gcEn) stays in the corpus for a future toggle. The label
+  // is normally the text-type ("Judgment · "); the dual-judgment case overrides
+  // it with the hexagram's own glyph+name so the two judgments are told apart.
+  const pushJudgment = (g: (typeof GUA)[number], label = judgmentLabel): void =>
+    pushText(english ? `${label} · ${g.gcEnW}` : `${label} · ${cn(g.gc)}`, true);
 
   const pushYaoFrom = (g: (typeof GUA)[number], pos: number): void => {
     // en prefixes the line position ("4 · …") — a label to dim; the zh 爻辭 opens
@@ -114,29 +110,22 @@ export function buildReadingLines(
     );
   } else if (focus.kind === "dualJudgment" && becoming) {
     // Three lines move — both 卦辭, the primary (本卦) first, then the becoming
-    // (之卦), a blank line between. The hint names the pair; the title shows both.
-    pushJudgment(gua);
-    pushGap();
-    pushJudgment(becoming);
+    // (之卦). The hint names the pair; each line carries its own hexagram
+    // glyph+name (not a bare "Judgment ·") so the two are told apart and tie to
+    // the figure.
+    pushJudgment(gua, `${gua.u} ${cn(gua.n)}`);
+    pushJudgment(becoming, `${becoming.u} ${cn(becoming.n)}`);
   } else if (focus.kind === "stillLines" && becoming) {
     // Four or five lines move — the becoming's UNCHANGED lines' 爻辭, read
-    // top-down (the figure's order), one blank line apart; the hint names the
-    // lower as primary.
-    [...focus.positions].sort((a, b) => b - a).forEach((pos, i) => {
-      if (i > 0) pushGap();
-      pushYaoFrom(becoming, pos);
-    });
+    // top-down (the figure's order); the hint names the lower as primary.
+    for (const pos of [...focus.positions].sort((a, b) => b - a)) pushYaoFrom(becoming, pos);
   } else if (focus.kind === "becoming" && becoming) {
     // Six lines move off 乾/坤 — the becoming hexagram's 卦辭.
     pushJudgment(becoming);
   } else {
     // One or two moving lines (or any fallback) — the moving lines' 爻辭, read
-    // top-down (line 6 at the top down to line 1, so the upper line leads), one
-    // blank line apart when there are two.
-    [...cast.changingPositions].sort((a, b) => b - a).forEach((pos, i) => {
-      if (i > 0) pushGap();
-      pushYaoFrom(gua, pos);
-    });
+    // top-down (line 6 at the top down to line 1, so the upper line leads).
+    for (const pos of [...cast.changingPositions].sort((a, b) => b - a)) pushYaoFrom(gua, pos);
   }
 
   if (lines.length > maxRows) {

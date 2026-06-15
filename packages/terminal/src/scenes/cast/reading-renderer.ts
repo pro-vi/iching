@@ -11,7 +11,7 @@ import type { CastModel } from "./model.ts";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { titleLayout } from "./reveal-renderer.ts";
-import { buildReadingLines, readingPanelWidth } from "./reading-lines.ts";
+import { buildReadingLines, readingPanelRows, readingPanelWidth } from "./reading-lines.ts";
 
 // Re-exports — the panel's line construction lives in reading-lines.ts.
 export { buildReadingLines, readingHint, type ReadingLine } from "./reading-lines.ts";
@@ -28,16 +28,22 @@ export function renderReadingPanel(
 ): void {
   const t = getTheme();
   const { baseRow, lines: titleLines } = titleLayout(buf, model, language);
-  const endRow = buf.height - 3; // one row above the prompt bar
+  const width = readingPanelWidth(buf.width);
 
-  // Prefer a breathing row after the title; surrender it when the texts
-  // need the space.
-  const gapStart = baseRow + titleLines.length + 1;
   const tightStart = baseRow + titleLines.length;
+  const gapStart = tightStart + 1; // a breathing row after the title
+
+  // The reading prefers a blank row before the footer (the prompt sits at
+  // height-2) so it doesn't butt against the legend — but it yields that row to
+  // content when the terminal is too short to show the whole reading. Cosmetics
+  // give way to the oracle text when cramped.
+  const fullLen = readingPanelRows(model.cast, language, width); // untruncated
+  const roomButting = buf.height - 3 - tightStart + 1; // rows if the reading butts the footer
+  const endRow = fullLen <= roomButting - 1 ? buf.height - 4 : buf.height - 3;
+
   const tightBudget = endRow - tightStart + 1;
   if (tightBudget < 1) return;
 
-  const width = readingPanelWidth(buf.width);
   const panel = buildReadingLines(model.cast, language, width, tightBudget);
   const startRow = panel.length <= endRow - gapStart + 1 ? gapStart : tightStart;
 
