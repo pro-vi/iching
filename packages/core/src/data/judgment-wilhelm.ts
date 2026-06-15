@@ -9,11 +9,11 @@ export const JUDGMENT_WILHELM: string[] = [
   // 1 乾 元亨，利貞
   "Sublime success — it furthers through perseverance.",
   // 2 坤 元亨，利牝馬之貞…安貞，吉
-  "Sublime success through the mare's perseverance. Take the lead and you go astray; follow, and find your guide. Friends in the southwest, none in the northeast. Rest in steadfastness — fortune.",
+  "Sublime success through the mare's perseverance. Take the lead and you go astray; follow, and find your guide. Friends won in the southwest, lost in the northeast. Rest in steadfastness — fortune.",
   // 3 屯 元亨，利貞，勿用有攸往，利建侯
   "Great success through perseverance. Undertake nothing yet; it furthers to appoint helpers.",
   // 4 蒙 亨…初筮告，再三瀆…利貞
-  "Success. I do not seek the young fool — he seeks me. The first asking is answered; ask twice, thrice, and it troubles — the troubled go untaught. It furthers to persevere.",
+  "Success. I do not seek the young fool — he seeks me. The first asking is answered; ask twice, thrice, and it profanes — what profanes goes untaught. It furthers to persevere.",
   // 5 需 有孚，光亨，貞吉。利涉大川
   "Wait, holding to your truth — radiant success. Perseverance brings fortune; it furthers to cross the great water.",
   // 6 訟 有孚，窒。惕中吉。終凶。利見大人，不利涉大川
@@ -21,15 +21,15 @@ export const JUDGMENT_WILHELM: string[] = [
   // 7 師 貞，丈人，吉無咎
   "Perseverance, and a seasoned leader — fortune, and no blame.",
   // 8 比 吉。原筮元永貞，無咎。不寧方來，後夫凶
-  "Holding together — fortune. Ask again: with lasting, firm constancy, no blame. The restless come to you; whoever comes too late meets misfortune.",
+  "Holding together — fortune. Ask again: with great, lasting constancy, no blame. The restless come to you; whoever comes too late meets misfortune.",
   // 9 小畜 亨。密雲不雨，自我西郊
-  "Small taming succeeds. Dense clouds, no rain yet, drifting from our western fields.",
+  "Small taming succeeds. Dense clouds, no rain, drifting from our western fields.",
   // 10 履 履虎尾，不咥人，亨
   "Treading on the tiger's tail — it does not bite. Success.",
   // 11 泰 小往大來，吉亨
   "The small departs, the great arrives. Fortune. Success.",
   // 12 否 否之匪人，不利君子貞，大往小來
-  "Standstill, set by the unworthy. It does not further the noble one's perseverance. The great departs, the small arrives.",
+  "Standstill, a time of the unworthy. It does not further the noble one's perseverance. The great departs, the small arrives.",
   // 13 同人 同人于野，亨。利涉大川，利君子貞
   "Fellowship in the open — success. It furthers to cross the great water; it furthers the noble one's perseverance.",
   // 14 大有 元亨
@@ -45,7 +45,7 @@ export const JUDGMENT_WILHELM: string[] = [
   // 19 臨 元，亨，利，貞。至于八月有凶
   "Approach — sublime success through perseverance. By the eighth month comes misfortune.",
   // 20 觀 盥而不薦，有孚顒若
-  "Contemplation. The hands washed, the offering not yet made — trust fills all with reverence.",
+  "Contemplation. The hands washed, the offering not yet made — sincerity, reverently held.",
   // 21 噬嗑 亨。利用獄
   "Biting through brings success. It furthers to administer justice.",
   // 22 賁 亨。小利有攸往
@@ -55,7 +55,7 @@ export const JUDGMENT_WILHELM: string[] = [
   // 24 復 亨。出入無疾，朋來無咎…七日來復，利有攸往
   "Return — success. Going out and in without harm; friends come, no blame. The way turns back; in seven days it returns. It furthers to have somewhere to go.",
   // 25 无妄 元亨，利貞。其匪正有眚，不利有攸往
-  "Innocence — sublime success through perseverance. Stray from what is right and you stumble; then it does not further to go anywhere.",
+  "Innocence — sublime success through perseverance. Stray from what is right and harm follows; then it does not further to go anywhere.",
   // 26 大畜 利貞，不家食吉，利涉大川
   "Great taming. It furthers to persevere. Not eating at home — fortune. It furthers to cross the great water.",
   // 27 頤 貞吉。觀頤，自求口實
@@ -65,7 +65,7 @@ export const JUDGMENT_WILHELM: string[] = [
   // 29 坎 習坎，有孚，維心亨，行有尚
   "Danger upon danger. Hold to your truth and the heart wins through; action carries merit.",
   // 30 離 利貞，亨。畜牝牛，吉
-  "The clinging — it furthers to persevere; success. Tend the cow's docility — fortune.",
+  "The clinging — it furthers to persevere; success. Care for the cow — fortune.",
   // 31 咸 咸，亨，利貞，取女吉
   "Influence succeeds; it furthers to persevere. To take a wife — fortune.",
   // 32 恆 亨，無咎，利貞，利有攸往
@@ -87,7 +87,7 @@ export const JUDGMENT_WILHELM: string[] = [
   // 40 解 利西南，無所往，其來復吉。有攸往，夙吉
   "Deliverance. The southwest furthers. With nowhere to go, return brings fortune; with somewhere to go, set out early — fortune.",
   // 41 損 有孚，元吉，無咎，可貞，利有攸往…二簋可用享
-  "Decrease, held in trust — sublime fortune, no blame; perseverance holds, and it furthers to have somewhere to go. What does it ask? Two bowls of grain suffice to offer.",
+  "Decrease, held in trust — sublime fortune, no blame; perseverance may hold, and it furthers to have somewhere to go. What does it ask? Two bowls of grain suffice to offer.",
   // 42 益 利有攸往，利涉大川
   "Increase. It furthers to have somewhere to go; it furthers to cross the great water.",
   // 43 夬 揚于王庭，孚號，有厲…不利即戎，利有攸往
@@ -107,7 +107,7 @@ export const JUDGMENT_WILHELM: string[] = [
   // 50 鼎 元吉，亨
   "The cauldron — sublime fortune. Success.",
   // 51 震 亨。震來虩虩，笑言啞啞。震驚百里，不喪匕鬯
-  "Shock brings success. It comes with fear and trembling, then laughter and talk. It startles for a hundred miles, yet he does not let fall the sacred ladle.",
+  "Shock brings success. It comes with fear and trembling, then laughter and talk. It startles for a hundred miles, yet he does not let fall the ladle and the chalice of spirits.",
   // 52 艮 艮其背，不獲其身，行其庭，不見其人，無咎
   "Keeping still — still as the back, losing the sense of self; walking the courtyard, seeing no one there. No blame.",
   // 53 漸 女歸吉，利貞
