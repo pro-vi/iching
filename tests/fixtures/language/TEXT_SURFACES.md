@@ -1677,18 +1677,18 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
 
 - surface_id: cli-plain-oracle-labels
   file: apps/cli/src/output/plain.ts
-  code_locator: "formatCastPlain/formatHexagramPlain — judgment + changing-line blocks"
-  current_text: '"Judgment (gc): " / "Judgment (gcEn): " / "Changing lines:"'
+  code_locator: "formatCastPlain/formatHexagramPlain — judgment + 啟蒙 reading blocks; formatJournalShowPlain — changing-line block"
+  current_text: '"Judgment (gc): " / "Judgment (gcEn): " / "Reading (啟蒙):" / "  ${u} ${n} 卦辭: " / "  ${u} ${n} 爻${pos}: " / "Changing line:" / "Changing lines:"'
   surface_class: cli-commands
-  render_context: "cast/hexagram plain stdout — 卦辭 + Legge judgment lines, changing-line 爻辭 block (reading-depth v1)"
+  render_context: "cast/hexagram plain stdout — 卦辭 + Legge judgment lines, then the 啟蒙 reading section (the texts the cast turns on: at 3 moving lines both judgments, at 4–5 the becoming''s unchanged 爻辭, at 6 用九/用六 or the becoming 卦辭); journal show still prints the raw moving-line 爻辭 under \"Changing line(s):\" as a factual record"
   language_policy: translate
   source_layer: product-ui
   json_policy: not-json
   risk: low
   agentify_required: no
   status: verified
-  verifier: "--inventory-only; apps/cli/src/__tests__/cast.test.ts + hexagram-output.test.ts"
-  notes: "Labels follow the existing parenthetical field-code convention (dx/tu/en/te/w); gc/gcEn values are canonical-anchor + verbatim Legge."
+  verifier: "--inventory-only; apps/cli/src/__tests__/cast.test.ts + hexagram-output.test.ts + today-command.test.ts"
+  notes: "Labels follow the existing parenthetical field-code convention (dx/tu/en/te/w); gc/gcEn values are canonical-anchor + verbatim Legge. The reading section is the shared 啟蒙 selection (core readingTexts) — distinct from the raw changing-line record journal show keeps; the two diverge at 3/4/5 moving lines."
 
 - surface_id: cli-journal-patterns
   file: apps/cli/src/commands/journal.ts, apps/cli/src/output/plain.ts

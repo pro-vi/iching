@@ -7,6 +7,7 @@ import {
   buildStructure,
   SeededRandomSource,
   GUA,
+  readingTexts,
 } from "@iching/core";
 import { JsonDailyCacheStore, JsonlJournalStore } from "@iching/storage";
 import { castToJson } from "../output/json.js";
@@ -174,23 +175,39 @@ describe("cast output oracle texts", () => {
     });
   });
 
-  test("formatCastPlain lists judgment and changing-line texts", () => {
+  test("formatCastPlain shows the judgment and the 啟蒙 reading", () => {
     const { cast, primary } = makeSeededCast();
     const structure = buildStructure(cast);
     const text = formatCastPlain(cast, primary, structure);
 
+    // The hexagram's own 卦辭 always appears in its reference block.
     expect(text).toContain(`Judgment (gc): ${primary.gc}`);
     expect(text).toContain(`Judgment (gcEn): ${primary.gcEn}`);
-    expect(text).toContain("Changing lines:");
-    for (const pos of cast.changingPositions) {
-      expect(text).toContain(`  ${pos}: ${primary.yao[pos - 1]}`);
-      expect(text).toContain(`     ${primary.yaoEn[pos - 1]}`);
+
+    // The reading itself follows the shared 啟蒙 rule (readingTexts), NOT the raw
+    // moving lines — seed 7 moves three lines, so the reading is both judgments
+    // (本卦 47 and 之卦 62), never the 爻辭 of lines 2/3/5.
+    expect(text).toContain("Reading (啟蒙):");
+    for (const part of readingTexts(cast)) {
+      const g = GUA[part.kw - 1];
+      if (part.kind === "judgment") {
+        expect(text).toContain(`  ${g.u} ${g.n} 卦辭: ${g.gc}`);
+        expect(text).toContain(`     ${g.gcEn}`);
+      } else if (part.kind === "line") {
+        expect(text).toContain(`  ${g.u} ${g.n} 爻${part.position}: ${g.yao[part.position - 1]}`);
+        expect(text).toContain(`     ${g.yaoEn[part.position - 1]}`);
+      } else if (g.extra) {
+        expect(text).toContain(`  ${g.extra.name}: ${g.extra.text}`);
+        expect(text).toContain(`     ${g.extra.textEn}`);
+      }
     }
   });
 
   test("formatCastPlain singularizes 'line' when exactly one moves", () => {
-    // ~36% of moving casts have exactly one changing line; "[lines 6]" /
-    // "Changing lines:" read wrong there (cf. the journal's "1 active day" fix).
+    // ~36% of moving casts have exactly one changing line; "[lines 6]" reads
+    // wrong there (cf. the journal's "1 active day" fix). The reading header is
+    // now the rule-neutral "Reading (啟蒙):", so only the inline Becoming
+    // indicator carries the singular/plural distinction.
     const { cast, primary } = makeSeededCast();
     const oneMoving = {
       ...cast,
@@ -205,8 +222,8 @@ describe("cast output oracle texts", () => {
     const text = formatCastPlain(oneMoving, primary, buildStructure(oneMoving));
     expect(text).toContain("[line 6]"); // singular inline indicator…
     expect(text).not.toContain("[lines 6]");
-    expect(text).toContain("Changing line:"); // …and singular section header
-    expect(text).not.toContain("Changing lines:");
+    // …and at one moving line the reading turns on that line's 爻辭, not a judgment.
+    expect(text).toContain(`爻6: ${primary.yao[5]}`);
   });
 
   test("formatCastPlain omits the changing-lines block when none move", () => {

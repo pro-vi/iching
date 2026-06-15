@@ -52,6 +52,53 @@ export function readingFocus(
   return { kind: "becoming" };
 }
 
+/**
+ * One text the canonical reading turns on — a hexagram's 卦辭 (judgment), one of
+ * its 爻辭 (line), or its 用九/用六 (extra). `kw` is the King Wen number to look up.
+ */
+export type ReadingPart =
+  | { kind: "judgment"; kw: number }
+  | { kind: "line"; kw: number; position: number }
+  | { kind: "extra"; kw: number };
+
+/**
+ * The ordered texts a reading turns on, by the 啟蒙 rule (see readingFocus) — the
+ * single source the TUI reading panel and the CLI plain/JSON output both render,
+ * so they cannot drift. The governing (leading) text is first: the upper line at
+ * 2 moving, the lower still line at 4–5, the primary judgment at 3.
+ */
+export function readingTexts(cast: Cast): ReadingPart[] {
+  const focus = readingFocus(cast);
+  const { primary, becoming } = cast;
+  // The governing line first, then the rest top-down (line 6 down to line 1).
+  const lines = (kw: number, positions: number[], governing: number): ReadingPart[] => [
+    { kind: "line", kw, position: governing },
+    ...[...positions]
+      .sort((a, b) => b - a)
+      .filter((p) => p !== governing)
+      .map((p): ReadingPart => ({ kind: "line", kw, position: p })),
+  ];
+
+  switch (focus.kind) {
+    case "judgment":
+      return [{ kind: "judgment", kw: primary }];
+    case "line":
+      return [{ kind: "line", kw: primary, position: focus.position }];
+    case "lines":
+      return lines(primary, focus.positions, focus.governing);
+    case "dualJudgment":
+      return becoming !== null
+        ? [{ kind: "judgment", kw: primary }, { kind: "judgment", kw: becoming }]
+        : [{ kind: "judgment", kw: primary }];
+    case "stillLines":
+      return becoming !== null ? lines(becoming, focus.positions, focus.governing) : [];
+    case "extra":
+      return [{ kind: "extra", kw: primary }];
+    case "becoming":
+      return becoming !== null ? [{ kind: "judgment", kw: becoming }] : [];
+  }
+}
+
 /** Unbiased random quote style for derived hexagrams (excludes "st"). */
 export function getRandomQuoteStyle(source: RandomSource): QuoteStyle {
   let byte: number;

@@ -9,7 +9,7 @@
 // dim hint names which text it turns on, where that isn't self-evident. Quiet,
 // observational, never interpretive.
 
-import { type Cast, type DisplayLanguage, GUA, readingFocus, toSimplified } from "@iching/core";
+import { type Cast, type DisplayLanguage, GUA, readingFocus, readingTexts, toSimplified } from "@iching/core";
 import { wordWrap } from "../dict/word-wrap.ts";
 import { tr } from "../../i18n/messages.ts";
 
@@ -61,10 +61,8 @@ export function buildReadingLines(
 ): ReadingLine[] {
   if (maxRows < 1 || width < 4) return [];
 
-  const gua = GUA[cast.primary - 1];
   const english = language === "en";
   const cn = (s: string): string => (language === "zh-Hans" ? toSimplified(s) : s);
-  const focus = readingFocus(cast);
 
   const lines: ReadingLine[] = [];
 
@@ -81,55 +79,26 @@ export function buildReadingLines(
     });
   };
 
+  // The texts the reading turns on, ordered governing-first by the shared core
+  // rule (readingTexts) — so the panel and the CLI never diverge. Two judgments
+  // (3 moving) each carry their hexagram glyph+name to be told apart; a lone
+  // judgment uses the plain text-type label. en shows the Wilhelm-interpretive
+  // judgment (gcEnW), one register with the line texts; the zh 爻辭 stays bare
+  // (it opens with its own line name 初九/上六…).
   const judgmentLabel = tr(language, "cast.judgment");
-  // en shows the Wilhelm-interpretive judgment (gcEnW) for one register with the
-  // line texts; Legge (gcEn) stays in the corpus for a future toggle. The label
-  // is normally the text-type ("Judgment · "); the dual-judgment case overrides
-  // it with the hexagram's own glyph+name so the two judgments are told apart.
-  const pushJudgment = (g: (typeof GUA)[number], label = judgmentLabel): void =>
-    pushText(english ? `${label} · ${g.gcEnW}` : `${label} · ${cn(g.gc)}`, true);
-
-  const pushYaoFrom = (g: (typeof GUA)[number], pos: number): void => {
-    // en prefixes the line position ("4 · …") — a label to dim; the zh 爻辭 opens
-    // with its own line name (初九/上六…), so it is self-labeling and stays bare.
-    if (english) pushText(`${pos} · ${g.yaoEn[pos - 1]}`, true);
-    else pushText(cn(g.yao[pos - 1]));
-  };
-  // The given lines' 爻辭, read top-down — the figure's order, line 6 at the top
-  // down to line 1, so the upper line leads.
-  const pushYaoLines = (g: (typeof GUA)[number], positions: number[]): void => {
-    for (const pos of [...positions].sort((a, b) => b - a)) pushYaoFrom(g, pos);
-  };
-  const becoming = cast.becoming !== null ? GUA[cast.becoming - 1] : null;
-
-  if (focus.kind === "judgment") {
-    // No moving lines — the primary judgment is the reading.
-    pushJudgment(gua);
-  } else if (focus.kind === "extra" && gua.extra) {
-    // All six lines move on hex 1/2 — the 用九/用六 text.
-    pushText(
-      english
-        ? `${gua.extra.name} · ${gua.extra.textEn}`
-        : `${cn(gua.extra.name)} · ${cn(gua.extra.text)}`,
-      true,
-    );
-  } else if (focus.kind === "dualJudgment" && becoming) {
-    // Three lines move — both 卦辭, the primary (本卦) first, then the becoming
-    // (之卦). The hint names the pair; each line carries its own hexagram
-    // glyph+name (not a bare "Judgment ·") so the two are told apart and tie to
-    // the figure.
-    pushJudgment(gua, `${gua.u} ${cn(gua.n)}`);
-    pushJudgment(becoming, `${becoming.u} ${cn(becoming.n)}`);
-  } else if (focus.kind === "stillLines" && becoming) {
-    // Four or five lines move — the becoming's UNCHANGED lines' 爻辭; the hint
-    // names the lower as primary.
-    pushYaoLines(becoming, focus.positions);
-  } else if (focus.kind === "becoming" && becoming) {
-    // Six lines move off 乾/坤 — the becoming hexagram's 卦辭.
-    pushJudgment(becoming);
-  } else {
-    // One or two moving lines (or any fallback) — the moving lines' 爻辭.
-    pushYaoLines(gua, cast.changingPositions);
+  const parts = readingTexts(cast);
+  const dual = parts.filter((p) => p.kind === "judgment").length > 1;
+  for (const part of parts) {
+    const g = GUA[part.kw - 1];
+    if (part.kind === "judgment") {
+      const label = dual ? `${g.u} ${cn(g.n)}` : judgmentLabel;
+      pushText(english ? `${label} · ${g.gcEnW}` : `${label} · ${cn(g.gc)}`, true);
+    } else if (part.kind === "line") {
+      if (english) pushText(`${part.position} · ${g.yaoEn[part.position - 1]}`, true);
+      else pushText(cn(g.yao[part.position - 1]));
+    } else if (g.extra) {
+      pushText(english ? `${g.extra.name} · ${g.extra.textEn}` : `${cn(g.extra.name)} · ${cn(g.extra.text)}`, true);
+    }
   }
 
   if (lines.length > maxRows) {

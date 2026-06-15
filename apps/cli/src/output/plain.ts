@@ -4,6 +4,7 @@ import {
   STYLES,
   formatTrigrams,
   getStructure,
+  readingTexts,
 } from "@iching/core";
 import type { HistoryEntry } from "@iching/core";
 import { stripTerminalControls } from "@iching/storage";
@@ -89,17 +90,26 @@ export function formatCastPlain(
   lines.push(`Judgment (gcEn): ${primary.gcEn}`);
   lines.push("");
 
-  // Changing lines — the texts the reading turns on
-  if (cast.changingPositions.length > 0) {
-    lines.push(cast.changingPositions.length === 1 ? "Changing line:" : "Changing lines:");
-    for (const pos of cast.changingPositions) {
-      lines.push(`  ${pos}: ${primary.yao[pos - 1]}`);
-      lines.push(`     ${primary.yaoEn[pos - 1]}`);
-    }
-    // All six moving on hexagram 1/2 reads 用九/用六
-    if (cast.changingPositions.length === 6 && primary.extra) {
-      lines.push(`  ${primary.extra.name}: ${primary.extra.text}`);
-      lines.push(`     ${primary.extra.textEn}`);
+  // The reading (啟蒙) — the texts this cast turns on, ordered governing-first by
+  // the shared core rule (readingTexts), so plain / JSON / TUI never disagree.
+  // Each part names its hexagram so the source is unambiguous: at 3 moving lines
+  // both judgments; at 4–5 the becoming's UNCHANGED lines (not the moving ones);
+  // at 6 the becoming 卦辭, or 用九/用六 on 乾/坤.
+  const reading = readingTexts(cast);
+  if (reading.length > 0 && cast.changingPositions.length > 0) {
+    lines.push("Reading (啟蒙):");
+    for (const part of reading) {
+      const g = GUA[part.kw - 1];
+      if (part.kind === "judgment") {
+        lines.push(`  ${g.u} ${g.n} 卦辭: ${g.gc}`);
+        lines.push(`     ${g.gcEn}`);
+      } else if (part.kind === "line") {
+        lines.push(`  ${g.u} ${g.n} 爻${part.position}: ${g.yao[part.position - 1]}`);
+        lines.push(`     ${g.yaoEn[part.position - 1]}`);
+      } else if (g.extra) {
+        lines.push(`  ${g.extra.name}: ${g.extra.text}`);
+        lines.push(`     ${g.extra.textEn}`);
+      }
     }
     lines.push("");
   }

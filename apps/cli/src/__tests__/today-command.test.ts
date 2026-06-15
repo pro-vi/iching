@@ -114,10 +114,10 @@ describe("today command", () => {
     expect(stdout).toContain("Hexagram 3");
     expect(stdout).toContain("Becoming:");
     expect(stdout).toContain("比");
-    // Judgment + the changing-line text the reading turns on (this cast moves
-    // exactly one line, so the header is singular).
+    // Judgment + the 啟蒙 reading the cast turns on. This cast moves exactly one
+    // line, so the reading is that line's 爻辭 under the rule-neutral header.
     expect(stdout).toContain("Judgment (gc):");
-    expect(stdout).toContain("Changing line:");
+    expect(stdout).toContain("Reading (啟蒙):");
     expect(stdout).toContain("磐桓"); // KW3 line 1 爻辭
   }, 20_000);
 

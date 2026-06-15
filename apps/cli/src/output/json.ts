@@ -1,5 +1,5 @@
 import type { Cast, DailyCache, Hexagram, HistoryEntry, JournalPatterns, ReflectionNote, RngProvenance, Style } from "@iching/core";
-import { GUA } from "@iching/core";
+import { GUA, readingTexts } from "@iching/core";
 import type { UserConfig } from "@iching/storage";
 
 /** Output any value as clean JSON (no ANSI) and exit */
@@ -16,13 +16,34 @@ export function castToJson(
   rng?: RngProvenance,
   seed?: number,
 ): Record<string, unknown> {
-  // Changing lines carry their oracle texts — the texts a reading turns on.
-  // All six moving on hexagram 1/2 additionally reads 用九/用六 (extra).
+  // The lines that MOVED, with the primary's 爻辭 — factual (which lines changed),
+  // kept for back-compat. This is NOT necessarily "the reading": see `reading`
+  // below for the 啟蒙-selected texts (they differ at 3/4/5 moving lines).
   const changingLines = cast.changingPositions.map((pos) => ({
     position: pos,
     yao: primary.yao[pos - 1],
     yaoEn: primary.yaoEn[pos - 1],
   }));
+
+  // The reading (啟蒙) — the ordered texts this cast turns on, from the shared
+  // core rule (readingTexts), so plain / JSON / TUI never disagree. Governing
+  // text first. Each entry carries its hexagram `kw` and the resolved texts.
+  const reading = readingTexts(cast).map((part) => {
+    const g = GUA[part.kw - 1];
+    if (part.kind === "judgment") {
+      return { kind: "judgment" as const, kw: part.kw, gc: g.gc, gcEn: g.gcEn };
+    }
+    if (part.kind === "line") {
+      return {
+        kind: "line" as const,
+        kw: part.kw,
+        position: part.position,
+        yao: g.yao[part.position - 1],
+        yaoEn: g.yaoEn[part.position - 1],
+      };
+    }
+    return { kind: "extra" as const, kw: part.kw, name: g.extra?.name, text: g.extra?.text, textEn: g.extra?.textEn };
+  });
 
   return {
     question: question ?? null,
@@ -51,6 +72,7 @@ export function castToJson(
       : null,
     changingPositions: cast.changingPositions,
     changingLines,
+    reading,
     extra:
       cast.changingPositions.length === 6 && primary.extra
         ? primary.extra
@@ -114,6 +136,7 @@ export function noTodayToJson(date: string): Record<string, unknown> {
     becoming: null,
     changingPositions: [],
     changingLines: [],
+    reading: [],
     extra: null,
     derived: null,
     commentary: null,

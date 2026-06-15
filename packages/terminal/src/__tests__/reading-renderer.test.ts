@@ -116,16 +116,17 @@ describe("buildReadingLines", () => {
     expect(texts[0]).toContain("見群龍無首");
   });
 
-  test("four changing lines: the becoming's two UNCHANGED lines, top-down (zh-Hant)", () => {
+  test("four changing lines: the becoming's two UNCHANGED lines, lower first (zh-Hant)", () => {
     const cast = realCast(21, [1, 2, 3, 4]); // still lines = 5, 6
     const becoming = GUA[cast.becoming! - 1];
     const lines = buildReadingLines(cast, "zh-Hant", 500, 12);
     expect(lines[0]).toEqual({ text: "之卦靜爻，以下爻為主", role: "hint" });
     const texts = lines.filter((l) => l.role === "text").map((l) => l.text);
     expect(texts).toHaveLength(2);
-    // read from the BECOMING, top-down: line 6 then line 5
-    expect(texts[0]).toBe(becoming.yao[5]);
-    expect(texts[1]).toBe(becoming.yao[4]);
+    // read from the BECOMING, the lower (主) first: line 5 then line 6 — matching
+    // the "lower leads" hint (以下爻為主).
+    expect(texts[0]).toBe(becoming.yao[4]);
+    expect(texts[1]).toBe(becoming.yao[5]);
     // not the primary's moving-line texts
     for (const pos of cast.changingPositions) {
       expect(texts.join("\n")).not.toContain(GUA[20].yao[pos - 1]);
@@ -203,9 +204,9 @@ describe("the leading text is shown first (1–6 moving lines, 啟蒙)", () => {
       named: (_c, en) => (en ? GUA[20].gcEnW : GUA[20].gc),
     },
     {
-      label: "4 moving — the becoming's top still line",
+      label: "4 moving — the becoming's lower still line (主)",
       cast: realCast(21, [1, 2, 3, 4]),
-      named: (c, en) => (en ? becomingOf(c).yaoEn[5] : becomingOf(c).yao[5]),
+      named: (c, en) => (en ? becomingOf(c).yaoEn[4] : becomingOf(c).yao[4]),
     },
     {
       label: "5 moving — the becoming's still line",
