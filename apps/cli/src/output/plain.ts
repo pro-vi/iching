@@ -31,6 +31,37 @@ function entropyLine(rng?: RngProvenance, seed?: number): string | null {
   return null; // crypto — the unremarkable default
 }
 
+/**
+ * The 啟蒙 reading as plain lines — the texts a cast turns on, ordered
+ * governing-first by the shared core rule (readingTexts), each naming its
+ * hexagram so the source is unambiguous: at 3 moving lines both judgments; at
+ * 4–5 the becoming's UNCHANGED 爻辭 (not the moving ones); at 6 the becoming
+ * 卦辭, or 用九/用六 on 乾/坤. Empty when nothing moves — the reading is then the
+ * primary judgment, already printed in its own block. Shared by formatCastPlain
+ * and formatJournalShowPlain so a reading reads the same freshly cast and when
+ * revisited.
+ */
+function readingPlainLines(cast: Cast): string[] {
+  if (cast.changingPositions.length === 0) return [];
+  const reading = readingTexts(cast);
+  if (reading.length === 0) return [];
+  const lines: string[] = ["Reading (啟蒙):"];
+  for (const part of reading) {
+    const g = GUA[part.kw - 1];
+    if (part.kind === "judgment") {
+      lines.push(`  ${g.u} ${g.n} 卦辭: ${g.gc}`);
+      lines.push(`     ${g.gcEn}`);
+    } else if (part.kind === "line") {
+      lines.push(`  ${g.u} ${g.n} 爻${part.position}: ${g.yao[part.position - 1]}`);
+      lines.push(`     ${g.yaoEn[part.position - 1]}`);
+    } else if (g.extra) {
+      lines.push(`  ${g.extra.name}: ${g.extra.text}`);
+      lines.push(`     ${g.extra.textEn}`);
+    }
+  }
+  return lines;
+}
+
 /** Format a full reading as plain text */
 export function formatCastPlain(
   cast: Cast,
@@ -90,27 +121,11 @@ export function formatCastPlain(
   lines.push(`Judgment (gcEn): ${primary.gcEn}`);
   lines.push("");
 
-  // The reading (啟蒙) — the texts this cast turns on, ordered governing-first by
-  // the shared core rule (readingTexts), so plain / JSON / TUI never disagree.
-  // Each part names its hexagram so the source is unambiguous: at 3 moving lines
-  // both judgments; at 4–5 the becoming's UNCHANGED lines (not the moving ones);
-  // at 6 the becoming 卦辭, or 用九/用六 on 乾/坤.
-  const reading = readingTexts(cast);
-  if (reading.length > 0 && cast.changingPositions.length > 0) {
-    lines.push("Reading (啟蒙):");
-    for (const part of reading) {
-      const g = GUA[part.kw - 1];
-      if (part.kind === "judgment") {
-        lines.push(`  ${g.u} ${g.n} 卦辭: ${g.gc}`);
-        lines.push(`     ${g.gcEn}`);
-      } else if (part.kind === "line") {
-        lines.push(`  ${g.u} ${g.n} 爻${part.position}: ${g.yao[part.position - 1]}`);
-        lines.push(`     ${g.yaoEn[part.position - 1]}`);
-      } else if (g.extra) {
-        lines.push(`  ${g.extra.name}: ${g.extra.text}`);
-        lines.push(`     ${g.extra.textEn}`);
-      }
-    }
+  // The reading (啟蒙) — the texts this cast turns on, from the shared core rule
+  // (readingTexts via readingPlainLines), so plain / JSON / TUI never disagree.
+  const readingBlock = readingPlainLines(cast);
+  if (readingBlock.length > 0) {
+    lines.push(...readingBlock);
     lines.push("");
   }
 
@@ -291,24 +306,16 @@ export function formatJournalShowPlain(
     );
   }
 
-  // The moving lines are the crux of a reading — the very texts you sit with.
-  // formatCastPlain prints them at cast time; revisiting the same reading via
-  // `journal show` must surface them too, or a journalled reading silently loses
-  // its moving lines once the fresh cast scrolls off. The entry stores
-  // changingPositions, and isCastShaped guarantees they agree with the line
-  // diagram, so the positions index the primary's yao texts directly.
-  if (entry.cast.changingPositions.length > 0) {
+  // The reading is the crux you sit with — the texts the cast turns on by the
+  // 啟蒙 rule. formatCastPlain prints it at cast time; revisiting the same reading
+  // via `journal show` must surface the SAME texts, or it would silently diverge
+  // (showing the raw moving lines where the rule reads both judgments at 3, or
+  // the becoming's still lines at 4–5). The shared readingPlainLines keeps the
+  // two in lockstep; the becoming line above still records which positions moved.
+  const readingBlock = readingPlainLines(entry.cast);
+  if (readingBlock.length > 0) {
     lines.push("");
-    lines.push(entry.cast.changingPositions.length === 1 ? "Changing line:" : "Changing lines:");
-    for (const pos of entry.cast.changingPositions) {
-      lines.push(`  ${pos}: ${g.yao[pos - 1]}`);
-      lines.push(`     ${g.yaoEn[pos - 1]}`);
-    }
-    // All six moving on hexagram 1/2 reads 用九/用六.
-    if (entry.cast.changingPositions.length === 6 && g.extra) {
-      lines.push(`  ${g.extra.name}: ${g.extra.text}`);
-      lines.push(`     ${g.extra.textEn}`);
-    }
+    lines.push(...readingBlock);
   }
 
   lines.push("");

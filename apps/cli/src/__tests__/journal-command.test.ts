@@ -6,7 +6,7 @@ import { mkdtemp, rm, writeFile, appendFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Cast, HistoryEntry } from "@iching/core";
-import { GUA } from "@iching/core";
+import { GUA, castHexagram, SeededRandomSource } from "@iching/core";
 import { localToday } from "../util/today.ts";
 
 const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
@@ -383,26 +383,48 @@ describe("journal command", () => {
     expect(stdout).not.toContain("Method:");
   }, 20_000);
 
-  test("plain show surfaces the moving lines — the crux of a journalled reading", async () => {
-    // Regression: formatCastPlain prints the moving-line texts at cast time, but
-    // formatJournalShowPlain dropped them — so revisiting a reading via
-    // `journal show` lost the very lines you contemplate. makeCast marks line 1
-    // moving, so the day's reading has one changing line.
+  test("plain show surfaces the 啟蒙 reading — the crux of a journalled reading", async () => {
+    // Regression: formatCastPlain prints the reading at cast time, but
+    // formatJournalShowPlain dropped it — so revisiting a reading via
+    // `journal show` lost the very texts you contemplate. They now share
+    // readingPlainLines, so a reading reads the same fresh and revisited.
+    // makeCast marks line 1 moving, so the reading is that one line's 爻辭.
     await seedJournal(dataDir, [makeEntry("2026-02-02", 3, 39)]); // primary 3, becoming 39, [line 1]
     const { exitCode, stdout } = await runCli(dataDir, ["journal", "show", "2026-02-02"]);
     expect(exitCode).toBe(0);
-    // The becoming line names which lines moved…
+    // The becoming line still records which positions moved…
     expect(stdout).toContain("Hexagram 39 [line 1]");
-    // …and the moving-line text itself is surfaced, not merely the position.
-    expect(stdout).toContain("Changing line:");
-    expect(stdout).toContain(`1: ${GUA[2].yao[0]}`); // hexagram 3, line 1 yao (zh)
+    // …and the reading itself surfaces that line's 爻辭, not merely the position.
+    expect(stdout).toContain("Reading (啟蒙):");
+    expect(stdout).toContain(`爻1: ${GUA[2].yao[0]}`); // hexagram 3, line 1 yao (zh)
     expect(stdout).toContain(GUA[2].yaoEn[0]); // and its English
   }, 20_000);
 
-  test("plain show omits the changing-lines section for a static reading", async () => {
+  test("plain show reads both judgments at 3 moving lines — not the raw 爻辭", async () => {
+    // The parity case the shared readingPlainLines fixes: at 3 moving lines the
+    // 啟蒙 reading is BOTH judgments (本卦 + 之卦), not the moving lines' 爻辭. A
+    // raw moving-line dump would diverge from the fresh cast here. Seed 7 casts
+    // 47 → 62 with lines 2/3/5 moving — a real, self-consistent 3-moving cast.
+    const cast = castHexagram(new SeededRandomSource(7));
+    expect(cast.changingPositions).toEqual([2, 3, 5]); // guard the fixture
+    const primary = GUA[cast.primary - 1];
+    const becoming = GUA[cast.becoming! - 1];
+    await seedJournal(dataDir, [{ date: "2026-03-03", cast, timestamp: "2026-03-03T09:00:00.000Z" }]);
+    const { exitCode, stdout } = await runCli(dataDir, ["journal", "show", "2026-03-03"]);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("Reading (啟蒙):");
+    // Both judgments, primary then becoming…
+    expect(stdout).toContain(`${primary.u} ${primary.n} 卦辭: ${primary.gc}`);
+    expect(stdout).toContain(`${becoming.u} ${becoming.n} 卦辭: ${becoming.gc}`);
+    // …and NOT the moving lines' 爻辭 (which a raw dump would have shown).
+    expect(stdout).not.toContain(`爻2: ${primary.yao[1]}`);
+    expect(stdout).not.toContain(`爻5: ${primary.yao[4]}`);
+  }, 20_000);
+
+  test("plain show omits the reading section for a static reading", async () => {
     await seedJournal(dataDir, [makeEntry("2026-02-03", 2, null)]); // no moving lines
     const { stdout } = await runCli(dataDir, ["journal", "show", "2026-02-03"]);
-    expect(stdout).not.toContain("Changing line");
+    expect(stdout).not.toContain("Reading (啟蒙)");
     expect(stdout).not.toContain("[line");
   }, 20_000);
 
