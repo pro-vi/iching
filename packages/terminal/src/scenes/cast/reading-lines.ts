@@ -82,8 +82,10 @@ export function buildReadingLines(
   };
 
   const judgmentLabel = tr(language, "cast.judgment");
+  // en shows the Wilhelm-interpretive judgment (gcEnW) for one register with the
+  // line texts; Legge (gcEn) stays in the corpus for a future toggle.
   const pushJudgment = (g: (typeof GUA)[number]): void =>
-    pushText(english ? `${judgmentLabel} · ${g.gcEn}` : `${judgmentLabel} · ${cn(g.gc)}`, true);
+    pushText(english ? `${judgmentLabel} · ${g.gcEnW}` : `${judgmentLabel} · ${cn(g.gc)}`, true);
 
   const pushYaoFrom = (g: (typeof GUA)[number], pos: number): void => {
     // en prefixes the line position ("4 · …") — a label to dim; the zh 爻辭 opens

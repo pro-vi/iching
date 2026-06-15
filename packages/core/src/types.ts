@@ -27,6 +27,7 @@ export interface Hexagram {
   yaoEn: string[]; // 6 English line interpretations (line 1 through 6)
   gc: string; // 卦辭 — canonical judgment (classical Chinese)
   gcEn: string; // English judgment (Legge, public domain — glosses kept)
+  gcEnW: string; // English judgment, Wilhelm-interpretive register (after Wilhelm, not licensed quotation; the displayed default)
   yaoXiao: string[]; // 小象傳 — 6 classical per-line commentaries (line 1 through 6)
   extra?: HexagramExtra; // 用九/用六 — hexagrams 1 and 2 only
 }

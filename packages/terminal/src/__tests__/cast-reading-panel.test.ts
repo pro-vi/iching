@@ -153,7 +153,7 @@ describe("the glyph yields to the texts — and returns when there is room", () 
     const cast = makeCast(21, [1, 3, 4]); // 3 moving → primary + becoming 卦辭
     const frame = settledRows(cast, 100, 30, "en");
     expect(hasGlyph(frame)).toBe(false);
-    expect(rowOf(frame, "Shih Ho indicates")).toBeGreaterThanOrEqual(0); // the primary 卦辭
+    expect(rowOf(frame, "Biting through brings success")).toBeGreaterThanOrEqual(0); // primary 卦辭 (gcEnW)
   });
 
   test("100x40 en, 1 changing: room for everything — glyph, title, texts", () => {
@@ -229,9 +229,9 @@ describe("the glyph yields to the texts — and returns when there is room", () 
     // Regression for the headline bug: at the standard 24-row terminal the
     // no-glyph English title used to take four rows, leaving the judgment only
     // its first wrapped line + "…". The title now sheds its optional image and
-    // trigram rows so the reading is whole. Hex 63's judgment is three lines;
-    // its LAST line (the load-bearing clause) must be on screen, with no "…".
-    const cast = makeCast(63, []);
+    // trigram rows so the reading is whole. 坤's judgment is multi-line; its LAST
+    // line (the load-bearing clause) must be on screen, with no "…".
+    const cast = makeCast(2, []);
     const frame = settledRows(cast, 80, 24, "en");
     const footerRow = 24 - 2;
     const panel = buildReadingLines(cast, "en", readingPanelWidth(80), Number.MAX_SAFE_INTEGER);

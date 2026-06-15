@@ -15,6 +15,18 @@ describe("GUA judgment texts (卦辭)", () => {
     }
   });
 
+  test("both judgment translations are fully in the corpus (Legge gcEn + Wilhelm gcEnW)", () => {
+    // Both translators are stored for every hexagram so a future settings toggle
+    // can switch between them; gcEnW (Wilhelm-interpretive) is the displayed
+    // default, gcEn (Legge, public domain) is kept for the toggle.
+    for (let kw = 1; kw <= 64; kw++) {
+      const g = GUA[kw - 1];
+      expect(g.gcEn.length).toBeGreaterThan(0); // Legge present
+      expect(g.gcEnW.length).toBeGreaterThan(0); // Wilhelm present
+      expect(g.gcEnW).not.toBe(g.gcEn); // genuinely two renderings, not a copy
+    }
+  });
+
   test("all 64 hexagrams have exactly 6 yaoXiao entries, all non-empty", () => {
     for (let kw = 1; kw <= 64; kw++) {
       const g = GUA[kw - 1];

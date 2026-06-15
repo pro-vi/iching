@@ -143,16 +143,17 @@ export function buildContentLines(
   lines.push({ text: "" });
 
   // Commentary sections — the 卦辭 (the hexagram's own judgment) comes first;
-  // the Wings follow. In en mode the canonical classical text rides dim
-  // beneath the Legge translation; "Judgment" now labels the actual 卦辭,
-  // so the 彖傳 translation is labeled as the commentary it is.
+  // the Wings follow. In en mode the canonical classical text rides dim beneath
+  // the Wilhelm-interpretive judgment (gcEnW — one register with the line texts;
+  // Legge stays in the corpus as gcEn); "Judgment" labels the actual 卦辭, so the
+  // 彖傳 translation is labeled as the commentary it is.
   lines.push({
     text: english ? "Judgment" : zh("卦辭", language),
     fg: t.accent,
     bold: true,
   });
   if (english) {
-    pushWrapped(lines, gua.gcEn, textWidth, { fg: t.secondary });
+    pushWrapped(lines, gua.gcEnW, textWidth, { fg: t.secondary });
     pushWrapped(lines, gua.gc, textWidth, { fg: t.tertiary, dim: true });
   } else {
     pushWrapped(lines, zh(gua.gc, language), textWidth, { fg: t.secondary });

@@ -66,8 +66,8 @@ describe("buildReadingLines", () => {
     const lines = buildReadingLines(cast, "en", 200, 12);
     expect(lines[0]).toEqual({ text: "both judgments — primary and becoming", role: "hint" });
     const texts = lines.filter((l) => l.role === "text").map((l) => l.text);
-    expect(texts[0]).toBe(`Judgment · ${GUA[20].gcEn}`); // primary first
-    expect(texts[1]).toBe(`Judgment · ${becoming.gcEn}`); // becoming second
+    expect(texts[0]).toBe(`Judgment · ${GUA[20].gcEnW}`); // primary first (Wilhelm-interp.)
+    expect(texts[1]).toBe(`Judgment · ${becoming.gcEnW}`); // becoming second
     // not the moving lines' 爻辭
     expect(texts.join("\n")).not.toContain(GUA[20].yaoEn[4]);
   });
@@ -151,8 +151,8 @@ describe("buildReadingLines", () => {
   });
 
   test("truncates to maxRows with a trailing … row", () => {
-    // A long judgment wraps past the budget; the tail stands down behind a "…".
-    const lines = buildReadingLines(makeCast(21, [], null), "en", 40, 3);
+    // A long judgment (坤) wraps past the budget; the tail stands down behind "…".
+    const lines = buildReadingLines(makeCast(2, [], null), "en", 40, 3);
     expect(lines).toHaveLength(3);
     expect(lines[2]).toEqual({ text: "…", role: "more" });
   });
@@ -199,7 +199,7 @@ describe("the leading text is shown first (1–6 moving lines, 啟蒙)", () => {
     {
       label: "3 moving — the primary 卦辭 (first of the pair)",
       cast: realCast(21, [1, 3, 5]),
-      named: (_c, en) => (en ? GUA[20].gcEn : GUA[20].gc),
+      named: (_c, en) => (en ? GUA[20].gcEnW : GUA[20].gc),
     },
     {
       label: "4 moving — the becoming's top still line",
@@ -224,7 +224,7 @@ describe("the leading text is shown first (1–6 moving lines, 啟蒙)", () => {
     {
       label: "6 moving elsewhere — the becoming 卦辭",
       cast: realCast(63, [1, 2, 3, 4, 5, 6]),
-      named: (c, en) => (en ? becomingOf(c).gcEn : becomingOf(c).gc),
+      named: (c, en) => (en ? becomingOf(c).gcEnW : becomingOf(c).gc),
     },
   ];
 

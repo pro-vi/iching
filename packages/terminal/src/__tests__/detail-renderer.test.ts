@@ -108,11 +108,13 @@ describe("DetailRenderer oracle texts", () => {
     expect(lines[judgmentIdx + 1]).toContain("元亨，利貞。");
   });
 
-  test("en mode shows Legge judgment with the classical text beneath", () => {
+  test("en mode shows the Wilhelm-interpretive judgment with the classical text beneath", () => {
     const lines = buildContentLines(new DetailModel(1), 100, { language: "en" });
     const idx = lines.findIndex((l) => l.text === "Judgment");
     expect(idx).toBeGreaterThan(-1);
-    expect(lines[idx + 1].text).toContain("Khien (represents)");
+    // gcEnW (one register with the line texts), not Legge's gcEn.
+    expect(lines[idx + 1].text).toContain("Sublime success");
+    expect(lines.some((l) => l.text.includes("Khien (represents)"))).toBe(false);
     expect(lines[idx + 2].text).toContain("元亨，利貞。");
     expect(lines[idx + 2].dim).toBe(true);
   });

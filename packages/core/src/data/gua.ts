@@ -1,7 +1,8 @@
 import type { Hexagram } from "../types.js";
+import { JUDGMENT_WILHELM } from "./judgment-wilhelm.js";
 
-/** 64 hexagrams with commentary in 5 styles */
-export const GUA: Hexagram[] = [
+/** 64 hexagrams with commentary (gcEnW merged in below from JUDGMENT_WILHELM). */
+const GUA_BASE: Omit<Hexagram, "gcEnW">[] = [
   {
     u: "䷀",
     n: "乾",
@@ -2445,3 +2446,10 @@ export const GUA: Hexagram[] = [
     ],
   },
 ];
+
+/**
+ * The full corpus: the base entries with the Wilhelm-interpretive judgment
+ * (gcEnW) merged in. Legge's judgment (gcEn) stays in each entry, so both
+ * translations live in the corpus for a future settings toggle.
+ */
+export const GUA: Hexagram[] = GUA_BASE.map((g, i) => ({ ...g, gcEnW: JUDGMENT_WILHELM[i] }));
