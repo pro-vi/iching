@@ -5,8 +5,8 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtemp, rm, writeFile, appendFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import type { Cast, HistoryEntry } from "@iching/core";
-import { GUA, castHexagram, SeededRandomSource } from "@iching/core";
+import type { Cast, HistoryEntry, Line } from "@iching/core";
+import { GUA, assembleCast, castHexagram, SeededRandomSource } from "@iching/core";
 import { localToday } from "../util/today.ts";
 
 const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
@@ -43,25 +43,24 @@ async function runCli(dataDir: string, args: string[]): Promise<RunResult> {
   return { exitCode, stdout, stderr };
 }
 
+// A genuine cast OF `primary` that becomes `becoming`: build the primary's
+// canonical lines (GUA[primary-1].l) and mark exactly the lines where it differs
+// from the becoming as moving, so assembleCast derives primary, becoming, and
+// the four hexagrams all internally consistent. isCastShaped reconstructs and
+// compares on read, so a fixture that hand-set a primary/derived disagreeing
+// with its lines (the old one claimed becoming=8 while only flipping line 1 of
+// a hand-rolled pattern) would now read back as torn. Changing positions follow
+// the real diff: 3→8 moves [1], 3→39 moves [1,3].
 function makeCast(primary: number, becoming: number | null): Cast {
-  const isChanging = becoming !== null;
-  return {
-    lines: [
-      { value: isChanging ? 9 : 7, isYang: true, isChanging },
-      { value: 7, isYang: true, isChanging: false },
-      { value: 8, isYang: false, isChanging: false },
-      { value: 7, isYang: true, isChanging: false },
-      { value: 8, isYang: false, isChanging: false },
-      { value: 7, isYang: true, isChanging: false },
-    ],
-    primary,
-    becoming,
-    changingPositions: isChanging ? [1] : [],
-    nuclear: 1,
-    polarity: 2,
-    mirror: 1,
-    diagonal: 2,
-  };
+  const p = GUA[primary - 1].l;
+  const b = becoming === null ? null : GUA[becoming - 1].l;
+  const lines: Line[] = p.map((bit, i) => {
+    const moves = b !== null && b[i] !== bit;
+    return moves
+      ? { value: (bit ? 9 : 6) as 6 | 9, isYang: bit === 1, isChanging: true }
+      : { value: (bit ? 7 : 8) as 7 | 8, isYang: bit === 1, isChanging: false };
+  });
+  return assembleCast(lines);
 }
 
 function makeEntry(
@@ -388,12 +387,13 @@ describe("journal command", () => {
     // formatJournalShowPlain dropped it — so revisiting a reading via
     // `journal show` lost the very texts you contemplate. They now share
     // readingPlainLines, so a reading reads the same fresh and revisited.
-    // makeCast marks line 1 moving, so the reading is that one line's 爻辭.
-    await seedJournal(dataDir, [makeEntry("2026-02-02", 3, 39)]); // primary 3, becoming 39, [line 1]
+    // 3 → 8 differs only at line 1, so this is a one-moving cast: the reading is
+    // that one line's 爻辭.
+    await seedJournal(dataDir, [makeEntry("2026-02-02", 3, 8)]); // primary 3, becoming 8, [line 1]
     const { exitCode, stdout } = await runCli(dataDir, ["journal", "show", "2026-02-02"]);
     expect(exitCode).toBe(0);
     // The becoming line still records which positions moved…
-    expect(stdout).toContain("Hexagram 39 [line 1]");
+    expect(stdout).toContain("Hexagram 8 [line 1]");
     // …and the reading itself surfaces that line's 爻辭, not merely the position.
     expect(stdout).toContain("Reading (啟蒙):");
     expect(stdout).toContain(`爻1: ${GUA[2].yao[0]}`); // hexagram 3, line 1 yao (zh)

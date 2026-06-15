@@ -5,22 +5,19 @@ import { join } from "node:path";
 import { JsonlJournalStore } from "../json/jsonl-journal.js";
 import { getHexagramHistory, loadEntriesWithNotes, noteMatchesEntry } from "../journal-query.js";
 import type { Cast, Line, ReflectionNote } from "@iching/core";
+import { GUA, assembleCast } from "@iching/core";
 
-function makeLine(value: 7 | 8): Line {
-  return { value, isYang: value === 7, isChanging: false };
-}
-
+// A genuine static cast OF the requested hexagram: build the lines from its
+// canonical pattern (GUA[kw-1].l) so assembleCast derives primary === kw and a
+// consistent set of derived hexagrams. isCastShaped reconstructs and compares,
+// so the lines must actually draw the hexagram the query asks about.
 function makeCast(primary: number): Cast {
-  return {
-    lines: [makeLine(7), makeLine(8), makeLine(7), makeLine(8), makeLine(7), makeLine(8)],
-    primary,
-    becoming: null,
-    changingPositions: [],
-    nuclear: 1,
-    polarity: 2,
-    mirror: 1,
-    diagonal: 2,
-  };
+  const lines: Line[] = GUA[primary - 1].l.map((bit) => ({
+    value: bit ? 7 : 8,
+    isYang: bit === 1,
+    isChanging: false,
+  }));
+  return assembleCast(lines);
 }
 
 describe("getHexagramHistory", () => {

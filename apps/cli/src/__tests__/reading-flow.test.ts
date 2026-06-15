@@ -5,6 +5,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Cast } from "@iching/core";
+import { assembleCast } from "@iching/core";
 import { resolvePaths, JsonDailyCacheStore, JsonlJournalStore } from "@iching/storage";
 import {
   IntentionScene,
@@ -190,16 +191,9 @@ describe("runReadingFlow — yarrow source", () => {
     const deps = makeDeps(dataDir, run);
     const journal = new JsonlJournalStore(deps.paths.state);
     expect(await journal.latest()).toBeNull(); // empty to start
-    const cast: Cast = {
-      lines: [1, 2, 3, 4, 5, 6].map(() => ({ value: 7, isYang: true, isChanging: false })),
-      primary: 1,
-      becoming: null,
-      changingPositions: [],
-      nuclear: 2,
-      polarity: 2,
-      mirror: 1,
-      diagonal: 2,
-    };
+    const cast: Cast = assembleCast(
+      [1, 2, 3, 4, 5, 6].map(() => ({ value: 7, isYang: true, isChanging: false })),
+    );
     await runReadingFlow(deps, { purpose: "cast", source: { type: "existing", cast } });
     expect(await journal.latest()).toBeNull(); // the replay added nothing
   });

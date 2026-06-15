@@ -3,31 +3,24 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { HistoryEntry, Cast, Line, ReflectionNote } from "@iching/core";
+import { assembleCast } from "@iching/core";
 import { JsonlJournalStore } from "../json/jsonl-journal.js";
 
 function makeLine(value: 7 | 8): Line {
   return { value, isYang: value === 7, isChanging: false };
 }
 
+// A genuine cast — assembleCast derives primary/becoming/the four hexagrams
+// FROM the lines, so the fixture is internally consistent. isCastShaped now
+// reconstructs and compares, so a hand-coded primary/derived that disagreed
+// with the lines (the old fixture said primary 1 over alternating lines) would
+// read back as torn. These lines form hexagram 63 (既濟), all young.
+function baseLines(): Line[] {
+  return [makeLine(7), makeLine(8), makeLine(7), makeLine(8), makeLine(7), makeLine(8)];
+}
+
 function makeEntry(date: string): HistoryEntry {
-  const cast: Cast = {
-    lines: [
-      makeLine(7),
-      makeLine(8),
-      makeLine(7),
-      makeLine(8),
-      makeLine(7),
-      makeLine(8),
-    ],
-    primary: 1,
-    becoming: null,
-    changingPositions: [],
-    nuclear: 2,
-    polarity: 3,
-    mirror: 4,
-    diagonal: 5,
-  };
-  return { date, cast };
+  return { date, cast: assembleCast(baseLines()) };
 }
 
 describe("JsonlJournalStore", () => {
@@ -229,16 +222,18 @@ describe("JsonlJournalStore", () => {
       // out-of-range, duplicate, or >6-length records are corrupt, like a torn
       // line — they must not reach a reader assuming valid positions.
       const withPositions = (positions: number[]): string => {
-        const e = makeEntry("2025-01-02");
-        e.cast.changingPositions = positions;
-        // Make in-range positions agree with lines[].isChanging so ONLY the
-        // range discipline (not the consistency check) judges these records —
-        // out-of-range positions can't be applied to lines, so they still fail
-        // the range check, while the valid [2,5] record stays consistent.
+        // Build consistent lines first (so primary/becoming/derived match), then
+        // override ONLY changingPositions — so the range discipline alone judges
+        // these records. In-range positions are applied to the lines so the
+        // valid [2,5] record stays fully consistent and survives; out-of-range
+        // positions can't be applied, so they still fail the range check.
+        const lines = baseLines();
         for (const p of positions) {
-          if (p >= 1 && p <= 6) e.cast.lines[p - 1] = { value: 9, isYang: true, isChanging: true };
+          if (p >= 1 && p <= 6) lines[p - 1] = { value: 9, isYang: true, isChanging: true };
         }
-        return JSON.stringify(e);
+        const cast = assembleCast(lines);
+        cast.changingPositions = positions;
+        return JSON.stringify({ date: "2025-01-02", cast });
       };
       const good = JSON.stringify(makeEntry("2025-01-01"));
       await writeFile(
@@ -310,6 +305,34 @@ describe("JsonlJournalStore", () => {
       for await (const e of store.stream()) results.push(e);
       expect(results.map((e) => e.date)).toEqual(["2025-01-01"]); // only the consistent cast
       expect(store.skippedLines).toBe(2); // both semantically-false casts skipped like torn bytes
+    });
+
+    test("a cast whose primary/becoming/derived disagree with its lines is torn", async () => {
+      // The lines ARE the cast — primary, becoming, and the four derived
+      // hexagrams are all DERIVED from them. A record can be shape-valid and
+      // internally line-consistent yet carry a primary (or derived) that names a
+      // DIFFERENT hexagram than the lines draw: a hand-edited/imported row that
+      // would show hexagram X's oracle texts over hexagram Y's diagram — a
+      // plausible but false reading. isCastShaped reconstructs and compares.
+      const { writeFile } = await import("node:fs/promises");
+      const good = JSON.stringify(makeEntry("2025-01-01")); // lines form 63, primary 63
+      // Same lines, but primary mislabeled 1 — the reading would speak 乾 over a
+      // 既濟 diagram.
+      const badPrimary = makeEntry("2025-01-02");
+      badPrimary.cast.primary = 1;
+      // Same lines, but a derived hexagram (nuclear) mislabeled.
+      const badNuclear = makeEntry("2025-01-03");
+      badNuclear.cast.nuclear = badNuclear.cast.nuclear === 1 ? 2 : 1;
+      await writeFile(
+        join(dir, "history.jsonl"),
+        [good, JSON.stringify(badPrimary), JSON.stringify(badNuclear)].join("\n") + "\n",
+        "utf-8",
+      );
+
+      const results: HistoryEntry[] = [];
+      for await (const e of store.stream()) results.push(e);
+      expect(results.map((e) => e.date)).toEqual(["2025-01-01"]); // only the true cast
+      expect(store.skippedLines).toBe(2); // both mislabeled casts torn
     });
 
     test("latest and stream agree on lone-CR (old-Mac) line endings", async () => {
@@ -445,10 +468,12 @@ describe("JsonlJournalStore", () => {
     });
 
     test("a fully shaped entry with a non-null becoming still streams", async () => {
-      const entry = makeEntry("2025-01-01");
-      entry.cast.becoming = 8;
-      entry.cast.changingPositions = [1];
-      entry.cast.lines[0] = { value: 9, isYang: true, isChanging: true }; // line 1 moves, agreeing with changingPositions
+      // Line 1 moves — assembleCast derives the real becoming and changingPositions,
+      // so the whole cast is internally consistent (non-null becoming included).
+      const lines = baseLines();
+      lines[0] = { value: 9, isYang: true, isChanging: true };
+      const entry: HistoryEntry = { date: "2025-01-01", cast: assembleCast(lines) };
+      expect(entry.cast.becoming).not.toBeNull();
       await store.append(entry);
 
       const results: HistoryEntry[] = [];

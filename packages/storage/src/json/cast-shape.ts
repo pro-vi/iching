@@ -1,4 +1,5 @@
-import type { Cast } from "@iching/core";
+import type { Cast, Line } from "@iching/core";
+import { assembleCast } from "@iching/core";
 
 /** True for a King Wen number: an integer 1-64, so GUA[n - 1] is safe. */
 function isKingWen(value: unknown): boolean {
@@ -69,10 +70,28 @@ export function isCastShaped(value: unknown): value is Cast {
   const declared = [...(positions as number[])].sort((a, b) => a - b);
   if (declared.length !== moving.length || declared.some((p, i) => p !== moving[i]))
     return false;
+  if (
+    !isKingWen(cast.nuclear) ||
+    !isKingWen(cast.polarity) ||
+    !isKingWen(cast.mirror) ||
+    !isKingWen(cast.diagonal)
+  )
+    return false;
+  // The lines ARE the cast: primary, becoming, and the four derived hexagrams
+  // are all DERIVED from them (assembleCast). A record can pass every check
+  // above yet still carry a primary/becoming/derived that disagrees with its
+  // lines — a hand-edited or imported row that draws hexagram 47's lines while
+  // labeling them hexagram 12, displaying a plausible but false reading. The
+  // lines are already validated internally consistent above, so reconstruct the
+  // canonical cast from them and require the stored fields to match. (External
+  // review: the top reading-integrity invariant.)
+  const derived = assembleCast(cast.lines as Line[]);
   return (
-    isKingWen(cast.nuclear) &&
-    isKingWen(cast.polarity) &&
-    isKingWen(cast.mirror) &&
-    isKingWen(cast.diagonal)
+    cast.primary === derived.primary &&
+    cast.becoming === derived.becoming &&
+    cast.nuclear === derived.nuclear &&
+    cast.polarity === derived.polarity &&
+    cast.mirror === derived.mirror &&
+    cast.diagonal === derived.diagonal
   );
 }

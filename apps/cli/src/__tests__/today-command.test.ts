@@ -7,7 +7,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { buildStructure } from "@iching/core";
+import { assembleCast, buildStructure } from "@iching/core";
 import type { Cast, DailyCache } from "@iching/core";
 
 const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
@@ -49,25 +49,18 @@ async function runCli(dataDir: string, args: string[]): Promise<RunResult> {
   return { exitCode, stdout, stderr };
 }
 
-/** KW3 屯 with line 1 moving → becoming KW8 比 (water over earth). */
+/** KW3 屯 with line 1 moving → becoming KW8 比 (water over earth). The lines
+ *  draw 屯; assembleCast derives primary 3, becoming 8, and the four hexagrams
+ *  consistently, so the record passes isCastShaped's reconstruct-and-compare. */
 function makeCast(): Cast {
-  return {
-    lines: [
-      { value: 9, isYang: true, isChanging: true },
-      { value: 8, isYang: false, isChanging: false },
-      { value: 8, isYang: false, isChanging: false },
-      { value: 8, isYang: false, isChanging: false },
-      { value: 7, isYang: true, isChanging: false },
-      { value: 8, isYang: false, isChanging: false },
-    ],
-    primary: 3,
-    becoming: 8,
-    changingPositions: [1],
-    nuclear: 23,
-    polarity: 50,
-    mirror: 4,
-    diagonal: 49,
-  };
+  return assembleCast([
+    { value: 9, isYang: true, isChanging: true },
+    { value: 8, isYang: false, isChanging: false },
+    { value: 8, isYang: false, isChanging: false },
+    { value: 8, isYang: false, isChanging: false },
+    { value: 7, isYang: true, isChanging: false },
+    { value: 8, isYang: false, isChanging: false },
+  ]);
 }
 
 function makeCache(date: string): DailyCache {

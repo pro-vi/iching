@@ -7,6 +7,7 @@ import { describe, test, expect, beforeEach } from "bun:test";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { assembleCast } from "@iching/core";
 import { JsonlJournalStore } from "@iching/storage";
 import {
   BrowseScene,
@@ -25,28 +26,21 @@ import {
   makeJournalScene,
 } from "../app/scene-factories.ts";
 
-/** Minimal all-young-line journal entry for replay/navigation tests. */
+/** Minimal static journal entry for replay/navigation tests. assembleCast
+ *  derives a consistent primary/derived from the lines (hexagram 63, all young),
+ *  so an entry round-tripped through the store passes isCastShaped. */
 function makeReplayEntry(date: string, timestamp: string): JournalEntryView {
   return {
     date,
     timestamp,
-    cast: {
-      lines: [
-        { value: 7, isYang: true, isChanging: false },
-        { value: 8, isYang: false, isChanging: false },
-        { value: 7, isYang: true, isChanging: false },
-        { value: 8, isYang: false, isChanging: false },
-        { value: 7, isYang: true, isChanging: false },
-        { value: 8, isYang: false, isChanging: false },
-      ],
-      primary: 39,
-      becoming: null,
-      changingPositions: [],
-      nuclear: 1,
-      polarity: 2,
-      mirror: 1,
-      diagonal: 2,
-    },
+    cast: assembleCast([
+      { value: 7, isYang: true, isChanging: false },
+      { value: 8, isYang: false, isChanging: false },
+      { value: 7, isYang: true, isChanging: false },
+      { value: 8, isYang: false, isChanging: false },
+      { value: 7, isYang: true, isChanging: false },
+      { value: 8, isYang: false, isChanging: false },
+    ]),
   };
 }
 
@@ -354,27 +348,7 @@ describe("makeJournalScene — reflection-note persistence wiring", () => {
   });
 
   test("a note committed in the scene lands in the JSONL as kind:note", async () => {
-    await journal.append({
-      date: "2026-01-02",
-      cast: {
-        lines: [
-          { value: 7, isYang: true, isChanging: false },
-          { value: 8, isYang: false, isChanging: false },
-          { value: 7, isYang: true, isChanging: false },
-          { value: 8, isYang: false, isChanging: false },
-          { value: 7, isYang: true, isChanging: false },
-          { value: 8, isYang: false, isChanging: false },
-        ],
-        primary: 39,
-        becoming: null,
-        changingPositions: [],
-        nuclear: 1,
-        polarity: 2,
-        mirror: 1,
-        diagonal: 2,
-      },
-      timestamp: "2026-01-02T09:00:00.000Z",
-    });
+    await journal.append(makeReplayEntry("2026-01-02", "2026-01-02T09:00:00.000Z"));
     const entries = await loadJournalEntries(journal);
     const scene = makeJournalScene({
       journal,
