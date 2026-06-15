@@ -425,6 +425,28 @@ describe("CastScene reading panel", () => {
     const text = frameText(scene, ctx).join("\n");
     expect(text).not.toContain("two lines move");
   });
+
+  test("[r] toggles the reading texts; the figure and prompt stay", () => {
+    const scene = new CastScene(makeChangingCast(), "reduced", 80);
+    const ctx = makeCtx();
+    scene.enter(ctx);
+    scene.update(scene.getTimeline().duration + 100, 33, ctx);
+
+    // Shown by default — the reading is the heart of the cast.
+    expect(frameText(scene, ctx).join("\n")).toContain("two lines move — the upper speaks");
+
+    // [r] hides the reading texts…
+    scene.handleKey({ type: "char", char: "r" }, ctx);
+    const hidden = frameText(scene, ctx).join("\n");
+    expect(hidden).not.toContain("two lines move — the upper speaks");
+    expect(hidden).not.toContain("Biting on dried gristly meat");
+    // …but the prompt (and the figure beneath it) remain — only the texts hid.
+    expect(hidden).toContain("[esc] back");
+
+    // [r] again restores them.
+    scene.handleKey({ type: "char", char: "r" }, ctx);
+    expect(frameText(scene, ctx).join("\n")).toContain("two lines move — the upper speaks");
+  });
 });
 
 describe("CastScene openDetail cast context", () => {

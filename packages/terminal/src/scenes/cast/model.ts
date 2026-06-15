@@ -62,6 +62,13 @@ export class CastModel {
   explorationMode: boolean;
   focusedHex: "primary" | "becoming";
 
+  // Reading panel visibility — the oracle texts (爻辭/卦辭) shown beneath the
+  // figure. Toggled with [r] once the reveal settles, for those who want to sit
+  // with the bare hexagram. The figure and its moving-line marks stay either
+  // way; only the reading texts hide. Shown by default — the reading is the
+  // heart of the cast, not opt-in.
+  readingHidden: boolean;
+
   // Intention text for this cast
   intention?: string;
 
@@ -113,5 +120,6 @@ export class CastModel {
 
     this.explorationMode = false;
     this.focusedHex = "primary";
+    this.readingHidden = false;
   }
 }

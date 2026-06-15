@@ -189,8 +189,9 @@ export class CastScene implements Scene {
     }
 
     // Reading panel + prompt once the reveal settles; pace hints before.
+    // [r] hides the reading texts for a bare-figure view (the marks stay).
     if (model.showPrompt) {
-      renderReadingPanel(frame, model, lang);
+      if (!model.readingHidden) renderReadingPanel(frame, model, lang);
       renderPrompt(frame, model, lang);
     } else {
       renderPaceFooter(frame, model, lang);
@@ -268,6 +269,12 @@ export class CastScene implements Scene {
       }
       if (key.type === "char" && key.char === "d") {
         return { type: "openDictionary" };
+      }
+      // [r] toggles the reading texts (a silent shortcut, like j/d) — the bare
+      // figure with its moving-line marks stays; only the oracle texts hide.
+      if (key.type === "char" && key.char === "r") {
+        this.model.readingHidden = !this.model.readingHidden;
+        return;
       }
     }
 
