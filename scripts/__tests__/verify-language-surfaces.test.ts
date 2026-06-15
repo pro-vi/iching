@@ -33,6 +33,27 @@ describe("verify-language-surfaces coverage", () => {
     expect(src).toContain('["settings.entropy", "bound", "繫於心念 (bound)", "系于心念 (bound)"]');
   });
 
+  test("gcEnW (the displayed Wilhelm judgment) is a required, AR-001-sanctioned field-class", () => {
+    // gcEnW is rendered English corpus (cast/today/journal-show reading); it must
+    // carry an inventory field-class row AND be sanctioned, or a new English
+    // judgment register ships unrepresented in the language contract.
+    expect(src).toContain('"core-gua-gcEnW"');
+    expect(src).toContain('["gcEnW:", "core-gua-gcEnW"]');
+  });
+
+  test("the 君子 harmonization scan covers the Wilhelm judgments (judgment-wilhelm.ts)", () => {
+    // gcEnW is interpretive English (Wilhelm's idiom is 'the superior man'), so
+    // C-004 binds it; the scan must read its source file, not only gua.ts.
+    expect(src).toContain('readMaybe("packages/core/src/data/judgment-wilhelm.ts")');
+  });
+
+  test("the zh-Hans residue scan reaches extra.name/extra.text (object, not string)", () => {
+    // extra is an OBJECT on 乾/坤 (用九/用六); the old `typeof === 'string'` test
+    // never fired, so its Chinese escaped the traditional-residue scan.
+    expect(src).toContain("ex.name");
+    expect(src).toContain("ex.text");
+  });
+
   test("--inventory-only passes with today.ts scanned", () => {
     expect(runVerifier(["--inventory-only"])).toBe(0);
   }, 30_000);

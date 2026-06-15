@@ -223,6 +223,10 @@ export function registerDoctorCommand(program: Command): void {
 
       if (globalOpts.json) {
         outputJson(checks);
+        // Parity with the human path's exit(1): a script reading --json must be
+        // able to branch on the exit code, not re-derive failure from the
+        // payload. Set exitCode (not exit()) so the JSON flushes first.
+        if (checks.some((c) => c.status === "fail")) process.exitCode = 1;
         return;
       }
 

@@ -100,6 +100,7 @@ const REQUIRED_FIELD_IDS: string[] = [
   "core-gua-yaoEn",
   "core-gua-gc",
   "core-gua-gcEn",
+  "core-gua-gcEnW",
   "core-gua-yaoXiao",
   "core-gua-extra",
   "core-sequence-xu",
@@ -405,6 +406,7 @@ function runInventoryOnly(): void {
     const sanctioned: Array<[string, string]> = [
       ["gc:", "core-gua-gc"],
       ["gcEn:", "core-gua-gcEn"],
+      ["gcEnW:", "core-gua-gcEnW"],
       ["yaoXiao:", "core-gua-yaoXiao"],
       ["extra?:", "core-gua-extra"],
     ];
@@ -626,7 +628,14 @@ async function runSimplified(): Promise<void> {
     strings.push(String(g.n), String(g.dx), String(g.tu), String(g.gc));
     for (const y of (g.yao as string[]) ?? []) strings.push(y);
     for (const y of (g.yaoXiao as string[]) ?? []) strings.push(y);
-    if (typeof g.extra === "string") strings.push(g.extra);
+    // extra is an OBJECT ({name, text, textEn}) on 乾/坤 — the 用九/用六 statements.
+    // The old `typeof === "string"` test never fired, so the Chinese name (用九)
+    // and text (見群龍無首，吉。) escaped the residue scan. textEn is English; skip it.
+    if (g.extra && typeof g.extra === "object") {
+      const ex = g.extra as Record<string, unknown>;
+      if (typeof ex.name === "string") strings.push(ex.name);
+      if (typeof ex.text === "string") strings.push(ex.text);
+    }
   }
   for (const t of tmod.TRIGRAMS ?? []) strings.push(String(t.n));
   for (const s of smod.SEQUENCE ?? []) strings.push(String(s.xu), String(s.za));
@@ -997,6 +1006,13 @@ async function runCoreData(): Promise<void> {
     .join("\n");
   if (/superior man/.test(guaInterpretive))
     fail('君子 inconsistency: "superior man" still in corpus EN — harmonize to "the noble one" (C-004)');
+  // gcEnW (the displayed Wilhelm-INTERPRETIVE judgment) lives in judgment-wilhelm.ts
+  // and is merged onto GUA; it is interpretive English (not a Legge quotation), so
+  // C-004 binds it too — Wilhelm's own idiom is "the superior man", which must be
+  // harmonized to "the noble one" to match yaoEn and the rest of the corpus.
+  const wilhelmSrc = readMaybe("packages/core/src/data/judgment-wilhelm.ts") ?? "";
+  if (/superior man/.test(wilhelmSrc))
+    fail('君子 inconsistency: "superior man" in gcEnW (judgment-wilhelm.ts) — harmonize to "the noble one" (C-004)');
 }
 
 // ---------------------------------------------------------------------------

@@ -285,6 +285,22 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
   verifier: "--inventory-only; guaci.test.ts"
   notes: "Legge's public-domain judgment translation, quoted VERBATIM (parenthetical glosses kept). NOT interpretive-english — C-004 君子 harmonization does not rewrite quotations ('superior man' stays as Legge wrote it; attribution over harmonization)."
 
+- surface_id: core-gua-gcEnW
+  file: packages/core/src/data/judgment-wilhelm.ts
+  code_locator: "JUDGMENT_WILHELM ×64 (merged onto GUA as field gcEnW in data/gua.ts)"
+  current_text: '"The joyous — success. It furthers to persevere." "Perseverance, and a seasoned leader — fortune, and no blame." …'
+  surface_class: core-data-gua
+  render_context: "detail view Judgment section (en mode); cast reading panel; cast/today/journal-show plain + JSON reading — the DISPLAYED English judgment register"
+  language_policy: interpretive-english
+  source_layer: after-wilhelm
+  token_policy: harmonize
+  json_policy: localized-display
+  risk: medium
+  agentify_required: no
+  status: verified
+  verifier: "--inventory-only; --terminal C-004 scan (judgment-wilhelm.ts); guaci.test.ts"
+  notes: "Wilhelm-INTERPRETIVE register (after Wilhelm, NOT a licensed quotation, per AC-010) — the displayed default that pairs with yaoEn's voice; gcEn keeps verbatim Legge as the scholarly anchor. Subject to C-004 君子 harmonization ('the noble one', never 'superior man'); the --terminal scan enforces it over judgment-wilhelm.ts."
+
 - surface_id: core-gua-yaoXiao
   file: packages/core/src/data/gua.ts
   code_locator: "field yaoXiao[6] ×64 = 384 strings (injected by scripts/inject-guaci.ts)"
@@ -2073,6 +2089,13 @@ Default language **en**; settings order **EN → 繁 → 简** (asserted by
   zh_hant_source: not rendered in zh modes (gc carries the section)
   zh_hans_strategy: not rendered in zh modes
   render_context: Judgment section (en mode); cast reading panel; CLI
+
+- id: core-gua-gcEnW
+  language_policy: interpretive-english
+  en_source: gua.gcEnW — Wilhelm-interpretive judgment (after Wilhelm, not a licensed quotation; the displayed default)
+  zh_hant_source: not rendered in zh modes (gc carries the section)
+  zh_hans_strategy: not rendered in zh modes
+  render_context: Judgment section (en mode); cast/today/journal-show reading (panel + CLI)
 - id: core-gua-yaoXiao
   language_policy: canonical-anchor
   en_source: quoted classical (dim, beneath each yaoEn) — no translation exists in data

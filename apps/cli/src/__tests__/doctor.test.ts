@@ -164,6 +164,26 @@ describe("doctor journal check (subprocess)", () => {
     expect(stdout).toContain("[FAIL] Journal: exists but can't be read"); // reported, not crashed
   }, 20_000);
 
+  test("--json exits non-zero on a failed check, so scripts can branch on it", async () => {
+    // The human path exits 1 on failure; --json must too, or a CI/script
+    // consumer reads exit 0 and treats a broken environment as healthy. The
+    // JSON payload still streams in full (exitCode, not a hard exit()).
+    await mkdir(join(dataDir, "history.jsonl")); // → a failed Journal check
+    const proc = Bun.spawn(["bun", MAIN_TS, "--data-dir", dataDir, "--json", "doctor"], {
+      cwd: REPO_ROOT,
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env, NO_COLOR: "1" },
+    });
+    proc.stdin.end();
+    const stdout = await new Response(proc.stdout).text();
+    const exitCode = await proc.exited;
+    expect(exitCode).not.toBe(0); // failure surfaced through the exit code…
+    const checks = JSON.parse(stdout); // …and the JSON still parses in full
+    expect(checks.some((c: { status: string }) => c.status === "fail")).toBe(true);
+  }, 20_000);
+
   test("warns on a corrupt daily cache, not just reports its existence", async () => {
     // The cache/config were only existence-checked, so a torn write read as
     // healthy ("[exists]"). doctor must surface it; it self-heals on next use
