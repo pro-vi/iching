@@ -1474,7 +1474,8 @@ Field-class altitude. 64 entries × fields. Verifier uses field-class coverage f
     "${entryCount} reading(s) recorded"; "${counts}, ${skipped} unreadable line(s) skipped";
     "exists but can't be read (permission denied, or not a file?)";
     config/cache validity check (checkJsonFile): "Config"/"Cache" check names;
-    "not present yet — uses defaults"; "corrupt JSON — resets to defaults on next use"; "valid"
+    "not present yet — uses defaults"; "corrupt JSON — resets to defaults on next use"; "valid";
+    "valid JSON but not a usable record — resets to defaults on next use" (cache shape predicate)
   surface_class: cli-commands
   render_context: "doctor stdout + (--json name/detail values)"
   language_policy: translate
