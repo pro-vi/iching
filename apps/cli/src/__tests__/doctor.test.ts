@@ -201,10 +201,32 @@ describe("doctor journal check (subprocess)", () => {
   }, 20_000);
 
   test("reports a valid config and cache as OK", async () => {
+    // A complete cache record (date + shown + structure + a shaped cast) is what
+    // the store accepts; config is permissive (any parseable object loads).
+    const validCache = JSON.stringify({
+      date: "2026-01-01",
+      cast: JSON.parse(GOOD_LINE).cast,
+      shown: true,
+      structure: {
+        upper: { sym: "☰", n: "乾", img: "heaven" },
+        lower: { sym: "☰", n: "乾", img: "heaven" },
+        becoming: null,
+      },
+    });
     await writeFile(join(dataDir, "config.json"), '{"theme":"ink"}', "utf-8");
-    await writeFile(join(dataDir, "daily-cache.json"), '{"date":"2026-01-01"}', "utf-8");
+    await writeFile(join(dataDir, "daily-cache.json"), validCache, "utf-8");
     const { stdout } = await runDoctor();
     expect(stdout).toContain("[OK] Config: valid");
     expect(stdout).toContain("[OK] Cache: valid");
+  }, 20_000);
+
+  test("warns on a parseable cache that isn't a usable record (would reset)", async () => {
+    // The P3 gap: `{"date":…}` parses but lacks cast/shown/structure, so the
+    // store quarantines and resets it on next use. doctor must not call that
+    // doomed cache "valid" — a user investigating a reset deserves to see why.
+    await writeFile(join(dataDir, "daily-cache.json"), '{"date":"2026-01-01"}', "utf-8");
+    const { stdout } = await runDoctor();
+    expect(stdout).toContain("[WARN] Cache: valid JSON but not a usable record");
+    expect(stdout).not.toContain("[OK] Cache: valid");
   }, 20_000);
 });

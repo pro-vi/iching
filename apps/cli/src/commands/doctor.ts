@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { GUA, BINARY_TO_KW, TRIGRAMS } from "@iching/core";
-import { resolvePaths, JsonlJournalStore } from "@iching/storage";
+import { resolvePaths, JsonlJournalStore, isCacheShaped } from "@iching/storage";
 import { outputJson } from "../output/json.js";
 
 interface CheckResult {
@@ -165,10 +165,15 @@ async function checkJournal(dataDir?: string): Promise<CheckResult> {
  * as "[exists]" (healthy) when it would actually reset on next use. NON-MUTATING
  * on purpose: a raw read + JSON.parse, never the store's read() (which would
  * quarantine/seed as a side effect — a diagnostic must inspect, not repair).
- * Shape isn't checked here — a torn write yields unparseable bytes, the common
- * corruption; the stores still shape-validate at runtime.
+ * An optional isShaped predicate catches the subtler corruption: a file that
+ * parses cleanly yet isn't a usable record, which the store would quarantine
+ * and reset. Passed for the cache; config is permissive and takes none.
  */
-async function checkJsonFile(name: string, path: string): Promise<CheckResult> {
+async function checkJsonFile(
+  name: string,
+  path: string,
+  isShaped?: (parsed: unknown) => boolean,
+): Promise<CheckResult> {
   if (!existsSync(path)) {
     return { name, status: "pass", detail: "not present yet — uses defaults" };
   }
@@ -178,12 +183,18 @@ async function checkJsonFile(name: string, path: string): Promise<CheckResult> {
   } catch {
     return { name, status: "fail", detail: "exists but can't be read (permission denied, or not a file?)" };
   }
+  let parsed: unknown;
   try {
-    JSON.parse(raw);
+    parsed = JSON.parse(raw);
   } catch {
     // Self-healing (the store quarantines and starts fresh), so a warning, not a
     // failure — but a user running doctor to understand a reset deserves to see it.
     return { name, status: "warn", detail: "corrupt JSON — resets to defaults on next use" };
+  }
+  if (isShaped && !isShaped(parsed)) {
+    // Parseable but not a usable record — the store will quarantine and reset it
+    // on next use, exactly like corrupt bytes, so surface it the same calm way.
+    return { name, status: "warn", detail: "valid JSON but not a usable record — resets to defaults on next use" };
   }
   return { name, status: "pass", detail: "valid" };
 }
@@ -195,7 +206,10 @@ async function checkConfig(dataDir?: string): Promise<CheckResult> {
 
 async function checkCache(dataDir?: string): Promise<CheckResult> {
   const paths = resolvePaths(dataDir ? { dataDir } : undefined);
-  return checkJsonFile("Cache", paths.cache);
+  // Pass the store's own shape predicate: a parseable but non-record cache (e.g.
+  // just `{"date":…}`) would be quarantined and reset, so it is not "valid".
+  // Config takes none — its loader merges known keys onto defaults, never resets.
+  return checkJsonFile("Cache", paths.cache, isCacheShaped);
 }
 
 const STATUS_ICONS: Record<string, string> = {

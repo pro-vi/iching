@@ -28,7 +28,7 @@ function isStructureShaped(value: unknown): boolean {
  * changingPositions, derived numbers — see cast-shape.ts). Optional keys
  * (intention/method/rng) stay unchecked — their absence is normal.
  */
-function isCacheShaped(parsed: unknown): parsed is DailyCacheRecord {
+export function isCacheShaped(parsed: unknown): parsed is DailyCacheRecord {
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return false;
   const record = parsed as Record<string, unknown>;
   if (typeof record.date !== "string") return false;
