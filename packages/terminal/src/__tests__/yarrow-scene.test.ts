@@ -5,7 +5,10 @@ import { CellBuffer } from "../render/buffer.ts";
 import type { SceneContext } from "../scene/types.ts";
 import type { KeyEvent } from "../input/key-parser.ts";
 
-const ctx = {} as SceneContext;
+// A context comfortably above the yarrow field floor (52 × 21), so update/
+// handleKey run the ritual; the size-gate tests below pass their own small dims.
+const ctx = { cols: 80, rows: 40, colorSupport: "truecolor", language: "en", done: false } as SceneContext;
+const smallCtx = { cols: 41, rows: 12, colorSupport: "truecolor", language: "en", done: false } as SceneContext;
 const key = (k: Partial<KeyEvent>): KeyEvent => k as KeyEvent;
 
 function scene(seed = 1): YarrowScene {
@@ -72,6 +75,42 @@ describe("YarrowScene", () => {
   test("ctrl-c exits at any point", () => {
     const sig = scene().handleKey(key({ type: "ctrl", char: "c" }), ctx);
     expect(sig).toEqual({ type: "exit" });
+  });
+
+  test("below the field floor the ritual freezes — update does not advance unseen", () => {
+    // The too-small notice is render-only; without gating update, the virtual
+    // clock kept ticking and the ritual could silently complete behind the
+    // notice. A cramped terminal must hold the ritual where it is.
+    const s = scene(42);
+    const line = s.getModel().activeLine;
+    const round = s.getModel().activeRound;
+    for (let i = 0; i < 100; i++) s.update(0, 500, smallCtx);
+    expect(s.getModel().activeLine).toBe(line);
+    expect(s.getModel().activeRound).toBe(round);
+    expect(s.getModel().hexagramComplete).toBe(false);
+  });
+
+  test("below the field floor ritual keys are ignored, but esc/ctrl-c still leave", () => {
+    const s = scene();
+    s.handleKey(key({ type: "char", char: " " }), smallCtx); // pace key ignored…
+    expect(s.getModel().paused).toBe(false);
+    s.handleKey(key({ type: "char", char: "f" }), smallCtx); // …speed key ignored…
+    expect(s.getModel().speed).toBe(1);
+    expect(s.handleKey(key({ type: "escape" }), smallCtx)).toEqual({ type: "home" }); // …leaving works
+    expect(s.handleKey(key({ type: "ctrl", char: "c" }), smallCtx)).toEqual({ type: "exit" });
+  });
+
+  test("a completed figure does not 'receive' while below the field floor", () => {
+    // The figure stands, but the field is hidden behind the notice — space must
+    // not commit the reading the user can't see. Resizing back up restores it.
+    const s = scene(7);
+    s.handleKey(key({ type: "char", char: "s" }), ctx); // skip to the finished figure
+    expect(s.getModel().hexagramComplete).toBe(true);
+    expect(s.handleKey(key({ type: "char", char: " " }), smallCtx)).toBeUndefined(); // hidden → no receive
+    expect(s.handleKey(key({ type: "char", char: " " }), ctx)).toEqual({
+      type: "yarrowCompleted",
+      cast: s.getModel().requireCast(),
+    });
   });
 
   test("space pauses — the ritual stops advancing", () => {

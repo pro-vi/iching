@@ -44,8 +44,17 @@ export class YarrowScene implements Scene {
     this.beatOffsets = built.beatOffsets;
   }
 
-  update(_elapsed: number, dt: number, _ctx: SceneContext): void {
+  /** The 49-stalk field needs BAR_AREA_WIDTH × YARROW_MIN_ROWS to render. */
+  private fieldFits(ctx: SceneContext): boolean {
+    return ctx.cols >= BAR_AREA_WIDTH && ctx.rows >= YARROW_MIN_ROWS;
+  }
+
+  update(_elapsed: number, dt: number, ctx: SceneContext): void {
     if (this.complete) return;
+    // Below the yarrow floor the field is hidden behind the too-small notice;
+    // freeze the ritual rather than let the clock advance (and silently
+    // complete) unseen. It resumes the moment there is room again.
+    if (!this.fieldFits(ctx)) return;
     if (!this.model.paused) {
       this.virtualElapsed += dt * this.model.speed;
     }
@@ -67,10 +76,15 @@ export class YarrowScene implements Scene {
     this.renderFooter(frame, this.language);
   }
 
-  handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
+  handleKey(key: KeyEvent, ctx: SceneContext): SceneSignal | void {
     if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
     if (key.type === "escape") return { type: "home" };
     if (key.type === "char" && key.char === "q") return { type: "home" };
+
+    // Below the yarrow floor the field is hidden behind the too-small notice;
+    // ignore ritual keys (pace, step, receive) so the user can't act blind.
+    // Leaving (ctrl-c / esc / q) is handled above and stays available.
+    if (!this.fieldFits(ctx)) return;
 
     // Once the figure stands, space receives the reading.
     if (this.model.hexagramComplete) {
