@@ -1,5 +1,5 @@
 import { rename, mkdir, open, unlink } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { randomBytes } from "node:crypto";
 
 /**
@@ -22,7 +22,11 @@ export async function atomicWriteJson(
   await mkdir(dir, { recursive: true });
 
   const suffix = randomBytes(6).toString("hex");
-  const tmp = join(dir, `${path.split("/").pop()}.${suffix}.tmp`);
+  // basename(), not path.split("/").pop() — the latter mishandles a backslash
+  // path and an extension-less basename; this stays consistent with dirname()
+  // above. The temp file sits in the same dir as the target so the rename is
+  // atomic (same filesystem).
+  const tmp = join(dir, `${basename(path)}.${suffix}.tmp`);
 
   const json = JSON.stringify(data, null, 2) + "\n";
 
