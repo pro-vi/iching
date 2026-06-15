@@ -399,9 +399,9 @@ describe("CastScene reading panel", () => {
     scene.update(scene.getTimeline().duration + 100, 33, ctx);
 
     const text = frameText(scene, ctx).join("\n");
-    // Hexagram 21, changing lines 1 and 4 — the hint plus the governing
-    // (upper) line's text first
-    expect(text).toContain("two lines move — the upper speaks");
+    // Hexagram 21, changing lines 1 and 4 — read top-down, the upper line (4)
+    // first. No method hint line precedes it.
+    expect(text).not.toContain("lines move —");
     expect(text).toContain("4 · Biting on dried gristly meat");
   });
 
@@ -423,7 +423,27 @@ describe("CastScene reading panel", () => {
     scene.update(100, 33, ctx);
 
     const text = frameText(scene, ctx).join("\n");
-    expect(text).not.toContain("two lines move");
+    expect(text).not.toContain("Biting on dried gristly meat");
+  });
+
+  test("the moving-line readings are left-aligned to a common column", () => {
+    // A wide frame so neither line wraps: the two readings then have clearly
+    // different widths, so per-line centering would land them at different
+    // columns. Left-alignment puts both at the panel block's left edge (col 4).
+    const cols = 200;
+    const scene = new CastScene(makeChangingCast(), "reduced", cols, undefined, 40);
+    const ctx: SceneContext = { cols, rows: 40, done: false, colorSupport: "truecolor", language: "en" };
+    scene.enter(ctx);
+    scene.update(scene.getTimeline().duration + 100, 33, ctx);
+
+    const rows = frameText(scene, ctx);
+    const indent = (s: string): number => s.length - s.trimStart().length;
+    const upper = rows.find((r) => r.trimStart().startsWith("4 · ")); // line 4, top
+    const lower = rows.find((r) => r.trimStart().startsWith("1 · ")); // line 1, below
+    expect(upper).toBeDefined();
+    expect(lower).toBeDefined();
+    expect(indent(upper!)).toBe(4);
+    expect(indent(lower!)).toBe(4);
   });
 
   test("[r] toggles the reading texts; the figure and prompt stay", () => {
@@ -435,13 +455,12 @@ describe("CastScene reading panel", () => {
     // Shown by default — the reading is the heart of the cast — and the footer
     // advertises the toggle so it's discoverable.
     const shown = frameText(scene, ctx).join("\n");
-    expect(shown).toContain("two lines move — the upper speaks");
+    expect(shown).toContain("Biting on dried gristly meat");
     expect(shown).toContain("[r] hide reading");
 
     // [r] hides the reading texts…
     scene.handleKey({ type: "char", char: "r" }, ctx);
     const hidden = frameText(scene, ctx).join("\n");
-    expect(hidden).not.toContain("two lines move — the upper speaks");
     expect(hidden).not.toContain("Biting on dried gristly meat");
     // …the prompt (and figure beneath it) remain, and the hint flips to show.
     expect(hidden).toContain("[esc] back");
@@ -450,7 +469,7 @@ describe("CastScene reading panel", () => {
     // [r] again restores them.
     scene.handleKey({ type: "char", char: "r" }, ctx);
     const reshown = frameText(scene, ctx).join("\n");
-    expect(reshown).toContain("two lines move — the upper speaks");
+    expect(reshown).toContain("Biting on dried gristly meat");
     expect(reshown).toContain("[r] hide reading");
   });
 });
@@ -510,7 +529,7 @@ describe("CastScene journal replay (skipToComplete(false))", () => {
 
     const text = frameText(scene, ctx).join("\n");
     expect(scene.getModel().showPrompt).toBe(true);
-    expect(text).toContain("two lines move — the upper speaks");
+    expect(text).not.toContain("lines move —"); // no method hint line
     expect(text).toContain("4 · Biting on dried gristly meat");
     expect(text).toContain("the launch question");
   });

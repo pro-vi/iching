@@ -4,21 +4,19 @@
 // vertical space between the glyph, the title block, and these texts) can
 // measure the panel without an import cycle. The texts a reading is made of
 // follow readingFocus (a simplified modern moving-line rule — see its doc for
-// where it agrees with and departs from the classical 啟蒙 method), and the
-// text the hint names always comes first: the changing lines' 爻辭
-// (governing line first when two or three move, the rest bottom-first as
-// cast), the becoming hexagram's 卦辭 when four or five move, or — when no
-// lines move — the primary 卦辭, since the judgment IS the reading in that
-// case. A single dim hint line states which text governs. Quiet,
+// where it agrees with and departs from the classical 啟蒙 method): the changing
+// lines' 爻辭 read top-down (line 6 at the top down to line 1, so the upper line
+// leads), the becoming hexagram's 卦辭 when four or five move, or — when no lines
+// move — the primary 卦辭, since the judgment IS the reading in that case. Quiet,
 // observational, never interpretive.
 
 import { type Cast, type DisplayLanguage, GUA, readingFocus, toSimplified } from "@iching/core";
 import { wordWrap } from "../dict/word-wrap.ts";
-import { tr, type MessageKey } from "../../i18n/messages.ts";
+import { tr } from "../../i18n/messages.ts";
 
 export interface ReadingLine {
   text: string;
-  role: "hint" | "text" | "more";
+  role: "text" | "more";
   /**
    * True on the one wrapped line that leads with a dim type-label
    * ("卦辭 · ", "Judgment · ", "4 · "). The renderer dims everything up to the
@@ -27,25 +25,6 @@ export interface ReadingLine {
    * zh 爻辭 (which the hint already names) carry no label.
    */
   labeled?: boolean;
-}
-
-const HINT_KEYS: Record<number, MessageKey> = {
-  1: "cast.hint.one",
-  2: "cast.hint.two",
-  3: "cast.hint.three",
-  4: "cast.hint.four",
-  5: "cast.hint.five",
-  6: "cast.hint.all",
-};
-
-/** The one-line reading-method hint for a cast (empty when no lines move). */
-export function readingHint(cast: Cast, language: DisplayLanguage): string {
-  const focus = readingFocus(cast);
-  if (focus.kind === "judgment") return "";
-  if (focus.kind === "extra") {
-    return tr(language, focus.name === "用九" ? "cast.hint.allYong9" : "cast.hint.allYong6");
-  }
-  return tr(language, HINT_KEYS[cast.changingPositions.length]);
 }
 
 /**
@@ -67,13 +46,6 @@ export function buildReadingLines(
   const focus = readingFocus(cast);
 
   const lines: ReadingLine[] = [];
-  const hint = readingHint(cast, language);
-  // Wrap the hint to the panel width too — a long hint (e.g. the English
-  // four/five-line phrasings) would otherwise overflow the inset texts at
-  // narrow terminals, sitting flush to the panel edge instead of within it.
-  if (hint) {
-    for (const wl of wordWrap(hint, width)) lines.push({ text: wl, role: "hint" });
-  }
 
   // `labeled` marks the first wrapped line when the text leads with a dim
   // type-label ("卦辭 · ", "Judgment · ", "4 · "); only that line bears it.
@@ -85,8 +57,8 @@ export function buildReadingLines(
   };
 
   const pushYao = (pos: number): void => {
-    // en prefixes the line position ("4 · …") — a label to dim; zh shows the
-    // bare 爻辭 (the hint already names which line), so nothing to dim.
+    // en prefixes the line position ("4 · …") — a label to dim; the zh 爻辭 opens
+    // with its own line name (初九/上六…), so it is self-labeling and stays bare.
     if (english) pushText(`${pos} · ${gua.yaoEn[pos - 1]}`, true);
     else pushText(cn(gua.yao[pos - 1]));
   };
@@ -111,17 +83,11 @@ export function buildReadingLines(
     const becoming = GUA[cast.becoming - 1];
     const label = tr(language, "cast.judgment");
     pushText(english ? `${label} · ${becoming.gcEn}` : `${label} · ${cn(becoming.gc)}`, true);
-  } else if (focus.kind === "lines") {
-    // Two or three lines move — the governing (upper) line speaks first,
-    // the other noted lines follow bottom-first as quieter context.
-    pushYao(focus.governing);
-    for (const pos of focus.positions) {
-      if (pos !== focus.governing) pushYao(pos);
-    }
   } else {
-    // One changing line (or a fallback) — the 爻辭, bottom-line-first.
-    const positions = [...cast.changingPositions].sort((a, b) => a - b);
-    for (const pos of positions) pushYao(pos);
+    // The moving lines' 爻辭, read top-down — the same order the figure shows
+    // them (line 6 at the top down to line 1), so the upper line leads. Covers
+    // one moving line, the 2–3 "lines" case, and any fallback.
+    for (const pos of [...cast.changingPositions].sort((a, b) => b - a)) pushYao(pos);
   }
 
   if (lines.length > maxRows) {

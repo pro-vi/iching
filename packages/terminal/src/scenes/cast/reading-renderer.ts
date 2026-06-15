@@ -14,7 +14,7 @@ import { titleLayout } from "./reveal-renderer.ts";
 import { buildReadingLines, readingPanelWidth } from "./reading-lines.ts";
 
 // Re-exports — the panel's line construction lives in reading-lines.ts.
-export { buildReadingLines, readingHint, type ReadingLine } from "./reading-lines.ts";
+export { buildReadingLines, type ReadingLine } from "./reading-lines.ts";
 
 /**
  * Render the reading panel between the title block and the prompt bar.
@@ -41,14 +41,17 @@ export function renderReadingPanel(
   const panel = buildReadingLines(model.cast, language, width, tightBudget);
   const startRow = panel.length <= endRow - gapStart + 1 ? gapStart : tightStart;
 
+  // Left-align the reading to a common left edge (the centered panel block's
+  // left), so the moving-line 爻辭 read as a top-down list rather than a stack
+  // of separately-centered lines.
+  const leftCol = Math.max(0, Math.floor((buf.width - width) / 2));
+
   for (let i = 0; i < panel.length; i++) {
     const row = startRow + i;
     if (row < 0 || row >= buf.height) break;
     const line = panel[i];
-    const w = stringWidth(line.text);
-    const col = Math.max(0, Math.floor((buf.width - w) / 2));
-    if (line.role === "hint" || line.role === "more") {
-      buf.writeText(row, col, line.text, { fg: t.tertiary, dim: true });
+    if (line.role === "more") {
+      buf.writeText(row, leftCol, line.text, { fg: t.tertiary, dim: true });
     } else if (line.labeled) {
       // Dim the type-label ("卦辭 · ", "Judgment · ", "4 · ") up to and including
       // the separator, so the canonical text leads — the 觀象 label hierarchy.
@@ -57,10 +60,10 @@ export function renderReadingPanel(
       const split = dot >= 0 ? Math.min(line.text.length, dot + 2) : 0;
       const label = line.text.slice(0, split);
       const rest = line.text.slice(split);
-      if (label) buf.writeText(row, col, label, { fg: t.tertiary, dim: true });
-      buf.writeText(row, col + stringWidth(label), rest, { fg: t.secondary });
+      if (label) buf.writeText(row, leftCol, label, { fg: t.tertiary, dim: true });
+      buf.writeText(row, leftCol + stringWidth(label), rest, { fg: t.secondary });
     } else {
-      buf.writeText(row, col, line.text, { fg: t.secondary });
+      buf.writeText(row, leftCol, line.text, { fg: t.secondary });
     }
   }
 }

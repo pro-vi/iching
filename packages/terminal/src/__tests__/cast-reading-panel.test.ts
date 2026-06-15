@@ -13,7 +13,7 @@ import { describe, test, expect } from "bun:test";
 import type { Cast, DisplayLanguage, Line } from "@iching/core";
 import { assembleCast, GUA } from "@iching/core";
 import { CastScene, type CastGlyphInput } from "../scenes/cast/cast-scene.ts";
-import { buildReadingLines, readingHint, readingPanelWidth } from "../scenes/cast/reading-lines.ts";
+import { buildReadingLines, readingPanelWidth } from "../scenes/cast/reading-lines.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import type { SceneContext } from "../scene/types.ts";
 
@@ -99,16 +99,8 @@ describe("reading panel renders with a glyph config at realistic sizes", () => {
             readingPanelWidth(cols),
             Number.MAX_SAFE_INTEGER,
           );
-          const hint = readingHint(cast, language);
           const firstText = panel.find((l) => l.role === "text");
           expect(firstText).toBeDefined();
-
-          // Hint line (when the cast has one) is on screen, above the footer.
-          if (hint !== "") {
-            const hintRow = rowOf(frame, hint);
-            expect(hintRow).toBeGreaterThanOrEqual(0);
-            expect(hintRow).toBeLessThan(footerRow);
-          }
 
           // At least one 爻辭/judgment line is on screen, above the footer.
           const textRow = rowOf(frame, firstText!.text.trim());
@@ -136,7 +128,6 @@ describe("the glyph yields to the texts — and returns when there is room", () 
     const cast = makeCast(21, [4]);
     const frame = settledRows(cast, 100, 30, "zh-Hant");
     expect(hasGlyph(frame)).toBe(true);
-    expect(rowOf(frame, readingHint(cast, "zh-Hant"))).toBeGreaterThanOrEqual(0);
     expect(rowOf(frame, GUA[20].yao[3])).toBeGreaterThanOrEqual(0);
   });
 
@@ -158,14 +149,14 @@ describe("the glyph yields to the texts — and returns when there is room", () 
     const cast = makeCast(21, [1, 3, 4]);
     const frame = settledRows(cast, 100, 30, "en");
     expect(hasGlyph(frame)).toBe(false);
-    expect(rowOf(frame, readingHint(cast, "en"))).toBeGreaterThanOrEqual(0);
+    expect(rowOf(frame, "Biting on dried gristly meat")).toBeGreaterThanOrEqual(0); // line 4
   });
 
   test("100x40 en, 1 changing: room for everything — glyph, title, texts", () => {
     const cast = makeCast(21, [4]);
     const frame = settledRows(cast, 100, 40, "en");
     expect(hasGlyph(frame)).toBe(true);
-    expect(rowOf(frame, readingHint(cast, "en"))).toBeGreaterThanOrEqual(0);
+    expect(rowOf(frame, "Biting on dried gristly meat")).toBeGreaterThanOrEqual(0); // line 4
     expect(rowOf(frame, "Shì Kè")).toBeGreaterThanOrEqual(0); // pinyin title kept
   });
 
