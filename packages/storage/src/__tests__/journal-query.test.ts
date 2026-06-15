@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { JsonlJournalStore } from "../json/jsonl-journal.js";
-import { getHexagramHistory, loadEntriesWithNotes, noteMatchesEntry } from "../journal-query.js";
+import { getHexagramHistory, loadEntriesWithNotes, noteMatchesEntry, entryNoteRef } from "../journal-query.js";
 import type { Cast, Line, ReflectionNote } from "@iching/core";
 import { GUA, assembleCast } from "@iching/core";
 
@@ -135,6 +135,22 @@ describe("loadEntriesWithNotes", () => {
     const entries = await loadEntriesWithNotes(store);
     expect(entries[0].notes).toEqual([]);
     expect(entries[1].notes.map((n) => n.text)).toEqual(["attached by date"]);
+  });
+
+  test("a precise content ref attaches to the exact same-day legacy cast, not the day's last", async () => {
+    // Two timestamp-less casts on one day. A bare date ref lands on the LAST
+    // (see above); the content ref the TUI now writes must re-find the FIRST,
+    // so a note on a non-last legacy cast stays on the reading it annotated.
+    const first = { date: "2026-03-28", cast: makeCast(1) };
+    const second = { date: "2026-03-28", cast: makeCast(2) };
+    await store.append(first);
+    await store.append(second);
+    expect(entryNoteRef(first)).not.toBe(entryNoteRef(second)); // distinct by content
+    await store.appendNote(makeNote(entryNoteRef(first), "on the first cast"));
+
+    const entries = await loadEntriesWithNotes(store);
+    expect(entries[0].notes.map((n) => n.text)).toEqual(["on the first cast"]); // the FIRST…
+    expect(entries[1].notes).toEqual([]); // …not the day's last
   });
 
   test("multiple notes keep append order; orphans are dropped quietly", async () => {

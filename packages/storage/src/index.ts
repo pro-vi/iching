@@ -25,6 +25,7 @@ export {
   getHexagramHistory,
   loadEntriesWithNotes,
   noteMatchesEntry,
+  entryNoteRef,
 } from "./journal-query.js";
 
 // Terminal-safe text (journal notes are replayed to terminals)

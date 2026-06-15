@@ -5,6 +5,7 @@
 
 import type { DisplayLanguage, ReflectionNote } from "@iching/core";
 import {
+  entryNoteRef,
   getHexagramHistory,
   loadEntriesWithNotes,
   type AnnotatedEntry,
@@ -80,7 +81,10 @@ export function makeJournalScene(deps: JournalDeps): JournalScene {
     onNote: (entry, text) => {
       const note: ReflectionNote = {
         kind: "note",
-        ref: entry.timestamp ?? entry.date,
+        // Precise pointer to THIS reading: its timestamp, or a content key for a
+        // legacy timestamp-less entry — so a note on one of several same-day
+        // legacy casts re-attaches to the one annotated, not the day's last.
+        ref: entryNoteRef(entry),
         date: localToday(),
         timestamp: new Date().toISOString(),
         text,

@@ -39,10 +39,31 @@ export interface AnnotatedEntry extends HistoryEntry {
   notes: ReflectionNote[];
 }
 
-/** True when `note.ref` points at `entry` — by timestamp, or by date for
- *  entries written before timestamps landed. */
+/**
+ * The durable pointer a reflection note uses to find its reading. A timestamp
+ * uniquely identifies a modern reading. A legacy timestamp-less reading has no
+ * unique field, so several casts on one day all share the bare date — annotating
+ * a non-last one would silently re-attach the note to the day's last cast. So
+ * disambiguate those by cast CONTENT (`date#primary.becoming.changing`): an
+ * order-independent key that re-finds the SAME reading whether the journal is
+ * streamed append-first (CLI) or newest-first (TUI). Only truly-identical
+ * same-day readings collide, and those are indistinguishable anyway.
+ */
+export function entryNoteRef(entry: HistoryEntry): string {
+  if (entry.timestamp) return entry.timestamp;
+  const c = entry.cast;
+  const changing = [...c.changingPositions].sort((a, b) => a - b).join("-");
+  return `${entry.date}#${c.primary}.${c.becoming ?? 0}.${changing}`;
+}
+
+/**
+ * True when `note.ref` points at `entry`. Matches the precise content ref
+ * (entryNoteRef) AND the bare `timestamp ?? date` key, so notes written before
+ * the content ref existed (a plain date, resolving to the day's last cast) keep
+ * attaching exactly as they did.
+ */
 export function noteMatchesEntry(note: ReflectionNote, entry: HistoryEntry): boolean {
-  return note.ref === (entry.timestamp ?? entry.date);
+  return note.ref === entryNoteRef(entry) || note.ref === (entry.timestamp ?? entry.date);
 }
 
 /**
@@ -61,8 +82,12 @@ export async function loadEntriesWithNotes(
   for await (const entry of store.stream()) {
     const annotated: AnnotatedEntry = { ...entry, notes: [] };
     entries.push(annotated);
-    // Later same-key entries win, so a date ref lands on the day's last cast.
-    byRef.set(entry.timestamp ?? entry.date, annotated);
+    // The precise content/timestamp ref (entryNoteRef) re-finds the EXACT
+    // reading, so a TUI note on one of several same-day legacy casts stays put.
+    byRef.set(entryNoteRef(entry), annotated);
+    // Plus the bare date key for legacy plain-date refs: later same-key entries
+    // win, so a date ref still lands on the day's last cast, exactly as before.
+    if (!entry.timestamp) byRef.set(entry.date, annotated);
   }
 
   for await (const note of store.streamNotes()) {
