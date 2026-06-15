@@ -74,20 +74,31 @@ function csiFinalIndex(buf: Uint8Array): number {
   return i < buf.length ? i : -1;
 }
 
+/**
+ * Map a CSI/SS3 final byte to a cursor-key event — arrow (A–D), Home (H), or
+ * End (F) — or null if it's not one of those. Shared by the CSI and SS3 paths,
+ * which encode these identically (ESC [ A vs ESC O A).
+ */
+function cursorEventForFinal(final: number): KeyEvent | null {
+  switch (final) {
+    case 0x41: return { type: "arrow", direction: "up" };
+    case 0x42: return { type: "arrow", direction: "down" };
+    case 0x43: return { type: "arrow", direction: "right" };
+    case 0x44: return { type: "arrow", direction: "left" };
+    case 0x48: return { type: "home" };
+    case 0x46: return { type: "end" };
+    default: return null;
+  }
+}
+
 /** Map a complete CSI sequence (final byte at `finalIdx`) to a ParseResult. */
 function parseCSI(buf: Uint8Array, finalIdx: number): ParseResult {
   const final = buf[finalIdx];
   const consumed = finalIdx + 1;
 
-  // Arrow keys — plain (ESC [ A) or modified (ESC [ 1 ; 5 C etc.)
-  if (final === 0x41) return { event: { type: "arrow", direction: "up" }, consumed };
-  if (final === 0x42) return { event: { type: "arrow", direction: "down" }, consumed };
-  if (final === 0x43) return { event: { type: "arrow", direction: "right" }, consumed };
-  if (final === 0x44) return { event: { type: "arrow", direction: "left" }, consumed };
-
-  // Home (ESC [ H) / End (ESC [ F), with or without modifiers
-  if (final === 0x48) return { event: { type: "home" }, consumed };
-  if (final === 0x46) return { event: { type: "end" }, consumed };
+  // Arrows (ESC [ A, or modified ESC [ 1 ; 5 C), Home (H) / End (F).
+  const cursor = cursorEventForFinal(final);
+  if (cursor) return { event: cursor, consumed };
 
   // VT-style sequences: ESC [ <n> [;<mod>] ~
   if (final === 0x7e) {
@@ -201,12 +212,8 @@ export function parseKeyWithLength(buf: Uint8Array): ParseResult | null {
         // re-parse, so a following sequence (ESC O ESC [ A) isn't eaten.
         return { event: null, consumed: 2 };
       }
-      if (final === 0x41) return { event: { type: "arrow", direction: "up" }, consumed: 3 };
-      if (final === 0x42) return { event: { type: "arrow", direction: "down" }, consumed: 3 };
-      if (final === 0x43) return { event: { type: "arrow", direction: "right" }, consumed: 3 };
-      if (final === 0x44) return { event: { type: "arrow", direction: "left" }, consumed: 3 };
-      if (final === 0x48) return { event: { type: "home" }, consumed: 3 };
-      if (final === 0x46) return { event: { type: "end" }, consumed: 3 };
+      const cursor = cursorEventForFinal(final);
+      if (cursor) return { event: cursor, consumed: 3 };
       // F1–F4 (P Q R S) and anything else — swallow
       return { event: null, consumed: 3 };
     }

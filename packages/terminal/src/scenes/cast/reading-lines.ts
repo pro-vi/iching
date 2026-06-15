@@ -95,6 +95,11 @@ export function buildReadingLines(
     if (english) pushText(`${pos} · ${g.yaoEn[pos - 1]}`, true);
     else pushText(cn(g.yao[pos - 1]));
   };
+  // The given lines' 爻辭, read top-down — the figure's order, line 6 at the top
+  // down to line 1, so the upper line leads.
+  const pushYaoLines = (g: (typeof GUA)[number], positions: number[]): void => {
+    for (const pos of [...positions].sort((a, b) => b - a)) pushYaoFrom(g, pos);
+  };
   const becoming = cast.becoming !== null ? GUA[cast.becoming - 1] : null;
 
   if (focus.kind === "judgment") {
@@ -116,16 +121,15 @@ export function buildReadingLines(
     pushJudgment(gua, `${gua.u} ${cn(gua.n)}`);
     pushJudgment(becoming, `${becoming.u} ${cn(becoming.n)}`);
   } else if (focus.kind === "stillLines" && becoming) {
-    // Four or five lines move — the becoming's UNCHANGED lines' 爻辭, read
-    // top-down (the figure's order); the hint names the lower as primary.
-    for (const pos of [...focus.positions].sort((a, b) => b - a)) pushYaoFrom(becoming, pos);
+    // Four or five lines move — the becoming's UNCHANGED lines' 爻辭; the hint
+    // names the lower as primary.
+    pushYaoLines(becoming, focus.positions);
   } else if (focus.kind === "becoming" && becoming) {
     // Six lines move off 乾/坤 — the becoming hexagram's 卦辭.
     pushJudgment(becoming);
   } else {
-    // One or two moving lines (or any fallback) — the moving lines' 爻辭, read
-    // top-down (line 6 at the top down to line 1, so the upper line leads).
-    for (const pos of [...cast.changingPositions].sort((a, b) => b - a)) pushYaoFrom(gua, pos);
+    // One or two moving lines (or any fallback) — the moving lines' 爻辭.
+    pushYaoLines(gua, cast.changingPositions);
   }
 
   if (lines.length > maxRows) {
