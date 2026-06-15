@@ -5,7 +5,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Cast } from "@iching/core";
-import { assembleCast } from "@iching/core";
+import { castOf } from "@iching/core/testing";
 import { resolvePaths, JsonDailyCacheStore, JsonlJournalStore } from "@iching/storage";
 import {
   IntentionScene,
@@ -191,9 +191,7 @@ describe("runReadingFlow — yarrow source", () => {
     const deps = makeDeps(dataDir, run);
     const journal = new JsonlJournalStore(deps.paths.state);
     expect(await journal.latest()).toBeNull(); // empty to start
-    const cast: Cast = assembleCast(
-      [1, 2, 3, 4, 5, 6].map(() => ({ value: 7, isYang: true, isChanging: false })),
-    );
+    const cast = castOf(1); // 乾, all young yang — a static cast
     await runReadingFlow(deps, { purpose: "cast", source: { type: "existing", cast } });
     expect(await journal.latest()).toBeNull(); // the replay added nothing
   });

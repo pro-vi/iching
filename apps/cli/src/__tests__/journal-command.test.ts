@@ -5,8 +5,9 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtemp, rm, writeFile, appendFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import type { Cast, HistoryEntry, Line } from "@iching/core";
-import { GUA, assembleCast, castHexagram, SeededRandomSource } from "@iching/core";
+import type { HistoryEntry } from "@iching/core";
+import { GUA, castHexagram, SeededRandomSource } from "@iching/core";
+import { castOf } from "@iching/core/testing";
 import { localToday } from "../util/today.ts";
 
 const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
@@ -43,24 +44,12 @@ async function runCli(dataDir: string, args: string[]): Promise<RunResult> {
   return { exitCode, stdout, stderr };
 }
 
-// A genuine cast OF `primary` that becomes `becoming`: build the primary's
-// canonical lines (GUA[primary-1].l) and mark exactly the lines where it differs
-// from the becoming as moving, so assembleCast derives primary, becoming, and
-// the four hexagrams all internally consistent. isCastShaped reconstructs and
-// compares on read, so a fixture that hand-set a primary/derived disagreeing
-// with its lines (the old one claimed becoming=8 while only flipping line 1 of
-// a hand-rolled pattern) would now read back as torn. Changing positions follow
-// the real diff: 3→8 moves [1], 3→39 moves [1,3].
-function makeCast(primary: number, becoming: number | null): Cast {
-  const p = GUA[primary - 1].l;
-  const b = becoming === null ? null : GUA[becoming - 1].l;
-  const lines: Line[] = p.map((bit, i) => {
-    const moves = b !== null && b[i] !== bit;
-    return moves
-      ? { value: (bit ? 9 : 6) as 6 | 9, isYang: bit === 1, isChanging: true }
-      : { value: (bit ? 7 : 8) as 7 | 8, isYang: bit === 1, isChanging: false };
-  });
-  return assembleCast(lines);
+// A genuine cast OF `primary` that becomes `becoming` (castOf flips exactly the
+// lines where they differ, so primary/becoming/derived are all consistent and
+// the record survives isCastShaped on read). Changing positions follow the real
+// diff: 3→8 moves [1], 3→39 moves [1,3].
+function makeCast(primary: number, becoming: number | null) {
+  return becoming === null ? castOf(primary) : castOf(primary, { becoming });
 }
 
 function makeEntry(

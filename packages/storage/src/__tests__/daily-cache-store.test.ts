@@ -2,26 +2,15 @@ import { describe, test, expect, beforeEach } from "bun:test";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { DailyCache, Cast, Line, Structure } from "@iching/core";
-import { assembleCast } from "@iching/core";
+import type { DailyCache, Structure } from "@iching/core";
+import { castOf } from "@iching/core/testing";
 import { JsonDailyCacheStore } from "../json/json-daily-cache.js";
 
-function makeLine(value: 7 | 8): Line {
-  return { value, isYang: value === 7, isChanging: false };
-}
-
 function makeCache(date: string): DailyCache {
-  // assembleCast derives primary/becoming/the four hexagrams from the lines, so
-  // the cached cast is internally consistent — isCastShaped reconstructs and
-  // compares on read. These lines form hexagram 63 (既濟), all young.
-  const cast: Cast = assembleCast([
-    makeLine(7),
-    makeLine(8),
-    makeLine(7),
-    makeLine(8),
-    makeLine(7),
-    makeLine(8),
-  ]);
+  // castOf derives primary/becoming/the four hexagrams from the lines, so the
+  // cached cast is internally consistent — isCastShaped reconstructs and
+  // compares on read. Hexagram 63 (既濟), all young.
+  const cast = castOf(63);
   const structure: Structure = {
     upper: { sym: "☰", n: "Qian", img: "Heaven" },
     lower: { sym: "☷", n: "Kun", img: "Earth" },
@@ -276,11 +265,8 @@ describe("JsonDailyCacheStore", () => {
 
     test("a fully shaped record with a non-null becoming still reads back", async () => {
       const record = makeCache("2025-01-15");
-      // Line 1 moves — re-derive so becoming/changingPositions/the four hexagrams
-      // all stay consistent with the lines (a genuine non-null-becoming cast).
-      const lines = record.cast.lines.map((l) => ({ ...l }));
-      lines[0] = { value: 9, isYang: true, isChanging: true };
-      record.cast = assembleCast(lines);
+      // Line 1 moves — castOf derives a consistent non-null-becoming cast.
+      record.cast = castOf(63, { changing: [1] });
       expect(record.cast.becoming).not.toBeNull();
       await store.write(record);
       expect(await store.read()).toEqual(record);

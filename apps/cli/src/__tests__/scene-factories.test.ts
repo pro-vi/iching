@@ -7,7 +7,7 @@ import { describe, test, expect, beforeEach } from "bun:test";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assembleCast } from "@iching/core";
+import { castOf } from "@iching/core/testing";
 import { JsonlJournalStore } from "@iching/storage";
 import {
   BrowseScene,
@@ -33,14 +33,7 @@ function makeReplayEntry(date: string, timestamp: string): JournalEntryView {
   return {
     date,
     timestamp,
-    cast: assembleCast([
-      { value: 7, isYang: true, isChanging: false },
-      { value: 8, isYang: false, isChanging: false },
-      { value: 7, isYang: true, isChanging: false },
-      { value: 8, isYang: false, isChanging: false },
-      { value: 7, isYang: true, isChanging: false },
-      { value: 8, isYang: false, isChanging: false },
-    ]),
+    cast: castOf(63), // 既濟, all young — a static cast
   };
 }
 

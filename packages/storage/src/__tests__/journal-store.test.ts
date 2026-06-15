@@ -2,25 +2,21 @@ import { describe, test, expect, beforeEach } from "bun:test";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { HistoryEntry, Cast, Line, ReflectionNote } from "@iching/core";
+import type { HistoryEntry, Line, ReflectionNote } from "@iching/core";
 import { assembleCast } from "@iching/core";
+import { castOf, lineOf } from "@iching/core/testing";
 import { JsonlJournalStore } from "../json/jsonl-journal.js";
 
-function makeLine(value: 7 | 8): Line {
-  return { value, isYang: value === 7, isChanging: false };
-}
-
-// A genuine cast — assembleCast derives primary/becoming/the four hexagrams
-// FROM the lines, so the fixture is internally consistent. isCastShaped now
-// reconstructs and compares, so a hand-coded primary/derived that disagreed
-// with the lines (the old fixture said primary 1 over alternating lines) would
-// read back as torn. These lines form hexagram 63 (既濟), all young.
+// Raw lines for hexagram 63 (既濟), all young — used where a test needs the
+// lines directly (the changingPositions range-discipline case mutates them and
+// overrides changingPositions to exercise the validator). A plain consistent
+// cast uses castOf(63); only this special case needs the raw array.
 function baseLines(): Line[] {
-  return [makeLine(7), makeLine(8), makeLine(7), makeLine(8), makeLine(7), makeLine(8)];
+  return [lineOf(7), lineOf(8), lineOf(7), lineOf(8), lineOf(7), lineOf(8)];
 }
 
 function makeEntry(date: string): HistoryEntry {
-  return { date, cast: assembleCast(baseLines()) };
+  return { date, cast: castOf(63) };
 }
 
 describe("JsonlJournalStore", () => {
@@ -468,11 +464,9 @@ describe("JsonlJournalStore", () => {
     });
 
     test("a fully shaped entry with a non-null becoming still streams", async () => {
-      // Line 1 moves — assembleCast derives the real becoming and changingPositions,
+      // Line 1 moves — castOf derives the real becoming and changingPositions,
       // so the whole cast is internally consistent (non-null becoming included).
-      const lines = baseLines();
-      lines[0] = { value: 9, isYang: true, isChanging: true };
-      const entry: HistoryEntry = { date: "2025-01-01", cast: assembleCast(lines) };
+      const entry: HistoryEntry = { date: "2025-01-01", cast: castOf(63, { changing: [1] }) };
       expect(entry.cast.becoming).not.toBeNull();
       await store.append(entry);
 

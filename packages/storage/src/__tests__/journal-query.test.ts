@@ -4,21 +4,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { JsonlJournalStore } from "../json/jsonl-journal.js";
 import { getHexagramHistory, loadEntriesWithNotes, noteMatchesEntry, entryNoteRef } from "../journal-query.js";
-import type { Cast, Line, ReflectionNote } from "@iching/core";
-import { GUA, assembleCast } from "@iching/core";
+import type { ReflectionNote } from "@iching/core";
+import { castOf } from "@iching/core/testing";
 
-// A genuine static cast OF the requested hexagram: build the lines from its
-// canonical pattern (GUA[kw-1].l) so assembleCast derives primary === kw and a
-// consistent set of derived hexagrams. isCastShaped reconstructs and compares,
-// so the lines must actually draw the hexagram the query asks about.
-function makeCast(primary: number): Cast {
-  const lines: Line[] = GUA[primary - 1].l.map((bit) => ({
-    value: bit ? 7 : 8,
-    isYang: bit === 1,
-    isChanging: false,
-  }));
-  return assembleCast(lines);
-}
+// A genuine static cast OF the requested hexagram (castOf derives a consistent
+// primary/becoming/derived from the lines, so it survives isCastShaped on read).
+const makeCast = (primary: number) => castOf(primary);
 
 describe("getHexagramHistory", () => {
   let tmpDir: string;

@@ -5,30 +5,16 @@
 // at dispatch time.
 
 import { describe, test, expect } from "bun:test";
-import { assembleCast, buildStructure } from "@iching/core";
-import type { Cast, DailyCache, Line } from "@iching/core";
+import { buildStructure } from "@iching/core";
+import type { DailyCache } from "@iching/core";
 import type { DailyCacheStore } from "@iching/storage";
+import { castOf } from "@iching/core/testing";
 import { readTodayCache } from "../util/today-cache.ts";
 
-function makeLine(value: 6 | 7 | 8 | 9): Line {
-  return {
-    value,
-    isYang: value === 7 || value === 9,
-    isChanging: value === 6 || value === 9,
-  };
-}
-
 function makeCache(date: string, intention?: string): DailyCache {
-  // These lines form hexagram 63 (既濟), all young; assembleCast derives a
-  // consistent primary/becoming/derived so the cache passes isCastShaped.
-  const cast: Cast = assembleCast([
-    makeLine(7),
-    makeLine(8),
-    makeLine(7),
-    makeLine(8),
-    makeLine(7),
-    makeLine(8),
-  ]);
+  // Hexagram 63 (既濟), all young; castOf derives a consistent
+  // primary/becoming/derived so the cache passes isCastShaped on read.
+  const cast = castOf(63);
   return { date, cast, shown: true, structure: buildStructure(cast), intention };
 }
 
