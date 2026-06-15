@@ -104,8 +104,32 @@ function parseCSI(buf: Uint8Array, finalIdx: number): ParseResult {
     return { event: null, consumed };
   }
 
-  // Any other final byte (F-keys, mouse, device reports) — swallow silently
+  // Any other final byte (F-keys, device reports) — swallow silently
   return { event: null, consumed };
+}
+
+/**
+ * Map a mouse button code (the Cb field) to a scroll arrow. Wheel events set
+ * bit 6 (0x40); the low two bits give direction (0=up, 1=down, 2=left, 3=right).
+ * Vertical wheel becomes an up/down arrow so it scrolls like the keys do;
+ * horizontal wheel and all clicks/drags/releases return null (swallowed) so a
+ * mouse report never leaks as a key or as ←/→ navigation.
+ */
+function mouseWheelArrow(cb: number): KeyEvent | null {
+  if ((cb & 0x40) === 0) return null; // not a wheel event
+  const dir = cb & 0x03;
+  if (dir === 0) return { type: "arrow", direction: "up" };
+  if (dir === 1) return { type: "arrow", direction: "down" };
+  return null; // horizontal wheel — ignored
+}
+
+/** Read the leading decimal number in buf[start..end). */
+function parseDecimal(buf: Uint8Array, start: number, end: number): number {
+  let n = 0;
+  for (let i = start; i < end && buf[i] >= 0x30 && buf[i] <= 0x39; i++) {
+    n = n * 10 + (buf[i] - 0x30);
+  }
+  return n;
 }
 
 /**
@@ -128,6 +152,16 @@ export function parseKeyWithLength(buf: Uint8Array): ParseResult | null {
 
     // CSI sequences: ESC [ ...
     if (buf[1] === 0x5b) {
+      // X10 mouse report: ESC [ M Cb Cx Cy — exactly 6 bytes, and the three
+      // coordinate bytes are RAW (not digits), so the generic CSI scan would
+      // stop at 'M' and leave Cb/Cx/Cy to be misread as character keys (a stray
+      // 'h'/'l' would even navigate). Consume all 6; map the wheel to a scroll
+      // arrow, swallow clicks. (Incomplete reports are buffered by feed().)
+      if (buf[2] === 0x4d) {
+        if (buf.length < 6) return { event: null, consumed: buf.length };
+        return { event: mouseWheelArrow(buf[3] - 32), consumed: 6 };
+      }
+
       const finalIdx = csiFinalIndex(buf);
       if (finalIdx === -1) {
         // Truncated CSI — flush as escape, consuming everything
@@ -142,6 +176,15 @@ export function parseKeyWithLength(buf: Uint8Array): ParseResult | null {
         // prefix and leave the offending byte to be re-parsed as its own start.
         return { event: null, consumed: finalIdx };
       }
+
+      // SGR mouse report: ESC [ < Cb ; Cx ; Cy (M=press | m=release). Map the
+      // wheel to a scroll arrow on press; swallow releases, clicks, and the
+      // horizontal wheel so no mouse report leaks as a key or navigation.
+      if (buf[2] === 0x3c) {
+        const event = csiFinal === 0x4d ? mouseWheelArrow(parseDecimal(buf, 3, finalIdx)) : null;
+        return { event, consumed: finalIdx + 1 };
+      }
+
       return parseCSI(buf, finalIdx);
     }
 
@@ -250,7 +293,12 @@ function concatBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
 function isIncompleteEscape(buf: Uint8Array): boolean {
   if (buf[0] !== 0x1b) return false;
   if (buf.length === 1) return true; // lone ESC — CSI/SS3 may follow
-  if (buf[1] === 0x5b) return csiFinalIndex(buf) === -1;
+  if (buf[1] === 0x5b) {
+    // X10 mouse (ESC [ M …) is a fixed 6 bytes; its raw coordinate bytes can
+    // look like a CSI final, so wait for all 6 rather than parse early.
+    if (buf.length >= 3 && buf[2] === 0x4d) return buf.length < 6;
+    return csiFinalIndex(buf) === -1;
+  }
   if (buf[1] === 0x4f) return buf.length < 3;
   return false;
 }

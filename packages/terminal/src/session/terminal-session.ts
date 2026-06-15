@@ -9,6 +9,8 @@ import {
   cursorHome,
   bracketedPasteOn,
   bracketedPasteOff,
+  mouseOn,
+  mouseOff,
 } from "../ansi/codes.ts";
 import { enableRawMode } from "../input/raw-input.ts";
 
@@ -55,8 +57,9 @@ export class TerminalSession {
     if (this.active) return;
     this.active = true;
 
-    // Enter alt screen, clear, and enable bracketed paste
-    this.stdout.write(altScreenOn + clearScreen + cursorHome + hideCursor + bracketedPasteOn);
+    // Enter alt screen, clear, and enable bracketed paste + mouse reporting
+    // (so the wheel scrolls instead of alternate-scrolling into arrow keys).
+    this.stdout.write(altScreenOn + clearScreen + cursorHome + hideCursor + bracketedPasteOn + mouseOn);
 
     // Enable raw mode
     this.disableRaw = enableRawMode(this.stdin);
@@ -89,7 +92,7 @@ export class TerminalSession {
     this.active = false;
 
     // Restore terminal
-    this.stdout.write(bracketedPasteOff + showCursor + altScreenOff);
+    this.stdout.write(mouseOff + bracketedPasteOff + showCursor + altScreenOff);
 
     // Disable raw mode
     if (this.disableRaw) {

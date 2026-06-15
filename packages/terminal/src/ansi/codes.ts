@@ -34,3 +34,12 @@ export const bracketedPasteOff = `${CSI}?2004l`;
 // Synchronized output (DEC 2026) — atomic frame presentation, ignored when unsupported
 export const syncOutputOn = `${CSI}?2026h`;
 export const syncOutputOff = `${CSI}?2026l`;
+
+// Mouse reporting (DEC 1000 button events) with SGR extended encoding (1006).
+// We enable it so the WHEEL arrives as mouse reports we map to scroll — without
+// it, terminals "alternate-scroll" the wheel into arrow keys, and horizontal
+// trackpad drift becomes ←/→ that get read as navigation. Terminals without
+// support ignore these. (Text selection then needs the usual modifier, e.g.
+// Option on macOS — the standard full-screen-TUI trade.)
+export const mouseOn = `${CSI}?1000h${CSI}?1006h`;
+export const mouseOff = `${CSI}?1006l${CSI}?1000l`;
