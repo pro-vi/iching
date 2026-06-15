@@ -26,7 +26,12 @@ async function runCli(dataDir: string, args: string[]): Promise<RunResult> {
       stdin: "pipe",
       stdout: "pipe",
       stderr: "pipe",
-      env: { ...process.env, NO_COLOR: "1" },
+      // Pin the subprocess clock to UTC. `bun test` resolves `new Date()` in
+      // UTC, but a spawned subprocess otherwise uses the system timezone — so
+      // the test process and the CLI computed different `localToday()` values
+      // during the window between UTC midnight and local midnight, making the
+      // daily-anchor ("show today") tests fail there. One TZ for both ends it.
+      env: { ...process.env, NO_COLOR: "1", TZ: "UTC" },
     },
   );
   proc.stdin.end();
