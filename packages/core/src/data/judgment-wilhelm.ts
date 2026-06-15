@@ -87,7 +87,7 @@ export const JUDGMENT_WILHELM: string[] = [
   // 40 解 利西南，無所往，其來復吉。有攸往，夙吉
   "Deliverance. The southwest furthers. With nowhere to go, return brings fortune; with somewhere to go, set out early — fortune.",
   // 41 損 有孚，元吉，無咎，可貞，利有攸往…二簋可用享
-  "Decrease, held in trust — sublime fortune, no blame; perseverance may hold, and it furthers to have somewhere to go. What does it ask? Two bowls of grain suffice to offer.",
+  "Decrease, with trust — sublime fortune, no blame; perseverance may hold, and it furthers to have somewhere to go. What is to be used? Two bowls of grain suffice to offer.",
   // 42 益 利有攸往，利涉大川
   "Increase. It furthers to have somewhere to go; it furthers to cross the great water.",
   // 43 夬 揚于王庭，孚號，有厲…不利即戎，利有攸往
@@ -95,11 +95,11 @@ export const JUDGMENT_WILHELM: string[] = [
   // 44 姤 女壯，勿用取女
   "Coming to meet — a bold, strong woman. Do not take such a wife.",
   // 45 萃 亨。王假有廟，利見大人，亨，利貞…利有攸往
-  "Gathering — success. The king goes to his temple. It furthers to see the great one; success through perseverance. Great offerings bring fortune; it furthers to have somewhere to go.",
+  "Gathering — success. The king goes to the ancestral temple. It furthers to see the great one; success through perseverance. Great offerings bring fortune; it furthers to have somewhere to go.",
   // 46 升 元亨，用見大人，勿恤，南征吉
   "Pushing upward — sublime success. Go to see the great one; do not grieve. To advance south — fortune.",
   // 47 困 亨，貞，大人吉，無咎，有言不信
-  "Oppression — yet success. For the steadfast great one, fortune, and no blame. Words now find no belief.",
+  "Oppression — yet success; it furthers to persevere. For the great one, fortune, and no blame. Words now find no belief.",
   // 48 井 改邑不改井…羸其瓶，凶
   "The town may move, the well does not. It neither empties nor fills; all come and draw. But if the rope falls short and the jug breaks — misfortune.",
   // 49 革 巳日乃孚，元亨利貞，悔亡
@@ -115,7 +115,7 @@ export const JUDGMENT_WILHELM: string[] = [
   // 54 歸妹 征凶，無攸利
   "The marrying maiden. To set out — misfortune; nothing furthers.",
   // 55 豐 亨，王假之，勿憂，宜日中
-  "Abundance succeeds. The king attains it; do not grieve — be as the sun at noon.",
+  "Abundance succeeds. The king attains it; do not worry — be as the sun at noon.",
   // 56 旅 小亨，旅貞吉
   "The wanderer — small success. For the traveler, perseverance brings fortune.",
   // 57 巽 小亨，利攸往，利見大人
@@ -123,13 +123,13 @@ export const JUDGMENT_WILHELM: string[] = [
   // 58 兌 亨，利貞
   "The joyous — success. It furthers to persevere.",
   // 59 渙 亨。王假有廟，利涉大川，利貞
-  "Dispersion — success. The king goes to his temple. It furthers to cross the great water; it furthers to persevere.",
+  "Dispersion — success. The king goes to the ancestral temple. It furthers to cross the great water; it furthers to persevere.",
   // 60 節 亨。苦節，不可貞
   "Limitation succeeds. But bitter limits cannot be held to.",
   // 61 中孚 豚魚吉，利涉大川，利貞
-  "Inner truth reaches even pigs and fish — fortune. It furthers to cross the great water; it furthers to persevere.",
+  "Inner truth. Pigs and fish — fortune. It furthers to cross the great water; it furthers to persevere.",
   // 62 小過 亨，利貞，可小事，不可大事。飛鳥遺之音，不宜上，宜下，大吉
-  "Small excess succeeds; it furthers to persevere. Small things, not great. The flying bird leaves its call — better to descend than to rise. Great fortune.",
+  "Small excess succeeds; it furthers to persevere. Small matters, not great ones. The flying bird leaves its call — better to descend than to rise. Great fortune.",
   // 63 既濟 亨，小利貞，初吉終亂
   "Success in small things; it furthers to persevere. Fortune at the start, disorder at the end.",
   // 64 未濟 亨，小狐汔濟，濡其尾，無攸利
