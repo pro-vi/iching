@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { access, stat } from "node:fs/promises";
 import { constants } from "node:fs";
-import { GUA, computeJournalPatterns, entryTimeKey } from "@iching/core";
+import { GUA, computeJournalPatterns, compareEntryTime } from "@iching/core";
 import type { HistoryEntry, ReflectionNote } from "@iching/core";
 import {
   resolvePaths,
@@ -129,10 +129,12 @@ export function registerJournalCommand(program: Command): void {
         allEntries.push(entry);
       }
 
-      // Most recent first by time-key (NOT append order), then limit — matches
-      // the TUI list and the pane's recency, so --limit takes the latest-dated
-      // readings even on an out-of-order / imported journal.
-      allEntries.sort((a, b) => entryTimeKey(b).localeCompare(entryTimeKey(a)));
+      // Most recent first by the shared recency comparator (NOT append order),
+      // then limit — matches the TUI list and the pane's ◉ accent exactly (same
+      // time-key, same cast-content tie-break for same-day undated readings), so
+      // --limit takes the latest readings even on an out-of-order / imported
+      // journal and never disagrees with the pane on a tied instant.
+      allEntries.sort((a, b) => compareEntryTime(b, a));
       const entries = cmdOpts.all ? allEntries : allEntries.slice(0, limit);
 
       if (globalOpts.json) {
@@ -228,12 +230,13 @@ export function registerJournalCommand(program: Command): void {
       if (dateArg === "latest") {
         found = await store.latest();
       } else {
-        // A day's reading is its chronologically LATEST cast (by time-key), not
-        // merely the last appended — so an out-of-order or imported journal
-        // doesn't surface an earlier reading as "the day's". Matches the order
-        // `journal list` sorts by.
+        // A day's reading is its chronologically LATEST cast (by the shared
+        // recency comparator), not merely the last appended — so an out-of-order
+        // or imported journal doesn't surface an earlier reading as "the day's".
+        // Same comparator as `journal list` and the pane, so a tied instant
+        // resolves to the same reading everywhere.
         for await (const entry of store.stream()) {
-          if (entry.date === targetDate && (found === null || entryTimeKey(entry) >= entryTimeKey(found))) {
+          if (entry.date === targetDate && (found === null || compareEntryTime(entry, found) >= 0)) {
             found = entry;
           }
         }
@@ -285,11 +288,12 @@ export function registerJournalCommand(program: Command): void {
       let target: HistoryEntry | null = null;
       if (cmdOpts.date !== undefined) {
         assertValidDateArg(cmdOpts.date, "--date");
-        // A day's reading is its chronologically LATEST cast (by time-key), not
-        // merely the last appended — so `note --date` annotates the same reading
-        // that `journal show <date>` displays, even for an out-of-order journal.
+        // A day's reading is its chronologically LATEST cast (by the shared
+        // recency comparator), not merely the last appended — so `note --date`
+        // annotates the same reading that `journal show <date>` displays, even
+        // for an out-of-order journal, and resolves a tied instant identically.
         for await (const entry of store.stream()) {
-          if (entry.date === cmdOpts.date && (target === null || entryTimeKey(entry) >= entryTimeKey(target))) {
+          if (entry.date === cmdOpts.date && (target === null || compareEntryTime(entry, target) >= 0)) {
             target = entry;
           }
         }

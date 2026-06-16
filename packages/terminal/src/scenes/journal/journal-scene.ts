@@ -8,7 +8,7 @@ import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { KeyEvent } from "../../input/key-parser.ts";
 import type { DisplayLanguage, HistoryEntry } from "@iching/core";
-import { GUA, TRIGRAMS, entryTimeKey, stripTerminalControls, toSimplified } from "@iching/core";
+import { GUA, TRIGRAMS, compareEntryTime, stripTerminalControls, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth, truncateToWidth, fitLine } from "../../layout/measure.ts";
 // Re-exported for callers that have long imported it from here (e.g. tests).
@@ -179,14 +179,18 @@ export class JournalScene implements Scene {
     // (storage validates, so this is defense-in-depth): every downstream site —
     // the list row, the field, the patterns derivation — indexes cast.primary,
     // and one cast-less record must not take the whole scene down.
-    // Newest first — ordered by the SAME time-key the patterns pane uses for
-    // its ◉ recency accent, so the list's top row and the accent always mark
-    // the same reading (a .reverse() would assume strictly chronological append
-    // order and disagree with the pane on an out-of-order / imported journal).
-    // Stable on equal keys → same-day undated casts keep their append order.
+    // Newest first — ordered by the SAME comparator the patterns pane uses to
+    // pick its ◉ recency accent (compareEntryTime), so the list's top row and
+    // the accent always mark the same reading. Time-key alone is not enough: two
+    // same-day undated readings share a key, and a stable sort would then keep
+    // append order while the pane's content tie-break (cast primary/becoming)
+    // could pick the other one — the two surfaces would disagree on the "most
+    // recent" of a tied instant. Using compareEntryTime for both closes that gap
+    // (and still beats a .reverse(), which assumes chronological append order and
+    // breaks on an out-of-order / imported journal).
     this.entries = entries
       .filter((e) => e?.cast != null && typeof e.cast.primary === "number")
-      .sort((a, b) => entryTimeKey(b).localeCompare(entryTimeKey(a)));
+      .sort((a, b) => compareEntryTime(b, a));
     this.filtered = this.entries;
     this.cursor = 0;
     this.scroll = new ScrollableRegion(20, []);

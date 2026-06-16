@@ -88,7 +88,13 @@ export type { DisplayChoice } from "./service/display-select.js";
 
 // Journal pattern derivation — pure observation over past readings, shared by
 // the TUI 觀象 pane and the CLI `journal patterns` surface.
-export { computeJournalPatterns, phaseOfHour, PHASE_MIN_TIMESTAMPED, entryTimeKey } from "./journal/patterns.js";
+export {
+  computeJournalPatterns,
+  phaseOfHour,
+  PHASE_MIN_TIMESTAMPED,
+  entryTimeKey,
+  compareEntryTime,
+} from "./journal/patterns.js";
 export type {
   JournalPatterns,
   PhaseDistribution,

@@ -253,16 +253,28 @@ describe("JournalScene nav parity (j/k, home/end)", () => {
     // Two readings on one day without timestamps share a date. The old signal
     // carried that date as a key, and the factory's lookup resolved the FIRST
     // of them for both — replaying the wrong reading. The entry now rides the
-    // signal by reference, so the selected one (here primary 29, the second
-    // row) is replayed exactly.
+    // signal by reference, so whichever row is selected is replayed exactly.
+    // (The two rows order deterministically by cast content — same comparator
+    // the pane uses — so we assert on selection fidelity, not on which primary
+    // lands where.)
     const day = [makeEntry("2026-03-01", 1), makeEntry("2026-03-01", 29)];
-    const scene = new JournalScene(day);
-    const ctx = ctxFor();
-    scene.enter(ctx);
-    press(scene, ctx, "j"); // move off the first same-day row onto the second
-    const signal = press(scene, ctx, "enter") as { type: string; entry: { cast: { primary: number } } };
-    expect(signal.type).toBe("openJournalReading");
-    expect(signal.entry.cast.primary).toBe(29); // the selected reading, not the first
+    const replayOf = (rowMoves: number): number => {
+      const scene = new JournalScene(day);
+      const ctx = ctxFor();
+      scene.enter(ctx);
+      for (let i = 0; i < rowMoves; i++) press(scene, ctx, "j");
+      const signal = press(scene, ctx, "enter") as {
+        type: string;
+        entry: { cast: { primary: number } };
+      };
+      expect(signal.type).toBe("openJournalReading");
+      return signal.entry.cast.primary;
+    };
+    const top = replayOf(0);
+    const second = replayOf(1); // move off the first same-day row onto the second
+    expect(second).not.toBe(top); // the selected reading, not the first row's
+    expect([1, 29]).toContain(top);
+    expect([1, 29]).toContain(second);
   });
 });
 
@@ -1757,8 +1769,36 @@ describe("JournalScene list ordering agrees with the pane's recency accent", () 
     expect(rowOfTai).toBeLessThan(rowOfBi); // newest date on top, not the late import
 
     // …and the pane's ◉ recency accent marks the SAME reading, by construction:
-    // both order by entryTimeKey, so list-top and field.recent can't disagree.
+    // both order by compareEntryTime, so list-top and field.recent can't disagree.
     expect(computeJournalPatterns(entries, "2026-04-15").field.recent).toBe(11);
+  });
+
+  test("a tied instant (same undated day) resolves to the same reading on both surfaces", () => {
+    // Two readings on the same day with NO timestamp share an entryTimeKey. The
+    // list once sorted by that key alone (stable → append order on a tie) while
+    // the pane picks recency with compareEntryTime's cast-content tie-break — so
+    // the lower-content reading could sit on top while the pane accented the
+    // other. Here 5 (需) is appended first, 21 (噬嗑) second; under the old
+    // time-key-only sort 需 floated to the top, disagreeing with the pane's 噬嗑.
+    const entries = [
+      makeEntry("2026-03-15", 5), // 需 — appended first
+      makeEntry("2026-03-15", 21), // 噬嗑 — same undated day, appended second
+    ];
+    const scene = new JournalScene(entries);
+    const ctx = ctxFor();
+    scene.enter(ctx);
+    const rows = renderText(scene, ctx).split("\n");
+    const rowOfXu = rows.findIndex((l) => l.includes("需"));
+    const rowOfShihHo = rows.findIndex((l) => l.includes("噬嗑"));
+    expect(rowOfXu).toBeGreaterThanOrEqual(0);
+    expect(rowOfShihHo).toBeGreaterThanOrEqual(0);
+    // The content tie-break is deterministic; the list top row must be whatever
+    // the pane also calls "most recent" — not merely the last-appended.
+    const recent = computeJournalPatterns(entries, "2026-04-15").field.recent;
+    const topRow = recent === 21 ? rowOfShihHo : rowOfXu;
+    const otherRow = recent === 21 ? rowOfXu : rowOfShihHo;
+    expect(topRow).toBeLessThan(otherRow);
+    expect(recent).toBe(21); // 噬嗑 wins the tie (higher primary), on both surfaces
   });
 });
 
