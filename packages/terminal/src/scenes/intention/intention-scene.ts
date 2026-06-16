@@ -91,6 +91,11 @@ export class IntentionScene implements Scene {
       return;
     }
 
+    if (key.type === "deleteWord") {
+      this.textInput.deleteWord();
+      return;
+    }
+
     if (key.type === "delete") {
       this.textInput.delete();
       return;

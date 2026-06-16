@@ -118,6 +118,13 @@ export class BrowseScene implements Scene {
       return;
     }
 
+    // Option/Alt+Backspace deletes a word in search mode.
+    if (key.type === "deleteWord" && this.model.searchActive) {
+      this.textInput.deleteWord();
+      this.model.setQuery(this.textInput.value);
+      return;
+    }
+
     // Paste — a pasted query lands in the search like typed characters:
     // fold newlines/tabs to spaces, drop control chars, filter live.
     if (key.type === "paste") {

@@ -40,6 +40,18 @@ describe("parseKey", () => {
     expect(event).toEqual({ type: "escape" });
   });
 
+  test("Option/Alt+Backspace (ESC DEL / ESC BS) is a word-delete, not an eject", () => {
+    // macOS Option+Backspace sends ESC 0x7f (some terminals ESC 0x08). It must
+    // delete a word, never read as a bare Escape that cancels the scene.
+    expect(parseKey(new Uint8Array([0x1b, 0x7f]))).toEqual({ type: "deleteWord" });
+    expect(parseKey(new Uint8Array([0x1b, 0x08]))).toEqual({ type: "deleteWord" });
+  });
+
+  test("an unbound Alt-combo (ESC + letter) is swallowed, never Escape", () => {
+    // ESC + 'd' is Option+d (Meta-prefix convention); it must not eject a scene.
+    expect(parseKey(new Uint8Array([0x1b, 0x64]))).toBeNull();
+  });
+
   test("parse Ctrl-C", () => {
     const event = parseKey(new Uint8Array([0x03]));
     expect(event).toEqual({ type: "ctrl", char: "c" });

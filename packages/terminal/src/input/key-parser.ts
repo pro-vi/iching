@@ -12,6 +12,7 @@ export type KeyEvent =
   | { type: "end" }
   | { type: "tab" }
   | { type: "backspace" }
+  | { type: "deleteWord" }
   | { type: "delete" }
   | { type: "paste"; text: string };
 
@@ -218,8 +219,14 @@ export function parseKeyWithLength(buf: Uint8Array): ParseResult | null {
       return { event: null, consumed: 3 };
     }
 
-    // Two-byte ESC + something that isn't CSI/SS3 (e.g. Alt+key)
-    return { event: { type: "escape" }, consumed: 2 };
+    // ESC + <byte> is the terminal convention for Alt/Option + that key (Meta
+    // prefix), NOT a press of Escape — so it must never eject the scene.
+    // Option+Backspace (macOS sends ESC DEL, some send ESC BS) deletes a word;
+    // every other Alt-combo we don't bind is swallowed (a no-op), not escaped.
+    if (buf[1] === 0x7f || buf[1] === 0x08) {
+      return { event: { type: "deleteWord" }, consumed: 2 };
+    }
+    return { event: null, consumed: 2 };
   }
 
   // Single-byte keys

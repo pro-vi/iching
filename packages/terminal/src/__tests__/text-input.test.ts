@@ -48,6 +48,38 @@ describe("TextInput", () => {
     expect(input.value).toBe("abc");
   });
 
+  test("deleteWord removes the word before the cursor", () => {
+    const input = new TextInput();
+    input.insert("what needs patience");
+    input.deleteWord();
+    expect(input.value).toBe("what needs ");
+    expect(input.cursorPos).toBe(11);
+  });
+
+  test("deleteWord skips trailing spaces, then the word", () => {
+    const input = new TextInput();
+    input.insert("hello world   ");
+    input.deleteWord();
+    expect(input.value).toBe("hello ");
+  });
+
+  test("deleteWord at start does nothing", () => {
+    const input = new TextInput();
+    input.insert("abc");
+    input.moveToStart();
+    input.deleteWord();
+    expect(input.value).toBe("abc");
+  });
+
+  test("deleteWord deletes only before the cursor, not after", () => {
+    const input = new TextInput();
+    input.insert("alpha beta");
+    input.cursorPos = 6; // just after "alpha "
+    input.deleteWord();
+    expect(input.value).toBe("beta");
+    expect(input.cursorPos).toBe(0);
+  });
+
   test("moveCursorLeft/Right", () => {
     const input = new TextInput();
     input.insert("hello");

@@ -1237,6 +1237,10 @@ export class JournalScene implements Scene {
       this.noteInput.backspace();
       return;
     }
+    if (key.type === "deleteWord") {
+      this.noteInput.deleteWord();
+      return;
+    }
     if (key.type === "delete") {
       this.noteInput.delete();
       return;
@@ -1350,6 +1354,11 @@ export class JournalScene implements Scene {
     }
     if (key.type === "backspace") {
       this.searchInput.backspace();
+      this.setQuery(this.searchInput.value);
+      return;
+    }
+    if (key.type === "deleteWord") {
+      this.searchInput.deleteWord();
       this.setQuery(this.searchInput.value);
       return;
     }

@@ -45,6 +45,21 @@ export class TextInput {
     this._chars.splice(this.cursorPos, 1);
   }
 
+  /**
+   * Delete the word before the cursor (Option/Alt+Backspace): skip any
+   * whitespace immediately behind the cursor, then the run of non-whitespace
+   * back to the previous boundary. A space-less run (e.g. a CJK intention)
+   * deletes back to the last space, the standard readline behaviour.
+   */
+  deleteWord(): void {
+    if (this.cursorPos <= 0) return;
+    let start = this.cursorPos;
+    while (start > 0 && /\s/.test(this._chars[start - 1])) start--;
+    while (start > 0 && !/\s/.test(this._chars[start - 1])) start--;
+    this._chars.splice(start, this.cursorPos - start);
+    this.cursorPos = start;
+  }
+
   /** Move cursor left one position */
   moveCursorLeft(): void {
     if (this.cursorPos > 0) this.cursorPos--;
