@@ -69,6 +69,18 @@ describe("TerminalSession", () => {
     expect(out.indexOf("\x1b[?2004l")).toBeLessThan(out.indexOf("\x1b[?1049l"));
   });
 
+  test("disables autowrap on enter and restores it on exit", () => {
+    // The renderer addresses every cell absolutely; autowrap must be OFF so an
+    // over-wide row clips instead of spilling its trailing (background) cell onto
+    // the next line. Restored on exit since normal-screen default is on.
+    const stdout = mockStdout();
+    const session = new TerminalSession(stdout, mockStdin());
+    session.enter();
+    expect(stdout.writes.join("")).toContain("\x1b[?7l"); // autowrap off
+    session.exit();
+    expect(stdout.writes.join("")).toContain("\x1b[?7h"); // autowrap restored
+  });
+
   test("clear writes clear-screen + cursor-home while active", () => {
     const stdout = mockStdout();
     const session = new TerminalSession(stdout, mockStdin());

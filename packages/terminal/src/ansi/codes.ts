@@ -27,6 +27,14 @@ export const clearToEndOfLine = `${CSI}0K`;
 export const altScreenOn = `${CSI}?1049h`;
 export const altScreenOff = `${CSI}?1049l`;
 
+// Autowrap (DECAWM). The renderer positions every cell absolutely (cursorTo per
+// row) and never relies on the terminal wrapping — so wrap must be OFF, or a row
+// whose content measures one cell wider than the terminal (e.g. an ambiguous-
+// width glyph a CJK font renders double-wide) would spill its trailing cell —
+// background included — onto the next line. Off clips that overflow instead.
+export const autoWrapOff = `${CSI}?7l`;
+export const autoWrapOn = `${CSI}?7h`;
+
 // Bracketed paste mode (DEC 2004) — terminals without support ignore these
 export const bracketedPasteOn = `${CSI}?2004h`;
 export const bracketedPasteOff = `${CSI}?2004l`;
