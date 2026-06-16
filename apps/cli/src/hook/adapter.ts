@@ -97,8 +97,11 @@ export async function runHookAdapter(): Promise<void> {
     // Fresh cast — instant coins, recorded as such. Honor the saved entropy
     // config like commands/cast.ts does; the hook carries no intention, so a
     // bound cast salts with the empty moment only (intentionBound stays false
-    // — chance is primary either way).
-    const config = await new JsonConfigStore(paths.config).load();
+    // — chance is primary either way). Read it QUIET: a corrupt/unreadable
+    // config must fall back to defaults silently here, not print a warning that
+    // the hook would repeat on every shell prompt (the persist path below is
+    // deliberately silent for the same reason; the TUI surfaces the notice).
+    const config = await new JsonConfigStore(paths.config, { quiet: true }).load();
     if (config.entropy === "bound") {
       source = new BoundRandomSource("");
       rng = { source: "bound", intentionBound: false };

@@ -331,6 +331,30 @@ describe("JsonConfigStore", () => {
     expect(calls.length).toBe(1);
   });
 
+  test("a quiet store stays silent on a corrupt config but still degrades to defaults", async () => {
+    // The hook runs on every shell prompt in a fresh process, so the
+    // once-per-instance dedup above can't help across runs — a persistently
+    // corrupt config would print on every prompt. A quiet store suppresses the
+    // notice entirely (the TUI/CLI still surface it where the user can act).
+    const path = join(dir, "config.json");
+    await writeFile(path, "{ corrupt", "utf-8");
+    const quiet = new JsonConfigStore(path, { quiet: true });
+    const calls: unknown[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => void calls.push(args);
+    let cfg: Awaited<ReturnType<typeof quiet.load>> | undefined;
+    try {
+      cfg = await quiet.load();
+    } finally {
+      console.error = original;
+    }
+    expect(calls.length).toBe(0); // not one warning
+    expect(cfg?.theme).toBe("bone"); // …yet still falls back to full defaults
+    expect(cfg?.language).toBe("en");
+    // The bytes are still backed up — quiet suppresses the message, not recovery.
+    expect(await readFile(`${path}.corrupt`, "utf-8")).toBe("{ corrupt");
+  });
+
   test("loadOrSeed() does not crash when persisting the first-boot seed fails", async () => {
     // First-boot scenario where the file is absent (ENOENT → seed) but the
     // persist fails (read-only / full data dir). Stub save() to reject so the

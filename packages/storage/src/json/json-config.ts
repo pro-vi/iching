@@ -214,7 +214,19 @@ function normalizeConfig(parsed: unknown): UserConfig {
 }
 
 export class JsonConfigStore implements ConfigStore {
-  constructor(private readonly path: string) {}
+  /**
+   * When true, the corrupt/unreadable-config notices are suppressed. The hook
+   * runs on every shell prompt in a fresh process (so the once-per-instance
+   * `warnedCorrupt` dedup can't help across runs) and must keep its output
+   * clean — a persistently-corrupt config would otherwise spam stderr on every
+   * prompt. The interactive TUI/CLI still surface the notice, where the user
+   * can see and act on it; the hook stays silent and falls back to defaults.
+   */
+  private readonly quiet: boolean;
+
+  constructor(private readonly path: string, opts: { quiet?: boolean } = {}) {
+    this.quiet = opts.quiet ?? false;
+  }
 
   /**
    * The session's live config when it could not be persisted (read-only / full
@@ -255,7 +267,9 @@ export class JsonConfigStore implements ConfigStore {
       // the corrupt notice's prefix, keeping the language inventory clean.
       if (!this.warnedCorrupt) {
         this.warnedCorrupt = true;
-        console.error(`iching: config at ${this.path} is unreadable — using defaults.`);
+        if (!this.quiet) {
+          console.error(`iching: config at ${this.path} is unreadable — using defaults.`);
+        }
       }
       return "corrupt";
     }
@@ -275,10 +289,12 @@ export class JsonConfigStore implements ConfigStore {
       }
       if (!this.warnedCorrupt) {
         this.warnedCorrupt = true;
-        console.error(
-          `iching: config at ${this.path} is unreadable — using defaults. ` +
-            `Your old settings are saved at ${this.path}.corrupt; restore them by fixing the JSON and renaming the file back.`,
-        );
+        if (!this.quiet) {
+          console.error(
+            `iching: config at ${this.path} is unreadable — using defaults. ` +
+              `Your old settings are saved at ${this.path}.corrupt; restore them by fixing the JSON and renaming the file back.`,
+          );
+        }
       }
       return "corrupt";
     }
