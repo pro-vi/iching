@@ -259,7 +259,7 @@ describe("BrowseScene initial query", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Browse renderer — trigram pair column + quiet empty hint
+// Browse renderer — list rows + quiet empty hint
 // ---------------------------------------------------------------------------
 describe("Browse renderer polish", () => {
   function renderText(model: BrowseModel, ctx: SceneContext): string {
@@ -268,26 +268,17 @@ describe("Browse renderer polish", () => {
     return bufferText(buf);
   }
 
-  test("rows carry the trigram pair (upper then lower) where width allows", () => {
+  test("rows carry the hexagram glyph + name; the redundant trigram pair is gone", () => {
+    // The trigram pair was a decorative decomposition of the hexagram figure
+    // already shown — removed (it duplicated hex.u and its ambiguous-width
+    // glyphs were a render hazard). The hexagram glyph + name still render.
     const model = new BrowseModel();
     const text = renderText(model, makeCtx(80, 24, "en"));
     const rows = text.split("\n");
-    expect(rows[2]).toContain("☰☰"); // 1 乾 — heaven over heaven
+    expect(rows[2]).toContain("乾"); // 1 乾 name
     expect(rows[2]).toContain("The Creative"); // ename column survives
-    expect(rows[12]).toContain("☷☰"); // 11 泰 — earth above, heaven below
-  });
-
-  test("trigram pair fills the spare right column in Chinese modes", () => {
-    const model = new BrowseModel();
-    const text = renderText(model, makeCtx(80, 24, "zh-Hant"));
-    expect(text).toContain("☰☰");
-    expect(text).not.toContain("The Creative");
-  });
-
-  test("trigram pair is omitted when the terminal is too narrow", () => {
-    const model = new BrowseModel();
-    const text = renderText(model, makeCtx(30, 24, "en"));
-    expect(text).not.toContain("☰☰");
+    expect(text).not.toContain("☰☰"); // no trigram pair column anymore
+    expect(text).not.toContain("☷☰");
   });
 
   test("a no-match search shows the quiet hint instead of a blank list", () => {
