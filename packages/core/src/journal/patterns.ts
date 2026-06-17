@@ -3,10 +3,16 @@
 // Pure derivation: distribution, cadence, lift, structure, and transitions.
 // It stays descriptive: counts and rates over what arrived, never prediction.
 // Lives in core (pure domain logic) so both the TUI pane and the CLI can read it.
+//
+// This module is the orchestrator: it drives the single pass over entries and
+// assembles the result. The per-concern math is decomposed into sibling files —
+// patterns/chance.ts (the observed-vs-expected model), patterns/time.ts
+// (ordering & day-phase), patterns/summaries.ts (accumulate-then-emit per
+// summary) — and the data contract in patterns/types.ts.
 
 import { GUA } from "../data/gua.js";
 import { trigramIndex } from "../identify/structure.js";
-import type { CastMethod, HistoryEntry, LineValue } from "../types.js";
+import type { HistoryEntry } from "../types.js";
 
 // The data contract lives in ./patterns/types.ts; re-export it so @iching/core's
 // public surface is unchanged, and import the names this module derives.
@@ -33,53 +39,44 @@ export type {
   JournalPatterns,
 } from "./patterns/types.js";
 import type {
-  MethodFamily,
   MethodFamilyCounts,
-  ExpectedComparison,
-  DirectionComparison,
   HexagramFrequency,
   MovingLineFrequency,
   MovingLineCountBin,
   TrigramFrequency,
-  PairFrequency,
-  CadenceSummary,
-  DiversitySummary,
   StructuralEcho,
-  StructuralEchoKind,
-  HammingDriftSummary,
   FieldSummary,
   JournalPatterns,
 } from "./patterns/types.js";
 
+import {
+  methodFamily,
+  comparison,
+  LINE_PROBABILITIES,
+  MOVING_COUNT_PROBABILITIES,
+} from "./patterns/chance.js";
+import {
+  compareEntryTime,
+  entryTimeKey,
+  phaseOfHour,
+  PHASE_MIN_TIMESTAMPED,
+} from "./patterns/time.js";
+import {
+  addTrigram,
+  addPair,
+  addStructuralEcho,
+  kingWenPair,
+  hammingDistance,
+  pairList,
+  structuralEchoList,
+  computeDiversity,
+  computeCadence,
+  hammingDrift,
+} from "./patterns/summaries.js";
 
-// Canonical per-line-value probabilities by method (coin = three-coin sum
-// 6–9; yarrow = the classical 1:5:7:3 stalk ratio). Two facts here are
-// load-bearing for the whole baseline — do NOT "simplify" them away:
-//   • P(yang line) = P(7)+P(9) = 1/2 for BOTH methods (coin 3/8+1/8, yarrow
-//     5/16+3/16), so the primary hexagram is uniform over 2^6 = 64 either way
-//     → expected count per hexagram = known/64.
-//   • P(line moves) = P(6)+P(9) = 1/4 for BOTH (coin 1/8+1/8, yarrow 1/16+3/16)
-//     → per-position moving expectation = known/4, and the moving-COUNT law is a
-//     single Binomial(6, 1/4) shared by both methods (see below).
-// Only the DIRECTION differs — coin is symmetric (6 and 9 equally likely),
-// yarrow favours old-yang 3:1 — which is why oldYin/oldYang expectations are
-// summed per entry from THIS table, never from a shared constant.
-const LINE_PROBABILITIES: Record<Exclude<MethodFamily, "unknown">, Record<LineValue, number>> = {
-  coin: { 6: 1 / 8, 7: 3 / 8, 8: 3 / 8, 9: 1 / 8 },
-  yarrow: { 6: 1 / 16, 7: 5 / 16, 8: 7 / 16, 9: 3 / 16 },
-};
-
-// The count of moving lines in a cast ~ Binomial(6, 1/4) — valid for coin AND
-// yarrow because both have P(line moves) = 1/4 (above). Sums to 4096/4096 = 1.
-const MOVING_COUNT_PROBABILITIES = [
-  729 / 4096,
-  1458 / 4096,
-  1215 / 4096,
-  540 / 4096,
-  135 / 4096,
-  18 / 4096,
-  1 / 4096,
-] as const;
+// Re-export the public temporal surface unchanged — index.ts and the test suite
+// import these names from patterns.js.
+export { compareEntryTime, entryTimeKey, phaseOfHour, PHASE_MIN_TIMESTAMPED };
 
 /**
  * Derive the patterns summary from journal entries.
@@ -338,315 +335,10 @@ export function computeJournalPatterns(
   };
 }
 
-function methodFamily(method: CastMethod | undefined): MethodFamily {
-  if (method === "coin" || method === "coin-manual") return "coin";
-  if (method === "yarrow" || method === "yarrow-manual") return "yarrow";
-  return "unknown";
-}
-
-/** Below this many timestamped readings, a phase shape is noise — withhold it. */
-export const PHASE_MIN_TIMESTAMPED = 5;
-
-/**
- * Map a local hour (0–23) to a day phase: 0 晨 dawn / 1 晝 day / 2 暮 dusk /
- * 3 夜 night — four even six-hour quarters (5–10 / 11–16 / 17–22 / 23–4), each
- * spanning three classical 時辰. Pure and timezone-free: the caller supplies
- * the local hour, so this is testable without pinning a runtime zone.
- */
-export function phaseOfHour(hour: number): 0 | 1 | 2 | 3 {
-  if (hour >= 5 && hour < 11) return 0; // 晨 dawn (卯辰巳)
-  if (hour >= 11 && hour < 17) return 1; // 晝 day (午未申)
-  if (hour >= 17 && hour < 23) return 2; // 暮 dusk (酉戌亥)
-  return 3; // 夜 night (子丑寅, wraps 23–4)
-}
-
-function comparison(observed: number, expected: number | null): ExpectedComparison {
-  if (expected === null) return { observed, expected: 0, lift: null, residual: null };
-  if (expected <= 0) return { observed, expected, lift: null, residual: null };
-  return {
-    observed,
-    expected,
-    lift: observed / expected,
-    residual: (observed - expected) / Math.sqrt(expected),
-  };
-}
-
+/** Descending sort comparator that sinks nulls to the bottom (used for lift). */
 function nullableDesc(a: number | null, b: number | null): number {
   if (a === null && b === null) return 0;
   if (a === null) return 1;
   if (b === null) return -1;
   return b - a;
-}
-
-function addTrigram(
-  freq: Map<number, { count: number; upperCount: number; lowerCount: number }>,
-  index: number,
-  role: "upper" | "lower",
-): void {
-  const current = freq.get(index) ?? { count: 0, upperCount: 0, lowerCount: 0 };
-  current.count++;
-  if (role === "upper") current.upperCount++;
-  else current.lowerCount++;
-  freq.set(index, current);
-}
-
-function addPair(
-  pairs: Map<string, { from: number; to: number; count: number; lastDate: string }>,
-  from: number,
-  to: number,
-  date: string,
-): void {
-  const key = `${from}->${to}`;
-  const current = pairs.get(key) ?? { from, to, count: 0, lastDate: "" };
-  current.count++;
-  if (date > current.lastDate) current.lastDate = date;
-  pairs.set(key, current);
-}
-
-function pairList(
-  pairs: Map<string, { from: number; to: number; count: number; lastDate: string }>,
-  limit: number,
-): PairFrequency[] {
-  const total = [...pairs.values()].reduce((sum, pair) => sum + pair.count, 0);
-  return [...pairs.values()]
-    .map((pair) => ({ ...pair, share: total > 0 ? pair.count / total : 0 }))
-    .sort((a, b) => b.count - a.count || a.from - b.from || a.to - b.to)
-    .slice(0, limit);
-}
-
-function computeDiversity(
-  counts: number[],
-  total: number,
-  knownCounts: number[],
-  knownTotal: number,
-): DiversitySummary {
-  if (total === 0) {
-    return {
-      distinctHexagrams: 0,
-      knownDistinctHexagrams: 0,
-      entropyBits: 0,
-      maxEntropyBits: 0,
-      normalizedEntropy: 0,
-      topShare: 0,
-      concentration: 0,
-      expectedDistinctHexagrams: null,
-      observedRepeats: 0,
-      expectedRepeats: null,
-      repeatLift: null,
-    };
-  }
-
-  let entropyBits = 0;
-  let concentration = 0;
-  let maxCount = 0;
-  // Sum in a canonical (ascending) order. `counts` arrives in first-seen order,
-  // which follows the caller's entry order — and float addition isn't
-  // associative, so an unsorted sum makes entropyBits/concentration depend on
-  // whether the TUI (newest-first) or CLI (append-order) called. Sorting makes
-  // the figures byte-identical across surfaces; ascending also minimises
-  // rounding by adding the smallest terms first.
-  for (const count of [...counts].sort((a, b) => a - b)) {
-    const p = count / total;
-    entropyBits -= p * Math.log2(p);
-    concentration += p * p;
-    if (count > maxCount) maxCount = count;
-  }
-  const maxEntropyBits = Math.log2(Math.min(64, total));
-  const expectedDistinctHexagrams =
-    knownTotal > 0 ? 64 * (1 - (63 / 64) ** knownTotal) : null;
-  const observedRepeats = knownTotal - knownCounts.length;
-  const expectedRepeats =
-    expectedDistinctHexagrams === null ? null : knownTotal - expectedDistinctHexagrams;
-  return {
-    distinctHexagrams: counts.length,
-    knownDistinctHexagrams: knownCounts.length,
-    entropyBits,
-    maxEntropyBits,
-    normalizedEntropy: maxEntropyBits > 0 ? entropyBits / maxEntropyBits : 0,
-    topShare: maxCount / total,
-    concentration,
-    expectedDistinctHexagrams,
-    observedRepeats,
-    expectedRepeats,
-    repeatLift: comparison(observedRepeats, expectedRepeats).lift,
-  };
-}
-
-function computeCadence(entries: HistoryEntry[], today: string): CadenceSummary | null {
-  if (entries.length === 0) return null;
-
-  const ordinals = new Map<number, string>();
-  let recent30 = 0;
-  let datedCasts = 0; // readings whose date parses — the population the day base counts
-  const todayOrdinal = dayOrdinal(today);
-  for (const entry of entries) {
-    const ord = dayOrdinal(entry.date);
-    if (ord === null) continue;
-    datedCasts++;
-    ordinals.set(ord, entry.date);
-    if (todayOrdinal !== null && ord >= todayOrdinal - 29 && ord <= todayOrdinal) recent30++;
-  }
-
-  const activeOrdinals = [...ordinals.keys()].sort((a, b) => a - b);
-  if (activeOrdinals.length === 0) {
-    return {
-      firstDate: "",
-      lastDate: "",
-      spanDays: 0,
-      activeDays: 0,
-      recent30,
-      castsPerActiveDay: 0,
-      medianGapDays: null,
-      longestGapDays: null,
-      idleDays: null,
-    };
-  }
-
-  const first = activeOrdinals[0];
-  const last = activeOrdinals[activeOrdinals.length - 1];
-  const gaps: number[] = [];
-  for (let i = 1; i < activeOrdinals.length; i++) {
-    gaps.push(activeOrdinals[i] - activeOrdinals[i - 1]);
-  }
-
-  return {
-    firstDate: ordinals.get(first) ?? "",
-    lastDate: ordinals.get(last) ?? "",
-    spanDays: last - first + 1,
-    activeDays: activeOrdinals.length,
-    recent30,
-    castsPerActiveDay: datedCasts / activeOrdinals.length,
-    medianGapDays: gaps.length > 0 ? median(gaps) : null,
-    longestGapDays: gaps.length > 0 ? Math.max(...gaps) : null,
-    idleDays: todayOrdinal !== null ? Math.max(0, todayOrdinal - last) : null,
-  };
-}
-
-/**
- * Canonical chronological order for readings: by time-key, then deterministically
- * by cast content so same-instant ties (legacy same-day readings) resolve the
- * same regardless of input order. Exported so callers/tests can reproduce the
- * exact order the derivation (transitions, drift, field.recent) reads.
- */
-export function compareEntryTime(a: HistoryEntry, b: HistoryEntry): number {
-  const byTime = entryTimeKey(a).localeCompare(entryTimeKey(b));
-  if (byTime !== 0) return byTime;
-  // Same instant — legacy same-day readings without timestamps, or identical
-  // stamps. Break the tie deterministically by cast content so the derived
-  // order (and the transitions / drift / recency that read it) never depends on
-  // whether the caller passed newest-first (TUI) or append (CLI) order: those
-  // two surfaces must agree on the same journal. Identical readings compare
-  // equal, but their order can't change any output.
-  return (
-    a.cast.primary - b.cast.primary ||
-    (a.cast.becoming ?? 0) - (b.cast.becoming ?? 0) ||
-    a.cast.changingPositions.join(",").localeCompare(b.cast.changingPositions.join(","))
-  );
-}
-
-/**
- * The sortable instant of a reading — its timestamp, or its local date at
- * midnight when no timestamp was recorded. This is the SAME key the patterns
- * pane uses to pick the most-recent reading (the ◉ recency accent), so any
- * surface that wants "newest" must order by this to agree with the pane.
- */
-export function entryTimeKey(entry: HistoryEntry): string {
-  // A timestamp can only act as the sort key if it is a non-empty, parseable
-  // instant. An empty or malformed string (a hand-edit or a bad import — the
-  // store already normalizes non-STRING stamps to absent, but "" and garbage
-  // survive) is NOT caught by `??`, so it would sort as the epoch "oldest",
-  // displacing the entry's own date. Fall back to date-at-midnight — the same
-  // key a timestamp-less entry uses — whenever the stamp can't be trusted.
-  const ts = entry.timestamp;
-  if (ts && !Number.isNaN(Date.parse(ts))) return ts;
-  return `${entry.date}T00:00:00.000Z`;
-}
-
-function dayOrdinal(date: string): number | null {
-  const m = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return null;
-  const year = Number(m[1]);
-  const month = Number(m[2]);
-  const day = Number(m[3]);
-  const ms = Date.UTC(year, month - 1, day);
-  if (Number.isNaN(ms)) return null;
-  const d = new Date(ms);
-  if (d.getUTCFullYear() !== year || d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) {
-    return null;
-  }
-  return Math.floor(ms / 86_400_000);
-}
-
-function median(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  if (sorted.length % 2 === 1) return sorted[mid];
-  return (sorted[mid - 1] + sorted[mid]) / 2;
-}
-
-function addStructuralEcho(
-  echoes: Map<string, StructuralEcho>,
-  echo: Pick<StructuralEcho, "kind" | "kw" | "pairStart" | "pairEnd">,
-  date: string,
-): void {
-  const key = echo.kind === "kingWenPair"
-    ? `${echo.kind}:${echo.pairStart}-${echo.pairEnd}`
-    : `${echo.kind}:${echo.kw}`;
-  const current = echoes.get(key) ?? { ...echo, count: 0, lastDate: "", share: 0 };
-  current.count++;
-  if (date > current.lastDate) current.lastDate = date;
-  echoes.set(key, current);
-}
-
-function structuralEchoList(echoes: Map<string, StructuralEcho>, limit: number): StructuralEcho[] {
-  const byKind: Record<StructuralEchoKind, number> = {
-    nuclear: 0,
-    polarity: 1,
-    mirror: 2,
-    kingWenPair: 3,
-  };
-  const total = [...echoes.values()].reduce((sum, echo) => sum + echo.count, 0);
-  return [...echoes.values()]
-    .map((echo) => ({ ...echo, share: total > 0 ? echo.count / total : 0 }))
-    .sort((a, b) =>
-      b.count - a.count ||
-      byKind[a.kind] - byKind[b.kind] ||
-      (a.kw ?? a.pairStart ?? 0) - (b.kw ?? b.pairStart ?? 0)
-    )
-    .slice(0, limit);
-}
-
-function kingWenPair(kw: number): [number, number] {
-  const start = kw % 2 === 1 ? kw : kw - 1;
-  return [start, start + 1];
-}
-
-function hammingDistance(aKw: number, bKw: number): number {
-  const a = GUA[aKw - 1]?.l;
-  const b = GUA[bKw - 1]?.l;
-  if (!a || !b) return 0;
-  let distance = 0;
-  for (let i = 0; i < 6; i++) {
-    if (a[i] !== b[i]) distance++;
-  }
-  return distance;
-}
-
-function hammingDrift(
-  counts: number[],
-  totalDistance: number,
-  maxDistance: number,
-): HammingDriftSummary | null {
-  const transitions = counts.reduce((sum, count) => sum + count, 0);
-  if (transitions === 0) return null;
-  return {
-    transitions,
-    mean: totalDistance / transitions,
-    max: maxDistance,
-    distribution: counts.map((count, distance) => ({
-      distance,
-      count,
-      share: count / transitions,
-    })),
-  };
 }
