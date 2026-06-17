@@ -2,7 +2,7 @@
 import { program } from "./program.js";
 import { parseSeed } from "./util/parse-seed.js";
 import { localToday } from "./util/today.js";
-import { readTodayCache } from "./util/today-cache.js";
+import { resolveTodayReading } from "./util/today-cache.js";
 import { deferDiagnostics, flushDiagnostics } from "./util/deferred-diagnostics.js";
 
 async function main() {
@@ -48,6 +48,10 @@ async function main() {
     const devMode = !!opts.dev;
     const paths = resolvePaths(opts.dataDir ? { dataDir: opts.dataDir } : undefined);
     const cacheStore = new JsonDailyCacheStore(paths.cache);
+    // The durable record behind the daily cache — resolveTodayReading falls back
+    // to it when the cache misses, so [t] reopens today's reading even after a
+    // cache loss/quarantine. latest() is a cheap tail-read, only hit on a miss.
+    const journalStore = new JsonlJournalStore(paths.state);
 
     // Load and apply saved theme. First boot (no config) seeds the display
     // language from the system locale and persists it — so a non-English user
@@ -103,7 +107,7 @@ async function main() {
         // Resolved per iteration (not once at startup) so a session left open
         // past midnight rolls over to the new day's reading.
         const homeScene = new HomeScene({
-          todayCast: await readTodayCache(cacheStore, localToday),
+          todayCast: await resolveTodayReading(cacheStore, journalStore, localToday),
           taijituStyle,
           devMode: !!opts.dev,
         });
@@ -163,7 +167,7 @@ async function main() {
             // scene blocks across midnight), so re-resolve clock AND cache at
             // dispatch time. Stale → fall through; the loop re-renders home
             // with current data.
-            const todayCache = await readTodayCache(cacheStore, localToday);
+            const todayCache = await resolveTodayReading(cacheStore, journalStore, localToday);
             if (todayCache) {
               const result = await runReadingFlow(flowDeps, {
                 purpose: "replay",

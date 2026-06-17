@@ -1,15 +1,16 @@
-// readTodayCache — the openToday dispatch guard. The home loop blocks on the
-// home scene for an unbounded time; deciding whether [t] may replay the cached
-// reading from snapshots taken BEFORE that block replayed yesterday's reading
-// as today after midnight. The helper re-reads both the clock and the store
-// at dispatch time.
+// resolveTodayReading — the shared "today's reading" resolver behind the home
+// [t] reopen, `iching today`, and (conceptually) the hook. It re-reads the clock
+// and stores at call time (the home loop blocks across midnight; deciding from
+// pre-block snapshots replayed yesterday's reading as today's), and honors the
+// durable-recovery invariant: the daily cache is a fast mirror, so when it is
+// missing/stale/quarantined the journal — the durable record — is consulted.
 
 import { describe, test, expect } from "bun:test";
 import { buildStructure } from "@iching/core";
-import type { DailyCache } from "@iching/core";
-import type { DailyCacheStore } from "@iching/storage";
+import type { DailyCache, HistoryEntry } from "@iching/core";
+import type { DailyCacheStore, JournalStore } from "@iching/storage";
 import { castOf } from "@iching/core/testing";
-import { readTodayCache } from "../util/today-cache.ts";
+import { resolveTodayReading } from "../util/today-cache.ts";
 
 function makeCache(date: string, intention?: string): DailyCache {
   // Hexagram 63 (既濟), all young; castOf derives a consistent
@@ -18,7 +19,7 @@ function makeCache(date: string, intention?: string): DailyCache {
   return { date, cast, shown: true, structure: buildStructure(cast), intention };
 }
 
-/** In-memory store — read() always reflects the current record. */
+/** In-memory cache store — read() always reflects the current record. */
 function memoryStore(initial: DailyCache | null): DailyCacheStore & { record: DailyCache | null } {
   return {
     record: initial,
@@ -31,21 +32,41 @@ function memoryStore(initial: DailyCache | null): DailyCacheStore & { record: Da
   };
 }
 
-describe("readTodayCache", () => {
+function makeEntry(date: string, intention?: string): HistoryEntry {
+  return { date, cast: castOf(63), timestamp: `${date}T08:00:00.000Z`, intention, method: "coin" };
+}
+
+/** Journal stub whose latest() returns the given entry (the only method used). */
+function journalWith(latestEntry: HistoryEntry | null): JournalStore {
+  return {
+    skippedLines: 0,
+    async append() {},
+    async appendNote() {},
+    async *stream() {},
+    async *streamNotes() {},
+    async latest() {
+      return latestEntry;
+    },
+  };
+}
+
+const noJournal = () => journalWith(null);
+
+describe("resolveTodayReading — cache resolution", () => {
   test("returns the cached record when its date is (the current) today", async () => {
     const store = memoryStore(makeCache("2026-06-10", "morning question"));
-    const result = await readTodayCache(store, () => "2026-06-10");
+    const result = await resolveTodayReading(store, noJournal(), () => "2026-06-10");
     expect(result?.date).toBe("2026-06-10");
     expect(result?.intention).toBe("morning question");
   });
 
-  test("returns null for a stale cache (yesterday's reading after midnight)", async () => {
+  test("returns null for a stale cache (yesterday's reading) with no journal recovery", async () => {
     const store = memoryStore(makeCache("2026-06-09"));
-    expect(await readTodayCache(store, () => "2026-06-10")).toBeNull();
+    expect(await resolveTodayReading(store, noJournal(), () => "2026-06-10")).toBeNull();
   });
 
-  test("returns null when no cache exists", async () => {
-    expect(await readTodayCache(memoryStore(null), () => "2026-06-10")).toBeNull();
+  test("returns null when neither cache nor journal exists", async () => {
+    expect(await resolveTodayReading(memoryStore(null), noJournal(), () => "2026-06-10")).toBeNull();
   });
 
   test("re-reads the clock at call time — a midnight rollover invalidates the replay", async () => {
@@ -54,21 +75,72 @@ describe("readTodayCache", () => {
     const today = () => now;
 
     // Before midnight the cached reading is replayable…
-    expect((await readTodayCache(store, today))?.date).toBe("2026-06-09");
+    expect((await resolveTodayReading(store, noJournal(), today))?.date).toBe("2026-06-09");
 
     // …after midnight the same call says no (the old code compared two
-    // pre-midnight snapshots and replayed yesterday's reading as today).
+    // pre-midnight snapshots and replayed yesterday's reading as today's).
     now = "2026-06-10";
-    expect(await readTodayCache(store, today)).toBeNull();
+    expect(await resolveTodayReading(store, noJournal(), today)).toBeNull();
   });
 
   test("re-reads the store at call time — a cache written mid-session is picked up", async () => {
     const store = memoryStore(null);
     const today = () => "2026-06-10";
-    expect(await readTodayCache(store, today)).toBeNull();
+    expect(await resolveTodayReading(store, noJournal(), today)).toBeNull();
 
     // e.g. the Claude Code hook cast while the home scene sat open
     await store.write(makeCache("2026-06-10", "written elsewhere"));
-    expect((await readTodayCache(store, today))?.intention).toBe("written elsewhere");
+    expect((await resolveTodayReading(store, noJournal(), today))?.intention).toBe("written elsewhere");
+  });
+});
+
+describe("resolveTodayReading — durable journal recovery", () => {
+  test("recovers today's reading from the journal when the cache is missing", async () => {
+    const result = await resolveTodayReading(
+      memoryStore(null),
+      journalWith(makeEntry("2026-06-10", "in the journal only")),
+      () => "2026-06-10",
+    );
+    expect(result?.date).toBe("2026-06-10");
+    expect(result?.intention).toBe("in the journal only");
+    expect(result?.shown).toBe(true); // reconstructed as shown — it was cast today
+    expect(result?.structure).toBeDefined(); // structure rebuilt from the cast
+  });
+
+  test("recovers from the journal when the cache is stale (cache loss after a rollover)", async () => {
+    const result = await resolveTodayReading(
+      memoryStore(makeCache("2026-06-09")), // yesterday's cache lingers…
+      journalWith(makeEntry("2026-06-10")), // …but the journal holds today
+      () => "2026-06-10",
+    );
+    expect(result?.date).toBe("2026-06-10");
+  });
+
+  test("the cache wins when it holds today — the journal is not consulted", async () => {
+    const result = await resolveTodayReading(
+      memoryStore(makeCache("2026-06-10", "from cache")),
+      journalWith(makeEntry("2026-06-10", "from journal")),
+      () => "2026-06-10",
+    );
+    expect(result?.intention).toBe("from cache");
+  });
+
+  test("a journal whose latest is NOT today does not satisfy recovery", async () => {
+    const result = await resolveTodayReading(
+      memoryStore(null),
+      journalWith(makeEntry("2026-06-09")), // yesterday's reading is the latest
+      () => "2026-06-10",
+    );
+    expect(result).toBeNull();
+  });
+
+  test("a journal read failure degrades to null, never throws", async () => {
+    const throwing: JournalStore = {
+      ...journalWith(null),
+      async latest() {
+        throw new Error("blocked data dir");
+      },
+    };
+    expect(await resolveTodayReading(memoryStore(null), throwing, () => "2026-06-10")).toBeNull();
   });
 });
