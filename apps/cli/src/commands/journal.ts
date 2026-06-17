@@ -7,6 +7,7 @@ import {
   resolvePaths,
   JsonlJournalStore,
   noteMatchesEntry,
+  entryNoteRef,
   stripTerminalControls,
 } from "@iching/storage";
 import {
@@ -312,7 +313,11 @@ export function registerJournalCommand(program: Command): void {
 
       const note: ReflectionNote = {
         kind: "note",
-        ref: target.timestamp ?? target.date,
+        // Precise content/timestamp ref (NOT the bare date) — the same key the
+        // TUI note path writes. A date ref resolves to the day's LAST cast, so
+        // on a legacy timestamp-less day with several readings it would re-attach
+        // to a different reading than the comparator just selected as `target`.
+        ref: entryNoteRef(target),
         date: localToday(),
         timestamp: new Date().toISOString(),
         text: trimmed,

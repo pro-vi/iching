@@ -844,6 +844,41 @@ describe("journal note command", () => {
     expect(show.stdout).toContain("after the storm");
   }, 20_000);
 
+  test("note --date on a legacy multi-reading day writes a PRECISE ref the TUI re-resolves", async () => {
+    // Two TIMESTAMP-LESS readings on one day (legacy/import) share a date-key.
+    // `note --date` selects the comparator's pick (蹇, higher primary), but a
+    // bare-date ref resolves — in the TUI's loadEntriesWithNotes — to the day's
+    // LAST-appended cast (屯). The note would then surface on a DIFFERENT reading
+    // than the CLI reported. The precise content ref (entryNoteRef) re-finds 蹇.
+    const jian = { date: "2026-01-01", cast: makeCast(39, null) }; // 蹇 — comparator pick
+    const zhun = { date: "2026-01-01", cast: makeCast(3, null) }; // 屯 — appended last
+    await seedJournal(dataDir, [jian, zhun]);
+
+    const noted = await runCli(dataDir, [
+      "journal", "note", "the precise one", "--date", "2026-01-01",
+    ]);
+    expect(noted.exitCode).toBe(0);
+    expect(noted.stdout).toContain("蹇"); // reported against the comparator pick…
+    expect(noted.stdout).not.toContain("屯"); // …not the last-appended cast
+
+    // The written ref is the precise content key, NOT the bare date — a bare date
+    // would re-resolve to the day's last cast (屯) in the TUI.
+    const { readFile } = await import("node:fs/promises");
+    const raw = await readFile(join(dataDir, "notes.jsonl"), "utf-8");
+    const note = JSON.parse(raw.trim().split("\n").pop()!);
+    expect(note.ref).toBe("2026-01-01#39.0."); // entryNoteRef(蹇): date#primary.becoming.changing
+    expect(note.ref).not.toBe("2026-01-01");
+
+    // End-to-end: the TUI's loader attaches the note to 蹇 (the reported reading),
+    // never to 屯 (the day's last cast a bare ref would have picked).
+    const { JsonlJournalStore, loadEntriesWithNotes } = await import("@iching/storage");
+    const store = new JsonlJournalStore(join(dataDir, "history.jsonl"));
+    const annotated = await loadEntriesWithNotes(store);
+    const noteHolder = annotated.find((e) => e.notes.length > 0)!;
+    expect(noteHolder.cast.primary).toBe(39); // 蹇 carries the note, not 屯 (3)
+    expect(noteHolder.notes[0].text).toBe("the precise one");
+  }, 20_000);
+
   test("note record on disk matches the schema shape", async () => {
     await seedJournal(dataDir, [makeEntry("2026-01-01", 1, null)]);
     await runCli(dataDir, ["journal", "note", "shape check"]);
