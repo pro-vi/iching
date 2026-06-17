@@ -77,6 +77,22 @@ async function seedCache(dataDir: string, cache: DailyCache): Promise<void> {
   );
 }
 
+/** A single today reading in history.jsonl — the durable record the cache mirrors. */
+function todayEntry(): Record<string, unknown> {
+  return {
+    date: utcToday(),
+    cast: makeCast(), // 屯 with line 1 moving → 比
+    timestamp: `${utcToday()}T09:00:00.000Z`,
+    method: "yarrow",
+    intention: "recovered from history",
+  };
+}
+
+async function seedJournal(dataDir: string, entries: Record<string, unknown>[]): Promise<void> {
+  const lines = entries.map((e) => JSON.stringify(e)).join("\n") + "\n";
+  await writeFile(join(dataDir, "history.jsonl"), lines, "utf-8");
+}
+
 describe("today command", () => {
   let dataDir: string;
 
@@ -174,5 +190,44 @@ describe("today command", () => {
     const fullKeys = Object.keys(JSON.parse(full.stdout)).sort();
 
     expect(emptyKeys).toEqual(fullKeys);
+  }, 20_000);
+
+  // Durable recovery: a successful journal append can outlive its cache write
+  // (cache never written, or quarantined as corrupt). The journal is the durable
+  // record — the hook recovers from it the same way — so `today` must surface
+  // today's reading from history.jsonl rather than claim "no reading yet".
+  test("recovers today's reading from the journal when the cache is missing", async () => {
+    await seedJournal(dataDir, [todayEntry()]); // no daily-cache.json written
+    const { exitCode, stdout } = await runCli(dataDir, ["today"]);
+    expect(exitCode).toBe(0);
+    expect(stdout).not.toContain("no reading yet today");
+    expect(stdout).toContain(`Date: ${utcToday()}`);
+    expect(stdout).toContain("Intention: recovered from history");
+    expect(stdout).toContain("屯");
+    expect(stdout).toContain("Hexagram 3");
+    expect(stdout).toContain("Becoming:");
+    expect(stdout).toContain("比");
+    expect(stdout).toContain("Reading (啟蒙):"); // structure rebuilt from the cast
+  }, 20_000);
+
+  test("a stale cache does not hide today's journal reading", async () => {
+    await seedCache(dataDir, makeCache("2001-01-01")); // yesterday's cache lingers…
+    await seedJournal(dataDir, [todayEntry()]); // …but history holds today
+    const { exitCode, stdout } = await runCli(dataDir, ["today"]);
+    expect(exitCode).toBe(0);
+    expect(stdout).not.toContain("no reading yet today");
+    expect(stdout).toContain("Hexagram 3");
+  }, 20_000);
+
+  test("--json recovers today's reading from the journal", async () => {
+    await seedJournal(dataDir, [todayEntry()]);
+    const { exitCode, stdout } = await runCli(dataDir, ["--json", "today"]);
+    expect(exitCode).toBe(0);
+    const payload = JSON.parse(stdout);
+    expect(payload.date).toBe(utcToday());
+    expect(payload.primary.number).toBe(3);
+    expect(payload.becoming.number).toBe(8);
+    expect(payload.method).toBe("yarrow");
+    expect(payload.intention).toBe("recovered from history");
   }, 20_000);
 });
