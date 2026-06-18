@@ -10,7 +10,7 @@ export interface HexagramHistory {
 }
 
 /** Scan journal for all casts of a specific hexagram by KW number */
-export async function getHexagramHistory(
+export async function loadHexagramHistory(
   store: JournalStore,
   kwNumber: number,
 ): Promise<HexagramHistory> {

@@ -1,12 +1,12 @@
 // Scene-construction helpers shared by main.ts and reading-flow.
 // These centralize the wiring patterns that previously lived inline
-// (DetailScene + getHexagramHistory hydration, plus the SceneRouter
+// (DetailScene + loadHexagramHistory hydration, plus the SceneRouter
 // factories used by browse/journal navigation).
 
 import type { DisplayLanguage, ReflectionNote } from "@iching/core";
 import {
   entryNoteRef,
-  getHexagramHistory,
+  loadHexagramHistory,
   loadEntriesWithNotes,
   type AnnotatedEntry,
   type JsonlJournalStore,
@@ -47,7 +47,7 @@ export function makeDetailScene(
   changedPositions?: number[],
 ): DetailScene {
   const scene = new DetailScene(kw, deps.glyphConfig, deps.language, changedPositions);
-  getHexagramHistory(deps.journal, kw)
+  loadHexagramHistory(deps.journal, kw)
     .then((h) => scene.setHistory(h.castCount, h.lastCastDate))
     .catch(() => {
       // A corrupt journal must not surface as an unhandled rejection (which

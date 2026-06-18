@@ -84,7 +84,7 @@ describe("makeDetailScene — journal history hydration", () => {
   });
 
   test("hydrates a hexagram's cast count and last date from the journal", async () => {
-    // makeDetailScene fires getHexagramHistory → setHistory so opening a
+    // makeDetailScene fires loadHexagramHistory → setHistory so opening a
     // hexagram ([g] from a reading, or the dictionary) shows "Cast N times
     // (last …)". Only the crash path was pinned; this locks the happy path,
     // so a broken wiring (wrong kw, dropped .then) can't silently blank it.

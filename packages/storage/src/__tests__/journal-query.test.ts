@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { JsonlJournalStore } from "../json/jsonl-journal.js";
-import { getHexagramHistory, loadEntriesWithNotes, noteMatchesEntry, entryNoteRef } from "../journal-query.js";
+import { loadHexagramHistory, loadEntriesWithNotes, noteMatchesEntry, entryNoteRef } from "../journal-query.js";
 import type { ReflectionNote } from "@iching/core";
 import { castOf } from "@iching/core/testing";
 
@@ -11,7 +11,7 @@ import { castOf } from "@iching/core/testing";
 // primary/becoming/derived from the lines, so it survives isCastShaped on read).
 const makeCast = (primary: number) => castOf(primary);
 
-describe("getHexagramHistory", () => {
+describe("loadHexagramHistory", () => {
   let tmpDir: string;
   let store: JsonlJournalStore;
 
@@ -25,7 +25,7 @@ describe("getHexagramHistory", () => {
   });
 
   test("returns zero counts for empty journal", async () => {
-    const history = await getHexagramHistory(store, 1);
+    const history = await loadHexagramHistory(store, 1);
     expect(history.castCount).toBe(0);
     expect(history.lastCastDate).toBeNull();
     expect(history.dates).toHaveLength(0);
@@ -36,7 +36,7 @@ describe("getHexagramHistory", () => {
     await store.append({ date: "2026-03-29", cast: makeCast(2) });
     await store.append({ date: "2026-03-30", cast: makeCast(1) });
 
-    const history = await getHexagramHistory(store, 1);
+    const history = await loadHexagramHistory(store, 1);
     expect(history.castCount).toBe(2);
     expect(history.lastCastDate).toBe("2026-03-30");
     expect(history.dates).toEqual(["2026-03-28", "2026-03-30"]);
@@ -45,7 +45,7 @@ describe("getHexagramHistory", () => {
   test("returns empty for hexagram never cast", async () => {
     await store.append({ date: "2026-03-28", cast: makeCast(1) });
 
-    const history = await getHexagramHistory(store, 42);
+    const history = await loadHexagramHistory(store, 42);
     expect(history.castCount).toBe(0);
     expect(history.lastCastDate).toBeNull();
   });
@@ -57,7 +57,7 @@ describe("getHexagramHistory", () => {
     await store.append({ date: "2026-03-30", cast: makeCast(1) }); // newest, appended first
     await store.append({ date: "2026-03-25", cast: makeCast(1) }); // older, appended last
 
-    const history = await getHexagramHistory(store, 1);
+    const history = await loadHexagramHistory(store, 1);
     expect(history.castCount).toBe(2);
     expect(history.lastCastDate).toBe("2026-03-30"); // the max, not "2026-03-25"
   });

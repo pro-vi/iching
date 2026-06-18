@@ -22,7 +22,7 @@ export { atomicWriteJson } from "./json/atomic-write.js";
 export {
   type HexagramHistory,
   type AnnotatedEntry,
-  getHexagramHistory,
+  loadHexagramHistory,
   loadEntriesWithNotes,
   noteMatchesEntry,
   entryNoteRef,
