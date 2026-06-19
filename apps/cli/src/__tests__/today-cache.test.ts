@@ -134,6 +134,28 @@ describe("resolveTodayReading — durable journal recovery", () => {
     expect(result).toBeNull();
   });
 
+  test("recovery re-warms the cache so the next read hits it (no second journal scan)", async () => {
+    const cache = memoryStore(null);
+    let latestCalls = 0;
+    const journal: JournalStore = {
+      ...journalWith(makeEntry("2026-06-10", "from journal")),
+      async latest() {
+        latestCalls++;
+        return makeEntry("2026-06-10", "from journal");
+      },
+    };
+    const r1 = await resolveTodayReading(cache, journal, () => "2026-06-10");
+    expect(r1?.date).toBe("2026-06-10");
+    expect(cache.record?.date).toBe("2026-06-10"); // cache healed from the journal…
+    expect(cache.record?.shown).toBe(true);
+    expect(latestCalls).toBe(1);
+
+    // …so the next resolve is served from the now-warm cache, not a fresh scan.
+    const r2 = await resolveTodayReading(cache, journal, () => "2026-06-10");
+    expect(r2?.intention).toBe("from journal");
+    expect(latestCalls).toBe(1); // still 1 — the journal was not consulted again
+  });
+
   test("a journal read failure degrades to null, never throws", async () => {
     const throwing: JournalStore = {
       ...journalWith(null),

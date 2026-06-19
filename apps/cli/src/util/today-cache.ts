@@ -34,7 +34,7 @@ export async function resolveTodayReading(
   if (recovered && recovered.date === t) {
     // The journal entry carries no structure/shown; derive structure from the
     // cast (as the hook does) and mark it shown — it was cast today.
-    return {
+    const rebuilt: DailyCacheRecord = {
       date: recovered.date,
       cast: recovered.cast,
       shown: true,
@@ -43,6 +43,13 @@ export async function resolveTodayReading(
       method: recovered.method,
       rng: recovered.rng,
     };
+    // Re-warm the cache (heal the mirror) so the NEXT read hits it instead of
+    // re-scanning the journal — the home loop resolves this every iteration, and
+    // `iching today` can run from a shell greeting on every prompt. Best-effort:
+    // a read-only dir just means the next read recovers again. The hook re-writes
+    // the cache on recovery the same way.
+    await cacheStore.write(rebuilt).catch(() => {});
+    return rebuilt;
   }
   return null;
 }

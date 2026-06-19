@@ -42,10 +42,25 @@ the cache directly.
 | `iching today` (`apps/cli/src/commands/today.ts`) | ✅ uses `resolveTodayReading` | plain + `--json` |
 | Hook (`apps/cli/src/hook/adapter.ts`) | ✅ reference reconciler | a *read-modify-write*, not a pure read: it distinguishes cache-hit / journal-recovery / fresh-cast because each has different persistence (recovery must NOT re-append a duplicate, then re-writes the cache). Keeps its own branching by design; shares the principle, not the helper. |
 
+On a successful journal recovery the resolver **re-warms the cache** (writes the
+rebuilt record back, best-effort) so the next read — the home loop every
+iteration, or `iching today` from a shell greeting on every prompt — hits the
+mirror instead of re-scanning the journal.
+
+**Documented exception — seeded casts.** A `--seed` cast (deterministic replay /
+sandbox) writes the daily cache (`shown:true`, `rng.source:"seed"`) but
+deliberately SKIPS the journal append (`apps/cli/src/app/reading-flow.ts`:
+`if (!usedSeed)` guards only the journal write) — a reproducible replay must not
+pollute the durable record of genuine castings. So a seeded reading is the day's
+*cache* but is **not** journal-recoverable: lose the cache and
+`resolveTodayReading` correctly reports "no reading yet" rather than resurrecting
+a synthetic cast. The journal stays the source of truth for *real* readings;
+seeded casts are intentionally ephemeral.
+
 **Anchor.** `apps/cli/src/__tests__/today-cache.test.ts` (resolver unit: cache
-hit / stale / missing / journal recovery / journal-not-today / read failure),
-`apps/cli/src/__tests__/today-command.test.ts` (end-to-end recovery, plain +
-`--json`), and the hook's journal-recovery path in
+hit / stale / missing / journal recovery / journal-not-today / read failure /
+cache re-warm), `apps/cli/src/__tests__/today-command.test.ts` (end-to-end
+recovery, plain + `--json`), and the hook's journal-recovery path in
 `apps/cli/src/__tests__/` hook tests.
 
 ---
@@ -74,6 +89,17 @@ than the writer chose.
 |---|---|
 | TUI note write (`apps/cli/src/app/scene-factories.ts`) | ✅ `entryNoteRef(entry)` |
 | CLI `note --date` / `note` (`apps/cli/src/commands/journal.ts`) | ✅ `entryNoteRef(target)` |
+
+**Scope — the guarantee is for app-written notes.** Every note the app writes
+carries a precise ref (`entryNoteRef`: timestamp, or a content key for a legacy
+timestamp-less reading), so it resolves identically in both readers. A *legacy /
+hand-edited BARE-DATE* ref (which the app never emits) is the one residual edge:
+on a multi-reading timestamp-less day the TUI's `loadEntriesWithNotes` attaches it
+to the day's LAST-appended cast, while the CLI's `journal show <date>` matches it
+against the comparator-MAX cast it displays — different readings. Bounded and
+accepted: the app produces no bare-date refs, so this only affects manually-edited
+`notes.jsonl`. (To close it fully, `loadEntriesWithNotes`'s bare-date fallback
+would select the `compareEntryTime`-max for the date instead of the last-appended.)
 
 **Anchor.** `packages/storage/src/__tests__/journal-query.test.ts` (distinct
 refs by content; resolution), and the legacy-multi-reading test in
