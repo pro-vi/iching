@@ -90,6 +90,12 @@ export interface JournalSceneOptions {
   onNote?: (entry: JournalEntryView, text: string) => void | Promise<void>;
   /** Local YYYY-MM-DD — injected for tests; defaults to the system clock. */
   today?: () => string;
+  /**
+   * config.timezone — the 時 phase-of-day binning projects each reading's
+   * timestamp into this zone (machine-local when absent/"system"), so the pane
+   * agrees with the daily anchor instead of the runner's machine clock.
+   */
+  timeZone?: string;
 }
 
 /**
@@ -542,9 +548,9 @@ export class JournalScene implements Scene {
   private buildPatternRows(ctx: SceneContext, lang: DisplayLanguage): PatternRow[] {
     const t = getTheme();
     const today = this.opts.today ? this.opts.today() : localToday();
-    const key = `${today}:${this.entries.length}`;
+    const key = `${today}:${this.entries.length}:${this.opts.timeZone ?? ""}`;
     if (!this.cachedPatterns || this.cachedPatternsKey !== key) {
-      this.cachedPatterns = computeJournalPatterns(this.entries, today);
+      this.cachedPatterns = computeJournalPatterns(this.entries, today, undefined, this.opts.timeZone);
       this.cachedPatternsKey = key;
     }
     const patterns = this.cachedPatterns;

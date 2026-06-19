@@ -402,6 +402,19 @@ describe("computeJournalPatterns — 時 phase-of-day distribution", () => {
     }
     expect(tod!.counts).toEqual(want);
   });
+
+  test("phase-of-day binning honors the timezone, not the runner's machine clock", () => {
+    // Five readings at the IDENTICAL instant 02:00 UTC. Projected into UTC that is
+    // 夜 (night, hour 2 ∈ 23–4); the same instant is 10:00 in Shanghai → 晨 (dawn).
+    // The pane bins into the configured zone, so the distribution differs by zone.
+    const entries = Array.from({ length: 5 }, () =>
+      makeEntry("2026-01-01", 1, { timestamp: "2026-01-01T02:00:00.000Z" }),
+    );
+    const utc = computeJournalPatterns(entries, "2026-01-01", 5, "UTC").timeOfDay;
+    const sh = computeJournalPatterns(entries, "2026-01-01", 5, "Asia/Shanghai").timeOfDay;
+    expect(utc!.counts).toEqual([0, 0, 0, 5]); // 02:00 → 夜
+    expect(sh!.counts).toEqual([5, 0, 0, 0]); // 10:00 → 晨
+  });
 });
 
 describe("computeJournalPatterns — invariants over random journals (fuzz)", () => {

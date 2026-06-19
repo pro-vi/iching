@@ -95,6 +95,10 @@ export {
   entryTimeKey,
   compareEntryTime,
 } from "./journal/patterns.js";
+
+// Timezone-aware projections of an instant — the daily anchor + 時 phase binning
+// honor config.timezone ("system" | IANA) instead of always machine-local.
+export { dateInZone, hourInZone } from "./zone.js";
 export type {
   JournalPatterns,
   PhaseDistribution,

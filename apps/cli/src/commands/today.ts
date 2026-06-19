@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { resolvePaths, JsonDailyCacheStore, JsonlJournalStore } from "@iching/storage";
+import { resolvePaths, JsonDailyCacheStore, JsonlJournalStore, JsonConfigStore } from "@iching/storage";
 import { formatTodayPlain } from "../output/plain.js";
 import { outputJson, todayToJson, noTodayToJson } from "../output/json.js";
 import { localToday } from "../util/today.js";
@@ -15,7 +15,8 @@ export function registerTodayCommand(program: Command): void {
         opts.dataDir ? { dataDir: opts.dataDir } : undefined,
       );
 
-      const today = localToday();
+      const config = await new JsonConfigStore(paths.config).load();
+      const today = localToday(config.timezone);
       // Cache-first, journal-fallback via the shared durable-recovery resolver,
       // so `today` agrees with the TUI [t] reopen and the hook on what today's
       // reading is — even when the cache is missing, stale, or quarantined.

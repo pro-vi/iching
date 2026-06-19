@@ -68,6 +68,10 @@ async function main() {
     let castMode = savedConfig.castMode ?? "auto";
     let entropy = savedConfig.entropy ?? "crypto";
     let language = savedConfig.language;
+    // The daily anchor in the configured timezone (machine-local for "system").
+    // A closure so every call re-reads the clock — the home scene blocks across
+    // midnight, and "today" must roll over when [t] is finally pressed.
+    const today = () => localToday(savedConfig.timezone);
 
     const session = new TerminalSession();
     const colorSupport = detectColorSupport();
@@ -107,7 +111,7 @@ async function main() {
         // Resolved per iteration (not once at startup) so a session left open
         // past midnight rolls over to the new day's reading.
         const homeScene = new HomeScene({
-          todayCast: await resolveTodayReading(cacheStore, journalStore, localToday),
+          todayCast: await resolveTodayReading(cacheStore, journalStore, today),
           taijituStyle,
           devMode: !!opts.dev,
         });
@@ -122,7 +126,7 @@ async function main() {
         // Build per-iteration deps so any settings updates from prior iterations are picked up.
         const flowDeps = {
           run, runRouter,
-          paths, cacheStore, today: localToday,
+          paths, cacheStore, today,
           session: { cols: session.cols, rows: session.rows },
           glyphConfig,
           language,
@@ -167,7 +171,7 @@ async function main() {
             // scene blocks across midnight), so re-resolve clock AND cache at
             // dispatch time. Stale → fall through; the loop re-renders home
             // with current data.
-            const todayCache = await resolveTodayReading(cacheStore, journalStore, localToday);
+            const todayCache = await resolveTodayReading(cacheStore, journalStore, today);
             if (todayCache) {
               const result = await runReadingFlow(flowDeps, {
                 purpose: "replay",
@@ -202,6 +206,8 @@ async function main() {
               journal,
               entries,
               session: { cols: session.cols, rows: session.rows },
+              today,
+              timeZone: savedConfig.timezone,
             };
             const router = new SceneRouter(
               makeJournalScene(journalDeps),

@@ -6,6 +6,7 @@ import type { HistoryEntry, ReflectionNote } from "@iching/core";
 import {
   resolvePaths,
   JsonlJournalStore,
+  JsonConfigStore,
   noteMatchesEntry,
   entryNoteRef,
   stripTerminalControls,
@@ -179,14 +180,15 @@ export function registerJournalCommand(program: Command): void {
         entries.push(entry);
       }
 
-      const today = localToday();
+      const tz = (await new JsonConfigStore(paths.config).load()).timezone;
+      const today = localToday(tz);
       // A historical window (--until in the past) is a retrospective: measure
       // cadence and "this month" AS OF the window's end, not real today.
       // Otherwise idleDays counts the months since the window closed and
       // recent30/thisMonth read 0 — numbers about now, not about the period
       // observed. An open-ended or future --until keeps real today.
       const asOf = cmdOpts.until && cmdOpts.until < today ? cmdOpts.until : today;
-      const patterns = computeJournalPatterns(entries, asOf);
+      const patterns = computeJournalPatterns(entries, asOf, undefined, tz);
       if (globalOpts.json) {
         outputJson(journalPatternsToJson(patterns));
       } else {
@@ -214,11 +216,12 @@ export function registerJournalCommand(program: Command): void {
       );
       const store = new JsonlJournalStore(paths.state);
       await assertJournalReadable(paths.state);
+      const tz = (await new JsonConfigStore(paths.config).load()).timezone;
 
       // Resolve special date keywords
       let targetDate: string | null = null;
       if (dateArg === "today") {
-        targetDate = localToday();
+        targetDate = localToday(tz);
       } else if (dateArg === "latest") {
         targetDate = null; // find the last entry
       } else {
@@ -244,7 +247,7 @@ export function registerJournalCommand(program: Command): void {
       }
 
       if (!found) {
-        const label = dateArg === "today" ? `today (${localToday()})` : dateArg;
+        const label = dateArg === "today" ? `today (${localToday(tz)})` : dateArg;
         console.error(`No reading found for ${label}`);
         reportSkippedLines(store);
         process.exit(1);
@@ -276,6 +279,7 @@ export function registerJournalCommand(program: Command): void {
       );
       const store = new JsonlJournalStore(paths.state);
       await assertJournalReadable(paths.state);
+      const tz = (await new JsonConfigStore(paths.config).load()).timezone;
 
       // Strip terminal control sequences before the text becomes durable —
       // a persisted note is replayed raw on every `journal show`, so ESC/OSC
@@ -318,7 +322,7 @@ export function registerJournalCommand(program: Command): void {
         // on a legacy timestamp-less day with several readings it would re-attach
         // to a different reading than the comparator just selected as `target`.
         ref: entryNoteRef(target),
-        date: localToday(),
+        date: localToday(tz),
         timestamp: new Date().toISOString(),
         text: trimmed,
       };

@@ -40,6 +40,10 @@ export interface DetailDeps {
 export interface JournalDeps extends DetailDeps {
   entries: JournalEntryView[];
   session: SessionDims;
+  /** Timezone-aware daily anchor (defaults to machine-local localToday). */
+  today?: () => string;
+  /** config.timezone — the 時 phase binning projects timestamps into it. */
+  timeZone?: string;
 }
 
 /** Construct DetailScene + kick off async history hydration. */
@@ -91,8 +95,10 @@ export function makeBrowseFactory(deps: DetailDeps): SceneFactory {
  * crashes the scene loop or escapes as an unhandled rejection.
  */
 export function makeJournalScene(deps: JournalDeps): JournalScene {
+  const today = deps.today ?? localToday;
   return new JournalScene(deps.entries, {
-    today: localToday,
+    today,
+    timeZone: deps.timeZone,
     onNote: (entry, text) => {
       const note: ReflectionNote = {
         kind: "note",
@@ -100,7 +106,7 @@ export function makeJournalScene(deps: JournalDeps): JournalScene {
         // legacy timestamp-less entry — so a note on one of several same-day
         // legacy casts re-attaches to the one annotated, not the day's last.
         ref: entryNoteRef(entry),
-        date: localToday(),
+        date: today(),
         timestamp: new Date().toISOString(),
         text,
       };

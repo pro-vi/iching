@@ -12,6 +12,7 @@
 
 import { GUA } from "../data/gua.js";
 import { trigramIndex } from "../identify/structure.js";
+import { hourInZone } from "../zone.js";
 import type { HistoryEntry } from "../types.js";
 
 // The data contract lives in ./patterns/types.ts; re-export it so @iching/core's
@@ -81,11 +82,15 @@ export { compareEntryTime, entryTimeKey, phaseOfHour, PHASE_MIN_TIMESTAMPED };
 /**
  * Derive the patterns summary from journal entries.
  * @param today local YYYY-MM-DD — its YYYY-MM prefix defines "this month".
+ * @param timeZone IANA zone (or "system"/undefined for machine-local) — the 時
+ *   phase-of-day binning projects each timestamp into this zone, so it agrees with
+ *   the daily anchor instead of the report-runner's machine clock.
  */
 export function computeJournalPatterns(
   entries: HistoryEntry[],
   today: string,
   topN = 5,
+  timeZone?: string,
 ): JournalPatterns {
   const month = today.slice(0, 7);
   const freq = new Map<number, { count: number; lastDate: string }>();
@@ -126,9 +131,9 @@ export function computeJournalPatterns(
     // it here and it would pile at a false midnight phase. An unparseable
     // timestamp is likewise skipped, never bucketed into 夜 by a NaN hour.
     if (entry.timestamp) {
-      const hour = new Date(entry.timestamp).getHours();
-      if (!Number.isNaN(hour)) {
-        phaseCounts[phaseOfHour(hour)]++;
+      const instant = new Date(entry.timestamp);
+      if (!Number.isNaN(instant.getTime())) {
+        phaseCounts[phaseOfHour(hourInZone(instant, timeZone))]++;
         timestampedCount++;
       }
     }

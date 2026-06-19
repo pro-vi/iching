@@ -50,7 +50,11 @@ export async function runHookAdapter(): Promise<void> {
   const cacheStore = new JsonDailyCacheStore(paths.cache);
   const journal = new JsonlJournalStore(paths.state);
 
-  const today = localToday();
+  // Read config once, QUIET (a corrupt/unreadable config must not spam stderr on
+  // every shell prompt). Used for both the daily anchor's timezone and the
+  // fresh-cast entropy preference below.
+  const config = await new JsonConfigStore(paths.config, { quiet: true }).load();
+  const today = localToday(config.timezone);
 
   let cast: Cast;
   let structure: Structure;
@@ -95,13 +99,9 @@ export async function runHookAdapter(): Promise<void> {
     source = new CryptoRandomSource();
   } else {
     // Fresh cast — instant coins, recorded as such. Honor the saved entropy
-    // config like commands/cast.ts does; the hook carries no intention, so a
-    // bound cast salts with the empty moment only (intentionBound stays false
-    // — chance is primary either way). Read it QUIET: a corrupt/unreadable
-    // config must fall back to defaults silently here, not print a warning that
-    // the hook would repeat on every shell prompt (the persist path below is
-    // deliberately silent for the same reason; the TUI surfaces the notice).
-    const config = await new JsonConfigStore(paths.config, { quiet: true }).load();
+    // config like commands/cast.ts does (loaded once above); the hook carries no
+    // intention, so a bound cast salts with the empty moment only (intentionBound
+    // stays false — chance is primary either way).
     if (config.entropy === "bound") {
       source = new BoundRandomSource("");
       rng = { source: "bound", intentionBound: false };
