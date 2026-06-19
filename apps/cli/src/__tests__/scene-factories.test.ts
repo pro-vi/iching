@@ -3,7 +3,7 @@
 // factory that would crash at runtime once SceneRouter started passing typed
 // SceneSignal objects instead of dotted strings.
 
-import { describe, test, expect, beforeEach } from "bun:test";
+import { describe, test, expect, beforeEach, spyOn } from "bun:test";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -64,6 +64,32 @@ describe("makeBrowseFactory", () => {
     const factory = makeBrowseFactory({ journal });
     expect(factory({ type: "openJournal" })).toBeNull();
     expect(factory({ type: "openSettings" })).toBeNull();
+  });
+
+  test("the King Wen walk scans the journal ONCE, not per ←/→ keystroke", async () => {
+    // ←/→ emits openDetail{replace} per keystroke → a fresh DetailScene each.
+    // Before the memo, every step re-streamed + re-parsed the whole history.jsonl
+    // (a MAJOR per-keypress cost). The factory now shares one scan across the walk.
+    await journal.append({ date: "2026-01-05", cast: castOf(1), timestamp: "2026-01-05T09:00:00.000Z" });
+    await journal.append({ date: "2026-02-20", cast: castOf(1), timestamp: "2026-02-20T09:00:00.000Z" });
+    await journal.append({ date: "2026-03-28", cast: castOf(1), timestamp: "2026-03-28T09:00:00.000Z" });
+    await journal.append({ date: "2026-03-30", cast: castOf(2), timestamp: "2026-03-30T09:00:00.000Z" });
+
+    const streamSpy = spyOn(journal, "stream");
+    const factory = makeBrowseFactory({ journal });
+    const scene1 = factory({ type: "openDetail", kw: 1 }) as DetailScene; // step 1
+    factory({ type: "openDetail", kw: 2 }); // → (walk forward)
+    factory({ type: "openDetail", kw: 1 }); // ← (walk back)
+
+    for (let i = 0; i < 50 && scene1.getModel().castCount === 0; i++) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    // Hydration is still correct off the shared scan…
+    expect(scene1.getModel().castCount).toBe(3);
+    expect(scene1.getModel().lastCastDate).toBe("2026-03-28");
+    // …and the three-step walk read the journal exactly once.
+    expect(streamSpy).toHaveBeenCalledTimes(1);
+    streamSpy.mockRestore();
   });
 });
 

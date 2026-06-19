@@ -23,6 +23,7 @@ export {
   type HexagramHistory,
   type AnnotatedEntry,
   loadHexagramHistory,
+  loadHexagramHistories,
   loadEntriesWithNotes,
   noteMatchesEntry,
   entryNoteRef,

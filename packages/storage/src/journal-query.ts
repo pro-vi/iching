@@ -34,6 +34,34 @@ export async function loadHexagramHistory(
   };
 }
 
+/**
+ * Scan the journal ONCE, building per-hexagram history for every KW number drawn.
+ * The dictionary's King Wen walk (←/→, h/l) opens a fresh DetailScene per keystroke;
+ * a per-hexagram scan (loadHexagramHistory) would re-stream the whole journal each
+ * time, so the walk memoizes this single pass and reads each hexagram's history in
+ * O(1). Same lastCastDate rule (MAX over dates, not append-tail) as the per-kw scan.
+ */
+export async function loadHexagramHistories(
+  store: JournalStore,
+): Promise<Map<number, HexagramHistory>> {
+  const datesByKw = new Map<number, string[]>();
+  for await (const entry of store.stream()) {
+    const kw = entry.cast.primary;
+    const arr = datesByKw.get(kw);
+    if (arr) arr.push(entry.date);
+    else datesByKw.set(kw, [entry.date]);
+  }
+  const out = new Map<number, HexagramHistory>();
+  for (const [kw, dates] of datesByKw) {
+    out.set(kw, {
+      castCount: dates.length,
+      lastCastDate: dates.reduce((max, d) => (d > max ? d : max)),
+      dates,
+    });
+  }
+  return out;
+}
+
 /** A history entry with its reflection notes attached (append order). */
 export interface AnnotatedEntry extends HistoryEntry {
   notes: ReflectionNote[];

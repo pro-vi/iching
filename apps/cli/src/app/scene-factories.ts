@@ -7,8 +7,10 @@ import type { DisplayLanguage, ReflectionNote } from "@iching/core";
 import {
   entryNoteRef,
   loadHexagramHistory,
+  loadHexagramHistories,
   loadEntriesWithNotes,
   type AnnotatedEntry,
+  type HexagramHistory,
   type JsonlJournalStore,
 } from "@iching/storage";
 import {
@@ -45,9 +47,17 @@ export function makeDetailScene(
   kw: number,
   deps: DetailDeps,
   changedPositions?: number[],
+  histories?: Promise<Map<number, HexagramHistory>>,
 ): DetailScene {
   const scene = new DetailScene(kw, deps.glyphConfig, deps.language, changedPositions);
-  loadHexagramHistory(deps.journal, kw)
+  // Resolve this hexagram's cast history. Walking the King Wen sequence (←/→)
+  // opens a fresh DetailScene per keystroke; when the factory passes a memoized
+  // one-scan map, each step reads in O(1) instead of re-streaming the whole
+  // journal. Standalone callers (no memo) fall back to a single-hexagram scan.
+  const load: Promise<HexagramHistory> = histories
+    ? histories.then((m) => m.get(kw) ?? { castCount: 0, lastCastDate: null, dates: [] })
+    : loadHexagramHistory(deps.journal, kw);
+  load
     .then((h) => scene.setHistory(h.castCount, h.lastCastDate))
     .catch(() => {
       // A corrupt journal must not surface as an unhandled rejection (which
@@ -59,9 +69,14 @@ export function makeDetailScene(
 
 /** SceneRouter factory for the dictionary path: handles openDetail, falls back through. */
 export function makeBrowseFactory(deps: DetailDeps): SceneFactory {
+  // One journal scan shared across the whole King Wen walk in this dictionary
+  // session (lazy — paid only when the first detail opens). Without this, every
+  // ←/→ keystroke re-read and re-parsed the entire history.jsonl.
+  let histories: Promise<Map<number, HexagramHistory>> | null = null;
   return (signal): Scene | null => {
     if (signal.type === "openDetail") {
-      return makeDetailScene(signal.kw, deps, signal.changedPositions);
+      if (!histories) histories = loadHexagramHistories(deps.journal);
+      return makeDetailScene(signal.kw, deps, signal.changedPositions, histories);
     }
     return null;
   };
@@ -96,6 +111,9 @@ export function makeJournalScene(deps: JournalDeps): JournalScene {
 
 /** SceneRouter factory for the journal path: handles openJournalReading, openDetail, openDictionary, openJournal. */
 export function makeJournalFactory(deps: JournalDeps): SceneFactory {
+  // Shared one-scan history memo for the King Wen walk reached from a reading's
+  // [g] → detail (same reason as makeBrowseFactory).
+  let histories: Promise<Map<number, HexagramHistory>> | null = null;
   return (signal): Scene | null => {
     if (signal.type === "openJournalReading") {
       // The selected entry rides the signal by reference — no date/timestamp
@@ -118,7 +136,8 @@ export function makeJournalFactory(deps: JournalDeps): SceneFactory {
       return cs;
     }
     if (signal.type === "openDetail") {
-      return makeDetailScene(signal.kw, deps, signal.changedPositions);
+      if (!histories) histories = loadHexagramHistories(deps.journal);
+      return makeDetailScene(signal.kw, deps, signal.changedPositions, histories);
     }
     if (signal.type === "openDictionary") return new BrowseScene();
     // `j` from a replayed CastScene inside the journal router → reset to the journal list.
