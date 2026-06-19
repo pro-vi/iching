@@ -59,7 +59,14 @@ export function entryTimeKey(entry: HistoryEntry): string {
   // displacing the entry's own date. Fall back to date-at-midnight — the same
   // key a timestamp-less entry uses — whenever the stamp can't be trusted.
   const ts = entry.timestamp;
-  if (ts && !Number.isNaN(Date.parse(ts))) return ts;
+  if (ts) {
+    const ms = Date.parse(ts);
+    // Canonicalize to UTC Z so lexical order == chronological order. App data is
+    // already `new Date().toISOString()` (Z) and round-trips unchanged; a hand-
+    // edited / imported stamp carrying a zone offset (e.g. "…T20:00:00+08:00")
+    // would otherwise sort lexically against the Z stamps and land out of order.
+    if (!Number.isNaN(ms)) return new Date(ms).toISOString();
+  }
   return `${entry.date}T00:00:00.000Z`;
 }
 

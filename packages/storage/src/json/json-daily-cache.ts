@@ -5,20 +5,25 @@ import { atomicWriteJson } from "./atomic-write.js";
 import { isCastShaped } from "./cast-shape.js";
 
 /**
- * True for a persisted structure with the upper/lower trigram objects that
- * formatTodayPlain and the hook's display cascade dereference unguarded
- * (structure.upper.sym etc.). structure.becoming is only read behind a
- * truthiness guard, so it stays unchecked.
+ * True for a trigram object carrying the string sym/n/img that the renderers
+ * dereference unguarded (`structure.upper.sym` etc.).
+ */
+function isTrigramShaped(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const t = value as Record<string, unknown>;
+  return typeof t.sym === "string" && typeof t.n === "string" && typeof t.img === "string";
+}
+
+/**
+ * True for a persisted structure whose upper/lower trigrams carry the sym/n/img
+ * that formatTodayPlain and the hook's display cascade dereference unguarded —
+ * a half-shaped `{upper:{},lower:{}}` would otherwise pass and render "undefined".
+ * structure.becoming is only read behind a truthiness guard, so it stays unchecked.
  */
 function isStructureShaped(value: unknown): boolean {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const structure = value as Record<string, unknown>;
-  return (
-    typeof structure.upper === "object" &&
-    structure.upper !== null &&
-    typeof structure.lower === "object" &&
-    structure.lower !== null
-  );
+  return isTrigramShaped(structure.upper) && isTrigramShaped(structure.lower);
 }
 
 /**

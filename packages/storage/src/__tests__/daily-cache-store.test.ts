@@ -241,6 +241,25 @@ describe("JsonDailyCacheStore", () => {
       ).toBeNull();
     });
 
+    test("a structure whose trigrams lack sym/n/img is quarantined", async () => {
+      // formatTodayPlain / the hook dereference structure.upper.sym/.n/.img
+      // unguarded; a half-shaped {upper:{},lower:{}} once passed the shallow object
+      // check and rendered "Upper: undefined". The deep check rejects it like any
+      // other damage (quarantine + reset), so today/hook never print undefined.
+      expect(
+        await readDamaged((r) => {
+          (r as Record<string, unknown>).structure = { upper: {}, lower: {}, becoming: null };
+        }),
+      ).toBeNull();
+      // Missing a single sub-field is enough to reject.
+      expect(
+        await readDamaged((r) => {
+          const s = (r as Record<string, unknown>).structure as Record<string, Record<string, unknown>>;
+          delete s.upper.n;
+        }),
+      ).toBeNull();
+    });
+
     test("changingPositions must be an array of integers", async () => {
       expect(
         await readDamaged((r) => ((r.cast as Record<string, unknown>).changingPositions = "1,2")),

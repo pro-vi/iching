@@ -579,6 +579,15 @@ describe("entryTimeKey", () => {
       .toBe("2026-01-02T09:30:00.000Z");
   });
 
+  test("a zone-offset timestamp is canonicalized to UTC so lexical order == chronological", () => {
+    // App stamps are always `…Z` and round-trip unchanged; a hand-edited/imported
+    // stamp with an offset would otherwise sort lexically ("20…" > "15…") against
+    // the Z stamps and land out of order. 20:00+08:00 IS 12:00Z → sorts before 15:00Z.
+    const k = entryTimeKey({ date: "2026-01-01", cast: makeCast(1), timestamp: "2026-01-01T20:00:00+08:00" });
+    expect(k).toBe("2026-01-01T12:00:00.000Z");
+    expect(k < "2026-01-01T15:00:00.000Z").toBe(true); // chronological, not lexical-on-raw
+  });
+
   test("a missing timestamp falls back to the date at midnight", () => {
     expect(entryTimeKey({ date: "2026-01-02", cast: makeCast(1) })).toBe("2026-01-02T00:00:00.000Z");
   });
