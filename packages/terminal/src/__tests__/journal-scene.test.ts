@@ -1949,3 +1949,51 @@ describe("觀象 pane — the shared label column has a guardrail", () => {
     }
   });
 });
+
+describe("JournalScene incremental search — fast path equals the predicate", () => {
+  const corpus: JournalEntryView[] = [
+    makeEntry("2026-03-01", 1, { intention: "the launch question" }),
+    makeEntry("2026-03-02", 39), // 蹇 Jiǎn
+    makeEntry("2026-03-03", 58, { intention: "about the move", cast: makeCast(58, 21) }), // 兌 → 噬嗑
+    makeEntry("2026-03-04", 2, {
+      intention: "the quiet question",
+      notes: [
+        { kind: "note", ref: "x", date: "2026-03-05", text: "this was about the job offer" } as ReflectionNote,
+      ],
+    }),
+    makeEntry("2026-03-05", 21),
+  ];
+
+  test("setQuery filters identically to entryMatchesQuery across query shapes", () => {
+    // The precomputed-haystack fast path must agree with the exported predicate on
+    // every query shape — intention, Chinese name, pinyin, English, number prefix,
+    // becoming, note text, and misses — so the two never drift.
+    const scene = new JournalScene(corpus);
+    const s = scene as unknown as {
+      setQuery(q: string): void;
+      filtered: JournalEntryView[];
+      entries: JournalEntryView[];
+    };
+    const queries = ["", "  ", "launch", "需", "qian", "jian", "1", "2", "21", "move", "job offer", "JOB", "兑", "zzzzz"];
+    for (const q of queries) {
+      s.setQuery(q);
+      const expected = q.trim().length === 0 ? s.entries : s.entries.filter((e) => entryMatchesQuery(e, q));
+      expect(s.filtered).toEqual(expected);
+    }
+  });
+});
+
+describe("JournalScene patterns rows — memoized across frames", () => {
+  const entries = [makeEntry("2026-03-01", 1), makeEntry("2026-03-02", 2), makeEntry("2026-03-03", 3)];
+
+  test("same (today, count, language, width) returns the cached rows; a change rebuilds", () => {
+    const scene = new JournalScene(entries, { today: () => "2026-03-10" });
+    const s = scene as unknown as { patternRows(ctx: SceneContext, lang: SceneContext["language"]): unknown[] };
+    const ctx = ctxFor(44, 100);
+    scene.enter(ctx);
+    const a = s.patternRows(ctx, "en");
+    expect(s.patternRows(ctx, "en")).toBe(a); // cache hit — not rebuilt every frame
+    expect(s.patternRows({ ...ctx, cols: 50 }, "en")).not.toBe(a); // resize rebuilds
+    expect(s.patternRows(ctx, "zh-Hant")).not.toBe(a); // language rebuilds
+  });
+});

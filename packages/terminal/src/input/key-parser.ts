@@ -351,8 +351,16 @@ export class KeyParser {
     while (buf.length > 0) {
       // Inside a bracketed paste — accumulate until the end marker arrives.
       if (this.pasteData !== null) {
+        const prevLen = this.pasteData.length;
         const merged = concatBytes(this.pasteData, buf);
-        const end = indexOfSeq(merged, PASTE_END);
+        // The end marker can only NEWLY appear at the boundary onward — everything
+        // before prevLen was already scanned on earlier feeds. Start a marker-length
+        // back so a terminator split across the chunk boundary is still found. This
+        // keeps a paste delivered across many chunks linear in total size instead of
+        // re-scanning the whole accumulated buffer on every chunk (was O(N²)).
+        const scanFrom = Math.max(0, prevLen - (PASTE_END.length - 1));
+        const rel = indexOfSeq(merged.subarray(scanFrom), PASTE_END);
+        const end = rel === -1 ? -1 : scanFrom + rel;
         if (end === -1) {
           if (merged.length > PASTE_MAX_BYTES) {
             // The terminator never came within the cap — deliver what was

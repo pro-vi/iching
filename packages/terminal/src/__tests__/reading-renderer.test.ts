@@ -51,6 +51,19 @@ describe("buildReadingLines", () => {
     expect(lines[0].text).toContain("狱");
   });
 
+  test("the untruncated build is memoized across frames; resize busts it", () => {
+    // renderReadingPanel asks for the panel twice per frame at 30 FPS over a
+    // settled reading. The word-wrap + zh simplification is memoized on
+    // (cast, language, width), so identical inputs return the SAME cached array
+    // instead of rebuilding — recomputed only on a new cast or a resize.
+    const cast = realCast(21, [2, 5]); // 噬嗑, two moving lines
+    const a = buildReadingLines(cast, "en", 60, 999); // 999 > panel rows → untruncated
+    const b = buildReadingLines(cast, "en", 60, 999);
+    expect(b).toBe(a); // identical reference: built once, then cache hits
+    expect(readingPanelRows(cast, "en", 60)).toBe(a.length); // shares the same memo
+    expect(buildReadingLines(cast, "en", 40, 999)).not.toBe(a); // a resize rebuilds
+  });
+
   test("two changing lines: a hint leads, then the 爻辭 top-down (upper first)", () => {
     const lines = buildReadingLines(makeCast(21, [4, 1], 42), "zh-Hant", 70, 8);
     expect(lines[0].role).toBe("hint"); // the method hint leads

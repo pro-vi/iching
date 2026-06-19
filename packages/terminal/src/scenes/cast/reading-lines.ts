@@ -51,7 +51,11 @@ export function readingHint(cast: Cast, language: DisplayLanguage): string {
 /**
  * Build the reading-panel lines, wrapped to `width` and truncated to
  * `maxRows` (a dim "…" row stands in for what didn't fit — the detail
- * view always holds the full texts).
+ * view always holds the full texts). The expensive untruncated build
+ * (word-wrap + zh simplification) is memoized on (cast, language, width):
+ * renderReadingPanel runs at 30 FPS over a settled reading whose inputs change
+ * only on a new cast or a resize, and asks for the panel twice per frame (once
+ * untruncated for the layout budget, once budgeted), so both share one build.
  */
 export function buildReadingLines(
   cast: Cast,
@@ -60,7 +64,36 @@ export function buildReadingLines(
   maxRows: number,
 ): ReadingLine[] {
   if (maxRows < 1 || width < 4) return [];
+  const lines = fullReadingLines(cast, language, width);
+  if (lines.length > maxRows) {
+    // Only show the "…" when at least one oracle text survives above it — a
+    // lone ellipsis (or a hint with no text beneath) is not a reading. The
+    // renderer's contract is to skip cleanly and let the detail view be the
+    // full reference, so drop the panel entirely in that case.
+    const kept = lines.slice(0, Math.max(0, maxRows - 1));
+    if (!kept.some((l) => l.role === "text")) return [];
+    return [...kept, { text: "…", role: "more" }];
+  }
+  return lines;
+}
 
+// 1-entry memo of the untruncated panel lines. A cast's reading is fully
+// determined by (primary, becoming, changing positions) + language + width, so
+// the 30 FPS settled-reading loop re-renders the SAME inputs every frame; the
+// cache turns the per-frame word-wrap + zh-simplification into a key compare.
+// Treat the result as READ-ONLY (callers only slice/spread it).
+let panelMemo: { key: string; lines: ReadingLine[] } | null = null;
+
+function fullReadingLines(cast: Cast, language: DisplayLanguage, width: number): ReadingLine[] {
+  const key = `${cast.primary}.${cast.becoming ?? 0}.${cast.changingPositions.join(",")}|${language}|${width}`;
+  if (panelMemo && panelMemo.key === key) return panelMemo.lines;
+  const lines = computeFullReadingLines(cast, language, width);
+  panelMemo = { key, lines };
+  return lines;
+}
+
+/** The untruncated panel lines — the cost (word-wrap + zh simplification). */
+function computeFullReadingLines(cast: Cast, language: DisplayLanguage, width: number): ReadingLine[] {
   const english = language === "en";
   const cn = (s: string): string => (language === "zh-Hans" ? toSimplified(s) : s);
 
@@ -100,16 +133,6 @@ export function buildReadingLines(
       pushText(english ? `${g.extra.name} · ${g.extra.textEn}` : `${cn(g.extra.name)} · ${cn(g.extra.text)}`, true);
     }
   }
-
-  if (lines.length > maxRows) {
-    // Only show the "…" when at least one oracle text survives above it — a
-    // lone ellipsis (or a hint with no text beneath) is not a reading. The
-    // renderer's contract is to skip cleanly and let the detail view be the
-    // full reference, so drop the panel entirely in that case.
-    const kept = lines.slice(0, Math.max(0, maxRows - 1));
-    if (!kept.some((l) => l.role === "text")) return [];
-    return [...kept, { text: "…", role: "more" }];
-  }
   return lines;
 }
 
@@ -122,7 +145,8 @@ export function readingPanelRows(
   language: DisplayLanguage,
   width: number,
 ): number {
-  return buildReadingLines(cast, language, width, Number.MAX_SAFE_INTEGER).length;
+  if (width < 4) return 0;
+  return fullReadingLines(cast, language, width).length;
 }
 
 /** Panel text width for a terminal width — single source for layout + render. */

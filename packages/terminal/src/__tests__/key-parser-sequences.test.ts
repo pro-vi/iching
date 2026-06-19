@@ -149,6 +149,19 @@ describe("KeyParser — bracketed paste", () => {
     parser.dispose();
   });
 
+  test("a paste fed byte-by-byte (end marker straddling every boundary) resolves to one event", () => {
+    // Accumulation only scans the boundary region per chunk now (O(N), not O(N²)
+    // re-scan). This drives the worst case: content + the 6-byte end marker each
+    // delivered one byte at a time, so the terminator is split across every feed.
+    const { events, parser } = collect();
+    const content = "hello world — a chunky paste";
+    parser.feed(bytes("\x1b[200~")); // start whole
+    for (const ch of content) parser.feed(bytes(ch));
+    for (const ch of "\x1b[201~") parser.feed(bytes(ch));
+    expect(events).toEqual([{ type: "paste", text: content }]);
+    parser.dispose();
+  });
+
   test("keys after the paste block parse normally", () => {
     const { events, parser } = collect();
     parser.feed(bytes("\x1b[200~x\x1b[201~\rq"));

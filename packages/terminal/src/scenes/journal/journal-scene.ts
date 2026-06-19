@@ -137,9 +137,31 @@ export function entryMatchesQuery(entry: JournalEntryView, query: string): boole
   return false;
 }
 
+/**
+ * The STATIC searchable text of an entry — intention + both hexagrams'
+ * name / simplified / pinyin / ename — normalized ONCE. Incremental search then
+ * filters with a single substring check per keystroke instead of re-normalizing
+ * every field of every entry on every keystroke. Numbers (prefix-matched) and
+ * reflection notes (sparse, and editable mid-session) stay live in setQuery; this
+ * is the bulk of the per-keystroke cost. Equivalence to entryMatchesQuery is
+ * pinned by a test. Joined with "\n" so a query can't span two fields.
+ */
+function entrySearchHaystack(entry: JournalEntryView): string {
+  const parts: string[] = [];
+  if (entry.intention) parts.push(entry.intention);
+  for (const kw of [entry.cast.primary, entry.cast.becoming]) {
+    if (kw == null) continue;
+    const gua = GUA[kw - 1];
+    if (gua) parts.push(gua.n, toSimplified(gua.n), gua.p, gua.ename);
+  }
+  return normalize(parts.join("\n"));
+}
+
 export class JournalScene implements Scene {
   private entries: JournalEntryView[];
   private filtered: JournalEntryView[];
+  /** Per-entry precomputed normalized search text (parallel to `entries`). */
+  private searchHaystacks: string[];
   private cursor: number;
   private scroll: ScrollableRegion;
   private patternsScroll: ScrollableRegion;
@@ -167,6 +189,11 @@ export class JournalScene implements Scene {
   private patternsOpen = false;
   private cachedPatterns: JournalPatterns | null = null;
   private cachedPatternsKey = "";
+  // The BUILT pattern rows (segments, widths, bars, formatting), memoized on
+  // (today, reading count, language, width) — renderPatterns calls patternRows
+  // every frame at 30 FPS, but the rows only change when one of those does.
+  private cachedRows: PatternRow[] | null = null;
+  private cachedRowsKey = "";
 
   // Reflection-note persistence honesty: appends still in flight, awaited by
   // exit() so scene teardown can't lose a pending write. (Failure is recorded
@@ -192,6 +219,9 @@ export class JournalScene implements Scene {
       .filter((e) => e?.cast != null && typeof e.cast.primary === "number")
       .sort((a, b) => compareEntryTime(b, a));
     this.filtered = this.entries;
+    // Precompute each entry's static search text once (parallel to `entries`),
+    // so [/] incremental search doesn't re-normalize every field every keystroke.
+    this.searchHaystacks = this.entries.map(entrySearchHaystack);
     this.cursor = 0;
     this.scroll = new ScrollableRegion(20, []);
     this.patternsScroll = new ScrollableRegion(20, []);
@@ -498,7 +528,18 @@ export class JournalScene implements Scene {
     }
   }
 
+  /** Memoizing wrapper: a frame is a key compare unless the rows actually change. */
   private patternRows(ctx: SceneContext, lang: DisplayLanguage): PatternRow[] {
+    const today = this.opts.today ? this.opts.today() : localToday();
+    const key = `${today}:${this.entries.length}|${lang}|${ctx.cols}`;
+    if (this.cachedRows && this.cachedRowsKey === key) return this.cachedRows;
+    const rows = this.buildPatternRows(ctx, lang);
+    this.cachedRows = rows;
+    this.cachedRowsKey = key;
+    return rows;
+  }
+
+  private buildPatternRows(ctx: SceneContext, lang: DisplayLanguage): PatternRow[] {
     const t = getTheme();
     const today = this.opts.today ? this.opts.today() : localToday();
     const key = `${today}:${this.entries.length}`;
@@ -1385,10 +1426,21 @@ export class JournalScene implements Scene {
   }
 
   private setQuery(query: string): void {
+    const q = normalize(query.trim());
+    // Fast path equivalent to entryMatchesQuery: the static text (intention +
+    // hexagram fields) is a precomputed substring check; numbers stay prefix-
+    // matched and notes stay live (sparse, and a note added this session must be
+    // searchable at once). Pinned equal to the predicate by a test.
     this.filtered =
-      query.trim().length > 0
-        ? this.entries.filter((e) => entryMatchesQuery(e, query))
-        : this.entries;
+      q.length === 0
+        ? this.entries
+        : this.entries.filter(
+            (e, i) =>
+              this.searchHaystacks[i].includes(q) ||
+              String(e.cast.primary).startsWith(q) ||
+              (e.cast.becoming !== null && String(e.cast.becoming).startsWith(q)) ||
+              (e.notes?.some((n) => n.state !== "failed" && normalize(n.text).includes(q)) ?? false),
+          );
     if (this.cursor >= this.filtered.length) {
       this.cursor = Math.max(0, this.filtered.length - 1);
     }
