@@ -45,3 +45,11 @@ export function hexagramByKW(kw: number): Hexagram {
   }
   return GUA[kw - 1];
 }
+
+/**
+ * King Wen number (1–64) of a hexagram — the inverse of hexagramByKW. `hex` must be
+ * an element of the canonical GUA array (identity comparison); returns 0 otherwise.
+ */
+export function kwOf(hex: Hexagram): number {
+  return GUA.indexOf(hex) + 1;
+}

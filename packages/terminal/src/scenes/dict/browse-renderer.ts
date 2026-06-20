@@ -5,7 +5,7 @@ import { FOOTER_ROWS } from "./layout.ts";
 import type { SceneContext } from "../../scene/types.ts";
 import type { BrowseModel } from "./browse-model.ts";
 import type { TextInput } from "../../widgets/text-input.ts";
-import { GUA, toSimplified } from "@iching/core";
+import { kwOf, toSimplified } from "@iching/core";
 import type { DisplayLanguage } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth, truncateToWidth } from "../../layout/measure.ts";
@@ -93,7 +93,7 @@ function renderList(
     if (row >= ctx.rows - FOOTER_ROWS) break;
 
     const hex = model.filtered[i];
-    const kw = GUA.indexOf(hex) + 1;
+    const kw = kwOf(hex);
     const isSelected = i === model.cursor;
 
     renderRow(frame, row, kw, hex, isSelected, ctx.cols, ctx.language ?? "en");

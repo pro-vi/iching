@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { die } from "../util/die.js";
-import { GUA, searchHexagramsScored } from "@iching/core";
+import { GUA, kwOf, searchHexagramsScored } from "@iching/core";
 import type { Hexagram, Style } from "@iching/core";
 import { formatHexagramPlain } from "../output/plain.js";
 import { outputJson, hexagramToJson, hexagramSummary } from "../output/json.js";
@@ -68,12 +68,12 @@ export function registerHexagramCommand(program: Command): void {
         if (globalOpts.json) {
           outputJson({
             query,
-            matches: resolution.matches.map((hex) => hexagramSummary(GUA.indexOf(hex) + 1, hex)),
+            matches: resolution.matches.map((hex) => hexagramSummary(kwOf(hex), hex)),
           });
         } else {
           console.log(`Multiple matches for "${query}":`);
           for (const hex of resolution.matches) {
-            const kw = GUA.indexOf(hex) + 1;
+            const kw = kwOf(hex);
             console.log(`  ${String(kw).padStart(2)}  ${hex.u} ${hex.n} (${hex.p}) — ${hex.ename}`);
           }
         }
