@@ -49,6 +49,17 @@ const CHANCE_MIN_KNOWN = 8;
 export const LABEL_W = 17;
 // Eighth-block ramp for the cast-to-cast drift sparkline.
 const SPARK_BLOCKS = "▁▂▃▄▅▆▇█";
+
+/**
+ * The sparkline block for a positive `value` relative to `max` — bucketed into
+ * the eight ramp levels (a value at the max gets the tallest block, a sliver the
+ * shortest). Callers gate on value > 0; the level count derives from SPARK_BLOCKS
+ * so the 8 / 7 stay tied to the ramp. Shared by the drift and 時-phase sparklines.
+ */
+function sparkBlock(value: number, max: number): string {
+  const n = SPARK_BLOCKS.length;
+  return SPARK_BLOCKS[Math.max(0, Math.min(n - 1, Math.round((value / max) * n) - 1))];
+}
 const LINE_KEYS = [
   "journal.patterns.line1",
   "journal.patterns.line2",
@@ -1007,9 +1018,7 @@ export class JournalScene implements Scene {
           quiet(String(bin.distance)),
           bin.count > 0
             ? {
-                text: SPARK_BLOCKS[
-                  Math.max(0, Math.min(7, Math.round((bin.count / maxBin) * 8) - 1))
-                ],
+                text: sparkBlock(bin.count, maxBin),
                 style: stBar,
               }
             : { text: "·", style: { fg: t.dimmed } },
@@ -1100,7 +1109,7 @@ export class JournalScene implements Scene {
         { text: " ", style: stLabel },
         c > 0
           ? {
-              text: SPARK_BLOCKS[Math.max(0, Math.min(7, Math.round((c / maxPhase) * 8) - 1))],
+              text: sparkBlock(c, maxPhase),
               style: stBar,
             }
           : { text: "·", style: { fg: t.dimmed } },
