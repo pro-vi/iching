@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { GUA, searchHexagramsScored } from "@iching/core";
 import type { Hexagram, Style } from "@iching/core";
 import { formatHexagramPlain } from "../output/plain.js";
-import { outputJson, hexagramToJson } from "../output/json.js";
+import { outputJson, hexagramToJson, hexagramSummary } from "../output/json.js";
 
 const VALID_STYLES = ["dx", "tu", "en", "te", "w"];
 
@@ -69,13 +69,7 @@ export function registerHexagramCommand(program: Command): void {
         if (globalOpts.json) {
           outputJson({
             query,
-            matches: resolution.matches.map((hex) => ({
-              number: GUA.indexOf(hex) + 1,
-              name: hex.n,
-              pinyin: hex.p,
-              ename: hex.ename,
-              symbol: hex.u,
-            })),
+            matches: resolution.matches.map((hex) => hexagramSummary(GUA.indexOf(hex) + 1, hex)),
           });
         } else {
           console.log(`Multiple matches for "${query}":`);

@@ -7,6 +7,18 @@ export function outputJson(data: unknown): void {
   console.log(JSON.stringify(data, null, 2));
 }
 
+/**
+ * The friendly-keyed identity block for one hexagram — `number / name / pinyin /
+ * ename / symbol` — shared by every JSON surface that names a hexagram (cast
+ * primary + becoming, `hexagram`/`dict` lookups, and the search shortlist) so
+ * the key set and order stay identical across all of them. Spread it first, then
+ * append each surface's extra fields. `number` is nullable only to mirror a
+ * cast's optional becoming (`cast.becoming`); every call site passes a real KW.
+ */
+export function hexagramSummary(number: number | null, hex: Hexagram): Record<string, unknown> {
+  return { number, name: hex.n, pinyin: hex.p, ename: hex.ename, symbol: hex.u };
+}
+
 /** Structure cast data for JSON output */
 export function castToJson(
   cast: Cast,
@@ -50,11 +62,7 @@ export function castToJson(
   return {
     question: question ?? null,
     primary: {
-      number: cast.primary,
-      name: primary.n,
-      pinyin: primary.p,
-      ename: primary.ename,
-      symbol: primary.u,
+      ...hexagramSummary(cast.primary, primary),
       judgment: { gc: primary.gc, gcEn: primary.gcEn },
       lines: cast.lines.map((l) => ({
         value: l.value,
@@ -64,11 +72,7 @@ export function castToJson(
     },
     becoming: becoming
       ? {
-          number: cast.becoming,
-          name: becoming.n,
-          pinyin: becoming.p,
-          ename: becoming.ename,
-          symbol: becoming.u,
+          ...hexagramSummary(cast.becoming, becoming),
           judgment: { gc: becoming.gc, gcEn: becoming.gcEn },
         }
       : null,
@@ -152,11 +156,7 @@ export function hexagramToJson(
   hex: Hexagram,
 ): Record<string, unknown> {
   return {
-    number: kw,
-    name: hex.n,
-    pinyin: hex.p,
-    ename: hex.ename,
-    symbol: hex.u,
+    ...hexagramSummary(kw, hex),
     lines: hex.l,
     judgment: { gc: hex.gc, gcEn: hex.gcEn },
     lineTexts: hex.yao.map((yao, i) => ({
