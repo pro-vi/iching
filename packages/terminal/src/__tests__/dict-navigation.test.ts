@@ -4,6 +4,7 @@
 // column, quiet empty-search hint).
 
 import { describe, test, expect } from "bun:test";
+import { sceneCtx } from "../testing.ts";
 import { ManualClock } from "../clock.ts";
 import { SceneRouter } from "../scene/router.ts";
 import type { Scene, SceneContext, SceneSignal } from "../scene/types.ts";
@@ -14,10 +15,6 @@ import { BrowseScene } from "../scenes/dict/browse-scene.ts";
 import { BrowseModel } from "../scenes/dict/browse-model.ts";
 import { renderBrowse } from "../scenes/dict/browse-renderer.ts";
 import { TextInput } from "../widgets/text-input.ts";
-
-function makeCtx(cols = 80, rows = 24, language?: SceneContext["language"]): SceneContext {
-  return { cols, rows, done: false, colorSupport: "none" as never, language };
-}
 
 function bufferText(buf: CellBuffer): string {
   return Array.from({ length: buf.height }, (_, row) =>
@@ -31,36 +28,36 @@ function bufferText(buf: CellBuffer): string {
 describe("DetailScene sequence walk", () => {
   test("right arrow emits openDetail for KW+1 with replace", () => {
     const scene = new DetailScene(11);
-    const signal = scene.handleKey({ type: "arrow", direction: "right" }, makeCtx());
+    const signal = scene.handleKey({ type: "arrow", direction: "right" }, sceneCtx());
     expect(signal).toEqual({ type: "openDetail", kw: 12, replace: true });
   });
 
   test("left arrow emits openDetail for KW−1 with replace", () => {
     const scene = new DetailScene(11);
-    const signal = scene.handleKey({ type: "arrow", direction: "left" }, makeCtx());
+    const signal = scene.handleKey({ type: "arrow", direction: "left" }, sceneCtx());
     expect(signal).toEqual({ type: "openDetail", kw: 10, replace: true });
   });
 
   test("wraps 64 → 1 going forward", () => {
     const scene = new DetailScene(64);
-    const signal = scene.handleKey({ type: "arrow", direction: "right" }, makeCtx());
+    const signal = scene.handleKey({ type: "arrow", direction: "right" }, sceneCtx());
     expect(signal).toEqual({ type: "openDetail", kw: 1, replace: true });
   });
 
   test("wraps 1 → 64 going back", () => {
     const scene = new DetailScene(1);
-    const signal = scene.handleKey({ type: "arrow", direction: "left" }, makeCtx());
+    const signal = scene.handleKey({ type: "arrow", direction: "left" }, sceneCtx());
     expect(signal).toEqual({ type: "openDetail", kw: 64, replace: true });
   });
 
   test("h and l mirror left/right", () => {
     const scene = new DetailScene(30);
-    expect(scene.handleKey({ type: "char", char: "l" }, makeCtx())).toEqual({
+    expect(scene.handleKey({ type: "char", char: "l" }, sceneCtx())).toEqual({
       type: "openDetail",
       kw: 31,
       replace: true,
     });
-    expect(scene.handleKey({ type: "char", char: "h" }, makeCtx())).toEqual({
+    expect(scene.handleKey({ type: "char", char: "h" }, sceneCtx())).toEqual({
       type: "openDetail",
       kw: 29,
       replace: true,
@@ -69,15 +66,15 @@ describe("DetailScene sequence walk", () => {
 
   test("walk works in derived focus too", () => {
     const scene = new DetailScene(5);
-    scene.handleKey({ type: "tab" }, makeCtx());
-    const signal = scene.handleKey({ type: "arrow", direction: "right" }, makeCtx());
+    scene.handleKey({ type: "tab" }, sceneCtx());
+    const signal = scene.handleKey({ type: "arrow", direction: "right" }, sceneCtx());
     expect(signal).toEqual({ type: "openDetail", kw: 6, replace: true });
   });
 
   test("enter on a derived link still pushes (no replace flag)", () => {
     const scene = new DetailScene(1);
-    scene.handleKey({ type: "tab" }, makeCtx());
-    const signal = scene.handleKey({ type: "enter" }, makeCtx()) as {
+    scene.handleKey({ type: "tab" }, sceneCtx());
+    const signal = scene.handleKey({ type: "enter" }, sceneCtx()) as {
       replace?: boolean;
     };
     expect(signal).toBeDefined();
@@ -183,7 +180,7 @@ describe("SceneRouter replace-on-openDetail", () => {
 describe("DetailScene derived-focus scrolling", () => {
   test("tab to derived scrolls the selected link into view", () => {
     const scene = new DetailScene(1);
-    const ctx = makeCtx();
+    const ctx = sceneCtx();
     scene.enter(ctx);
     const model = scene.getModel();
     expect(model.scrollOffset).toBe(0);
@@ -199,7 +196,7 @@ describe("DetailScene derived-focus scrolling", () => {
 
   test("derived up/down keeps the selected link visible", () => {
     const scene = new DetailScene(1);
-    const ctx = makeCtx();
+    const ctx = sceneCtx();
     scene.enter(ctx);
     const model = scene.getModel();
     scene.handleKey({ type: "tab" }, ctx);
@@ -212,7 +209,7 @@ describe("DetailScene derived-focus scrolling", () => {
 
   test("tab back to content leaves the scroll where it is", () => {
     const scene = new DetailScene(1);
-    const ctx = makeCtx();
+    const ctx = sceneCtx();
     scene.enter(ctx);
     const model = scene.getModel();
     scene.handleKey({ type: "tab" }, ctx);
@@ -238,7 +235,7 @@ describe("BrowseScene initial query", () => {
 
   test("escape clears the prefilled search back to the full list", () => {
     const scene = new BrowseScene("fire");
-    scene.handleKey({ type: "escape" }, makeCtx());
+    scene.handleKey({ type: "escape" }, sceneCtx());
     const model = scene.getModel();
     expect(model.searchActive).toBe(false);
     expect(model.filtered).toHaveLength(64);
@@ -246,7 +243,7 @@ describe("BrowseScene initial query", () => {
 
   test("backspace edits the prefilled query from its end", () => {
     const scene = new BrowseScene("fire");
-    scene.handleKey({ type: "backspace" }, makeCtx());
+    scene.handleKey({ type: "backspace" }, sceneCtx());
     expect(scene.getModel().query).toBe("fir");
   });
 
@@ -273,7 +270,7 @@ describe("Browse renderer polish", () => {
     // already shown — removed (it duplicated hex.u and its ambiguous-width
     // glyphs were a render hazard). The hexagram glyph + name still render.
     const model = new BrowseModel();
-    const text = renderText(model, makeCtx(80, 24, "en"));
+    const text = renderText(model, sceneCtx(80, 24, "none", "en"));
     const rows = text.split("\n");
     expect(rows[2]).toContain("乾"); // 1 乾 name
     expect(rows[2]).toContain("The Creative"); // ename column survives
@@ -285,14 +282,14 @@ describe("Browse renderer polish", () => {
     const model = new BrowseModel();
     model.setQuery("zzzzzz");
     expect(model.filtered).toHaveLength(0);
-    const text = renderText(model, makeCtx(80, 24, "en"));
+    const text = renderText(model, sceneCtx(80, 24, "none", "en"));
     expect(text).toContain("nothing answers");
   });
 
   test("the empty hint is localized", () => {
     const model = new BrowseModel();
     model.setQuery("zzzzzz");
-    const text = renderText(model, makeCtx(80, 24, "zh-Hans"));
+    const text = renderText(model, sceneCtx(80, 24, "none", "zh-Hans"));
     expect(text).toContain("无所应");
     expect(text).not.toContain("nothing answers");
   });
