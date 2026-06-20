@@ -6,6 +6,7 @@ import type { Cast, DisplayLanguage } from "@iching/core";
 import type { ColorSupport } from "./color/detect.ts";
 import type { SceneContext } from "./scene/types.ts";
 import type { CellBuffer } from "./render/buffer.ts";
+import type { SettingsValues } from "./scenes/settings/settings-scene.ts";
 
 /**
  * A SceneContext for tests. Nine scene suites each hand-rolled this same shape
@@ -57,5 +58,25 @@ export function changingCast(): Cast {
     polarity: 48,
     mirror: 22,
     diagonal: 47,
+  };
+}
+
+/**
+ * A SettingsValues for tests. The settings suites repeated this 8-field default
+ * (theme "bone", glyphs dots/kaiti, coin/auto/crypto) and varied one or two
+ * fields per case; pass those as `overrides` so a new SettingsValues field lands
+ * here once, not in every settings test.
+ */
+export function settingsValues(overrides: Partial<SettingsValues> = {}): SettingsValues {
+  return {
+    theme: "bone",
+    language: "en",
+    taijituStyle: "dots",
+    glyphAnim: "dots",
+    glyphFont: "kaiti",
+    castMethod: "coin",
+    castMode: "auto",
+    entropy: "crypto",
+    ...overrides,
   };
 }

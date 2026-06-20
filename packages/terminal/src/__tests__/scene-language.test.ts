@@ -3,7 +3,8 @@
 // leak the English label they replace. Grows one describe-block per wired scene.
 import { describe, expect, test } from "bun:test";
 import { bufferText } from "../testing.ts";
-import { SettingsScene, type SettingsValues } from "../scenes/settings/settings-scene.ts";
+import { SettingsScene } from "../scenes/settings/settings-scene.ts";
+import { settingsValues } from "../testing.ts";
 import { HomeScene } from "../scenes/home/home-scene.ts";
 import { IntentionScene } from "../scenes/intention/intention-scene.ts";
 import { YarrowScene } from "../scenes/yarrow/yarrow-scene.ts";
@@ -35,16 +36,7 @@ function renderScene(
 }
 
 function settingsText(language: DisplayLanguage): string {
-  const values: SettingsValues = {
-    theme: "bone",
-    language,
-    taijituStyle: "dots",
-    glyphAnim: "dots",
-    glyphFont: "kaiti",
-    castMethod: "coin",
-    castMode: "auto",
-    entropy: "crypto",
-  };
+  const values = settingsValues({ language });
   const scene = new SettingsScene(values);
   const buf = CellBuffer.create(ctx.cols, ctx.rows);
   scene.render(buf, ctx);
@@ -93,16 +85,7 @@ describe("SettingsScene — no bilingual stacking", () => {
   // snapshot, refreshed only on Escape), so the UI stayed in the old language
   // until save + reopen. It now reads the live getValues().language.
   test("changing the Language row re-localizes the scene live, before save", () => {
-    const values: SettingsValues = {
-      theme: "bone",
-      language: "en",
-      taijituStyle: "dots",
-      glyphAnim: "dots",
-      glyphFont: "kaiti",
-      castMethod: "coin",
-      castMode: "auto",
-      entropy: "crypto",
-    };
+    const values = settingsValues({ language: "en" });
     const scene = new SettingsScene(values);
     scene.handleKey({ type: "arrow", direction: "down" }, ctx); // focus Language row
     scene.handleKey({ type: "arrow", direction: "right" }, ctx); // en → zh-Hant
@@ -122,10 +105,7 @@ describe("SettingsScene — no bilingual stacking", () => {
     expect(text).toContain("[楷體]  隸變  黑體");
     expect(text).not.toContain("kaiti"); // label replaces the token in zh
 
-    const values: SettingsValues = {
-      theme: "bone", language: "zh-Hant", taijituStyle: "dots", glyphAnim: "dots",
-      glyphFont: "kaiti", castMethod: "coin", castMode: "auto", entropy: "crypto",
-    };
+    const values = settingsValues({ language: "zh-Hant" });
     const scene = new SettingsScene(values);
     expect(scene.getValues().glyphFont).toBe("kaiti");
     // Toggle the Font row: persisted value is the next TOKEN, never a label.
@@ -149,10 +129,7 @@ describe("SettingsScene — no bilingual stacking", () => {
   // Live re-localization extends to chips: flipping the Language row swaps the
   // font labels in the same frame (labels are derived at render, not stored).
   test("flipping Language re-labels font chips immediately, before save", () => {
-    const values: SettingsValues = {
-      theme: "bone", language: "en", taijituStyle: "dots", glyphAnim: "dots",
-      glyphFont: "kaiti", castMethod: "coin", castMode: "auto", entropy: "crypto",
-    };
+    const values = settingsValues({ language: "en" });
     const scene = new SettingsScene(values);
     scene.handleKey({ type: "arrow", direction: "down" }, ctx); // focus Language
     scene.handleKey({ type: "arrow", direction: "right" }, ctx); // en → zh-Hant
@@ -202,10 +179,7 @@ describe("SettingsScene — no bilingual stacking", () => {
   // Persistence: zh-mode selections still write canonical tokens (the chain
   // CLI tests pin from the other side: `config get castMethod` prints "coin").
   test("zh-Hant selections persist canonical wave-2 tokens", () => {
-    const values: SettingsValues = {
-      theme: "bone", language: "zh-Hant", taijituStyle: "dots", glyphAnim: "dots",
-      glyphFont: "kaiti", castMethod: "coin", castMode: "auto", entropy: "crypto",
-    };
+    const values = settingsValues({ language: "zh-Hant" });
     const scene = new SettingsScene(values);
     for (let i = 0; i < 5; i++) scene.handleKey({ type: "arrow", direction: "down" }, ctx); // Cast Method
     scene.handleKey({ type: "arrow", direction: "right" }, ctx);
@@ -217,16 +191,7 @@ describe("SettingsScene — no bilingual stacking", () => {
   // captions in English because renderPreview() called renderYarrowFieldStrip
   // without the selected language. It now passes vals.language.
   test("yarrow preview in Settings localizes its captions (zh-Hant, no English leak)", () => {
-    const values: SettingsValues = {
-      theme: "bone",
-      language: "zh-Hant",
-      taijituStyle: "dots",
-      glyphAnim: "dots",
-      glyphFont: "kaiti",
-      castMethod: "yarrow",
-      castMode: "auto",
-      entropy: "crypto",
-    };
+    const values = settingsValues({ language: "zh-Hant", castMethod: "yarrow" });
     const scene = new SettingsScene(values);
     // focus the Cast Method row (index 5) so the preview becomes the yarrow strip
     for (let i = 0; i < 5; i++) scene.handleKey({ type: "arrow", direction: "down" }, ctx);
