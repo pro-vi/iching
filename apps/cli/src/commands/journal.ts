@@ -95,6 +95,12 @@ async function latestEntryOnDate(
   return latest;
 }
 
+/** Load just the configured timezone — the date-window subcommands resolve
+ *  --since/--until in the user's zone but need nothing else from config. */
+async function loadTimezone(configPath: string): Promise<string> {
+  return (await new JsonConfigStore(configPath).load()).timezone;
+}
+
 export function registerJournalCommand(program: Command): void {
   const journal = program
     .command("journal")
@@ -188,7 +194,7 @@ export function registerJournalCommand(program: Command): void {
         entries.push(entry);
       }
 
-      const tz = (await new JsonConfigStore(paths.config).load()).timezone;
+      const tz = await loadTimezone(paths.config);
       const today = localToday(tz);
       // A historical window (--until in the past) is a retrospective: measure
       // cadence and "this month" AS OF the window's end, not real today.
@@ -222,7 +228,7 @@ export function registerJournalCommand(program: Command): void {
       const paths = resolvePathsFor(globalOpts.dataDir);
       const store = new JsonlJournalStore(paths.state);
       await assertJournalReadable(paths.state);
-      const tz = (await new JsonConfigStore(paths.config).load()).timezone;
+      const tz = await loadTimezone(paths.config);
 
       // Resolve special date keywords
       let targetDate: string | null = null;
@@ -274,7 +280,7 @@ export function registerJournalCommand(program: Command): void {
       const paths = resolvePathsFor(globalOpts.dataDir);
       const store = new JsonlJournalStore(paths.state);
       await assertJournalReadable(paths.state);
-      const tz = (await new JsonConfigStore(paths.config).load()).timezone;
+      const tz = await loadTimezone(paths.config);
 
       // Strip terminal control sequences before the text becomes durable —
       // a persisted note is replayed raw on every `journal show`, so ESC/OSC
