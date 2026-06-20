@@ -140,6 +140,22 @@ describe("KeyParser — bracketed paste", () => {
     parser.dispose();
   });
 
+  test("a paste stalled mid-stream is not flushed partially — the tail CR stays paste content, never a stray Enter (review #4)", async () => {
+    // The old flush re-armed a 500ms timer each feed, measuring the INTER-CHUNK
+    // gap. A stall longer than that (a backgrounded process, a slow pipe) split
+    // the paste: a partial paste event fired, paste mode exited, and the unparsed
+    // tail — here a CR — re-entered normal parsing as a real Enter, submitting the
+    // form mid-paste. The flush is now an ABSOLUTE age backstop (armed once at the
+    // start, ~10s), so a >500ms stall mid-paste changes nothing.
+    const { events, parser } = collect();
+    parser.feed(bytes("\x1b[200~hello")); // start + content, terminator not yet seen
+    await new Promise((r) => setTimeout(r, 600)); // > old 500ms flush, << new 10s backstop
+    expect(events).toEqual([]); // nothing flushed mid-paste
+    parser.feed(bytes("\r\x1b[201~")); // a trailing CR, then the end marker
+    expect(events).toEqual([{ type: "paste", text: "hello\n" }]); // one paste; CR normalized; NO Enter
+    parser.dispose();
+  });
+
   test("paste markers split mid-sequence still resolve", () => {
     const { events, parser } = collect();
     parser.feed(bytes("\x1b[20")); // half a start marker — buffered as incomplete CSI
@@ -208,11 +224,16 @@ describe("KeyParser — paste accumulation stays bounded", () => {
     parser.dispose();
   });
 
-  test("an unterminated paste flushes after a quiet gap", async () => {
-    const { events, parser } = collect();
+  test("an abandoned paste flushes at the absolute age backstop (so the parser can't wedge)", async () => {
+    // The backstop is now an absolute age (armed once at start), not a per-chunk
+    // gap. A real paste terminates well before it; this exercises only the
+    // never-terminated case. A short injected timeout stands in for the 10s
+    // default so the test doesn't wait that long.
+    const events: KeyEvent[] = [];
+    const parser = new KeyParser((e) => events.push(e), { pasteFlushMs: 40 });
     parser.feed(bytes("\x1b[200~adrift"));
     expect(events).toEqual([]);
-    await new Promise((r) => setTimeout(r, 600));
+    await new Promise((r) => setTimeout(r, 90)); // > the injected 40ms backstop
     expect(events).toEqual([{ type: "paste", text: "adrift" }]);
 
     // The parser left paste mode — back to ordinary keys.
@@ -221,11 +242,27 @@ describe("KeyParser — paste accumulation stays bounded", () => {
     parser.dispose();
   });
 
+  test("the backstop is absolute, not per-chunk: bytes arriving keep one paste open across long gaps", async () => {
+    // A chunk arriving does NOT re-arm the backstop (the bug). Content fed in two
+    // chunks separated by a stall longer than a per-chunk gap stays one paste
+    // when the terminator finally lands — never flushed partially.
+    const events: KeyEvent[] = [];
+    const parser = new KeyParser((e) => events.push(e), { pasteFlushMs: 120 });
+    parser.feed(bytes("\x1b[200~one ")); // start + first chunk
+    await new Promise((r) => setTimeout(r, 80)); // a gap (would have re-armed under the old model)
+    parser.feed(bytes("two")); // more content — must NOT reset the absolute age
+    expect(events).toEqual([]); // still accumulating, nothing flushed
+    parser.feed(bytes("\x1b[201~")); // terminator
+    expect(events).toEqual([{ type: "paste", text: "one two" }]);
+    parser.dispose();
+  });
+
   test("a dangling paste start with no content goes quietly (no empty paste)", async () => {
-    const { events, parser } = collect();
+    const events: KeyEvent[] = [];
+    const parser = new KeyParser((e) => events.push(e), { pasteFlushMs: 40 });
     parser.feed(bytes("\x1b[200~"));
-    await new Promise((r) => setTimeout(r, 600));
-    expect(events).toEqual([]);
+    await new Promise((r) => setTimeout(r, 90)); // backstop fires, but with no content
+    expect(events).toEqual([]); // no empty paste event
     parser.feed(bytes("k"));
     expect(events).toEqual([{ type: "char", char: "k" }]);
     parser.dispose();

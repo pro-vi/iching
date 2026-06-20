@@ -45,12 +45,20 @@ const MAX_ESCAPE_BYTES = 256;
 
 // Bracketed-paste guards. Paste accumulation must stay bounded: a lost
 // ESC[201~ terminator would otherwise buffer stdin forever (and look like a
-// dead app). The cap is generous for an intention; past it the paste event
-// is delivered with what was collected and normal parsing resumes. A paste
-// left dangling (no terminator, no further bytes) flushes after a quiet
-// gap, the same way the lone-ESC timeout does.
+// dead app, even swallowing Ctrl-C). The byte cap is the primary bound; past
+// it the paste event is delivered with what was collected and normal parsing
+// resumes.
 const PASTE_MAX_BYTES = 64 * 1024;
-const PASTE_TIMEOUT_MS = 500;
+// Absolute paste-age backstop, armed ONCE when the paste starts (NOT re-armed
+// per chunk, and NOT cleared by feed()). A real paste terminates via ESC[201~
+// or the byte cap long before this fires — terminals deliver a paste to the pty
+// in milliseconds — so it never truncates a genuine paste mid-stream. It exists
+// only to recover a paste-start that is never terminated (a malformed source, a
+// truncated pipe), so the parser can't wedge. A per-CHUNK timeout (the prior
+// 500 ms) measured the inter-chunk gap, not the paste's age: a >500 ms stall
+// before ESC[201~ flushed a PARTIAL paste, then the tail (a trailing \r) parsed
+// as a real Enter and submitted the form mid-paste.
+const PASTE_FLUSH_MS = 10_000;
 
 /**
  * Determine the byte length of a single UTF-8 character from its leading byte.
@@ -328,9 +336,18 @@ export class KeyParser {
   private callback: (event: KeyEvent) => void;
   /** Non-null while inside an ESC[200~ ... ESC[201~ bracketed paste block. */
   private pasteData: Uint8Array | null = null;
+  // Absolute paste-age backstop (see PASTE_FLUSH_MS). Separate from `timer` (the
+  // lone-ESC flush) precisely because feed() must NOT clear it — it is armed once
+  // at paste start and survives across chunks so it bounds the paste's total age,
+  // not the gap since the last chunk.
+  private pasteTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly pasteFlushMs: number;
 
-  constructor(callback: (event: KeyEvent) => void) {
+  constructor(callback: (event: KeyEvent) => void, opts?: { pasteFlushMs?: number }) {
     this.callback = callback;
+    // The absolute paste-age backstop (PASTE_FLUSH_MS). Injectable only so tests
+    // can exercise the safety valve without a 10-second wait; production omits it.
+    this.pasteFlushMs = opts?.pasteFlushMs ?? PASTE_FLUSH_MS;
   }
 
   /** Feed raw bytes from stdin */
@@ -366,14 +383,19 @@ export class KeyParser {
             // The terminator never came within the cap — deliver what was
             // collected and return to normal parsing.
             this.pasteData = null;
+            this.clearPasteTimer();
             this.emitPaste(merged);
             return;
           }
+          // Keep accumulating across chunks. Do NOT re-arm a flush here — the
+          // absolute pasteTimer (armed once at paste start) bounds the age. A
+          // per-chunk re-arm is exactly the bug: a slow inter-chunk gap would
+          // flush a partial paste and the tail (a \r) would submit the form.
           this.pasteData = merged;
-          this.armPasteFlush();
           return;
         }
         this.pasteData = null;
+        this.clearPasteTimer();
         this.emitPaste(merged.subarray(0, end));
         buf = merged.subarray(end + PASTE_END.length);
         continue;
@@ -383,8 +405,10 @@ export class KeyParser {
         // Bracketed paste start — switch to accumulation mode
         if (startsWithSeq(buf, PASTE_START)) {
           this.pasteData = new Uint8Array(0);
+          // Arm the absolute age backstop once, here at the start — whether or
+          // not the start marker's chunk also carried content.
+          this.armPasteFlush();
           buf = buf.subarray(PASTE_START.length);
-          if (buf.length === 0) this.armPasteFlush();
           continue;
         }
 
@@ -439,18 +463,29 @@ export class KeyParser {
   }
 
   /**
-   * Arm the dangling-paste flush: if no further bytes arrive (feed() clears
-   * the timer on entry), the unterminated paste is delivered as-is and the
-   * parser leaves paste mode.
+   * Arm the absolute paste-age backstop (PASTE_FLUSH_MS), set ONCE per paste at
+   * its start. It is never re-armed and feed() never clears it, so it measures
+   * the paste's total age — not the gap since the last chunk. A genuine paste
+   * terminates via ESC[201~ or the byte cap long before it fires; it only
+   * recovers a paste-start that is never terminated, delivering whatever was
+   * collected as a single paste event so the parser can't wedge.
    */
   private armPasteFlush(): void {
-    this.timer = setTimeout(() => {
-      this.timer = null;
+    if (this.pasteTimer) return; // already armed for this paste
+    this.pasteTimer = setTimeout(() => {
+      this.pasteTimer = null;
       if (this.pasteData === null) return;
       const data = this.pasteData;
       this.pasteData = null;
       if (data.length > 0) this.emitPaste(data);
-    }, PASTE_TIMEOUT_MS);
+    }, this.pasteFlushMs);
+  }
+
+  private clearPasteTimer(): void {
+    if (this.pasteTimer) {
+      clearTimeout(this.pasteTimer);
+      this.pasteTimer = null;
+    }
   }
 
   /** Clean up timers */
@@ -459,6 +494,7 @@ export class KeyParser {
       clearTimeout(this.timer);
       this.timer = null;
     }
+    this.clearPasteTimer();
     this.pending = null;
     this.pasteData = null;
   }
