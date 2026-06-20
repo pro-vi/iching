@@ -18,12 +18,21 @@ function isTrigramShaped(value: unknown): boolean {
  * True for a persisted structure whose upper/lower trigrams carry the sym/n/img
  * that formatTodayPlain and the hook's display cascade dereference unguarded —
  * a half-shaped `{upper:{},lower:{}}` would otherwise pass and render "undefined".
- * structure.becoming is only read behind a truthiness guard, so it stays unchecked.
+ * structure.becoming (the becoming hexagram's trigram pair, present on a changing
+ * cast) is dereferenced the same way by formatReading's `st` style — formatTrigrams
+ * reads becoming.upper/.lower behind ONLY a truthiness guard — so a truthy
+ * non-trigram becoming would also render "undefined". Require it null/absent, or
+ * fully trigram-shaped.
  */
 function isStructureShaped(value: unknown): boolean {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const structure = value as Record<string, unknown>;
-  return isTrigramShaped(structure.upper) && isTrigramShaped(structure.lower);
+  if (!isTrigramShaped(structure.upper) || !isTrigramShaped(structure.lower)) return false;
+  const becoming = structure.becoming;
+  if (becoming === null || becoming === undefined) return true;
+  if (typeof becoming !== "object" || Array.isArray(becoming)) return false;
+  const b = becoming as Record<string, unknown>;
+  return isTrigramShaped(b.upper) && isTrigramShaped(b.lower);
 }
 
 /**

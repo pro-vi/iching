@@ -223,6 +223,29 @@ describe("JsonDailyCacheStore", () => {
       ).toBeNull();
     });
 
+    test("a truthy non-trigram structure.becoming is quarantined", async () => {
+      // formatReading's `st` style runs formatTrigrams(structure.becoming) behind
+      // ONLY a truthiness guard, so a malformed-but-truthy becoming renders
+      // "undefined" instead of quarantining + rebuilding from the journal.
+      expect(
+        await readDamaged((r) => ((r.structure as Record<string, unknown>).becoming = { upper: {}, lower: {} })),
+      ).toBeNull();
+      expect(
+        await readDamaged((r) => ((r.structure as Record<string, unknown>).becoming = { notes: "garbage" })),
+      ).toBeNull();
+    });
+
+    test("a fully trigram-shaped structure.becoming still loads (a changing cast)", async () => {
+      // The validation must not reject a VALID becoming — a changing cast's
+      // structure carries the becoming hexagram's trigram pair.
+      const trig = { sym: "☵", n: "Kan", img: "Water" };
+      const result = await readDamaged(
+        (r) => ((r.structure as Record<string, unknown>).becoming = { upper: trig, lower: trig }),
+      );
+      expect(result).not.toBeNull();
+      expect((result as DailyCache).structure.becoming).toEqual({ upper: trig, lower: trig });
+    });
+
     test("missing or non-boolean shown is quarantined", async () => {
       expect(await readDamaged((r) => delete r.shown)).toBeNull();
       expect(await readDamaged((r) => (r.shown = "yes"))).toBeNull();

@@ -15,7 +15,10 @@ export function registerTodayCommand(program: Command): void {
         opts.dataDir ? { dataDir: opts.dataDir } : undefined,
       );
 
-      const config = await new JsonConfigStore(paths.config).load();
+      // Quiet for the same per-prompt reason as the cache read below: `today`
+      // can run from a shell greeting on every prompt, so a corrupt/unreadable
+      // config must fall back to defaults silently, not warn each time.
+      const config = await new JsonConfigStore(paths.config, { quiet: true }).load();
       const today = localToday(config.timezone);
       // Cache-first, journal-fallback via the shared durable-recovery resolver,
       // so `today` agrees with the TUI [t] reopen and the hook on what today's
