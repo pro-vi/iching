@@ -21,6 +21,9 @@ export interface ContentLine {
   fg?: string;
   bold?: boolean;
   dim?: boolean;
+  /** Set on a reserved glyph row — its index within the glyph render; the render
+   *  pass fills these in. Internal to this renderer. */
+  _glyphRow?: number;
 }
 
 export interface DetailRenderOptions {
@@ -79,7 +82,7 @@ export function buildContentLines(
   if (model.glyphEntry) {
     // Reserve rows for the glyph - render pass fills them in
     for (let r = 0; r < model.glyphEntry.height; r++) {
-      lines.push({ text: "", _glyphRow: r } as ContentLine & { _glyphRow: number });
+      lines.push({ text: "", _glyphRow: r });
     }
     lines.push({ text: "" }); // spacer after glyph
   }
@@ -336,7 +339,7 @@ export function renderDetail(
   for (let i = model.scrollOffset; i < visibleEnd; i++) {
     const row = i - model.scrollOffset;
     if (row >= visibleRows) break;
-    const line = contentLines[i] as ContentLine & { _glyphRow?: number };
+    const line = contentLines[i];
 
     // Render glyph row via animator or static
     if (line._glyphRow !== undefined && glyphEntry) {
