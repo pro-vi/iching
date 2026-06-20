@@ -2,17 +2,9 @@
 
 import type { ColorSupport } from "../color/detect.ts";
 import { CSI } from "./csi.js";
+import { hexToRgb } from "../color/hex.ts";
 import { clamp } from "@iching/core";
 
-// Parse hex color "#RRGGBB" to [r, g, b]
-function hexToRgb(hex: string): [number, number, number] {
-  const h = hex.replace("#", "");
-  return [
-    parseInt(h.slice(0, 2), 16),
-    parseInt(h.slice(2, 4), 16),
-    parseInt(h.slice(4, 6), 16),
-  ];
-}
 
 // xterm 6x6x6 cube channel levels (cube index 0-5 → channel value)
 const CUBE_LEVELS = [0, 95, 135, 175, 215, 255];
