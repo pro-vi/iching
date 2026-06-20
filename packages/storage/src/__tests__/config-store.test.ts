@@ -21,6 +21,11 @@ function withLocaleEnv(vars: Partial<Record<(typeof LOCALE_VARS)[number], string
   };
 }
 
+/** Write a valid-JSON config.json fixture into a test's data dir. */
+async function seedConfig(dir: string, content: Record<string, unknown>): Promise<void> {
+  await writeFile(join(dir, "config.json"), JSON.stringify(content), "utf-8");
+}
+
 describe("JsonConfigStore", () => {
   let dir: string;
   let store: JsonConfigStore;
@@ -72,7 +77,7 @@ describe("JsonConfigStore", () => {
 
   test("load merges with defaults for partial config file", async () => {
     const partial = { motion: "deep" };
-    await writeFile(join(dir, "config.json"), JSON.stringify(partial), "utf-8");
+    await seedConfig(dir, partial);
 
     const config = await store.load();
     expect(config).toEqual({
@@ -91,7 +96,7 @@ describe("JsonConfigStore", () => {
   });
 
   test("load defaults invalid entropy values to crypto", async () => {
-    await writeFile(join(dir, "config.json"), JSON.stringify({ entropy: "quantum" }), "utf-8");
+    await seedConfig(dir, { entropy: "quantum" });
     const loaded = await store.load();
     expect(loaded.entropy).toBe("crypto");
   });
@@ -106,7 +111,7 @@ describe("JsonConfigStore", () => {
       ["yarrow-manual", "yarrow", "manual"],
     ];
     for (const [legacy, expectedMethod, expectedMode] of cases) {
-      await writeFile(join(dir, "config.json"), JSON.stringify({ castMode: legacy }), "utf-8");
+      await seedConfig(dir, { castMode: legacy });
       const loaded = await store.load();
       expect(loaded.castMethod).toBe(expectedMethod as UserConfig["castMethod"]);
       expect(loaded.castMode).toBe(expectedMode as UserConfig["castMode"]);
@@ -114,27 +119,27 @@ describe("JsonConfigStore", () => {
   });
 
   test("load migrates legacy taijituStyle values", async () => {
-    await writeFile(join(dir, "config.json"), JSON.stringify({ taijituStyle: "yinDots" }), "utf-8");
+    await seedConfig(dir, { taijituStyle: "yinDots" });
     const a = await store.load();
     expect(a.taijituStyle).toBe("dots");
 
-    await writeFile(join(dir, "config.json"), JSON.stringify({ taijituStyle: "yangDense" }), "utf-8");
+    await seedConfig(dir, { taijituStyle: "yangDense" });
     const b = await store.load();
     expect(b.taijituStyle).toBe("dense");
   });
 
   test("load defaults invalid language values", async () => {
-    await writeFile(join(dir, "config.json"), JSON.stringify({ language: "klingon" }), "utf-8");
+    await seedConfig(dir, { language: "klingon" });
     const loaded = await store.load();
     expect(loaded.language).toBe("en");
   });
 
   test("load accepts display language aliases from hand-edited config", async () => {
-    await writeFile(join(dir, "config.json"), JSON.stringify({ language: "简" }), "utf-8");
+    await seedConfig(dir, { language: "简" });
     const simplified = await store.load();
     expect(simplified.language).toBe("zh-Hans");
 
-    await writeFile(join(dir, "config.json"), JSON.stringify({ language: "EN" }), "utf-8");
+    await seedConfig(dir, { language: "EN" });
     const english = await store.load();
     expect(english.language).toBe("en");
   });
@@ -144,7 +149,7 @@ describe("JsonConfigStore", () => {
   test("inherited prototype names as values do NOT resolve via alias maps", async () => {
     for (const key of ["language", "theme", "castMode"]) {
       for (const bad of ["constructor", "__proto__", "toString"]) {
-        await writeFile(join(dir, "config.json"), JSON.stringify({ [key]: bad }), "utf-8");
+        await seedConfig(dir, { [key]: bad });
         const cfg = await store.load();
         expect(typeof cfg.language).toBe("string");
         expect(typeof cfg.theme).toBe("string");
@@ -156,13 +161,13 @@ describe("JsonConfigStore", () => {
 
   test("language matching is case-insensitive (BCP-47)", async () => {
     for (const [raw, want] of [["zh-hans", "zh-Hans"], ["ZH-HANT", "zh-Hant"], ["En", "en"]] as const) {
-      await writeFile(join(dir, "config.json"), JSON.stringify({ language: raw }), "utf-8");
+      await seedConfig(dir, { language: raw });
       expect((await store.load()).language).toBe(want);
     }
   });
 
   test("unknown own-keys survive a load→save round-trip (schemas only expand)", async () => {
-    await writeFile(join(dir, "config.json"), JSON.stringify({ theme: "ink", futureKey: "keepme" }), "utf-8");
+    await seedConfig(dir, { theme: "ink", futureKey: "keepme" });
     const cfg = await store.load();
     expect((cfg as unknown as Record<string, unknown>).futureKey).toBe("keepme");
     await store.save(cfg);
@@ -396,7 +401,7 @@ describe("JsonConfigStore", () => {
     const restore = withLocaleEnv({ LC_ALL: "zh_TW.UTF-8" });
     try {
       // a config from before the language field existed: settings but no `language`
-      await writeFile(join(dir, "config.json"), JSON.stringify({ theme: "ink", motion: "brisk" }), "utf-8");
+      await seedConfig(dir, { theme: "ink", motion: "brisk" });
       const cfg = await store.loadOrSeed();
       expect(cfg.language).toBe("zh-Hant"); // seeded from the locale
       expect(cfg.theme).toBe("ink"); // existing settings preserved
@@ -411,7 +416,7 @@ describe("JsonConfigStore", () => {
   test("loadOrSeed does NOT re-seed when a language key is already present", async () => {
     const restore = withLocaleEnv({ LC_ALL: "zh_TW.UTF-8" });
     try {
-      await writeFile(join(dir, "config.json"), JSON.stringify({ language: "en", theme: "ink" }), "utf-8");
+      await seedConfig(dir, { language: "en", theme: "ink" });
       expect((await store.loadOrSeed()).language).toBe("en"); // honors the stored choice
     } finally {
       restore();
