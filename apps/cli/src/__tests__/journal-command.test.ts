@@ -3,7 +3,7 @@
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { runCli as spawnCli, type RunResult } from "../testing.ts";
-import { rm, writeFile, appendFile, mkdir } from "node:fs/promises";
+import { rm, writeFile, appendFile, mkdir, readFile } from "node:fs/promises";
 import { freshTempDir } from "../testing.ts";
 import { join } from "node:path";
 import type { HistoryEntry } from "@iching/core";
@@ -853,7 +853,6 @@ describe("journal note command", () => {
 
     // The written ref is the precise content key, NOT the bare date — a bare date
     // would re-resolve to the day's last cast (屯) in the TUI.
-    const { readFile } = await import("node:fs/promises");
     const raw = await readFile(join(dataDir, "notes.jsonl"), "utf-8");
     const note = JSON.parse(raw.trim().split("\n").pop()!);
     expect(note.ref).toBe("2026-01-01#39.0."); // entryNoteRef(蹇): date#primary.becoming.changing
@@ -873,7 +872,6 @@ describe("journal note command", () => {
     await seedJournal(dataDir, [makeEntry("2026-01-01", 1, null)]);
     await runCli(dataDir, ["journal", "note", "shape check"]);
 
-    const { readFile } = await import("node:fs/promises");
     // Notes live in the notes.jsonl sidecar so pre-note binaries reading
     // history.jsonl never meet a record shape they cannot parse.
     const raw = await readFile(join(dataDir, "notes.jsonl"), "utf-8");
@@ -995,7 +993,6 @@ describe("journal note command", () => {
     ]);
     expect(noted.exitCode).toBe(0);
 
-    const { readFile } = await import("node:fs/promises");
     const raw = await readFile(join(dataDir, "notes.jsonl"), "utf-8");
     const record = JSON.parse(raw.trim());
     // Control bytes never reach disk; the printable residue stays.

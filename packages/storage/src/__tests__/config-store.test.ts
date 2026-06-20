@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { writeFile, readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { freshTempDir } from "../testing.ts";
 import type { UserConfig } from "../types.js";
@@ -227,7 +227,6 @@ describe("JsonConfigStore", () => {
     // file → EACCES) is a whole-file read failure, not corrupt bytes. load()
     // runs at startup, so an unguarded throw would crash the app before it
     // draws. Fall back to defaults like a corrupt config, with a warning.
-    const { mkdir } = await import("node:fs/promises");
     const cfgPath = join(dir, "blocked-config.json");
     await mkdir(cfgPath); // a directory where the config file should be
     const blocked = new JsonConfigStore(cfgPath);

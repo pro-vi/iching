@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeEach } from "bun:test";
 import { join } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { freshTempDir } from "../testing.ts";
 import type { DailyCache, Structure } from "@iching/core";
 import { castOf } from "@iching/core/testing";
@@ -57,7 +58,6 @@ describe("JsonDailyCacheStore", () => {
   // sidecars the bytes (cf. JsonConfigStore's corrupt handling).
   describe("corrupt cache file", () => {
     test("read returns null on unparseable JSON and sidecars the bytes", async () => {
-      const { writeFile, readFile } = await import("node:fs/promises");
       const path = join(dir, "daily-cache.json");
       await writeFile(path, '{"date":"2025-01-15","cas', "utf-8"); // torn write
 
@@ -74,7 +74,6 @@ describe("JsonDailyCacheStore", () => {
       // suppresses BOTH notice sites (unreadable-file + quarantine) while still
       // starting fresh (null) and sidecaring the bytes. The loud default warns
       // (covered by the test below); the interactive TUI keeps that.
-      const { mkdir, writeFile, readFile } = await import("node:fs/promises");
       const errors: string[] = [];
       const origErr = console.error;
       console.error = (...a: unknown[]) => void errors.push(a.map(String).join(" "));
@@ -95,7 +94,6 @@ describe("JsonDailyCacheStore", () => {
     });
 
     test("a later corruption never clobbers the first backup", async () => {
-      const { writeFile, readFile } = await import("node:fs/promises");
       const path = join(dir, "daily-cache.json");
       await writeFile(path, "first-garbage", "utf-8");
       expect(await store.read()).toBeNull();
@@ -109,7 +107,6 @@ describe("JsonDailyCacheStore", () => {
     });
 
     test("read returns null for valid JSON that is not a record", async () => {
-      const { writeFile } = await import("node:fs/promises");
       const path = join(dir, "daily-cache.json");
       await writeFile(path, "42", "utf-8");
       expect(await store.read()).toBeNull();
@@ -120,7 +117,6 @@ describe("JsonDailyCacheStore", () => {
     // corrupt bytes — null + sidecar — never returned for today/hook to
     // crash on.
     test("read returns null + sidecar for valid JSON missing cast", async () => {
-      const { writeFile, readFile } = await import("node:fs/promises");
       const path = join(dir, "daily-cache.json");
       const damaged = '{"date":"2025-01-15","shown":true}';
       await writeFile(path, damaged, "utf-8");
@@ -132,7 +128,6 @@ describe("JsonDailyCacheStore", () => {
     });
 
     test("read returns null for a cast missing lines/primary", async () => {
-      const { writeFile } = await import("node:fs/promises");
       const path = join(dir, "daily-cache.json");
       await writeFile(
         path,
@@ -143,7 +138,6 @@ describe("JsonDailyCacheStore", () => {
     });
 
     test("read returns null when date is not a string", async () => {
-      const { writeFile } = await import("node:fs/promises");
       const record = makeCache("2025-01-15") as unknown as Record<string, unknown>;
       record.date = 20250115;
       await writeFile(join(dir, "daily-cache.json"), JSON.stringify(record), "utf-8");
@@ -151,7 +145,6 @@ describe("JsonDailyCacheStore", () => {
     });
 
     test("a fresh write after corruption recovers normal round-trips", async () => {
-      const { writeFile } = await import("node:fs/promises");
       const path = join(dir, "daily-cache.json");
       await writeFile(path, "garbage", "utf-8");
       expect(await store.read()).toBeNull();
@@ -166,7 +159,6 @@ describe("JsonDailyCacheStore", () => {
       // file → EACCES) is a whole-file read failure, not corrupt bytes. read()
       // runs every launch, so an unguarded throw would crash startup. Treat it
       // like a corrupt cache: warn once and start fresh.
-      const { mkdir } = await import("node:fs/promises");
       const cachePath = join(dir, "blocked-cache.json");
       await mkdir(cachePath); // a directory where the cache file should be
       const blocked = new JsonDailyCacheStore(cachePath);
@@ -196,7 +188,6 @@ describe("JsonDailyCacheStore", () => {
     async function readDamaged(
       mutate: (record: Record<string, unknown>) => void,
     ): Promise<unknown> {
-      const { writeFile } = await import("node:fs/promises");
       const record = JSON.parse(
         JSON.stringify(makeCache("2025-01-15")),
       ) as Record<string, unknown>;
@@ -206,7 +197,6 @@ describe("JsonDailyCacheStore", () => {
     }
 
     test("missing structure is quarantined (the `iching today` crash)", async () => {
-      const { readFile } = await import("node:fs/promises");
       expect(await readDamaged((r) => delete r.structure)).toBeNull();
       // Same quarantine path as unparseable bytes: .corrupt sidecar saved.
       const backup = await readFile(join(dir, "daily-cache.json.corrupt"), "utf-8");

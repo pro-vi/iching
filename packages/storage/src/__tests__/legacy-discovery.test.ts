@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { freshTempDir } from "../testing.ts";
 
@@ -20,7 +20,6 @@ describe("legacy discovery", () => {
     await writeFile(join(claudeDir, "iching.json"), "{}", "utf-8");
 
     // Manually replicate the discovery logic for the fake home
-    const { stat } = await import("node:fs/promises");
     const cachePath = join(fakeHome, ".claude", "iching.json");
     let exists = false;
     try {
@@ -38,7 +37,6 @@ describe("legacy discovery", () => {
     await mkdir(claudeDir, { recursive: true });
     await writeFile(join(claudeDir, "iching.jsonl"), "", "utf-8");
 
-    const { stat } = await import("node:fs/promises");
     const journalPath = join(fakeHome, ".claude", "iching.jsonl");
     let exists = false;
     try {
@@ -52,7 +50,6 @@ describe("legacy discovery", () => {
   });
 
   test("returns null when files don't exist", async () => {
-    const { stat } = await import("node:fs/promises");
     const cachePath = join(fakeHome, ".claude", "iching.json");
     const journalPath = join(fakeHome, ".claude", "iching.jsonl");
 
