@@ -9,38 +9,13 @@
 // (coin|yarrow) × castMode (auto|manual); both must be reachable.
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { runCli as spawnCli, type RunResult } from "../testing.ts";
 import { mkdtemp, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 
-const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
-const MAIN_TS = resolve(REPO_ROOT, "apps/cli/src/main.ts");
-
-interface RunResult {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}
-
-async function runCli(dataDir: string, args: string[]): Promise<RunResult> {
-  const proc = Bun.spawn(
-    ["bun", MAIN_TS, "--data-dir", dataDir, ...args],
-    {
-      cwd: REPO_ROOT,
-      stdin: "pipe",
-      stdout: "pipe",
-      stderr: "pipe",
-      env: { ...process.env, NO_COLOR: "1" },
-    },
-  );
-  proc.stdin.end();
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-  const exitCode = await proc.exited;
-  return { exitCode, stdout, stderr };
-}
+const runCli = (dataDir: string, args: string[]): Promise<RunResult> =>
+  spawnCli(args, { dataDir });
 
 describe("config command", () => {
   let dataDir: string;
@@ -231,16 +206,9 @@ describe("config command", () => {
   // seed+freeze the display language on first boot like the main TUI — not use a
   // pure load() that launches English. It seeds before the (non-TTY) render exits.
   test("`iching dict` seeds the display language on first boot", async () => {
-    const proc = Bun.spawn(["bun", MAIN_TS, "--data-dir", dataDir, "dict"], {
-      cwd: REPO_ROOT,
-      stdin: "pipe",
-      stdout: "pipe",
-      stderr: "pipe",
-      // clear inherited LANGUAGE/LC_MESSAGES so LC_ALL deterministically wins
-      env: { ...process.env, NO_COLOR: "1", LC_ALL: "zh_CN.UTF-8", LANG: "zh_CN.UTF-8", LC_MESSAGES: "", LANGUAGE: "" },
-    });
-    proc.stdin.end();
-    await proc.exited; // exits on its own (no TTY) after loadOrSeed has persisted
+    // clear inherited LANGUAGE/LC_MESSAGES so LC_ALL deterministically wins; the
+    // (non-TTY) dict render exits on its own after loadOrSeed has persisted.
+    await spawnCli(["dict"], { dataDir, env: { LC_ALL: "zh_CN.UTF-8", LANG: "zh_CN.UTF-8", LC_MESSAGES: "", LANGUAGE: "" } });
     const cfg = JSON.parse(await readFile(join(dataDir, "config.json"), "utf-8"));
     expect(cfg.language).toBe("zh-Hans"); // seeded from the locale, not default "en"
   }, 20_000);
@@ -248,15 +216,7 @@ describe("config command", () => {
   // Regression (review P2): `config set` WRITES, so on first boot it must seed
   // the language — not persist the defaulted "en" and permanently freeze the seed.
   test("`config set` on first boot seeds the language (does not freeze en)", async () => {
-    const proc = Bun.spawn(["bun", MAIN_TS, "--data-dir", dataDir, "config", "set", "theme", "ink"], {
-      cwd: REPO_ROOT,
-      stdin: "pipe",
-      stdout: "pipe",
-      stderr: "pipe",
-      env: { ...process.env, NO_COLOR: "1", LC_ALL: "zh_CN.UTF-8", LANG: "zh_CN.UTF-8", LC_MESSAGES: "", LANGUAGE: "" },
-    });
-    proc.stdin.end();
-    await proc.exited;
+    await spawnCli(["config", "set", "theme", "ink"], { dataDir, env: { LC_ALL: "zh_CN.UTF-8", LANG: "zh_CN.UTF-8", LC_MESSAGES: "", LANGUAGE: "" } });
     const cfg = JSON.parse(await readFile(join(dataDir, "config.json"), "utf-8"));
     expect(cfg.theme).toBe("ink"); // the set applied
     expect(cfg.language).toBe("zh-Hans"); // …AND the locale was seeded, not frozen to en
