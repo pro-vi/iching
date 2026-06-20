@@ -1,6 +1,6 @@
 import type { RandomSource } from "../random.js";
 import type { Line, LineValue } from "../types.js";
-import { isYangValue, isChangingValue } from "./line-value.js";
+import { lineFromValue } from "./line-value.js";
 
 /**
  * Cast a single line using the provided random source.
@@ -11,9 +11,5 @@ export function castLine(source: RandomSource): Line {
   const coins = [bytes[0] & 1, bytes[1] & 1, bytes[2] & 1];
   const sum = coins.map((c) => (c ? 3 : 2)).reduce<number>((a, b) => a + b, 0) as LineValue;
 
-  return {
-    value: sum,
-    isYang: isYangValue(sum),
-    isChanging: isChangingValue(sum),
-  };
+  return lineFromValue(sum);
 }

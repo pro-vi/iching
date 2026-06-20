@@ -1,4 +1,4 @@
-import type { LineValue } from "../types.js";
+import type { Line, LineValue } from "../types.js";
 
 // The I Ching line-value semantics: 6 = old yin, 7 = young yang, 8 = young yin,
 // 9 = old yang. So a yang line is 7 or 9; a changing (old) line is 6 or 9. Every
@@ -14,4 +14,14 @@ export function isYangValue(value: LineValue): boolean {
 /** True when the line value is changing/old (old yin 6 or old yang 9). */
 export function isChangingValue(value: LineValue): boolean {
   return value === 6 || value === 9;
+}
+
+/** Construct a Line from its value — the canonical value → Line builder shared by
+ *  every cast method (coins, yarrow). */
+export function lineFromValue(value: LineValue): Line {
+  return {
+    value,
+    isYang: isYangValue(value),
+    isChanging: isChangingValue(value),
+  };
 }

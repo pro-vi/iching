@@ -34,8 +34,8 @@ export {
 export { castLine } from "./casting/coins.js";
 export { castHexagram, assembleCast } from "./casting/cast.js";
 export { linesToBinary } from "./casting/binary.js";
-export { castYarrowHexagram, castYarrowLine, castYarrowRound, lineFromValue, toLineValue } from "./casting/yarrow.js";
-export { isYangValue, isChangingValue } from "./casting/line-value.js";
+export { castYarrowHexagram, castYarrowLine, castYarrowRound, toLineValue } from "./casting/yarrow.js";
+export { isYangValue, isChangingValue, lineFromValue } from "./casting/line-value.js";
 export type { YarrowRound, YarrowLineResult, YarrowCast } from "./casting/yarrow.js";
 
 // Derivation
