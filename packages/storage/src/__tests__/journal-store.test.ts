@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { readFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { freshTempDir } from "../testing.ts";
 import type { HistoryEntry, Line, ReflectionNote } from "@iching/core";
@@ -150,7 +150,6 @@ describe("JsonlJournalStore", () => {
   });
 
   test("latest returns null for empty file", async () => {
-    const { writeFile } = await import("node:fs/promises");
     const emptyPath = join(dir, "empty.jsonl");
     await writeFile(emptyPath, "", "utf-8");
 
@@ -164,7 +163,6 @@ describe("JsonlJournalStore", () => {
   // unreadable — readers skip it and surface a count.
   describe("torn/malformed lines", () => {
     test("stream skips a torn trailing line and keeps prior entries", async () => {
-      const { appendFile } = await import("node:fs/promises");
       await store.append(makeEntry("2025-01-01"));
       await store.append(makeEntry("2025-01-02"));
       // Torn append: no newline, truncated mid-object
@@ -180,7 +178,6 @@ describe("JsonlJournalStore", () => {
     });
 
     test("stream skips a torn middle line and keeps reading past it", async () => {
-      const { writeFile } = await import("node:fs/promises");
       const good1 = JSON.stringify(makeEntry("2025-01-01"));
       const good2 = JSON.stringify(makeEntry("2025-01-03"));
       await writeFile(
@@ -199,7 +196,6 @@ describe("JsonlJournalStore", () => {
     });
 
     test("stream skips valid JSON that is not entry-shaped", async () => {
-      const { writeFile } = await import("node:fs/promises");
       const good = JSON.stringify(makeEntry("2025-01-01"));
       // Scalars, arrays, and objects missing date/cast are all damage, not entries
       await writeFile(
@@ -218,7 +214,6 @@ describe("JsonlJournalStore", () => {
     });
 
     test("latest falls back past a torn final line to the last good entry", async () => {
-      const { appendFile } = await import("node:fs/promises");
       await store.append(makeEntry("2025-01-01"));
       await store.append(makeEntry("2025-01-02"));
       await appendFile(join(dir, "history.jsonl"), '{"date":"2025-01-0', "utf-8");
@@ -230,7 +225,6 @@ describe("JsonlJournalStore", () => {
     });
 
     test("a record with malformed changingPositions is torn, not admitted", async () => {
-      const { writeFile } = await import("node:fs/promises");
       // changingPositions is held to its own range discipline (0–6 unique, 1–6):
       // out-of-range, duplicate, or >6-length records are corrupt, like a torn
       // line — they must not reach a reader assuming valid positions.
@@ -269,7 +263,6 @@ describe("JsonlJournalStore", () => {
     });
 
     test("latest returns null when every line is torn", async () => {
-      const { writeFile } = await import("node:fs/promises");
       const path = join(dir, "history.jsonl");
       await writeFile(path, '{"date":"2025-\n{"broken\n', "utf-8");
 
@@ -283,7 +276,6 @@ describe("JsonlJournalStore", () => {
       // which took down `journal list`'s sort. A corrupt / hand-edited object
       // timestamp must read back as absent (the entry falls back to its date),
       // not as the raw object. (External review, H3.)
-      const { writeFile } = await import("node:fs/promises");
       const path = join(dir, "history.jsonl");
       const corrupt = { ...makeEntry("2026-04-01"), timestamp: { bad: true } } as unknown as HistoryEntry;
       await writeFile(path, JSON.stringify(corrupt) + "\n", "utf-8");
@@ -298,7 +290,6 @@ describe("JsonlJournalStore", () => {
       // isCastShaped exists to reject records that "quietly mislead a reader" —
       // not just crash one. A shape-valid but INTERNALLY-FALSE cast renders a
       // reading that looks valid but lies, worse than a loud failure. (Review.)
-      const { writeFile } = await import("node:fs/promises");
       const good = JSON.stringify(makeEntry("2025-01-01"));
       // value 7 = young yang, but isYang:false says yin — the diagram would draw
       // yin while the label says 7.
@@ -327,7 +318,6 @@ describe("JsonlJournalStore", () => {
       // DIFFERENT hexagram than the lines draw: a hand-edited/imported row that
       // would show hexagram X's oracle texts over hexagram Y's diagram — a
       // plausible but false reading. isCastShaped reconstructs and compares.
-      const { writeFile } = await import("node:fs/promises");
       const good = JSON.stringify(makeEntry("2025-01-01")); // lines form 63, primary 63
       // Same lines, but primary mislabeled 1 — the reading would speak 乾 over a
       // 既濟 diagram.
@@ -355,7 +345,6 @@ describe("JsonlJournalStore", () => {
       // giant unparseable line and latest() returned null — `iching today` saw
       // an empty journal that `journal list` streamed in full. The two readers
       // must resolve the SAME last entry whatever the newline style.
-      const { writeFile } = await import("node:fs/promises");
       const path = join(dir, "history.jsonl");
       const e1 = makeEntry("2025-02-01");
       const e2 = makeEntry("2025-02-02");
@@ -374,7 +363,6 @@ describe("JsonlJournalStore", () => {
     // glue the NEXT record onto the fragment — that silently loses a real
     // reading, not just the already-damaged bytes.
     test("append after a torn final line starts a fresh line", async () => {
-      const { appendFile } = await import("node:fs/promises");
       await store.append(makeEntry("2025-01-01"));
       // Torn append: no trailing newline, truncated mid-object.
       await appendFile(join(dir, "history.jsonl"), '{"date":"2025-01-0', "utf-8");
@@ -395,7 +383,6 @@ describe("JsonlJournalStore", () => {
     });
 
     test("appendNote after a torn sidecar line starts a fresh line", async () => {
-      const { appendFile, mkdir } = await import("node:fs/promises");
       await mkdir(dir, { recursive: true });
       await appendFile(join(dir, "notes.jsonl"), '{"kind":"note","re', "utf-8");
 
@@ -420,7 +407,6 @@ describe("JsonlJournalStore", () => {
     // changingPositions) is damage, counted like a torn line. An entry like
     // {"date":"…","cast":{}} used to be yielded and crash `journal list`.
     test("stream skips entries whose cast is missing its required shape", async () => {
-      const { writeFile } = await import("node:fs/promises");
       const good = JSON.stringify(makeEntry("2025-01-01"));
       await writeFile(
         join(dir, "history.jsonl"),
@@ -438,7 +424,6 @@ describe("JsonlJournalStore", () => {
     });
 
     test("stream skips casts with out-of-range or malformed fields", async () => {
-      const { writeFile } = await import("node:fs/promises");
       const good = makeEntry("2025-01-01");
       const damaged = [
         { ...good, cast: { ...good.cast, primary: 0 } },
@@ -466,7 +451,6 @@ describe("JsonlJournalStore", () => {
     });
 
     test("latest falls back past a trailing malformed-cast record", async () => {
-      const { appendFile } = await import("node:fs/promises");
       await store.append(makeEntry("2025-01-01"));
       await appendFile(
         join(dir, "history.jsonl"),
@@ -496,7 +480,6 @@ describe("JsonlJournalStore", () => {
     });
 
     test("skippedLines resets between reads", async () => {
-      const { appendFile } = await import("node:fs/promises");
       await store.append(makeEntry("2025-01-01"));
       await appendFile(join(dir, "history.jsonl"), "garbage", "utf-8");
 
@@ -553,7 +536,6 @@ describe("JsonlJournalStore reflection notes", () => {
   // JSON.parse and no kind discrimination — a note record in that file crashes
   // it permanently. Notes must therefore never land in history.jsonl.
   test("appendNote never touches history.jsonl (old binaries stay calm)", async () => {
-    const { stat } = await import("node:fs/promises");
     await store.append(makeEntry("2025-01-01"));
     const before = await readFile(join(dir, "history.jsonl"), "utf-8");
 
@@ -570,7 +552,6 @@ describe("JsonlJournalStore reflection notes", () => {
   });
 
   test("streamNotes merges legacy in-journal notes before sidecar notes", async () => {
-    const { appendFile } = await import("node:fs/promises");
     // Legacy: a note written into history.jsonl by a pre-sidecar binary.
     const legacy = makeNote("2025-01-01", "legacy note");
     await store.append(makeEntry("2025-01-01"));
@@ -601,7 +582,6 @@ describe("JsonlJournalStore reflection notes", () => {
   });
 
   test("unknown kinds are skipped gracefully (forward compatibility)", async () => {
-    const { appendFile } = await import("node:fs/promises");
     await store.append(makeEntry("2025-01-01"));
     await appendFile(
       join(dir, "history.jsonl"),
@@ -631,7 +611,6 @@ describe("JsonlJournalStore reflection notes", () => {
   });
 
   test("streamNotes yields notes in append order, skipping readings and damage", async () => {
-    const { appendFile } = await import("node:fs/promises");
     await store.append(makeEntry("2025-01-01"));
     await store.appendNote(makeNote("2025-01-01", "first"));
     await appendFile(join(dir, "history.jsonl"), '{"date":"2025-01-0', "utf-8");
@@ -647,7 +626,6 @@ describe("JsonlJournalStore reflection notes", () => {
   });
 
   test("streamNotes drops malformed note records (missing ref/text)", async () => {
-    const { appendFile } = await import("node:fs/promises");
     await appendFile(
       join(dir, "history.jsonl"),
       '{"kind":"note","ref":"2025-01-01"}\n{"kind":"note","text":"no ref"}\n',
@@ -673,7 +651,6 @@ describe("JsonlJournalStore reflection notes", () => {
   });
 
   test("an unreadable notes sidecar yields nothing and never takes the readings down", async () => {
-    const { mkdir } = await import("node:fs/promises");
     // A reading exists; its notes sidecar is a directory (→ EISDIR when read;
     // in the wild a root-owned notes.jsonl → EACCES). Reflection notes are
     // supplementary, so a sidecar read failure must not throw — it would crash
