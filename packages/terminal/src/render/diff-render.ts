@@ -16,6 +16,17 @@ function safeCellChar(char: string): string {
   return /[\u0000-\u001f\u007f-\u009f]/.test(char) ? "\uFFFD" : char;
 }
 
+/**
+ * Move to the start of `row` and clear it. Reset style BEFORE the clear:
+ * clearToEndOfLine erases using the current SGR background, so a leftover bg from
+ * the previous row would paint the cleared span. (Render review, H2.)
+ */
+function clearRow(chunks: string[], row: number): void {
+  chunks.push(cursorTo(row, 0));
+  chunks.push(resetStyle());
+  chunks.push(clearToEndOfLine);
+}
+
 export class DiffRenderer {
   private output: { write(data: string): boolean };
   private colorSupport: ColorSupport;
@@ -39,13 +50,8 @@ export class DiffRenderer {
     for (let row = 0; row < next.height; row++) {
       if (this.rowsEqual(prev, next, row)) continue;
 
-      // Emit cursor move to start of changed row, clear it first. Reset style
-      // BEFORE the clear: clearToEndOfLine erases using the current SGR
-      // background, so a leftover bg from the previous row would paint the
-      // cleared span. (Render review, H2.)
-      chunks.push(cursorTo(row, 0));
-      chunks.push(resetStyle());
-      chunks.push(clearToEndOfLine);
+      // Clear the changed row before repainting it.
+      clearRow(chunks, row);
 
       // Emit styled cells for the entire row
       let lastFg: string | undefined;
@@ -93,9 +99,7 @@ export class DiffRenderer {
     // scene loop also does a full clear on resize, so this is the renderer's own
     // safety net rather than the sole guard. (Render review, H1.)
     for (let row = next.height; row < prev.height; row++) {
-      chunks.push(cursorTo(row, 0));
-      chunks.push(resetStyle());
-      chunks.push(clearToEndOfLine);
+      clearRow(chunks, row);
     }
 
     // Single write for the entire frame, wrapped in synchronized-output
