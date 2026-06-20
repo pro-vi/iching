@@ -9,6 +9,11 @@
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 
+/** Machine-local YYYY-MM-DD — the fallback when no IANA zone applies (the
+ *  "system"/absent branch and the invalid-zone catch must format it the same). */
+const localDate = (d: Date): string =>
+  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
 /**
  * The YYYY-MM-DD calendar date of `instant` in `timeZone` (machine-local when the
  * zone is absent or "system"). Uses formatToParts so it never depends on a
@@ -16,7 +21,7 @@ const pad = (n: number): string => String(n).padStart(2, "0");
  */
 export function dateInZone(instant: Date, timeZone?: string): string {
   if (!timeZone || timeZone === "system") {
-    return `${instant.getFullYear()}-${pad(instant.getMonth() + 1)}-${pad(instant.getDate())}`;
+    return localDate(instant);
   }
   try {
     const parts = new Intl.DateTimeFormat("en-US", {
@@ -34,7 +39,7 @@ export function dateInZone(instant: Date, timeZone?: string): string {
     // Invalid IANA name — fall through to machine-local (config validation
     // should prevent this; this is defense-in-depth, never a throw).
   }
-  return `${instant.getFullYear()}-${pad(instant.getMonth() + 1)}-${pad(instant.getDate())}`;
+  return localDate(instant);
 }
 
 /**
