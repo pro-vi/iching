@@ -76,10 +76,16 @@ function parseTrigramPair(q: string): { upper: number; lower: number } | null {
   return null;
 }
 
-interface ScoredMatch {
+export interface ScoredHexagram {
   kw: number;
   gua: Hexagram;
-  score: number; // lower is better
+  /**
+   * Relevance, lower is better: 0 exact (name / pinyin / ename / number /
+   * trigram-pair) · 1 prefix · 2 contains · 3 single-trigram family. Exposed so
+   * a caller that needs ONE answer (the CLI hexagram/dict resolver) can treat a
+   * unique score-0 hit as definitive even when weaker family matches coexist.
+   */
+  score: number;
 }
 
 /**
@@ -93,18 +99,20 @@ interface ScoredMatch {
  *   - a pair — "X over Y" / "山風" / "☲☱" / "li over dui" — names one hexagram
  *     by structure (upper first) and matches it exactly (score 0).
  *
- * Returns results sorted by relevance (exact > prefix > includes > trigram).
+ * Returns results sorted by relevance (exact > prefix > includes > trigram),
+ * each WITH its score. `searchHexagrams` drops the scores for callers (the
+ * terminal dict-browse filter) that just want the ranked list.
  */
-export function searchHexagrams(query: string): Hexagram[] {
+export function searchHexagramsScored(query: string): ScoredHexagram[] {
   const q = normalize(query.trim());
-  if (q.length === 0) return [...GUA];
+  if (q.length === 0) return GUA.map((gua, i) => ({ kw: i + 1, gua, score: 0 }));
 
   // Trigram resolution — a pair pins one KW number; a single token marks a family.
   const pair = parseTrigramPair(q);
   const pairKW = pair !== null ? BINARY_TO_KW[pair.lower + pair.upper * 8] : null;
   const singleTrigram = resolveTrigramToken(q);
 
-  const matches: ScoredMatch[] = [];
+  const matches: ScoredHexagram[] = [];
 
   for (let i = 0; i < GUA.length; i++) {
     const gua = GUA[i];
@@ -166,5 +174,10 @@ export function searchHexagrams(query: string): Hexagram[] {
 
   // Sort by score (best first), then by KW number for stability
   matches.sort((a, b) => a.score - b.score || a.kw - b.kw);
-  return matches.map((m) => m.gua);
+  return matches;
+}
+
+/** Search hexagrams, dropping the scores — the ranked list only. */
+export function searchHexagrams(query: string): Hexagram[] {
+  return searchHexagramsScored(query).map((m) => m.gua);
 }

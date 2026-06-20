@@ -39,12 +39,41 @@ describe("resolveHexagramQuery", () => {
     expect(resolveHexagramQuery("water over mountain")).toEqual({ kind: "kw", kw: 39 });
   });
 
-  test("ambiguous query returns the scored match list", () => {
+  test("a hexagram whose name IS a trigram token resolves to its KW, not a shortlist", () => {
+    // The single-trigram family scoring gives score 3 to every hexagram sharing a
+    // queried trigram, but an exact (score-0) hit must still win — otherwise the 8
+    // doubled-trigram hexagrams' OWN name returned a family shortlist (15 hits for
+    // 乾) instead of opening the hexagram (the most canonical lookups in the app).
+    const byName: Array<[string, number]> = [
+      ["乾", 1], ["坤", 2], ["坎", 29], ["離", 30], ["震", 51], ["艮", 52], ["巽", 57], ["兌", 58],
+    ];
+    for (const [name, kw] of byName) expect(resolveHexagramQuery(name)).toEqual({ kind: "kw", kw });
+    // A doubled symbol/char is a trigram PAIR (also score-0) → its one hexagram.
+    expect(resolveHexagramQuery("☰☰")).toEqual({ kind: "kw", kw: 1 });
+    expect(resolveHexagramQuery("☷☷")).toEqual({ kind: "kw", kw: 2 });
+  });
+
+  test("tone-stripped pinyin that collides stays a shortlist (qian → 乾 + 謙)", () => {
+    // Diacritic-insensitive matching merges qián (乾/1) and qiān (謙/15): two exact
+    // score-0 hits, so it's genuinely ambiguous (pre-existing on main, not a
+    // family-scoring regression). The resolver must NOT pick one arbitrarily.
     const result = resolveHexagramQuery("qian");
     expect(result.kind).toBe("matches");
     if (result.kind === "matches") {
+      const kws = result.matches.map((g) => GUA.indexOf(g) + 1);
+      expect(kws).toContain(1);
+      expect(kws).toContain(15);
+    }
+  });
+
+  test("a single-trigram family query stays a shortlist (genuinely ambiguous)", () => {
+    // "fire" is the 離 trigram, in many hexagrams with no exact name hit — so it
+    // legitimately returns the family, unlike an exact name/pinyin above.
+    const result = resolveHexagramQuery("fire");
+    expect(result.kind).toBe("matches");
+    if (result.kind === "matches") {
       expect(result.matches.length).toBeGreaterThan(1);
-      expect(GUA.indexOf(result.matches[0]) + 1).toBe(1); // 乾 exact first
+      expect(result.matches.map((g) => GUA.indexOf(g) + 1)).toContain(30); // 離 itself among them
     }
   });
 

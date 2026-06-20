@@ -74,7 +74,8 @@ export type { ReadingFocus, ReadingPart } from "./format/reading.js";
 export { formatDerived } from "./format/derived.js";
 
 // Search
-export { searchHexagrams } from "./search.js";
+export { searchHexagrams, searchHexagramsScored } from "./search.js";
+export type { ScoredHexagram } from "./search.js";
 
 // Terminal-safe text
 export { stripTerminalControls } from "./terminal-text.js";

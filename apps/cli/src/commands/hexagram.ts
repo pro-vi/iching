@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { GUA, searchHexagrams } from "@iching/core";
+import { GUA, searchHexagramsScored } from "@iching/core";
 import type { Hexagram, Style } from "@iching/core";
 import { formatHexagramPlain } from "../output/plain.js";
 import { outputJson, hexagramToJson } from "../output/json.js";
@@ -32,10 +32,18 @@ export function resolveHexagramQuery(arg: string): HexagramQueryResolution {
     if (num < 1 || num > 64) return { kind: "invalid" };
     return { kind: "kw", kw: num };
   }
-  const matches = searchHexagrams(trimmed);
-  if (matches.length === 0) return { kind: "none" };
-  if (matches.length === 1) return { kind: "kw", kw: GUA.indexOf(matches[0]) + 1 };
-  return { kind: "matches", matches };
+  const scored = searchHexagramsScored(trimmed);
+  if (scored.length === 0) return { kind: "none" };
+  // An exact (score-0) hit IS the answer. The single-trigram family scoring gives
+  // score 3 to every hexagram sharing a queried trigram, so the 8 hexagrams whose
+  // name equals a trigram token (乾/坤/坎/離/震/艮/巽/兌 — and their pinyin / English
+  // image word / symbol / image char) would otherwise return a shortlist instead
+  // of opening the hexagram. A unique score-0 match resolves straight to its KW;
+  // weaker family matches only matter when nothing answered exactly.
+  const exact = scored.filter((s) => s.score === 0);
+  if (exact.length === 1) return { kind: "kw", kw: exact[0].kw };
+  if (scored.length === 1) return { kind: "kw", kw: scored[0].kw };
+  return { kind: "matches", matches: scored.map((s) => s.gua) };
 }
 
 export function registerHexagramCommand(program: Command): void {
