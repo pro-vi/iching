@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { createReadStream } from "node:fs";
 import { createInterface } from "node:readline";
 import type { HistoryEntry, ReflectionNote } from "@iching/core";
+import { stripTerminalControls } from "@iching/core";
 import type { HistoryQuery } from "../types.js";
 import type { JournalStore } from "../journal-store.js";
 import { isCastShaped } from "./cast-shape.js";
@@ -44,6 +45,11 @@ function parseLine(line: string): ParsedLine {
   // torn line, never yielded for `journal list` to crash on.
   if (!isCastShaped(record.cast)) return { type: "torn" };
   const entry = parsed as HistoryEntry;
+  // Untrusted source: a hand-edited/imported date could carry ESC/OSC bytes that
+  // replay live on `journal list` / `show` / `today` (every plain AND TUI render
+  // emits the date raw). Neutralize at the source — like the note text on render
+  // — so no surface has to remember to strip it. (Review #2.)
+  entry.date = stripTerminalControls(entry.date);
   // Normalize a non-string timestamp (corrupt / hand-edit) to absent. It flows
   // into entryTimeKey() as a sort/Map key, and entryTimeKey(e).localeCompare
   // throws on a non-string — taking down `journal list` entirely. Falling back
@@ -60,7 +66,7 @@ function parseNoteRecord(record: Record<string, unknown>): ReflectionNote | null
   return {
     kind: "note",
     ref: record.ref,
-    date: typeof record.date === "string" ? record.date : "",
+    date: typeof record.date === "string" ? stripTerminalControls(record.date) : "",
     timestamp: typeof record.timestamp === "string" ? record.timestamp : "",
     text: record.text,
   };

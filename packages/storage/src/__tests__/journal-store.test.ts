@@ -60,6 +60,23 @@ describe("JsonlJournalStore", () => {
     expect(results[2]).toEqual(e3);
   });
 
+  test("a control-byte date is stripped on read (untrusted-source defense)", async () => {
+    // A tampered/imported date carrying ESC/OSC bytes must not survive to a live
+    // render on journal list/show/today. Sanitized at the parser so no surface
+    // replays it (the date field was emitted raw on several).
+    const ESC = String.fromCharCode(27);
+    const BEL = String.fromCharCode(7);
+    const evil = `2026-01-01${ESC}]0;owned${BEL}${ESC}[2J`; // OSC title-set + CSI clear
+    await store.append({ date: evil, cast: castOf(63) });
+    const read: HistoryEntry[] = [];
+    for await (const entry of store.stream()) read.push(entry);
+
+    expect(read).toHaveLength(1);
+    expect(read[0].date).not.toContain(ESC); // no ESC
+    expect(read[0].date).not.toContain(BEL); // no BEL bytes survive
+    expect(read[0].date).toContain("2026-01-01"); // the visible date text is kept
+  });
+
   test("stream with since filter", async () => {
     await store.append(makeEntry("2025-01-01"));
     await store.append(makeEntry("2025-01-05"));
