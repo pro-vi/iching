@@ -8,7 +8,7 @@ import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import type { DisplayLanguage, HistoryEntry } from "@iching/core";
-import { GUA, TRIGRAMS, compareEntryTime, stripTerminalControls, toSimplified } from "@iching/core";
+import { GUA, TRIGRAMS, compareEntryTime, formatTime, stripTerminalControls, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth, truncateToWidth, fitLine } from "../../layout/measure.ts";
 // Re-exported for callers that have long imported it from here (e.g. tests).
@@ -1489,14 +1489,6 @@ export class JournalScene implements Scene {
   }
 }
 
-/** Extract HH:MM from an ISO timestamp */
-function formatTime(iso: string): string {
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  const h = String(d.getHours()).padStart(2, "0");
-  const m = String(d.getMinutes()).padStart(2, "0");
-  return `${h}:${m}`;
-}
 
 function formatNumber(value: number, digits: number): string {
   if (!Number.isFinite(value)) return "0";

@@ -2,6 +2,7 @@ import type { Cast, CastMethod, DailyCache, Hexagram, JournalPatterns, RngProven
 import {
   GUA,
   STYLES,
+  formatTime,
   formatTrigrams,
   getStructure,
   readingTexts,
@@ -356,14 +357,6 @@ export function formatJournalShowPlain(
   }
 
   return lines.join("\n");
-}
-
-function formatTime(iso: string): string {
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  const h = String(d.getHours()).padStart(2, "0");
-  const m = String(d.getMinutes()).padStart(2, "0");
-  return `${h}:${m}`;
 }
 
 /**

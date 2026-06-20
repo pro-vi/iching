@@ -72,6 +72,7 @@ export { toSimplified, SIMPLIFIED_MAP, SIMPLIFIED_EXCEPTIONS } from "./i18n/simp
 export { formatReading, getRandomQuoteStyle, readingFocus, readingTexts } from "./format/reading.js";
 export type { ReadingFocus, ReadingPart } from "./format/reading.js";
 export { formatDerived } from "./format/derived.js";
+export { formatTime } from "./format/time.js";
 
 // Search
 export { searchHexagrams, searchHexagramsScored } from "./search.js";
