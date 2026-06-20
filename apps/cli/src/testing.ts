@@ -18,14 +18,15 @@ export interface RunResult {
 
 /**
  * Spawn the CLI (`bun main.ts ...args`) and capture its output — the subprocess
- * harness eight cli suites each hand-rolled. `opts.dataDir` injects
- * `--data-dir <dir>`; `opts.env` merges over the default `{ NO_COLOR: "1" }`
- * (e.g. `{ TZ: "UTC" }` for date determinism). Always captures stdout + stderr;
- * callers that only read stdout simply ignore the rest.
+ * harness the cli suites each hand-rolled. `opts.dataDir` injects `--data-dir
+ * <dir>`; `opts.env` merges over the default `{ NO_COLOR: "1" }` (e.g.
+ * `{ TZ: "UTC" }` for date determinism); `opts.stdin`, when given, is written to
+ * the child's stdin before it's closed (hook mode reads a JSON event from stdin).
+ * Always captures stdout + stderr; callers that only read stdout ignore the rest.
  */
 export async function runCli(
   args: string[],
-  opts: { dataDir?: string; env?: Record<string, string> } = {},
+  opts: { dataDir?: string; env?: Record<string, string>; stdin?: string } = {},
 ): Promise<RunResult> {
   const fullArgs = opts.dataDir ? ["--data-dir", opts.dataDir, ...args] : args;
   const proc = Bun.spawn(["bun", MAIN_TS, ...fullArgs], {
@@ -35,6 +36,7 @@ export async function runCli(
     stderr: "pipe",
     env: { ...process.env, NO_COLOR: "1", ...opts.env },
   });
+  if (opts.stdin !== undefined) proc.stdin.write(opts.stdin);
   proc.stdin.end();
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),

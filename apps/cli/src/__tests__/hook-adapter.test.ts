@@ -1,7 +1,8 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { runCli as spawnCli } from "../testing.ts";
 import { mkdtemp, rm, readFile, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import {
   castHexagram,
   buildStructure,
@@ -23,9 +24,6 @@ afterEach(async () => {
   await rm(dataDir, { recursive: true, force: true });
 });
 
-const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
-const MAIN_TS = resolve(REPO_ROOT, "apps/cli/src/main.ts");
-
 /**
  * "Today" as the SUBPROCESS will stamp it. The bun test runner forces UTC
  * while a spawned child runs in the system timezone, so the two can disagree
@@ -37,18 +35,14 @@ function utcToday(): string {
 
 /** Run bare `iching` with piped stdin (hook mode) against an ICHING_HOME dir. */
 async function runHook(home: string): Promise<number> {
-  const proc = Bun.spawn(["bun", MAIN_TS], {
-    cwd: REPO_ROOT,
-    stdin: "pipe",
-    stdout: "pipe",
-    stderr: "pipe",
-    // The adapter resolves paths without a --data-dir override; collapse
-    // all storage into the temp dir via ICHING_HOME. TZ=UTC: see utcToday.
-    env: { ...process.env, NO_COLOR: "1", ICHING_HOME: home, TZ: "UTC" },
+  // The adapter resolves paths without a --data-dir override; collapse all
+  // storage into the temp dir via ICHING_HOME. TZ=UTC: see utcToday. Hook mode
+  // reads a JSON event ("{}") from stdin.
+  const { exitCode } = await spawnCli([], {
+    env: { ICHING_HOME: home, TZ: "UTC" },
+    stdin: "{}",
   });
-  proc.stdin.write("{}");
-  proc.stdin.end();
-  return proc.exited;
+  return exitCode;
 }
 
 describe("hook adapter", () => {
@@ -156,17 +150,10 @@ describe("hook adapter", () => {
     // → EROFS/ENOSPC) must not crash the hook before showing the reading — the
     // display is the hook's whole job. Best-effort persist: show, never crash.
     await mkdir(join(dataDir, "history.jsonl")); // block the journal write
-    const proc = Bun.spawn(["bun", MAIN_TS], {
-      cwd: REPO_ROOT,
-      stdin: "pipe",
-      stdout: "pipe",
-      stderr: "pipe",
-      env: { ...process.env, NO_COLOR: "1", ICHING_HOME: dataDir, TZ: "UTC" },
+    const { exitCode, stdout } = await spawnCli([], {
+      env: { ICHING_HOME: dataDir, TZ: "UTC" },
+      stdin: "{}",
     });
-    proc.stdin.write("{}");
-    proc.stdin.end();
-    const stdout = await new Response(proc.stdout).text();
-    const exitCode = await proc.exited;
     expect(exitCode).toBe(0); // best-effort persist — no crash…
     expect(stdout.trim().length).toBeGreaterThan(0); // …the reading still displayed
   }, 20_000);
