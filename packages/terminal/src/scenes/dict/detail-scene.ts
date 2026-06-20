@@ -11,6 +11,7 @@ import { composeGlyph } from "../../glyph-anim/compose.ts";
 import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
 import { autoGlyphSize } from "../../glyph-anim/auto-size.ts";
 import { DetailModel } from "./detail-model.ts";
+import { maxOffset } from "../../widgets/scroll.ts";
 import { renderDetail, buildContentLines } from "./detail-renderer.ts";
 
 export interface DetailGlyphConfig {
@@ -154,10 +155,7 @@ export class DetailScene implements Scene {
       return;
     }
     if (key.type === "end") {
-      this.model.scrollOffset = Math.max(
-        0,
-        this.model.contentHeight - this.model.viewportHeight,
-      );
+      this.model.scrollOffset = maxOffset(this.model.contentHeight, this.model.viewportHeight);
       return;
     }
 

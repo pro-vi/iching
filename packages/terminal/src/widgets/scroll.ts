@@ -8,9 +8,16 @@
 
 import { clamp } from "@iching/core";
 
-/** Clamp a scroll offset into the valid range `[0, max(0, contentLength - viewport)]`. */
+/** The furthest a free-scroll region can scroll: the last offset that still fills
+ *  the viewport, or 0 when the content fits. The ceiling clampOffset enforces, the
+ *  page indicator's final page, and where "scroll to end" lands. */
+export function maxOffset(contentLength: number, viewport: number): number {
+  return Math.max(0, contentLength - viewport);
+}
+
+/** Clamp a scroll offset into the valid range `[0, maxOffset(contentLength, viewport)]`. */
 export function clampOffset(offset: number, contentLength: number, viewport: number): number {
-  return clamp(offset, 0, Math.max(0, contentLength - viewport));
+  return clamp(offset, 0, maxOffset(contentLength, viewport));
 }
 
 /**
@@ -46,7 +53,7 @@ export function pageIndicator(offset: number, contentLength: number, viewport: n
   // viewport), which need not be a whole-page multiple — so floor(offset/
   // viewport)+1 can never reach the final page. Snap to it once scrolled to the
   // bottom, where the last content row is already on screen.
-  const maxOffset = contentLength - viewport;
-  const page = offset >= maxOffset ? pages : Math.floor(offset / viewport) + 1;
+  const ceiling = maxOffset(contentLength, viewport);
+  const page = offset >= ceiling ? pages : Math.floor(offset / viewport) + 1;
   return `${page}/${pages}`;
 }

@@ -6,6 +6,7 @@ import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import { stripTerminalControls } from "@iching/core";
 import { BrowseModel } from "./browse-model.ts";
 import { TextInput } from "../../widgets/text-input.ts";
+import { maxOffset } from "../../widgets/scroll.ts";
 import { renderBrowse, listViewportHeight } from "./browse-renderer.ts";
 
 export class BrowseScene implements Scene {
@@ -98,10 +99,7 @@ export class BrowseScene implements Scene {
 
     if (key.type === "end") {
       this.model.cursor = Math.max(0, this.model.filtered.length - 1);
-      this.model.scrollOffset = Math.max(
-        0,
-        this.model.filtered.length - this.model.viewportHeight,
-      );
+      this.model.scrollOffset = maxOffset(this.model.filtered.length, this.model.viewportHeight);
       return;
     }
 
