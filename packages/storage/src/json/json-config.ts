@@ -1,8 +1,9 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import type { UserConfig } from "../types.js";
 import type { ConfigStore } from "../config-store.js";
 import { atomicWriteJson } from "./atomic-write.js";
 import { isRecord } from "./is-record.js";
+import { quarantineCorrupt } from "./quarantine-corrupt.js";
 import { isOneOf } from "@iching/core";
 
 const MOTION_OPTIONS = ["default", "brisk", "deep", "reduced"] as const;
@@ -265,16 +266,7 @@ export class JsonConfigStore implements ConfigStore {
     try {
       parsed = JSON.parse(raw);
     } catch {
-      try {
-        // wx: never clobber an existing backup — the FIRST backup is the
-        // recoverable one (a later corruption is usually garbage-on-garbage).
-        await writeFile(`${this.path}.corrupt`, raw, { encoding: "utf-8", flag: "wx" });
-        this.corruptBackupOk = true;
-      } catch (err: unknown) {
-        // EEXIST means a backup is already safe; anything else (read-only /
-        // full) means it isn't — and healing must not run.
-        this.corruptBackupOk = (err as NodeJS.ErrnoException).code === "EEXIST";
-      }
+      this.corruptBackupOk = await quarantineCorrupt(this.path, raw);
       this.warnUnreadable(
         `iching: config at ${this.path} is unreadable — using defaults. ` +
           `Your old settings are saved at ${this.path}.corrupt; restore them by fixing the JSON and renaming the file back.`,

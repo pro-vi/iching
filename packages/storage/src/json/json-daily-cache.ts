@@ -1,9 +1,10 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import type { DailyCacheRecord } from "../types.js";
 import type { DailyCacheStore } from "../daily-cache-store.js";
 import { atomicWriteJson } from "./atomic-write.js";
 import { isCastShaped } from "./cast-shape.js";
 import { isRecord } from "./is-record.js";
+import { quarantineCorrupt } from "./quarantine-corrupt.js";
 
 /**
  * True for a trigram object carrying the string sym/n/img that the renderers
@@ -106,15 +107,7 @@ export class JsonDailyCacheStore implements DailyCacheStore {
    * the next daily write can't silently destroy them.
    */
   private async quarantine(raw: string): Promise<null> {
-    let backupOk = false;
-    try {
-      await writeFile(`${this.path}.corrupt`, raw, { encoding: "utf-8", flag: "wx" });
-      backupOk = true;
-    } catch (err: unknown) {
-      // EEXIST means a backup is already safe; anything else (read-only /
-      // full) is best-effort — a cache must never block startup.
-      backupOk = (err as NodeJS.ErrnoException).code === "EEXIST";
-    }
+    const backupOk = await quarantineCorrupt(this.path, raw);
     const saved = backupOk ? ` The old bytes are saved at ${this.path}.corrupt.` : "";
     this.warnUnreadable(`iching: daily cache at ${this.path} is unreadable — starting fresh.${saved}`);
     return null;
