@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { runCli as spawnCli } from "../testing.ts";
-import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { rm, writeFile, mkdir } from "node:fs/promises";
+import { freshTempDir } from "../testing.ts";
 import { join } from "node:path";
 import { GUA, BINARY_TO_KW, TRIGRAMS } from "@iching/core";
 
@@ -76,7 +76,7 @@ describe("doctor journal check (subprocess)", () => {
   let dataDir: string;
 
   beforeEach(async () => {
-    dataDir = await mkdtemp(join(tmpdir(), "iching-doctor-test-"));
+    dataDir = await freshTempDir("iching-doctor-test");
   });
 
   afterEach(async () => {

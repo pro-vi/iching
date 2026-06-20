@@ -10,8 +10,8 @@
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { runCli as spawnCli, type RunResult } from "../testing.ts";
-import { mkdtemp, rm, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { rm, readFile } from "node:fs/promises";
+import { freshTempDir } from "../testing.ts";
 import { join } from "node:path";
 
 const runCli = (dataDir: string, args: string[]): Promise<RunResult> =>
@@ -21,7 +21,7 @@ describe("config command", () => {
   let dataDir: string;
 
   beforeEach(async () => {
-    dataDir = await mkdtemp(join(tmpdir(), "iching-config-cmd-test-"));
+    dataDir = await freshTempDir("iching-config-cmd-test");
   });
 
   afterEach(async () => {

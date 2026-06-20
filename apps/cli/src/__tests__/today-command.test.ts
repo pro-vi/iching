@@ -5,8 +5,8 @@
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { runCli } from "../testing.ts";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { rm, writeFile } from "node:fs/promises";
+import { freshTempDir } from "../testing.ts";
 import { join } from "node:path";
 import { buildStructure } from "@iching/core";
 import type { DailyCache } from "@iching/core";
@@ -69,7 +69,7 @@ describe("today command", () => {
   let dataDir: string;
 
   beforeEach(async () => {
-    dataDir = await mkdtemp(join(tmpdir(), "iching-today-cmd-test-"));
+    dataDir = await freshTempDir("iching-today-cmd-test");
   });
 
   afterEach(async () => {

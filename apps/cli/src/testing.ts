@@ -2,7 +2,9 @@
 // own __tests__ (the analogue of @iching/core/testing); not part of the public
 // surface.
 
-import { resolve } from "node:path";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { resolve, join } from "node:path";
 
 // Repo root is THREE levels up from this file (apps/cli/src/) — not four. The
 // test suites that each defined this sat one level deeper, in __tests__/, so they
@@ -44,4 +46,9 @@ export async function runCli(
   ]);
   const exitCode = await proc.exited;
   return { exitCode, stdout, stderr };
+}
+
+/** Create a fresh OS temp directory for a test, `prefix`-tagged for debuggability. */
+export async function freshTempDir(prefix: string): Promise<string> {
+  return mkdtemp(join(tmpdir(), `${prefix}-`));
 }

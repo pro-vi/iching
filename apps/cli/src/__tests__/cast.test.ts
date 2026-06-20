@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { runCli as spawnCli } from "../testing.ts";
-import { mkdtemp, rm, readFile, readdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { rm, readFile, readdir } from "node:fs/promises";
+import { freshTempDir } from "../testing.ts";
 import { join } from "node:path";
 import {
   castHexagram,
@@ -17,7 +17,7 @@ import { formatCastPlain } from "../output/plain.js";
 let dataDir: string;
 
 beforeEach(async () => {
-  dataDir = await mkdtemp(join(tmpdir(), "iching-cast-test-"));
+  dataDir = await freshTempDir("iching-cast-test");
 });
 
 afterEach(async () => {

@@ -8,14 +8,14 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { existsSync } from "node:fs";
 import { runCli as spawnCli, type RunResult } from "../testing.ts";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { rm } from "node:fs/promises";
+import { freshTempDir } from "../testing.ts";
 import { join } from "node:path";
 
 let dataDir: string;
 
 beforeEach(async () => {
-  dataDir = await mkdtemp(join(tmpdir(), "iching-mode-routing-test-"));
+  dataDir = await freshTempDir("iching-mode-routing-test");
 });
 
 afterEach(async () => {

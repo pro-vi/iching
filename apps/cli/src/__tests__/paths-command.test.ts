@@ -3,13 +3,13 @@
 // otherwise untested.
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { runCli } from "../testing.ts";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { rm } from "node:fs/promises";
+import { freshTempDir } from "../testing.ts";
 import { join } from "node:path";
 
 let dataDir: string;
 beforeEach(async () => {
-  dataDir = await mkdtemp(join(tmpdir(), "iching-paths-test-"));
+  dataDir = await freshTempDir("iching-paths-test");
 });
 afterEach(async () => {
   await rm(dataDir, { recursive: true, force: true });

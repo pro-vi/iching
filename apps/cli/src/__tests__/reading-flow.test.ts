@@ -1,8 +1,8 @@
 // Integration tests for the yarrow branch of the reading flow.
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { rm, writeFile } from "node:fs/promises";
+import { freshTempDir } from "../testing.ts";
 import { join } from "node:path";
 import type { Cast } from "@iching/core";
 import { castOf } from "@iching/core/testing";
@@ -37,7 +37,7 @@ describe("runReadingFlow — yarrow source", () => {
   let dataDir: string;
 
   beforeEach(async () => {
-    dataDir = await mkdtemp(join(tmpdir(), "iching-yarrow-flow-"));
+    dataDir = await freshTempDir("iching-yarrow-flow");
   });
 
   afterEach(async () => {

@@ -4,8 +4,8 @@
 // SceneSignal objects instead of dotted strings.
 
 import { describe, test, expect, beforeEach, spyOn } from "bun:test";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, writeFile } from "node:fs/promises";
+import { freshTempDir } from "../testing.ts";
 import { join } from "node:path";
 import { castOf } from "@iching/core/testing";
 import type { ReflectionNote } from "@iching/core";
@@ -44,7 +44,7 @@ describe("makeBrowseFactory", () => {
   let journal: JsonlJournalStore;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "browse-factory-test-"));
+    dir = await freshTempDir("browse-factory-test");
     journal = new JsonlJournalStore(join(dir, "history.jsonl"));
   });
 
@@ -116,7 +116,7 @@ describe("makeDetailScene — journal history hydration", () => {
     // hexagram ([g] from a reading, or the dictionary) shows "Cast N times
     // (last …)". Only the crash path was pinned; this locks the happy path,
     // so a broken wiring (wrong kw, dropped .then) can't silently blank it.
-    const dir = await mkdtemp(join(tmpdir(), "detail-history-test-"));
+    const dir = await freshTempDir("detail-history-test");
     const journal = new JsonlJournalStore(join(dir, "history.jsonl"));
     // Three casts of hexagram 1 across different days, plus an unrelated cast.
     await journal.append({ date: "2026-01-05", cast: castOf(1), timestamp: "2026-01-05T09:00:00.000Z" });
@@ -134,7 +134,7 @@ describe("makeDetailScene — journal history hydration", () => {
   });
 
   test("a corrupt journal line never escapes as an unhandled rejection", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "detail-hydration-test-"));
+    const dir = await freshTempDir("detail-hydration-test");
     const path = join(dir, "history.jsonl");
     await writeFile(path, "this is not json\n", "utf-8");
     const journal = new JsonlJournalStore(path);
@@ -163,7 +163,7 @@ describe("loadJournalEntries — read-failure safety", () => {
     // failure (here a directory left at the history path → EISDIR; in the wild
     // a root-owned file → EACCES) would otherwise throw straight through the
     // TUI's openJournal and kill the session. It must open empty with a warning.
-    const dir = await mkdtemp(join(tmpdir(), "journal-readfail-test-"));
+    const dir = await freshTempDir("journal-readfail-test");
     const histPath = join(dir, "history.jsonl");
     await mkdir(histPath); // a DIRECTORY where the journal file should be
     const unreadable = new JsonlJournalStore(histPath);
@@ -189,7 +189,7 @@ describe("makeJournalFactory", () => {
   let journal: JsonlJournalStore;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "journal-factory-test-"));
+    dir = await freshTempDir("journal-factory-test");
     journal = new JsonlJournalStore(join(dir, "history.jsonl"));
   });
 
@@ -341,7 +341,7 @@ describe("cast context (changedPositions) pass-through", () => {
   let journal: JsonlJournalStore;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "cast-context-factory-test-"));
+    dir = await freshTempDir("cast-context-factory-test");
     journal = new JsonlJournalStore(join(dir, "history.jsonl"));
   });
 
@@ -364,7 +364,7 @@ describe("makeJournalScene — reflection-note persistence wiring", () => {
   let journal: JsonlJournalStore;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "journal-scene-factory-test-"));
+    dir = await freshTempDir("journal-scene-factory-test");
     journal = new JsonlJournalStore(join(dir, "history.jsonl"));
   });
 

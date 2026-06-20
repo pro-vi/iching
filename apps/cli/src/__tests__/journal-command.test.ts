@@ -3,8 +3,8 @@
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { runCli as spawnCli, type RunResult } from "../testing.ts";
-import { mkdtemp, rm, writeFile, appendFile, mkdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { rm, writeFile, appendFile, mkdir } from "node:fs/promises";
+import { freshTempDir } from "../testing.ts";
 import { join } from "node:path";
 import type { HistoryEntry } from "@iching/core";
 import { GUA, castHexagram, SeededRandomSource } from "@iching/core";
@@ -44,7 +44,7 @@ describe("journal command", () => {
   let dataDir: string;
 
   beforeEach(async () => {
-    dataDir = await mkdtemp(join(tmpdir(), "iching-journal-cmd-test-"));
+    dataDir = await freshTempDir("iching-journal-cmd-test");
   });
 
   afterEach(async () => {
@@ -765,7 +765,7 @@ describe("journal note command", () => {
   let dataDir: string;
 
   beforeEach(async () => {
-    dataDir = await mkdtemp(join(tmpdir(), "iching-journal-note-test-"));
+    dataDir = await freshTempDir("iching-journal-note-test");
   });
 
   afterEach(async () => {
