@@ -59,24 +59,28 @@ function rgbTo16(r: number, g: number, b: number): number {
 }
 
 /** Produce ANSI SGR sequence for foreground color */
-export function fgColor(hex: string, support: ColorSupport): string {
+// Quantize a hex color to an SGR sequence for the given support level. fg uses
+// SGR base 38, bg 48 — the truecolor/256 forms differ only by that base; the
+// 16-color bg is the fg code offset into the background range (+10, +100 bright).
+function colorCode(hex: string, support: ColorSupport, isBg: boolean): string {
   if (support === "none") return "";
   const [r, g, b] = hexToRgb(hex);
-  if (support === "truecolor") return `${CSI}38;2;${r};${g};${b}m`;
-  if (support === "256") return `${CSI}38;5;${rgbTo256(r, g, b)}m`;
-  return `${CSI}${rgbTo16(r, g, b)}m`;
+  const base = isBg ? 48 : 38;
+  if (support === "truecolor") return `${CSI}${base};2;${r};${g};${b}m`;
+  if (support === "256") return `${CSI}${base};5;${rgbTo256(r, g, b)}m`;
+  const c16 = rgbTo16(r, g, b);
+  if (!isBg) return `${CSI}${c16}m`;
+  const bg16 = c16 >= 90 ? c16 - 90 + 100 : c16 + 10;
+  return `${CSI}${bg16}m`;
+}
+
+export function fgColor(hex: string, support: ColorSupport): string {
+  return colorCode(hex, support, false);
 }
 
 /** Produce ANSI SGR sequence for background color */
 export function bgColor(hex: string, support: ColorSupport): string {
-  if (support === "none") return "";
-  const [r, g, b] = hexToRgb(hex);
-  if (support === "truecolor") return `${CSI}48;2;${r};${g};${b}m`;
-  if (support === "256") return `${CSI}48;5;${rgbTo256(r, g, b)}m`;
-  // For 16-color bg, offset from fg by +10
-  const fg16 = rgbTo16(r, g, b);
-  const bg16 = fg16 >= 90 ? fg16 - 90 + 100 : fg16 + 10;
-  return `${CSI}${bg16}m`;
+  return colorCode(hex, support, true);
 }
 
 /** Bold SGR */
