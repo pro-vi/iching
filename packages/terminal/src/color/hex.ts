@@ -9,3 +9,9 @@ export function hexToRgb(hex: string): [number, number, number] {
     parseInt(h.slice(4, 6), 16),
   ];
 }
+
+// Format [r, g, b] byte components into a "#RRGGBB" hex color — the inverse of
+// hexToRgb, so color/lerp emits interpolated colors the same way they decompose.
+export function rgbToHex(r: number, g: number, b: number): string {
+  return `#${[r, g, b].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+}

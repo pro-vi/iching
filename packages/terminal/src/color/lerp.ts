@@ -6,7 +6,7 @@
 // through the existing quantization in ansi/sgr.ts at write time.
 
 import { clamp } from "@iching/core";
-import { hexToRgb } from "./hex.ts";
+import { hexToRgb, rgbToHex } from "./hex.ts";
 
 /** Interpolate between hex colors a and b. t is clamped to [0, 1]. */
 export function lerpColor(a: string, b: string, t: number): string {
@@ -17,5 +17,5 @@ export function lerpColor(a: string, b: string, t: number): string {
   const r = toByte(ar + (br - ar) * tt);
   const g = toByte(ag + (bg - ag) * tt);
   const bv = toByte(ab + (bb - ab) * tt);
-  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${bv.toString(16).padStart(2, "0")}`;
+  return rgbToHex(r, g, bv);
 }
