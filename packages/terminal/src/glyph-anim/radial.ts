@@ -6,7 +6,7 @@
 import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
 import { GlyphAnimatorBase } from "./animator-base.ts";
-import { isEmpty } from "./braille.ts";
+import { EMPTY_BRAILLE, isEmpty } from "./braille.ts";
 import { getTheme } from "../color/theme.ts";
 import { lerpColor } from "../color/lerp.ts";
 import { easeOut } from "../animation/easing.ts";
@@ -67,7 +67,7 @@ export class RadialAnimator extends GlyphAnimatorBase {
           // Edge zone: brightness gradient
           const edgeT = 1 - (dist - (currentRadius - EDGE_WIDTH)) / EDGE_WIDTH;
           if (isEmpty(ch)) {
-            buf.writeText(offsetR + r, offsetC + c, "\u2800", { fg: t.tertiary, dim: true });
+            buf.writeText(offsetR + r, offsetC + c, EMPTY_BRAILLE, { fg: t.tertiary, dim: true });
           } else {
             const fg = lerpColor(t.tertiary, t.primary, edgeT);
             buf.writeText(offsetR + r, offsetC + c, ch, { fg });

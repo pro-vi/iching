@@ -7,7 +7,7 @@
 import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
 import { GlyphAnimatorBase } from "./animator-base.ts";
-import { brailleFromMask, isEmpty } from "./braille.ts";
+import { EMPTY_BRAILLE, brailleFromMask, isEmpty } from "./braille.ts";
 import { getTheme } from "../color/theme.ts";
 import { lerpColor } from "../color/lerp.ts";
 import { easeOut } from "../animation/easing.ts";
@@ -93,7 +93,7 @@ export class SandAnimator extends GlyphAnimatorBase {
     // First, render empty braille for all positions (background)
     for (let r = 0; r < this.glyph.height; r++) {
       for (let c = 0; c < this.glyph.width; c++) {
-        buf.writeText(offsetR + r, offsetC + c, "\u2800", { fg: th.tertiary });
+        buf.writeText(offsetR + r, offsetC + c, EMPTY_BRAILLE, { fg: th.tertiary });
       }
     }
 

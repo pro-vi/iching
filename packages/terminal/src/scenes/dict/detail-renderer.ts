@@ -1,6 +1,7 @@
 // DetailRenderer — render hexagram detail into CellBuffer
 
 import type { CellBuffer } from "../../render/buffer.ts";
+import { isEmpty } from "../../glyph-anim/braille.ts";
 import { FOOTER_ROWS } from "./layout.ts";
 import type { SceneContext } from "../../scene/types.ts";
 import type { DetailModel, DerivedLink } from "./detail-model.ts";
@@ -353,7 +354,7 @@ export function renderDetail(
         const t = getTheme();
         const chars = [...(glyphEntry.rows[gr] ?? "")];
         for (let c = 0; c < chars.length; c++) {
-          if (chars[c] === "\u2800" || chars[c] === " ") continue;
+          if (isEmpty(chars[c])) continue;
           frame.writeText(row, glyphCol + c, chars[c], { fg: t.primary });
         }
       }

@@ -1,6 +1,7 @@
 // glyph-renderer.ts — render large braille glyph in the cast scene
 
 import type { DisplayLanguage } from "@iching/core";
+import { isEmpty } from "../../glyph-anim/braille.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { CastModel } from "./model.ts";
 import { anchorRow } from "./hexagram-renderer.ts";
@@ -45,7 +46,7 @@ export function renderLargeGlyph(
     for (let r = 0; r < entry.height; r++) {
       const chars = [...(entry.rows[r] ?? "")];
       for (let c = 0; c < chars.length; c++) {
-        if (chars[c] === "\u2800" || chars[c] === " ") continue;
+        if (isEmpty(chars[c])) continue;
         buf.writeText(glyphRow + r, glyphCol + c, chars[c], { fg: t.primary });
       }
     }

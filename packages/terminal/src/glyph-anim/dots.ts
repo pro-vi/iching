@@ -7,7 +7,7 @@
 import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
 import { GlyphAnimatorBase } from "./animator-base.ts";
-import { BRAILLE_BASE, brailleFromMask, isEmpty } from "./braille.ts";
+import { BRAILLE_BASE, EMPTY_BRAILLE, brailleFromMask, isEmpty } from "./braille.ts";
 import { getTheme } from "../color/theme.ts";
 import { lerpColor } from "../color/lerp.ts";
 
@@ -107,14 +107,14 @@ export class DotsAnimator extends GlyphAnimatorBase {
 
         if (!meta.isContent) {
           // Empty cells: just write empty braille
-          buf.writeText(offsetR + r, offsetC + c, "\u2800", { fg: th.tertiary });
+          buf.writeText(offsetR + r, offsetC + c, EMPTY_BRAILLE, { fg: th.tertiary });
           continue;
         }
 
         const cellT = t - meta.startAt;
         if (cellT <= 0) {
           // Not started yet
-          buf.writeText(offsetR + r, offsetC + c, "\u2800", { fg: th.tertiary });
+          buf.writeText(offsetR + r, offsetC + c, EMPTY_BRAILLE, { fg: th.tertiary });
           continue;
         }
 
