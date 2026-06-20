@@ -64,6 +64,20 @@ function assertValidDateArg(value: string, label: string): void {
   }
 }
 
+/** Validate a --since/--until window: each bound (when given) must be YYYY-MM-DD,
+ *  and since must not fall after until. An inverted window can never hold a reading,
+ *  so catch the typo loudly instead of printing a misleading "nothing found". */
+function assertValidDateWindow(
+  since: string | undefined,
+  until: string | undefined,
+): void {
+  if (since !== undefined) assertValidDateArg(since, "--since");
+  if (until !== undefined) assertValidDateArg(until, "--until");
+  if (since && until && since > until) {
+    die(`Invalid range: --since "${since}" is after --until "${until}".`);
+  }
+}
+
 export function registerJournalCommand(program: Command): void {
   const journal = program
     .command("journal")
@@ -103,13 +117,7 @@ export function registerJournalCommand(program: Command): void {
           die(`Invalid --limit "${cmdOpts.limit}": expected a positive integer.`);
         }
       }
-      if (cmdOpts.since !== undefined) assertValidDateArg(cmdOpts.since, "--since");
-      if (cmdOpts.until !== undefined) assertValidDateArg(cmdOpts.until, "--until");
-      // An inverted window can never hold a reading — catch the typo loudly
-      // instead of printing a misleading "no readings found".
-      if (cmdOpts.since && cmdOpts.until && cmdOpts.since > cmdOpts.until) {
-        die(`Invalid range: --since "${cmdOpts.since}" is after --until "${cmdOpts.until}".`);
-      }
+      assertValidDateWindow(cmdOpts.since, cmdOpts.until);
 
       const allEntries: HistoryEntry[] = [];
       const query = { since: cmdOpts.since, until: cmdOpts.until };
@@ -156,13 +164,7 @@ export function registerJournalCommand(program: Command): void {
       const store = new JsonlJournalStore(paths.state);
       await assertJournalReadable(paths.state);
 
-      if (cmdOpts.since !== undefined) assertValidDateArg(cmdOpts.since, "--since");
-      if (cmdOpts.until !== undefined) assertValidDateArg(cmdOpts.until, "--until");
-      // An inverted window can never hold a reading — catch the typo loudly
-      // instead of the calm "No readings to observe yet" (which implies none exist).
-      if (cmdOpts.since && cmdOpts.until && cmdOpts.since > cmdOpts.until) {
-        die(`Invalid range: --since "${cmdOpts.since}" is after --until "${cmdOpts.until}".`);
-      }
+      assertValidDateWindow(cmdOpts.since, cmdOpts.until);
 
       const entries: HistoryEntry[] = [];
       for await (const entry of store.stream({ since: cmdOpts.since, until: cmdOpts.until })) {
