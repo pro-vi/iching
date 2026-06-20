@@ -18,17 +18,16 @@ import { seq } from "../../animation/timeline.ts";
 import { getYarrowTiming } from "../../animation/yarrow-presets.ts";
 import { bounceAperture } from "./field-renderer.ts";
 import { YarrowModel } from "./model.ts";
+import { APERTURE_WIDTH, SWEEP_INTERVAL_MS } from "./constants.js";
 import { buildYarrowRoundBeats } from "./yarrow-timeline.ts";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const PREVIEW_SEED = 42;                   // round-0 split 24|25 — balanced
 const AUTO_GAP_MS = 800;                   // quiet hold between auto loop iterations
-const SWEEP_INTERVAL_MS = 150;             // ms per cell of aperture travel
 const SWEEP_MIN_MS = 1800;                 // shortest sweep before snap
 const SWEEP_MAX_MS = 3600;                 // longest sweep before snap
 const SNAP_HOLD_MS = 500;                  // frozen aperture between snap and play
-const APERTURE_WIDTH = 4;
 const STALKS = 49;
 const APERTURE_MAX = STALKS - APERTURE_WIDTH;
 

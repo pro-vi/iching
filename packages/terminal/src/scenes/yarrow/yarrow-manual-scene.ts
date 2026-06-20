@@ -29,6 +29,7 @@ import type { YarrowTiming, RitualDetail } from "../../animation/yarrow-presets.
 import { TimelineRunner } from "../../animation/runner.ts";
 import { type Step, seq } from "../../animation/timeline.ts";
 import { YarrowModel } from "./model.ts";
+import { APERTURE_WIDTH, SWEEP_INTERVAL_MS } from "./constants.js";
 import {
   renderYarrowField,
   yarrowFieldGeometry,
@@ -48,9 +49,7 @@ import {
 const LINES = 6;
 const ROUNDS_PER_LINE = 3;
 const TOTAL_ATOMS = LINES * ROUNDS_PER_LINE; // 18
-const APERTURE_WIDTH = 4;
 const APERTURE_MIN = 1;
-const SWEEP_INTERVAL_MS = 150;     // ms per cell of aperture travel
 const SNAP_HOLD_MS = 250;          // brief beat after snap before round plays
 
 type Phase = "gathering" | "sweeping" | "snapping" | "playing" | "complete";
