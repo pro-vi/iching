@@ -7,7 +7,7 @@
 import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
 import { GlyphAnimatorBase } from "./animator-base.ts";
-import { BRAILLE_BASE, BRAILLE_COUNT, isEmpty } from "./braille.ts";
+import { brailleFromMask, isEmpty } from "./braille.ts";
 import { getTheme } from "../color/theme.ts";
 import { lerpColor } from "../color/lerp.ts";
 import { easeOut } from "../animation/easing.ts";
@@ -21,7 +21,7 @@ function randomBraille(): string {
   // Use sparse patterns (few dots) for in-flight look
   const sparse = [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80,
                   0x03, 0x05, 0x09, 0x11, 0x41, 0x21, 0x44, 0x22];
-  return String.fromCharCode(BRAILLE_BASE + sparse[Math.floor(Math.random() * sparse.length)]);
+  return brailleFromMask(sparse[Math.floor(Math.random() * sparse.length)]);
 }
 
 /** Quadratic ease-out. */

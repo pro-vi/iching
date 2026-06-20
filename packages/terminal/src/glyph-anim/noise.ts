@@ -7,7 +7,7 @@
 import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
 import { GlyphAnimatorBase } from "./animator-base.ts";
-import { BRAILLE_BASE, BRAILLE_COUNT, isEmpty } from "./braille.ts";
+import { BRAILLE_COUNT, brailleFromMask, isEmpty } from "./braille.ts";
 import { getTheme } from "../color/theme.ts";
 import { lerpColor } from "../color/lerp.ts";
 
@@ -20,7 +20,7 @@ const EMPTY_CLEAR_MS = 400;
 // Braille block: U+2800..U+28FF (256 patterns)
 
 function randomBraille(): string {
-  return String.fromCharCode(BRAILLE_BASE + Math.floor(Math.random() * BRAILLE_COUNT));
+  return brailleFromMask(Math.floor(Math.random() * BRAILLE_COUNT));
 }
 
 /** Center-biased settle time: center cells settle later. */

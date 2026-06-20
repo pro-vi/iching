@@ -9,3 +9,8 @@ export const BRAILLE_COUNT = 256;
 export function isEmpty(ch: string): boolean {
   return ch === "\u2800" || ch === " ";
 }
+
+/** The braille glyph for a 0–255 dot mask: BRAILLE_BASE + the low 8 bits. */
+export function brailleFromMask(mask: number): string {
+  return String.fromCharCode(BRAILLE_BASE + (mask & 0xff));
+}

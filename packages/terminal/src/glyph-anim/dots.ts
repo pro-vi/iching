@@ -7,7 +7,7 @@
 import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
 import { GlyphAnimatorBase } from "./animator-base.ts";
-import { isEmpty } from "./braille.ts";
+import { BRAILLE_BASE, brailleFromMask, isEmpty } from "./braille.ts";
 import { getTheme } from "../color/theme.ts";
 import { lerpColor } from "../color/lerp.ts";
 
@@ -22,13 +22,8 @@ const DOT_BITS = [0x01, 0x02, 0x04, 0x40, 0x08, 0x10, 0x20, 0x80];
 /** Get the braille dot pattern (0-255) from a braille character. */
 function brailleValue(ch: string): number {
   const code = ch.codePointAt(0) ?? 0;
-  if (code >= 0x2800 && code <= 0x28ff) return code - 0x2800;
+  if (code >= BRAILLE_BASE && code <= BRAILLE_BASE + 0xff) return code - BRAILLE_BASE;
   return 0;
-}
-
-/** Convert a dot pattern back to a braille character. */
-function toBraille(pattern: number): string {
-  return String.fromCharCode(0x2800 + (pattern & 0xff));
 }
 
 /** Count the number of set bits. */
@@ -134,7 +129,7 @@ export class DotsAnimator extends GlyphAnimatorBase {
           partial |= DOT_BITS[meta.dots[d]];
         }
 
-        const ch = toBraille(partial);
+        const ch = brailleFromMask(partial);
         const progress = dotsVisible / Math.max(meta.totalDots, 1);
         const fg = lerpColor(th.tertiary, th.primary, progress);
 
