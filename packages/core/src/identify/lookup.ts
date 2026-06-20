@@ -17,14 +17,20 @@ export const BINARY_TO_KW: number[] = [
   6, 10, 33, 13, 44, 1,
 ];
 
+/** Throw a RangeError unless `value` is an integer within [lo, hi]. `label` names
+ *  the offending parameter for the message (e.g. "hexagramByKW: kw"). */
+function assertIntInRange(value: number, lo: number, hi: number, label: string): void {
+  if (!Number.isInteger(value) || value < lo || value > hi) {
+    throw new RangeError(`${label} must be an integer in [${lo}, ${hi}], got ${value}`);
+  }
+}
+
 /** Look up a hexagram by its binary encoding (0-63) */
 export function hexagramByBinary(binary: number): Hexagram {
   // Honor the return contract: out of range, GUA[...] is undefined, but the
   // signature promises Hexagram — a consumer would get a confusing undefined
   // access instead of a clear error. (External review of the divination core.)
-  if (!Number.isInteger(binary) || binary < 0 || binary > 63) {
-    throw new RangeError(`hexagramByBinary: binary must be an integer in [0, 63], got ${binary}`);
-  }
+  assertIntInRange(binary, 0, 63, "hexagramByBinary: binary");
   return GUA[BINARY_TO_KW[binary] - 1];
 }
 
@@ -40,9 +46,7 @@ export function kwFromLines(lines: Line[]): number {
 
 /** Look up a hexagram by its King Wen number (1-64) */
 export function hexagramByKW(kw: number): Hexagram {
-  if (!Number.isInteger(kw) || kw < 1 || kw > 64) {
-    throw new RangeError(`hexagramByKW: kw must be an integer in [1, 64], got ${kw}`);
-  }
+  assertIntInRange(kw, 1, 64, "hexagramByKW: kw");
   return GUA[kw - 1];
 }
 
