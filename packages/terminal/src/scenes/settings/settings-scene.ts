@@ -3,6 +3,7 @@
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
+import { isEmpty } from "../../glyph-anim/braille.ts";
 import type { GlyphAnimator, GlyphAnimStyle } from "../../glyph-anim/types.ts";
 import type { DisplayLanguage, GlyphFont, GlyphSize } from "@iching/core";
 import { clamp } from "@iching/core";
@@ -347,7 +348,7 @@ export class SettingsScene implements Scene {
             const chars = [...(glyphData.rows[r] ?? "")];
             for (let c = 0; c < chars.length; c++) {
               const ch = chars[c];
-              if (ch === "⠀" || ch === " ") continue;
+              if (isEmpty(ch)) continue;
               frame.writeText(startRow + r, previewCol + c, ch, { fg: t.primary });
             }
           }
