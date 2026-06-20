@@ -78,6 +78,23 @@ function assertValidDateWindow(
   }
 }
 
+/** The day's reading on `date`: its chronologically LATEST cast by the shared
+ *  recency comparator (not merely the last appended), so `journal show <date>` and
+ *  `note --date` resolve to the same reading — tied instants included — even for an
+ *  out-of-order or imported journal. */
+async function latestEntryOnDate(
+  store: JsonlJournalStore,
+  date: string | null,
+): Promise<HistoryEntry | null> {
+  let latest: HistoryEntry | null = null;
+  for await (const entry of store.stream()) {
+    if (entry.date === date && (latest === null || compareEntryTime(entry, latest) >= 0)) {
+      latest = entry;
+    }
+  }
+  return latest;
+}
+
 export function registerJournalCommand(program: Command): void {
   const journal = program
     .command("journal")
@@ -223,16 +240,7 @@ export function registerJournalCommand(program: Command): void {
       if (dateArg === "latest") {
         found = await store.latest();
       } else {
-        // A day's reading is its chronologically LATEST cast (by the shared
-        // recency comparator), not merely the last appended — so an out-of-order
-        // or imported journal doesn't surface an earlier reading as "the day's".
-        // Same comparator as `journal list` and the pane, so a tied instant
-        // resolves to the same reading everywhere.
-        for await (const entry of store.stream()) {
-          if (entry.date === targetDate && (found === null || compareEntryTime(entry, found) >= 0)) {
-            found = entry;
-          }
-        }
+        found = await latestEntryOnDate(store, targetDate);
       }
 
       if (!found) {
@@ -279,15 +287,7 @@ export function registerJournalCommand(program: Command): void {
       let target: HistoryEntry | null = null;
       if (cmdOpts.date !== undefined) {
         assertValidDateArg(cmdOpts.date, "--date");
-        // A day's reading is its chronologically LATEST cast (by the shared
-        // recency comparator), not merely the last appended — so `note --date`
-        // annotates the same reading that `journal show <date>` displays, even
-        // for an out-of-order journal, and resolves a tied instant identically.
-        for await (const entry of store.stream()) {
-          if (entry.date === cmdOpts.date && (target === null || compareEntryTime(entry, target) >= 0)) {
-            target = entry;
-          }
-        }
+        target = await latestEntryOnDate(store, cmdOpts.date);
       } else {
         target = await store.latest();
       }
