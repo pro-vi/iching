@@ -1,5 +1,6 @@
 import { describe, test, expect } from "bun:test";
-import { sceneCtx } from "../testing.ts";
+import { sceneCtx, bufferText } from "../testing.ts";
+import { GUA } from "@iching/core";
 import { DetailScene } from "../scenes/dict/detail-scene.ts";
 import { CellBuffer } from "../render/buffer.ts";
 
@@ -10,13 +11,17 @@ describe("DetailScene", () => {
     expect(scene.getModel().detail.gua.ename).toBe("The Creative");
   });
 
-  test("render does not crash", () => {
+  test("render fills the buffer with the hexagram's identity", () => {
     const scene = new DetailScene(1);
     const ctx = sceneCtx();
     scene.enter(ctx);
     const buf = CellBuffer.create(80, 24);
     scene.render(buf, ctx);
-    expect(true).toBe(true);
+    // A blank or wrong-hexagram frame (which the old expect(true) accepted)
+    // now fails: the detail page leads with this hexagram's name + English title.
+    const text = bufferText(buf);
+    expect(text).toContain("乾");
+    expect(text).toContain("Creative");
   });
 
   test("escape returns back", () => {
@@ -92,14 +97,16 @@ describe("DetailScene", () => {
     expect(links[3].label).toBe("Diagonal");
   });
 
-  test("renders all 64 hexagrams without crash", () => {
+  test("renders every hexagram's own name into the buffer (all 64)", () => {
     for (let kw = 1; kw <= 64; kw++) {
       const scene = new DetailScene(kw);
       const ctx = sceneCtx();
       scene.enter(ctx);
       const buf = CellBuffer.create(80, 24);
       scene.render(buf, ctx);
+      // Each page must render ITS hexagram's name — a blank, garbled, or
+      // wrong-hexagram frame fails here where expect(true).toBe(true) passed.
+      expect(bufferText(buf)).toContain(GUA[kw - 1].n);
     }
-    expect(true).toBe(true);
   });
 });

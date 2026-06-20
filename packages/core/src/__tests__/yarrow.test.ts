@@ -159,6 +159,16 @@ describe("castYarrowLine — distribution", () => {
     }
   });
 
+  test("a byte past the acceptance limit is rejected, not folded with % (no modulo bias)", () => {
+    // domain = autoDomainSize(49) = 44; acceptedByteLimit(44) = floor(256/44)*44 = 220.
+    // A byte >= 220 must be REJECTED and the next byte drawn — never taken `% 44`,
+    // which would reintroduce modulo bias. 230 is rejected; 5 is accepted → splitAt 6.
+    // No other test exercises this branch; if the guard were deleted, 230 % 44 + 1 = 11
+    // would surface here instead.
+    const round = castYarrowRound(new TapeRandomSource(new Uint8Array([230, 5])), 49);
+    expect(round.splitAt).toBe(6);
+  });
+
   test("auto round domains produce exact textbook set-aside ratios", () => {
     const cases: Array<{ startCount: number; expected: Record<number, number> }> = [
       { startCount: 49, expected: { 5: 165, 9: 55 } },

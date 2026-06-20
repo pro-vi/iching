@@ -61,6 +61,7 @@ describe("TextInput", () => {
     input.insert("hello world   ");
     input.deleteWord();
     expect(input.value).toBe("hello ");
+    expect(input.cursorPos).toBe(6); // caret lands after "hello ", not stranded mid-string
   });
 
   test("deleteWord at start does nothing", () => {

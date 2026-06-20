@@ -24,7 +24,7 @@ afterEach(async () => {
   await rm(dataDir, { recursive: true, force: true });
 });
 
-describe("cast command", () => {
+describe("cast — casting, formatters & storage round-trip", () => {
   test("cast with --seed produces deterministic output", () => {
     const source1 = new SeededRandomSource(42);
     const cast1 = castHexagram(source1);

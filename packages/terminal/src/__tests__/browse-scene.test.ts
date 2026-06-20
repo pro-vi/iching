@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { sceneCtx } from "../testing.ts";
+import { sceneCtx, bufferText } from "../testing.ts";
 import { BrowseScene } from "../scenes/dict/browse-scene.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import type { KeyEvent } from "../input/key-parser.ts";
@@ -13,14 +13,15 @@ describe("BrowseScene", () => {
     expect(scene.getModel().viewportHeight).toBe(20);
   });
 
-  test("render does not crash", () => {
+  test("render draws the hexagram list into the buffer", () => {
     const scene = new BrowseScene();
     const ctx = sceneCtx();
     scene.enter(ctx);
     const buf = CellBuffer.create(80, 24);
     scene.render(buf, ctx);
-    // Just verify no exception
-    expect(true).toBe(true);
+    // The browse list opens on hexagram 1 (乾); a blank or broken render — which
+    // the old expect(true).toBe(true) accepted — fails here.
+    expect(bufferText(buf)).toContain("乾");
   });
 
   test("arrow down moves cursor", () => {
@@ -150,11 +151,19 @@ describe("BrowseScene", () => {
     expect(scene.getModel().query).toBe("a");
   });
 
-  test("page down in list", () => {
-    const scene = new BrowseScene();
-    scene.enter(sceneCtx());
-    scene.handleKey({ type: "page", direction: "down" }, sceneCtx());
-    expect(scene.getModel().cursor).toBe(20);
+  test("page down moves the cursor by one viewport height (not a constant)", () => {
+    // 80x24 → viewportHeight 24-2-2 = 20.
+    const a = new BrowseScene();
+    a.enter(sceneCtx(80, 24));
+    a.handleKey({ type: "page", direction: "down" }, sceneCtx(80, 24));
+    expect(a.getModel().cursor).toBe(20);
+
+    // 80x30 → viewportHeight 26: proves the page step tracks viewportHeight, not
+    // a hardcoded 20 (which the single-height assertion couldn't distinguish).
+    const b = new BrowseScene();
+    b.enter(sceneCtx(80, 30));
+    b.handleKey({ type: "page", direction: "down" }, sceneCtx(80, 30));
+    expect(b.getModel().cursor).toBe(26);
   });
 
   test("home goes to first", () => {

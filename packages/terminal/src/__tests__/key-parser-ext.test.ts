@@ -73,14 +73,16 @@ describe("KeyParser — extended key buffering", () => {
     let ev: KeyEvent[] = [];
     let parser = new KeyParser((e) => ev.push(e));
     parser.feed(new Uint8Array([0x1b, 0x5b, 0x1b, 0x5b, 0x41])); // ESC[ ESC[A
-    expect(ev).toContainEqual({ type: "arrow", direction: "up" });
+    // Exact array: the aborted CSI must leak NO extra event (a stray escape/char)
+    // alongside the arrow — toContainEqual would miss such a leak.
+    expect(ev).toEqual([{ type: "arrow", direction: "up" }]);
     parser.dispose();
 
     // Same for SS3: ESC O then a new ESC — the third byte isn't a valid final.
     ev = [];
     parser = new KeyParser((e) => ev.push(e));
     parser.feed(new Uint8Array([0x1b, 0x4f, 0x1b, 0x5b, 0x41])); // ESC O ESC[A
-    expect(ev).toContainEqual({ type: "arrow", direction: "up" });
+    expect(ev).toEqual([{ type: "arrow", direction: "up" }]);
     parser.dispose();
   });
 

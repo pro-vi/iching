@@ -432,14 +432,16 @@ describe("journal command", () => {
     // with no cell-buffer backstop, so an unstripped intention would inject
     // (set the title, clear the screen). The note line already strips; the
     // intention must too. Payload: ESC + BEL between two words.
-    const evil = { ...makeEntry("2026-05-01", 1, null), intention: "calm[2Jmind" };
+    const ESC = String.fromCharCode(0x1b);
+    const BEL = String.fromCharCode(0x07);
+    const evil = { ...makeEntry("2026-05-01", 1, null), intention: `calm${ESC}[2J${BEL}mind` };
     await seedJournal(dataDir, [evil]);
 
     for (const argv of [["journal", "list"], ["journal", "show", "2026-05-01"]]) {
       const { exitCode, stdout } = await runCli(dataDir, argv);
       expect(exitCode).toBe(0);
-      expect(stdout).not.toContain(""); // no raw ESC reaches the terminal
-      expect(stdout).not.toContain(""); // no raw BEL either
+      expect(stdout).not.toContain(ESC); // no raw ESC reaches the terminal
+      expect(stdout).not.toContain(BEL); // no raw BEL either
       expect(stdout).toContain("calm"); // the words survive, only the controls are gone
       expect(stdout).toContain("mind");
     }

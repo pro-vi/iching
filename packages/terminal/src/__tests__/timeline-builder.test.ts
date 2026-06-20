@@ -62,19 +62,18 @@ describe("buildCastTimeline", () => {
     const cast = changingCast();
     const model = new CastModel(cast);
     const timing = getPreset("default");
-    const step = buildCastTimeline(cast, model, timing);
-    const duration = stepDuration(step);
+    const step = buildCastTimeline(cast, model, timing); // default width 80 → split + morph
+    expect(stepDuration(step)).toBeGreaterThan(0);
+    expect(cast.changingPositions.length).toBeGreaterThan(0);
 
-    // Should be longer than a non-changing cast
-    const noChangeCast = staticCast();
-    const noChangeModel = new CastModel(noChangeCast);
-    const noChangeStep = buildCastTimeline(noChangeCast, noChangeModel, timing);
-    const noChangeDuration = stepDuration(noChangeStep);
-
-    // Changing cast has morph steps + marker pulse, should be longer
-    // (no-change has 1200ms wait + "unchanging", changing has 680ms + pulse + morph + reveal)
-    expect(duration).toBeGreaterThan(0);
-    expect(noChangeDuration).toBeGreaterThan(0);
+    // "Includes morph steps": advancing the changing timeline must drive the
+    // becoming-hexagram morph to completion — a static cast builds no such step.
+    // The old test computed a no-change duration it never compared, so it pinned
+    // nothing about morphing.
+    const { TimelineRunner } = require("../animation/runner.ts");
+    const runner = new TimelineRunner(step);
+    runner.advance(runner.duration + 100, model);
+    expect(model.rightHexMorphComplete).toBe(true);
   });
 
   test("timeline references all 6 lines via model mutations", () => {
@@ -97,9 +96,10 @@ describe("buildCastTimeline", () => {
     }
   });
 
-  test("unchanging cast sets subtitle text", () => {
+  test("unchanging cast clears the subtitle (buildUnchangingHold resets it)", () => {
     const cast = staticCast(); // no changing lines
     const model = new CastModel(cast);
+    model.subtitleText = "STALE"; // pre-dirty so the assertion proves the reset RUNS
     const timing = getPreset("reduced");
     const step = buildCastTimeline(cast, model, timing);
 
@@ -107,12 +107,15 @@ describe("buildCastTimeline", () => {
     const runner = new TimelineRunner(step);
     runner.advance(runner.duration + 100, model);
 
+    // Stays "STALE" if buildUnchangingHold's reset is dropped — the old test
+    // asserted the constructor default ("") and could never fail.
     expect(model.subtitleText).toBe("");
   });
 
-  test("changing cast does not set unchanging subtitle", () => {
+  test("changing cast leaves the subtitle untouched (unchanging-hold is skipped)", () => {
     const cast = changingCast();
     const model = new CastModel(cast);
+    model.subtitleText = "STALE"; // pre-dirty: the changing path must not run the reset
     const timing = getPreset("reduced");
     const step = buildCastTimeline(cast, model, timing);
 
@@ -120,7 +123,9 @@ describe("buildCastTimeline", () => {
     const runner = new TimelineRunner(step);
     runner.advance(runner.duration + 100, model);
 
-    expect(model.subtitleText).toBe("");
+    // The only runtime writer of subtitleText is buildUnchangingHold (unchanging
+    // path only); a changing cast must leave the pre-dirtied value as-is.
+    expect(model.subtitleText).toBe("STALE");
   });
 
   test("wide terminal timeline includes split steps for becoming cast", () => {

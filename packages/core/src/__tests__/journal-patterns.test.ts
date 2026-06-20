@@ -49,6 +49,10 @@ describe("computeJournalPatterns", () => {
     expect(p.baseline.oldYin.expected).toBeCloseTo(1.125, 4);
     expect(p.baseline.oldYang.observed).toBe(2);
     expect(p.baseline.oldYang.expected).toBeCloseTo(1.875, 4);
+    // Poisson residual (observed-expected)/√expected — a sign flip, dropped sqrt,
+    // or swapped operands in comparison() now fails here, not just the counts.
+    expect(p.baseline.oldYin.residual).toBeCloseTo((1 - 1.125) / Math.sqrt(1.125), 4);
+    expect(p.baseline.oldYang.residual).toBeCloseTo((2 - 1.875) / Math.sqrt(1.875), 4);
     expect(p.cadence).toMatchObject({
       firstDate: "2026-03-01",
       lastDate: "2026-04-02",
@@ -67,6 +71,10 @@ describe("computeJournalPatterns", () => {
     expect(p.diversity.knownDistinctHexagrams).toBe(1);
     expect(p.diversity.observedRepeats).toBe(1);
     expect(p.diversity.expectedRepeats).toBeCloseTo(0.0156, 4);
+    // Pin the non-empty concentration/maxEntropyBits (only their empty-journal
+    // zeros were checked): a p-vs-p² mutation or a dropped min(64,·) cap fails here.
+    expect(p.diversity.concentration).toBeCloseTo(0.5556, 4); // Simpson Σp²: (2/3)²+(1/3)²
+    expect(p.diversity.maxEntropyBits).toBeCloseTo(1.585, 3); // log2(min(64, total=3))
     expect(p.topHexagrams[0]).toMatchObject({ kw: 39, count: 2, lastDate: "2026-03-08" });
     expect(p.topHexagrams[0].knownCount).toBe(2);
     expect(p.topHexagrams[0].share).toBeCloseTo(2 / 3, 3);

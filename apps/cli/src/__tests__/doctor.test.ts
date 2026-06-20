@@ -1,9 +1,31 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { runCli as spawnCli } from "../testing.ts";
+import { runCli as spawnCli, REPO_ROOT, MAIN_TS } from "../testing.ts";
 import { rm, writeFile, mkdir } from "node:fs/promises";
 import { freshTempDir } from "../testing.ts";
 import { join } from "node:path";
 import { GUA, BINARY_TO_KW, TRIGRAMS } from "@iching/core";
+
+async function runDoctorEnv(env: Record<string, string>): Promise<string> {
+  // Spawn the real doctor with a CLEAN, controlled env so checkColor() actually
+  // runs. runCli hard-defaults NO_COLOR=1, and the doctor treats NO_COLOR as set
+  // when it is merely DEFINED — so to reach the truecolor/256 branches the var
+  // must be absent. Strip the inherited color vars first, then apply `env`.
+  const base: Record<string, string | undefined> = { ...process.env };
+  delete base.NO_COLOR;
+  delete base.COLORTERM;
+  delete base.TERM;
+  delete base.FORCE_COLOR;
+  const proc = Bun.spawn(["bun", MAIN_TS, "doctor"], {
+    cwd: REPO_ROOT,
+    stdin: "ignore",
+    stdout: "pipe",
+    stderr: "pipe",
+    env: { ...base, ...env },
+  });
+  const out = await new Response(proc.stdout).text();
+  await proc.exited;
+  return out;
+}
 
 describe("doctor checks", () => {
   test("glyph test: all trigram symbols present", () => {
@@ -35,22 +57,19 @@ describe("doctor checks", () => {
     expect(unique.size).toBe(64);
   });
 
-  test("color detection: reports correct support", () => {
-    // Basic test — the detection logic is deterministic given env vars
-    const colorterm = process.env.COLORTERM ?? "";
-    const term = process.env.TERM ?? "";
-    const noColor = process.env.NO_COLOR;
+  // These spawn the real doctor under a controlled env and assert the rendered
+  // color line. The old test re-read process.env ITSELF and asserted typeof —
+  // it never invoked checkColor(), so a wrong or blank level passed green.
+  test("color check reports truecolor from COLORTERM (subprocess)", async () => {
+    expect(await runDoctorEnv({ COLORTERM: "truecolor" })).toContain("truecolor (24-bit)");
+  });
 
-    if (noColor !== undefined) {
-      // NO_COLOR overrides everything
-      expect(typeof noColor).toBe("string");
-    } else if (colorterm === "truecolor" || colorterm === "24bit") {
-      expect(colorterm).toMatch(/truecolor|24bit/);
-    } else {
-      // At minimum we can detect the env vars exist or not
-      expect(typeof colorterm).toBe("string");
-      expect(typeof term).toBe("string");
-    }
+  test("color check reports 256-color from TERM (subprocess)", async () => {
+    expect(await runDoctorEnv({ TERM: "xterm-256color" })).toContain("256-color");
+  });
+
+  test("color check reports NO_COLOR when it is set (subprocess)", async () => {
+    expect(await runDoctorEnv({ NO_COLOR: "1" })).toContain("NO_COLOR is set");
   });
 
   test("all GUA entries have required fields", () => {

@@ -136,4 +136,26 @@ describe("DiffRenderer", () => {
     expect(output).toContain("\x1b[3;1H");
     expect(output).toContain("\x1b[4;1H");
   });
+
+  // A wide (CJK) glyph occupies two columns; writeText lays it as the glyph in
+  // column N and an empty continuation cell ({ char: "" }) in column N+1.
+  // present() must SKIP that continuation cell — emitting a space there would
+  // shift every subsequent character one column right. This is the only test
+  // that feeds present() a wide char; without it the load-bearing
+  // `cell.char === "" → continue` guard is unpinned (every other input is ASCII).
+  test("a wide char's continuation cell is skipped, not emitted as a space", () => {
+    const out = mockStdout();
+    const renderer = new DiffRenderer(out, "truecolor");
+    const prev = CellBuffer.create(3, 1);
+    const next = CellBuffer.create(3, 1);
+    next.writeText(0, 0, "世a"); // 世 is width-2: col0=世, col1=continuation(""), col2=a
+    renderer.present(prev, next);
+    expect(out.writes).toHaveLength(1);
+    const output = out.writes[0];
+    // Glyph emitted exactly once, immediately followed by the next real cell.
+    // Deleting the continuation-skip in present() makes this "世 a".
+    expect(output).toContain("世a");
+    expect(output).not.toContain("世 a");
+    expect(output.split("世").length - 1).toBe(1);
+  });
 });
