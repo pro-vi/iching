@@ -6,9 +6,11 @@
 //   - cursor-into-view: a focused index that must stay within a viewport window
 //     (browse list, settings rows) — derive the offset/window from the cursor.
 
+import { clamp } from "@iching/core";
+
 /** Clamp a scroll offset into the valid range `[0, max(0, contentLength - viewport)]`. */
 export function clampOffset(offset: number, contentLength: number, viewport: number): number {
-  return Math.max(0, Math.min(offset, Math.max(0, contentLength - viewport)));
+  return clamp(offset, 0, Math.max(0, contentLength - viewport));
 }
 
 /**
@@ -32,7 +34,7 @@ export function windowFor(
   total: number,
 ): { start: number; end: number } {
   if (viewport >= total) return { start: 0, end: total };
-  const start = Math.max(0, Math.min(cursor - viewport + 1, total - viewport));
+  const start = clamp(cursor - viewport + 1, 0, total - viewport);
   return { start, end: start + viewport };
 }
 

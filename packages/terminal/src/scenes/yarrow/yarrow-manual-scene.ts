@@ -18,6 +18,7 @@ import {
   toLineValue,
   type RandomSource,
   type YarrowRound,
+  clamp,
 } from "@iching/core";
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
@@ -189,7 +190,7 @@ export class YarrowManualScene implements Scene {
   private commitCut(): void {
     const startCount = this.currentStartCount();
     const max = this.apertureMax();
-    const left = Math.max(APERTURE_MIN, Math.min(max, this.apertureLeft));
+    const left = clamp(this.apertureLeft, APERTURE_MIN, max);
     const offset = this.source.nextBytes(1)[0] % APERTURE_WIDTH;
     const k = left + offset;
     this.committedK = k;

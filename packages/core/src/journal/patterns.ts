@@ -76,6 +76,7 @@ import {
   hammingDrift,
 } from "./patterns/summaries.js";
 import { shareOf } from "./patterns/share.js";
+import { clamp } from "../clamp.js";
 
 // Re-export the public temporal surface unchanged — index.ts and the test suite
 // import these names from patterns.js.
@@ -335,9 +336,9 @@ export function computeJournalPatterns(
     movingLines,
     movingLineCounts,
     topTrigrams,
-    topTransformations: pairList(transformations, Math.max(3, Math.min(topN, 5))),
-    topTransitions: pairList(transitions, Math.max(3, Math.min(topN, 5))),
-    topStructuralEchoes: structuralEchoList(structural, Math.max(4, Math.min(topN + 2, 7))),
+    topTransformations: pairList(transformations, clamp(topN, 3, 5)),
+    topTransitions: pairList(transitions, clamp(topN, 3, 5)),
+    topStructuralEchoes: structuralEchoList(structural, clamp(topN + 2, 4, 7)),
     hammingDrift: hammingDrift(hammingCounts, hammingTotal, hammingMax),
   };
 }

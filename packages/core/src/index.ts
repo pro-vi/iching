@@ -82,6 +82,9 @@ export type { ScoredHexagram } from "./search.js";
 // Terminal-safe text
 export { stripTerminalControls } from "./terminal-text.js";
 
+// Numeric utility — clamp to [lo, hi], shared by core patterns + terminal renderers
+export { clamp } from "./clamp.js";
+
 // Detail
 export { type HexagramDetail, buildHexagramDetail } from "./detail.js";
 

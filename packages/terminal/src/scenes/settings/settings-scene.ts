@@ -5,6 +5,7 @@ import type { CellBuffer } from "../../render/buffer.ts";
 import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import type { GlyphAnimator, GlyphAnimStyle } from "../../glyph-anim/types.ts";
 import type { DisplayLanguage, GlyphFont, GlyphSize } from "@iching/core";
+import { clamp } from "@iching/core";
 import { GUA } from "@iching/core";
 import type { TaijituStyle } from "../home/taijitu-render.ts";
 import { renderTaijitu } from "../home/taijitu-render.ts";
@@ -443,7 +444,7 @@ export class SettingsScene implements Scene {
 
     // Geometry: [label] [lane] [join]▶ [stream…], centered as a block.
     const laneW = frame.width >= 60 ? 10 : 6;
-    const streamN = Math.max(3, Math.min(6, Math.floor((frame.width - 8 - labelW - laneW - 4) / 2)));
+    const streamN = clamp(Math.floor((frame.width - 8 - labelW - laneW - 4) / 2), 3, 6);
     const totalW = labelW + 1 + laneW + 3 + streamN * 2;
     const startCol = Math.max(2, cx - Math.floor(totalW / 2));
     const laneCol = startCol + labelW + 1;

@@ -2,7 +2,7 @@
 
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { CastModel } from "./model.ts";
-import { GUA, getStructure, toSimplified } from "@iching/core";
+import { GUA, clamp, getStructure, toSimplified } from "@iching/core";
 import type { DisplayLanguage } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth, truncateToWidth, centerCol } from "../../layout/measure.ts";
@@ -150,7 +150,7 @@ export function renderTitle(
     if (row >= buf.height - 2) break; // never collide with the prompt bar
 
     // Stagger: each line appears slightly later
-    const lineProgress = Math.max(0, Math.min(1, (progress - i * 0.15) / 0.4));
+    const lineProgress = clamp((progress - i * 0.15) / 0.4, 0, 1);
     if (lineProgress <= 0) continue;
 
     // Color: dim initially, then brighter
@@ -221,7 +221,7 @@ export function renderBecomingTitle(
     const row = baseRow + i;
     if (row >= buf.height - 2) break; // never collide with the prompt bar
 
-    const lineProgress = Math.max(0, Math.min(1, (progress - i * 0.2) / 0.6));
+    const lineProgress = clamp((progress - i * 0.2) / 0.6, 0, 1);
     if (lineProgress <= 0) continue;
 
     const fg = i === 0 ? t.changingYin : t.tertiary;

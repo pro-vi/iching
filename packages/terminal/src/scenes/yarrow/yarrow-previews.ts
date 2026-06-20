@@ -11,6 +11,7 @@ import {
   CryptoRandomSource,
   SeededRandomSource,
   type YarrowRound,
+  clamp,
 } from "@iching/core";
 import { TimelineRunner } from "../../animation/runner.ts";
 import { seq } from "../../animation/timeline.ts";
@@ -123,7 +124,7 @@ export class YarrowManualPreview {
   /** Pick a uniform-random k inside the current aperture, build a fresh
    *  round, hand it to a new runner — so the played math matches the cut. */
   private commitCut(): void {
-    const left = Math.max(1, Math.min(APERTURE_MAX, this.apertureLeft));
+    const left = clamp(this.apertureLeft, 1, APERTURE_MAX);
     const k = left + Math.floor(Math.random() * APERTURE_WIDTH);
     const round = castYarrowRound(new CryptoRandomSource(), STALKS, { splitAt: k });
     this.model.transcript[0].rounds[0] = round;

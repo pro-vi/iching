@@ -19,6 +19,7 @@ import { anchorRow, LINE_ROW_OFFSETS } from "../cast/hexagram-renderer.ts";
 import { formatLineCounter, writeChromeHeader } from "../cast/ritual-chrome.ts";
 import { tr } from "../../i18n/messages.ts";
 import type { DisplayLanguage } from "@iching/core";
+import { clamp } from "@iching/core";
 import { LINE_WIDTH } from "../../glyphs.ts";
 import type { YarrowModel } from "./model.ts";
 
@@ -89,7 +90,7 @@ const BRAILLE_BASE = 0x2800;
 /** @deprecated bar vocabulary — kept for settings preview compatibility */
 export function brailleCell(lit: number): string {
   let bits = 0;
-  const n = Math.max(0, Math.min(8, lit));
+  const n = clamp(lit, 0, 8);
   for (let i = 0; i < n; i++) bits |= BRAILLE_FILL_BITS[i];
   return String.fromCodePoint(BRAILLE_BASE + bits);
 }

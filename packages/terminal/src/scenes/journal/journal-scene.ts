@@ -8,7 +8,7 @@ import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import type { DisplayLanguage, HistoryEntry } from "@iching/core";
-import { GUA, TRIGRAMS, compareEntryTime, dateInZone, formatTime, stripTerminalControls, toSimplified } from "@iching/core";
+import { GUA, TRIGRAMS, clamp, compareEntryTime, dateInZone, formatTime, stripTerminalControls, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth, truncateToWidth, fitLine } from "../../layout/measure.ts";
 // Re-exported for callers that have long imported it from here (e.g. tests).
@@ -58,7 +58,7 @@ const SPARK_BLOCKS = "▁▂▃▄▅▆▇█";
  */
 function sparkBlock(value: number, max: number): string {
   const n = SPARK_BLOCKS.length;
-  return SPARK_BLOCKS[Math.max(0, Math.min(n - 1, Math.round((value / max) * n) - 1))];
+  return SPARK_BLOCKS[clamp(Math.round((value / max) * n) - 1, 0, n - 1)];
 }
 const LINE_KEYS = [
   "journal.patterns.line1",
@@ -598,7 +598,7 @@ export class JournalScene implements Scene {
     // ── geometry & policy ──
     const inner = Math.max(8, ctx.cols - 4);
     const narrow = ctx.cols < 64;
-    const barW = Math.max(4, Math.min(12, ctx.cols - 56));
+    const barW = clamp(ctx.cols - 56, 4, 12);
     const gate = patterns.baseline.methods.known >= CHANCE_MIN_KNOWN;
     // A stricter gate for sections whose ROW shows an all-readings count (faces
     // seen, line positions, moved-per-cast, trigrams): their by-chance figure is
@@ -1122,7 +1122,7 @@ export class JournalScene implements Scene {
     if (balance.yang + balance.yin > 0) {
       blank();
       rule(tr(lang, "journal.patterns.sectionBalance"), { fg: t.secondary, bold: true });
-      const armW = Math.max(4, Math.min(11, barW - 1));
+      const armW = clamp(barW - 1, 4, 11);
       const peak = Math.max(balance.yang, balance.yin, 1);
       const arm = (n: number): number => (n <= 0 ? 0 : Math.max(1, Math.round((n / peak) * armW)));
       const yinArm = arm(balance.yin);
