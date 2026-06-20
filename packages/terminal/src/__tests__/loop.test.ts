@@ -1,4 +1,5 @@
 import { describe, test, expect } from "bun:test";
+import { mockStdin } from "../testing.ts";
 import { ManualClock } from "../clock.ts";
 import { runScene } from "../scene/loop.ts";
 import type { Scene, SceneContext } from "../scene/types.ts";
@@ -16,25 +17,6 @@ function mockStdout() {
 }
 
 // Minimal mock stdin
-function mockStdin() {
-  const handlers: Record<string, Function[]> = {};
-  return {
-    isTTY: false,
-    resume() {},
-    pause() {},
-    setRawMode(_mode: boolean) {},
-    on(event: string, handler: Function) {
-      (handlers[event] ??= []).push(handler);
-    },
-    off(event: string, handler: Function) {
-      const list = handlers[event];
-      if (list) {
-        const idx = list.indexOf(handler);
-        if (idx >= 0) list.splice(idx, 1);
-      }
-    },
-  } as unknown as typeof process.stdin;
-}
 
 describe("runScene (render loop)", () => {
   test("scene lifecycle: enter -> update/render -> exit all called", async () => {

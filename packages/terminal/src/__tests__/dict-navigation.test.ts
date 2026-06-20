@@ -4,7 +4,7 @@
 // column, quiet empty-search hint).
 
 import { describe, test, expect } from "bun:test";
-import { bufferText, sceneCtx } from "../testing.ts";
+import { bufferText, mockStdin, sceneCtx } from "../testing.ts";
 import { ManualClock } from "../clock.ts";
 import { SceneRouter } from "../scene/router.ts";
 import type { Scene, SceneContext, SceneSignal } from "../scene/types.ts";
@@ -87,26 +87,6 @@ function mockStdout(columns = 80, rows = 24) {
     columns,
     rows,
   };
-}
-
-function mockStdin() {
-  const handlers: Record<string, Function[]> = {};
-  return {
-    isTTY: false,
-    resume() {},
-    pause() {},
-    setRawMode(_mode: boolean) {},
-    on(event: string, handler: Function) {
-      (handlers[event] ??= []).push(handler);
-    },
-    off(event: string, handler: Function) {
-      const list = handlers[event];
-      if (list) {
-        const idx = list.indexOf(handler);
-        if (idx >= 0) list.splice(idx, 1);
-      }
-    },
-  } as unknown as typeof process.stdin;
 }
 
 /** Scene that exits (no signal) after one update. */

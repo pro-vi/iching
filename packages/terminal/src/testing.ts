@@ -80,3 +80,29 @@ export function settingsValues(overrides: Partial<SettingsValues> = {}): Setting
     ...overrides,
   };
 }
+
+/**
+ * A minimal process.stdin stand-in for loop/session tests: never a TTY, raw-mode
+ * and resume/pause are no-ops, and on/off track handlers in a local map. Four
+ * loop/session suites shared this verbatim. The internal cast keeps callers
+ * cast-free (it returns a typed process.stdin).
+ */
+export function mockStdin(): typeof process.stdin {
+  const handlers: Record<string, Function[]> = {};
+  return {
+    isTTY: false,
+    resume() {},
+    pause() {},
+    setRawMode(_mode: boolean) {},
+    on(event: string, handler: Function) {
+      (handlers[event] ??= []).push(handler);
+    },
+    off(event: string, handler: Function) {
+      const list = handlers[event];
+      if (list) {
+        const idx = list.indexOf(handler);
+        if (idx >= 0) list.splice(idx, 1);
+      }
+    },
+  } as unknown as typeof process.stdin;
+}

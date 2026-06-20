@@ -2,6 +2,7 @@
 // isActive, mid-session clear, and bracketed paste mode toggling.
 
 import { describe, test, expect } from "bun:test";
+import { mockStdin } from "../testing.ts";
 import { TerminalSession } from "../session/terminal-session.ts";
 
 function mockStdout() {
@@ -15,26 +16,6 @@ function mockStdout() {
     rows: 24,
     writes,
   };
-}
-
-function mockStdin() {
-  const handlers: Record<string, Function[]> = {};
-  return {
-    isTTY: false,
-    resume() {},
-    pause() {},
-    setRawMode(_mode: boolean) {},
-    on(event: string, handler: Function) {
-      (handlers[event] ??= []).push(handler);
-    },
-    off(event: string, handler: Function) {
-      const list = handlers[event];
-      if (list) {
-        const idx = list.indexOf(handler);
-        if (idx >= 0) list.splice(idx, 1);
-      }
-    },
-  } as unknown as typeof process.stdin;
 }
 
 describe("TerminalSession", () => {
