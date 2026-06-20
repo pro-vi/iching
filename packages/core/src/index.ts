@@ -92,7 +92,7 @@ export { isOneOf } from "./is-one-of.js";
 export { foldForSearch } from "./text-fold.js";
 
 // Detail
-export { type HexagramDetail, buildHexagramDetail } from "./detail.js";
+export { type HexagramDetail, type KwGua, buildHexagramDetail } from "./detail.js";
 
 // Service
 export { selectDisplay } from "./service/display-select.js";
