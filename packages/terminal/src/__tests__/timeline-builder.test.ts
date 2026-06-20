@@ -1,4 +1,5 @@
 import { describe, test, expect } from "bun:test";
+import type { Cast } from "@iching/core";
 import { changingCast } from "../testing.ts";
 import { buildCastTimeline, type CastGlyphConfig } from "../scenes/cast/timeline-builder.ts";
 import { CastModel } from "../scenes/cast/model.ts";
