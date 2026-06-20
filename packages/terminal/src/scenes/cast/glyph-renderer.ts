@@ -6,6 +6,7 @@ import type { CastModel } from "./model.ts";
 import { anchorRow } from "./hexagram-renderer.ts";
 import { glyphDisplayMode } from "./reveal-renderer.ts";
 import { getTheme } from "../../color/theme.ts";
+import { centerCol } from "../../layout/measure.ts";
 
 /**
  * Render the large glyph (animated or static) below the hexagram.
@@ -34,7 +35,7 @@ export function renderLargeGlyph(
       : model.becomingGlyphEntry;
   if (!entry) return;
 
-  const glyphCol = Math.max(0, Math.floor((buf.width - entry.width) / 2));
+  const glyphCol = centerCol(buf.width, entry.width);
 
   if (model.glyphAnimator && !model.glyphAnimDone) {
     model.glyphAnimator.render(buf, glyphRow, glyphCol);

@@ -5,7 +5,7 @@ import type { CastModel } from "./model.ts";
 import { GUA, getStructure, toSimplified } from "@iching/core";
 import type { DisplayLanguage } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth, truncateToWidth } from "../../layout/measure.ts";
+import { stringWidth, truncateToWidth, centerCol } from "../../layout/measure.ts";
 import { anchorRow, TITLE_ROW_OFFSET } from "./hexagram-renderer.ts";
 import { canSplit, glyphRevealMode, glyphTitleLineCount, type GlyphRevealMode } from "./layout-calc.ts";
 import { readingPanelRows, readingPanelWidth } from "./reading-lines.ts";
@@ -164,7 +164,7 @@ export function renderTitle(
     }
 
     const w = stringWidth(lines[i]);
-    const col = Math.max(0, Math.floor((buf.width - w) / 2) + xOffset);
+    const col = centerCol(buf.width, w, xOffset);
     buf.writeText(row, col, lines[i], { fg, dim: lineProgress < 0.3 });
   }
 
@@ -173,7 +173,7 @@ export function renderTitle(
     const subRow = baseRow + 5;
     if (subRow < buf.height - 2) {
       const w = stringWidth(model.subtitleText);
-      const col = Math.max(0, Math.floor((buf.width - w) / 2) + xOffset);
+      const col = centerCol(buf.width, w, xOffset);
       buf.writeText(subRow, col, model.subtitleText, {
         fg: t.tertiary,
         dim: true,
@@ -226,7 +226,7 @@ export function renderBecomingTitle(
 
     const fg = i === 0 ? t.changingYin : t.tertiary;
     const w = stringWidth(lines[i]);
-    const col = Math.max(0, Math.floor((buf.width - w) / 2) + xOffset);
+    const col = centerCol(buf.width, w, xOffset);
     buf.writeText(row, col, lines[i], { fg });
   }
 }

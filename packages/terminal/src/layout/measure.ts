@@ -111,6 +111,16 @@ function isWideChar(code: number): boolean {
 }
 
 /**
+ * The left column that centers an `itemWidth`-wide thing in `totalWidth`, clamped
+ * to ≥ 0 so an item wider than the space pins to the left edge. `offset` (a
+ * split-layout column shift) is applied INSIDE the clamp, exactly as the cast
+ * renderers wrote it — the column every glyph / line / title placement computes.
+ */
+export function centerCol(totalWidth: number, itemWidth: number, offset = 0): number {
+  return Math.max(0, Math.floor((totalWidth - itemWidth) / 2) + offset);
+}
+
+/**
  * Center a string within a given total width.
  * Returns the string padded with spaces on both sides.
  */
@@ -132,7 +142,7 @@ export function centerPad(str: string, totalWidth: number): string {
 export function fitLine(text: string, width: number): { text: string; col: number } {
   const w = stringWidth(text);
   if (w <= width) {
-    return { text, col: Math.max(0, Math.floor((width - w) / 2)) };
+    return { text, col: centerCol(width, w) };
   }
   return { text: truncateToWidth(text, width), col: 0 };
 }

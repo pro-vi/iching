@@ -20,7 +20,7 @@ import { renderLargeGlyph } from "./glyph-renderer.ts";
 import { hexColOffset, canSplit, glyphRevealMode, glyphTitleLineCount } from "./layout-calc.ts";
 import { getTheme } from "../../color/theme.ts";
 import { SPLIT_ARROW } from "../../glyphs.ts";
-import { stringWidth } from "../../layout/measure.ts";
+import { stringWidth, centerCol } from "../../layout/measure.ts";
 import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
 import { composeGlyph } from "../../glyph-anim/compose.ts";
 import { tr } from "../../i18n/messages.ts";
@@ -371,7 +371,7 @@ function renderSplitArrow(buf: CellBuffer, model: CastModel): void {
 
   // Center horizontally between the two hexagrams
   const arrowW = stringWidth(SPLIT_ARROW);
-  const col = Math.max(0, Math.floor((buf.width - arrowW) / 2));
+  const col = centerCol(buf.width, arrowW);
 
   // Fade in with split progress
   const fg = model.splitProgress < 0.5 ? t.tertiary : t.secondary;
@@ -399,7 +399,7 @@ function renderPrompt(buf: CellBuffer, model: CastModel, language: DisplayLangua
   const row = buf.height - 2;
   if (row < 0) return;
   const w = stringWidth(text);
-  const col = Math.max(0, Math.floor((buf.width - w) / 2));
+  const col = centerCol(buf.width, w);
   buf.writeText(row, col, text, { fg: t.tertiary });
 }
 
@@ -413,7 +413,7 @@ function renderPaceFooter(buf: CellBuffer, model: CastModel, language: DisplayLa
   const row = buf.height - 2;
   if (row < 0) return;
   const w = stringWidth(text);
-  const col = Math.max(0, Math.floor((buf.width - w) / 2));
+  const col = centerCol(buf.width, w);
   buf.writeText(row, col, text, { fg: t.tertiary, dim: true });
 }
 

@@ -5,7 +5,7 @@ import type { StyledCell } from "../../render/cell.ts";
 import type { CastModel } from "./model.ts";
 import { GLYPHS, LINE_WIDTH } from "../../glyphs.ts";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth } from "../../layout/measure.ts";
+import { stringWidth, centerCol } from "../../layout/measure.ts";
 import { anchorRow, LINE_ROW_OFFSETS } from "./hexagram-renderer.ts";
 
 /**
@@ -67,7 +67,7 @@ export function renderMorph(
 
     const style: Partial<StyledCell> = { fg };
     const lineW = stringWidth(frameStr);
-    const col = Math.max(0, Math.floor((buf.width - lineW) / 2) + xOffset);
+    const col = centerCol(buf.width, lineW, xOffset);
     buf.writeText(row, col, frameStr, style);
   }
 }

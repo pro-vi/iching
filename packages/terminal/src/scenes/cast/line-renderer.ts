@@ -4,7 +4,7 @@ import type { CellBuffer } from "../../render/buffer.ts";
 import type { StyledCell } from "../../render/cell.ts";
 import { GLYPHS, LINE_WIDTH } from "../../glyphs.ts";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth } from "../../layout/measure.ts";
+import { stringWidth, centerCol } from "../../layout/measure.ts";
 
 /**
  * Render a single hexagram line centered in the buffer at the given row.
@@ -58,7 +58,7 @@ export function renderLine(
 
   const style: Partial<StyledCell> = { fg };
   const lineW = stringWidth(frameStr);
-  const col = Math.max(0, Math.floor((buf.width - lineW) / 2) + xOffset);
+  const col = centerCol(buf.width, lineW, xOffset);
   buf.writeText(row, col, frameStr, style);
 }
 

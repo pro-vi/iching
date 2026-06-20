@@ -13,7 +13,7 @@ import type { SceneContext } from "../../scene/types.ts";
 import { renderTooSmallNotice } from "../../scene/loop.ts";
 import type { StyledCell } from "../../render/cell.ts";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth } from "../../layout/measure.ts";
+import { stringWidth, centerCol } from "../../layout/measure.ts";
 import { renderLine } from "../cast/line-renderer.ts";
 import { anchorRow, LINE_ROW_OFFSETS } from "../cast/hexagram-renderer.ts";
 import { formatLineCounter, writeChromeHeader } from "../cast/ritual-chrome.ts";
@@ -121,7 +121,7 @@ function fieldRow(buf: CellBuffer): number {
 }
 
 function barAreaStartCol(buf: CellBuffer): number {
-  return Math.max(0, Math.floor((buf.width - BAR_AREA_WIDTH) / 2));
+  return centerCol(buf.width, BAR_AREA_WIDTH);
 }
 
 /**

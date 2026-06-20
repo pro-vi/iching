@@ -2,7 +2,7 @@
 
 import { CellBuffer } from "./buffer.ts";
 import type { StyledCell } from "./cell.ts";
-import { stringWidth, centerPad } from "../layout/measure.ts";
+import { stringWidth, centerPad, centerCol } from "../layout/measure.ts";
 
 /**
  * Center a set of text lines vertically and horizontally within a buffer.
@@ -40,7 +40,7 @@ export function writeBlockCentered(
     const row = startRow + i;
     if (row >= buf.height) break;
     const lineWidth = stringWidth(lines[i]);
-    const col = Math.max(0, Math.floor((buf.width - lineWidth) / 2));
+    const col = centerCol(buf.width, lineWidth);
     buf.writeText(row, col, lines[i], style);
   }
 }

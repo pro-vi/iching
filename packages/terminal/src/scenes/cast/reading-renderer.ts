@@ -9,7 +9,7 @@ import type { DisplayLanguage } from "@iching/core";
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { CastModel } from "./model.ts";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth } from "../../layout/measure.ts";
+import { stringWidth, centerCol } from "../../layout/measure.ts";
 import { titleLayout } from "./reveal-renderer.ts";
 import { buildReadingLines, readingPanelRows, readingPanelWidth } from "./reading-lines.ts";
 
@@ -50,7 +50,7 @@ export function renderReadingPanel(
   // Left-align the reading to a common left edge (the centered panel block's
   // left), so the moving-line 爻辭 read as a top-down list rather than a stack
   // of separately-centered lines.
-  const leftCol = Math.max(0, Math.floor((buf.width - width) / 2));
+  const leftCol = centerCol(buf.width, width);
 
   for (let i = 0; i < panel.length; i++) {
     const row = startRow + i;
