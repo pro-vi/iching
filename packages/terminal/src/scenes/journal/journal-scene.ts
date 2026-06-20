@@ -14,6 +14,7 @@ import { stringWidth, truncateToWidth, fitLine } from "../../layout/measure.ts";
 // Re-exported for callers that have long imported it from here (e.g. tests).
 export { truncateToWidth };
 import { ScrollableRegion } from "../../widgets/scrollable.ts";
+import { lastIndex } from "../../widgets/scroll.ts";
 import { TextInput } from "../../widgets/text-input.ts";
 import { tr, countUnit, type MessageKey } from "../../i18n/messages.ts";
 import {
@@ -1197,7 +1198,7 @@ export class JournalScene implements Scene {
       if (key.direction === "up") {
         this.cursor = Math.max(0, this.cursor - stride);
       } else {
-        this.cursor = Math.min(Math.max(0, this.filtered.length - 1), this.cursor + stride);
+        this.cursor = Math.min(lastIndex(this.filtered.length), this.cursor + stride);
       }
       // The ScrollableRegion holds no content lines (the list renders from
       // `filtered` directly), so its pageUp/pageDown scroll math would no-op
@@ -1214,7 +1215,7 @@ export class JournalScene implements Scene {
     }
 
     if (key.type === "end") {
-      this.cursor = Math.max(0, this.filtered.length - 1);
+      this.cursor = lastIndex(this.filtered.length);
       this.ensureCursorVisible();
       return;
     }
@@ -1474,14 +1475,14 @@ export class JournalScene implements Scene {
               (e.notes?.some((n) => n.state !== "failed" && foldForSearch(n.text).includes(q)) ?? false),
           );
     if (this.cursor >= this.filtered.length) {
-      this.cursor = Math.max(0, this.filtered.length - 1);
+      this.cursor = lastIndex(this.filtered.length);
     }
     this.scroll.scrollOffset = 0;
     this.ensureCursorVisible();
   }
 
   private moveCursor(delta: number): void {
-    this.cursor = Math.min(Math.max(0, this.cursor + delta), Math.max(0, this.filtered.length - 1));
+    this.cursor = Math.min(Math.max(0, this.cursor + delta), lastIndex(this.filtered.length));
     this.ensureCursorVisible();
   }
 

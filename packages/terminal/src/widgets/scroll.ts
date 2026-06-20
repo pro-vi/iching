@@ -20,6 +20,12 @@ export function clampOffset(offset: number, contentLength: number, viewport: num
   return clamp(offset, 0, maxOffset(contentLength, viewport));
 }
 
+/** The highest valid index into a list of `length` items, or 0 when empty — the
+ *  ceiling for a list cursor (never -1, so an empty list keeps the cursor at 0). */
+export function lastIndex(length: number): number {
+  return Math.max(0, length - 1);
+}
+
 /**
  * New scroll offset that keeps `cursor` within a `viewport`-sized window,
  * scrolling only when the cursor leaves the window (stateful list navigation).
