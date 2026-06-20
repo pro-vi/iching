@@ -1,6 +1,7 @@
 // dict command — launch dictionary browse/detail scene
 
 import { Command } from "commander";
+import { die } from "../util/die.js";
 import { resolveHexagramQuery } from "./hexagram.js";
 import { formatError } from "../util/format-error.js";
 
@@ -40,8 +41,7 @@ export function registerDictCommand(program: Command): void {
       if (query) {
         const resolution = resolveHexagramQuery(query);
         if (resolution.kind === "invalid") {
-          console.error("Hexagram number must be an integer from 1 to 64.");
-          process.exit(1);
+          die("Hexagram number must be an integer from 1 to 64.");
         }
         initial =
           resolution.kind === "kw"
@@ -60,8 +60,7 @@ export function registerDictCommand(program: Command): void {
       // interactive session was the uneven twin that lacked it.
       const onFatal = (err: unknown) => {
         session.exit();
-        console.error(formatError(err));
-        process.exit(1);
+        die(formatError(err));
       };
       process.once("uncaughtException", onFatal);
       process.once("unhandledRejection", onFatal);

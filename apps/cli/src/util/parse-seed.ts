@@ -1,3 +1,4 @@
+import { die } from "./die.js";
 /**
  * Validate a raw --seed option value. Number("abc") is NaN, and NaN|0
  * collapses the seeded PRNG state to a constant — a typo'd seed would
@@ -12,8 +13,7 @@ export function parseSeed(rawSeed: string | undefined): number | undefined {
   if (rawSeed === undefined) return undefined;
   const seed = Number(rawSeed);
   if (rawSeed.trim() === "" || !Number.isFinite(seed)) {
-    console.error(`Invalid --seed "${rawSeed}": expected a number.`);
-    process.exit(1);
+    die(`Invalid --seed "${rawSeed}": expected a number.`);
   }
   return seed;
 }

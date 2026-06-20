@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { program } from "./program.js";
+import { die } from "./util/die.js";
 import { parseSeed } from "./util/parse-seed.js";
 import { localToday } from "./util/today.js";
 import { resolveTodayReading } from "./util/today-cache.js";
@@ -90,8 +91,7 @@ async function main() {
     const onFatal = (err: unknown) => {
       session.exit();
       flushDiagnostics();
-      console.error(formatError(err));
-      process.exit(1);
+      die(formatError(err));
     };
     process.once("uncaughtException", onFatal);
     process.once("unhandledRejection", onFatal);
@@ -293,6 +293,5 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(formatError(err));
-  process.exit(1);
+  die(formatError(err));
 });

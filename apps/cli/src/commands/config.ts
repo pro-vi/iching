@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { die } from "../util/die.js";
 import { isOneOf } from "@iching/core";
 import { JsonConfigStore, canonicalLanguage } from "@iching/storage";
 import { resolvePathsFor } from "../util/paths.js";
@@ -165,8 +166,7 @@ export function registerConfigCommand(program: Command): void {
     const cfg = await store.load();
 
     if (!isConfigKey(key)) {
-      console.error(`Unknown key "${key}". Valid keys: ${VALID_KEYS.join(", ")}`);
-      process.exit(1);
+      die(`Unknown key "${key}". Valid keys: ${VALID_KEYS.join(", ")}`);
     }
 
     const value = cfg[key];
@@ -186,8 +186,7 @@ export function registerConfigCommand(program: Command): void {
     // config on first boot, and a rejected command must not leave that side
     // effect (or freeze the locale seed) behind.
     if (!isConfigKey(key)) {
-      console.error(`Unknown key "${key}". Valid keys: ${VALID_KEYS.join(", ")}`);
-      process.exit(1);
+      die(`Unknown key "${key}". Valid keys: ${VALID_KEYS.join(", ")}`);
     }
 
     // Canonicalize the raw value (e.g. the 繁/简/EN labels the Settings UI
@@ -195,8 +194,7 @@ export function registerConfigCommand(program: Command): void {
     const schema = CONFIG_SCHEMA[key];
     const resolved = schema.normalize ? schema.normalize(value) : value;
     if (schema.values && !schema.values.includes(resolved)) {
-      console.error(`Invalid value "${value}" for ${key}. Valid: ${schema.values.join(", ")}`);
-      process.exit(1);
+      die(`Invalid value "${value}" for ${key}. Valid: ${schema.values.join(", ")}`);
     }
 
     // `set` WRITES the config, so on first boot it must seed the display
@@ -206,16 +204,14 @@ export function registerConfigCommand(program: Command): void {
     const cfg = await store.loadOrSeed();
 
     if (!schema.set(cfg, resolved)) {
-      console.error(`Invalid value "${value}" for ${key}. Valid: ${schema.values?.join(", ") ?? "any string"}`);
-      process.exit(1);
+      die(`Invalid value "${value}" for ${key}. Valid: ${schema.values?.join(", ") ?? "any string"}`);
     }
     try {
       await store.save(cfg);
     } catch {
       // A write command must fail when it can't persist — but cleanly, not
       // with a raw EACCES stack trace (cf. the TUI settings-save hardening).
-      console.error(`Couldn't write config to ${paths.config} (read-only or full data dir?).`);
-      process.exit(1);
+      die(`Couldn't write config to ${paths.config} (read-only or full data dir?).`);
     }
 
     if (globalOpts.json) {

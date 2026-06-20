@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { die } from "../util/die.js";
 import { GUA, searchHexagramsScored } from "@iching/core";
 import type { Hexagram, Style } from "@iching/core";
 import { formatHexagramPlain } from "../output/plain.js";
@@ -57,12 +58,10 @@ export function registerHexagramCommand(program: Command): void {
       const resolution = resolveHexagramQuery(query);
 
       if (resolution.kind === "invalid") {
-        console.error("Hexagram number must be an integer from 1 to 64.");
-        process.exit(1);
+        die("Hexagram number must be an integer from 1 to 64.");
       }
       if (resolution.kind === "none") {
-        console.error(`No hexagram matches "${query}".`);
-        process.exit(1);
+        die(`No hexagram matches "${query}".`);
       }
       if (resolution.kind === "matches") {
         // Several hexagrams answer — print the brief shortlist and exit 0.
@@ -86,10 +85,7 @@ export function registerHexagramCommand(program: Command): void {
 
       const style = cmdOpts.style as Style | undefined;
       if (style && !VALID_STYLES.includes(style)) {
-        console.error(
-          `Invalid style "${style}". Choose from: ${VALID_STYLES.join(", ")}`,
-        );
-        process.exit(1);
+        die(`Invalid style "${style}". Choose from: ${VALID_STYLES.join(", ")}`);
       }
 
       if (globalOpts.json) {

@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { die } from "../util/die.js";
 import { access, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import { GUA, computeJournalPatterns, compareEntryTime } from "@iching/core";
@@ -48,8 +49,7 @@ async function assertJournalReadable(statePath: string): Promise<void> {
     if (errnoCode(err) === "ENOENT") return; // no journal yet — reads empty
     // any other stat/access failure falls through to the calm message below
   }
-  console.error(`iching: couldn't read your journal at ${statePath} (permission denied, or not a file?).`);
-  process.exit(1);
+  die(`iching: couldn't read your journal at ${statePath} (permission denied, or not a file?).`);
 }
 
 /**
@@ -60,8 +60,7 @@ async function assertJournalReadable(statePath: string): Promise<void> {
  */
 function assertValidDateArg(value: string, label: string): void {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    console.error(`Invalid ${label} "${value}": expected a date in YYYY-MM-DD format.`);
-    process.exit(1);
+    die(`Invalid ${label} "${value}": expected a date in YYYY-MM-DD format.`);
   }
 }
 
@@ -89,10 +88,7 @@ export function registerJournalCommand(program: Command): void {
       if (cmdOpts.hexagram !== undefined) {
         hexFilter = Number(cmdOpts.hexagram);
         if (!Number.isInteger(hexFilter) || hexFilter < 1 || hexFilter > GUA.length) {
-          console.error(
-            `Invalid --hexagram "${cmdOpts.hexagram}": expected a number 1-${GUA.length}.`,
-          );
-          process.exit(1);
+          die(`Invalid --hexagram "${cmdOpts.hexagram}": expected a number 1-${GUA.length}.`);
         }
       }
 
@@ -104,10 +100,7 @@ export function registerJournalCommand(program: Command): void {
       if (!cmdOpts.all) {
         limit = Number(cmdOpts.limit);
         if (!Number.isInteger(limit) || limit < 1) {
-          console.error(
-            `Invalid --limit "${cmdOpts.limit}": expected a positive integer.`,
-          );
-          process.exit(1);
+          die(`Invalid --limit "${cmdOpts.limit}": expected a positive integer.`);
         }
       }
       if (cmdOpts.since !== undefined) assertValidDateArg(cmdOpts.since, "--since");
@@ -115,10 +108,7 @@ export function registerJournalCommand(program: Command): void {
       // An inverted window can never hold a reading — catch the typo loudly
       // instead of printing a misleading "no readings found".
       if (cmdOpts.since && cmdOpts.until && cmdOpts.since > cmdOpts.until) {
-        console.error(
-          `Invalid range: --since "${cmdOpts.since}" is after --until "${cmdOpts.until}".`,
-        );
-        process.exit(1);
+        die(`Invalid range: --since "${cmdOpts.since}" is after --until "${cmdOpts.until}".`);
       }
 
       const allEntries: HistoryEntry[] = [];
@@ -171,10 +161,7 @@ export function registerJournalCommand(program: Command): void {
       // An inverted window can never hold a reading — catch the typo loudly
       // instead of the calm "No readings to observe yet" (which implies none exist).
       if (cmdOpts.since && cmdOpts.until && cmdOpts.since > cmdOpts.until) {
-        console.error(
-          `Invalid range: --since "${cmdOpts.since}" is after --until "${cmdOpts.until}".`,
-        );
-        process.exit(1);
+        die(`Invalid range: --since "${cmdOpts.since}" is after --until "${cmdOpts.until}".`);
       }
 
       const entries: HistoryEntry[] = [];
@@ -284,8 +271,7 @@ export function registerJournalCommand(program: Command): void {
       // bytes in the argument would replay as live control sequences forever.
       const trimmed = stripTerminalControls(text).trim();
       if (!trimmed) {
-        console.error("Note text is empty.");
-        process.exit(1);
+        die("Note text is empty.");
       }
 
       let target: HistoryEntry | null = null;
@@ -330,8 +316,7 @@ export function registerJournalCommand(program: Command): void {
         // Write failure (read-only or full data dir, a directory at the sidecar
         // path) — the read commands already degrade calmly; the note write
         // should too, not a raw EROFS/EISDIR. Nothing was saved.
-        console.error("iching: couldn't save your note (read-only or full data dir?).");
-        process.exit(1);
+        die("iching: couldn't save your note (read-only or full data dir?).");
       }
 
       if (globalOpts.json) {
