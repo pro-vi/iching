@@ -6,7 +6,7 @@
 
 import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
-import type { GlyphAnimator } from "./types.ts";
+import { type GlyphAnimator, MIN_DURATION_SCALE } from "./types.ts";
 import { isEmpty } from "./braille.ts";
 import { getTheme } from "../color/theme.ts";
 import { lerpColor } from "../color/lerp.ts";
@@ -69,7 +69,7 @@ export class DotsAnimator implements GlyphAnimator {
 
   constructor(glyph: GlyphEntry, durationScale: number = 1) {
     this.glyph = glyph;
-    this.durationScale = Math.max(0.05, durationScale);
+    this.durationScale = Math.max(MIN_DURATION_SCALE, durationScale);
     this.initCells();
   }
 
