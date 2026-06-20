@@ -45,7 +45,7 @@ export { diagonal } from "./derivation/diagonal.js";
 export { isLockedPair } from "./derivation/locked-pairs.js";
 
 // Identify
-export { BINARY_TO_KW, hexagramByBinary, hexagramByKW } from "./identify/lookup.js";
+export { BINARY_TO_KW, hexagramByBinary, hexagramByKW, kwFromLines } from "./identify/lookup.js";
 export {
   trigramIndex,
   getStructure,

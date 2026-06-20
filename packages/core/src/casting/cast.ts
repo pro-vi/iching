@@ -1,12 +1,11 @@
 import type { RandomSource } from "../random.js";
 import type { Cast, Line } from "../types.js";
-import { BINARY_TO_KW } from "../identify/lookup.js";
+import { kwFromLines } from "../identify/lookup.js";
 import { nuclear } from "../derivation/nuclear.js";
 import { polarity } from "../derivation/polarity.js";
 import { mirror } from "../derivation/mirror.js";
 import { diagonal } from "../derivation/diagonal.js";
 import { castLine } from "./coins.js";
-import { linesToBinary } from "./binary.js";
 
 /**
  * Build a full Cast (primary, becoming, derived hexagrams) from six cast lines.
@@ -23,8 +22,7 @@ export function assembleCast(lines: Line[]): Cast {
   if (lines.length !== 6) {
     throw new Error(`a cast requires exactly 6 lines, received ${lines.length}`);
   }
-  const primaryBinary = linesToBinary(lines);
-  const primary = BINARY_TO_KW[primaryBinary];
+  const primary = kwFromLines(lines);
 
   const changingPositions: number[] = [];
   let becoming: number | null = null;
@@ -35,8 +33,7 @@ export function assembleCast(lines: Line[]): Cast {
       ...l,
       isYang: l.isChanging ? !l.isYang : l.isYang,
     }));
-    const becomingBinary = linesToBinary(becomingLines);
-    becoming = BINARY_TO_KW[becomingBinary];
+    becoming = kwFromLines(becomingLines);
 
     lines.forEach((l, i) => {
       if (l.isChanging) changingPositions.push(i + 1);

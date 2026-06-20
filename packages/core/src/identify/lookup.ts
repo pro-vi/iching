@@ -1,5 +1,6 @@
-import type { Hexagram } from "../types.js";
+import type { Hexagram, Line } from "../types.js";
 import { GUA } from "../data/gua.js";
+import { linesToBinary } from "../casting/binary.js";
 
 /**
  * Binary-to-King-Wen lookup table.
@@ -25,6 +26,16 @@ export function hexagramByBinary(binary: number): Hexagram {
     throw new RangeError(`hexagramByBinary: binary must be an integer in [0, 63], got ${binary}`);
   }
   return GUA[BINARY_TO_KW[binary] - 1];
+}
+
+/**
+ * The King Wen number (1-64) for a set of six lines — linesToBinary, then the
+ * table lookup. The four line-derivations (nuclear 互 / polarity 錯 / mirror 綜 /
+ * diagonal 對角) each transform the lines and resolve the result this way; this
+ * is that shared tail, so the transform stays the visible part of each.
+ */
+export function kwFromLines(lines: Line[]): number {
+  return BINARY_TO_KW[linesToBinary(lines)];
 }
 
 /** Look up a hexagram by its King Wen number (1-64) */
