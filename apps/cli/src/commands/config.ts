@@ -137,6 +137,14 @@ function isConfigKey(key: string): key is keyof typeof CONFIG_SCHEMA {
   return Object.hasOwn(CONFIG_SCHEMA, key);
 }
 
+/** Narrow `key` to a config key, or die with the standard unknown-key message.
+ *  `config get` and `config set` both validate this way before touching state. */
+function assertConfigKey(key: string): asserts key is keyof typeof CONFIG_SCHEMA {
+  if (!isConfigKey(key)) {
+    die(`Unknown key "${key}". Valid keys: ${VALID_KEYS.join(", ")}`);
+  }
+}
+
 export function registerConfigCommand(program: Command): void {
   // Shared action bodies — each subcommand AND the git-style positional
   // shorthand (`config <key> [value]`) route through these, so both surfaces
@@ -165,9 +173,7 @@ export function registerConfigCommand(program: Command): void {
     const store = new JsonConfigStore(paths.config);
     const cfg = await store.load();
 
-    if (!isConfigKey(key)) {
-      die(`Unknown key "${key}". Valid keys: ${VALID_KEYS.join(", ")}`);
-    }
+    assertConfigKey(key);
 
     const value = cfg[key];
     if (globalOpts.json) {
@@ -185,9 +191,7 @@ export function registerConfigCommand(program: Command): void {
     // Validate BEFORE touching the store: loadOrSeed() persists a seeded
     // config on first boot, and a rejected command must not leave that side
     // effect (or freeze the locale seed) behind.
-    if (!isConfigKey(key)) {
-      die(`Unknown key "${key}". Valid keys: ${VALID_KEYS.join(", ")}`);
-    }
+    assertConfigKey(key);
 
     // Canonicalize the raw value (e.g. the 繁/简/EN labels the Settings UI
     // shows for `language`), then validate against allowed values.
