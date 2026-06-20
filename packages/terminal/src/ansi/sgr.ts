@@ -1,8 +1,7 @@
 // SGR (Select Graphic Rendition) sequences for color and style
 
 import type { ColorSupport } from "../color/detect.ts";
-
-const CSI = "\x1b[";
+import { CSI } from "./csi.js";
 
 // Parse hex color "#RRGGBB" to [r, g, b]
 function hexToRgb(hex: string): [number, number, number] {

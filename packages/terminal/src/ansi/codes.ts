@@ -1,7 +1,5 @@
 // ANSI escape sequences: cursor movement, screen control, alt buffer
-
-const ESC = "\x1b";
-const CSI = `${ESC}[`;
+import { CSI } from "./csi.js";
 
 // Cursor movement
 export const cursorTo = (row: number, col: number): string =>
