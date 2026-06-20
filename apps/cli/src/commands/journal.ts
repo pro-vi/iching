@@ -97,14 +97,19 @@ export function registerJournalCommand(program: Command): void {
         }
       }
 
-      // Validate --limit / --since the same way: fail loudly, never an
+      // Validate --limit only when it actually applies. --all discards it
+      // (line below slices the full list), so `journal list --all --limit abc`
+      // must not reject a flag it ignores. Fail loudly otherwise — never an
       // accidental empty list (Number("abc") is NaN; slice(0, NaN) drops all).
-      const limit = Number(cmdOpts.limit);
-      if (!Number.isInteger(limit) || limit < 1) {
-        console.error(
-          `Invalid --limit "${cmdOpts.limit}": expected a positive integer.`,
-        );
-        process.exit(1);
+      let limit = 0;
+      if (!cmdOpts.all) {
+        limit = Number(cmdOpts.limit);
+        if (!Number.isInteger(limit) || limit < 1) {
+          console.error(
+            `Invalid --limit "${cmdOpts.limit}": expected a positive integer.`,
+          );
+          process.exit(1);
+        }
       }
       if (cmdOpts.since !== undefined) assertValidDateArg(cmdOpts.since, "--since");
       if (cmdOpts.until !== undefined) assertValidDateArg(cmdOpts.until, "--until");

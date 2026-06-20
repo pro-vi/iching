@@ -1997,3 +1997,55 @@ describe("JournalScene patterns rows — memoized across frames", () => {
     expect(s.patternRows(ctx, "zh-Hant")).not.toBe(a); // language rebuilds
   });
 });
+
+describe("JournalScene search + re-entry polish (review #6, #7)", () => {
+  test("#6: the search input honors caret movement and forward delete (mirrors the note input)", () => {
+    const scene = new JournalScene([makeEntry("2026-03-01", 1)], { today: () => "2026-06-01" });
+    const ctx = ctxFor(24, 60);
+    scene.enter(ctx);
+    scene.handleKey({ type: "char", char: "/" }, ctx); // activate search
+    const si = (scene as unknown as { searchInput: { value: string } }).searchInput;
+
+    // type "ac", move the caret left (between a and c), insert "b" → "abc"
+    for (const ch of "ac") scene.handleKey({ type: "char", char: ch }, ctx);
+    scene.handleKey({ type: "arrow", direction: "left" }, ctx);
+    scene.handleKey({ type: "char", char: "b" }, ctx);
+    expect(si.value).toBe("abc"); // caret-aware insert (was "acb" — left arrow ignored)
+
+    // home, then forward-delete removes the leading 'a' → "bc"
+    scene.handleKey({ type: "home" }, ctx);
+    scene.handleKey({ type: "delete" }, ctx);
+    expect(si.value).toBe("bc"); // home + forward delete (were both dropped)
+
+    // end, then backspace removes the trailing 'c' → "b"
+    scene.handleKey({ type: "end" }, ctx);
+    scene.handleKey({ type: "backspace" }, ctx);
+    expect(si.value).toBe("b");
+  });
+
+  test("#7: re-entering after a shrink keeps the selected reading on screen", () => {
+    // The router pops back into the journal (enter() again) with the cursor
+    // preserved; if the terminal shrank while away, enter() must re-clamp the
+    // cursor into the reseeded viewport exactly as resize() does, or the
+    // selection sits below the fold until the user arrows it back.
+    const entries = Array.from({ length: 18 }, (_, i) =>
+      makeEntry(`2026-05-${String(i + 1).padStart(2, "0")}`, (i % 8) + 1),
+    );
+    const scene = new JournalScene(entries, { today: () => "2026-06-01" });
+    const tall = ctxFor(24, 60);
+    scene.enter(tall);
+    for (let i = 0; i < entries.length; i++) {
+      scene.handleKey({ type: "arrow", direction: "down" }, tall); // walk to the last reading
+    }
+
+    scene.enter(ctxFor(12, 60)); // re-enter shrunk — no resize() call this path
+    const short = ctxFor(12, 60);
+    const buf = CellBuffer.create(short.cols, short.rows);
+    scene.render(buf, short);
+    const selRow = Array.from({ length: short.rows }, (_, r) =>
+      buf.getRow(r).map((c) => c.char).join(""),
+    ).findIndex((l) => l.trimStart().startsWith(">"));
+    expect(selRow).toBeGreaterThanOrEqual(0); // selection on screen…
+    expect(selRow).toBeLessThan(short.rows - 2); // …above the preview/footer rows
+  });
+});

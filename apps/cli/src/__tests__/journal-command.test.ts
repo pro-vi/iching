@@ -115,6 +115,22 @@ describe("journal command", () => {
     }
   }, 20_000);
 
+  // Regression (review #5): --all discards --limit, so a bad --limit alongside
+  // --all must NOT reject a flag the command ignores.
+  test("list --all ignores --limit and does not reject a bad value", async () => {
+    await seedJournal(dataDir, [
+      makeEntry("2026-01-01", 1, null),
+      makeEntry("2026-01-02", 2, null),
+    ]);
+    const { exitCode, stdout, stderr } = await runCli(dataDir, [
+      "journal", "list", "--all", "--limit", "abc",
+    ]);
+    expect(exitCode).toBe(0);
+    expect(stderr).not.toContain("Invalid --limit");
+    expect(stdout).toContain("2026-01-01"); // --all keeps every reading
+    expect(stdout).toContain("2026-01-02");
+  }, 20_000);
+
   test("list --limit still truncates to the most recent N", async () => {
     await seedJournal(dataDir, [
       makeEntry("2026-01-01", 1, null),

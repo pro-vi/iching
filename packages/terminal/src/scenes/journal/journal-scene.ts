@@ -242,7 +242,13 @@ export class JournalScene implements Scene {
     // the list scroll with a ≤0 height and feed that into the cursor-visibility
     // math until the first resize corrects it.
     this.scroll.viewportHeight = Math.max(1, ctx.rows - 4); // header(2) + preview + footer
+    // Re-entry (the router pops back from a replayed reading) calls enter() again
+    // with a preserved cursor; if the terminal shrank while away, reseeding the
+    // viewport here without the same re-clamp resize() runs would leave the
+    // selection below the fold until the user arrows it back. (Review #7.)
+    this.ensureCursorVisible();
     this.patternsScroll.viewportHeight = Math.max(1, ctx.rows - 3); // top margin + indicator + footer
+    this.patternsScroll.scrollDown(0);
   }
 
   exit(): Promise<void> {
@@ -1399,8 +1405,12 @@ export class JournalScene implements Scene {
       return;
     }
     if (key.type === "arrow") {
+      // Up/down move the result-list cursor; left/right move the query caret —
+      // the same editing keys the note input honors (review #6).
       if (key.direction === "up") this.moveCursor(-1);
       else if (key.direction === "down") this.moveCursor(1);
+      else if (key.direction === "left") this.searchInput.moveCursorLeft();
+      else if (key.direction === "right") this.searchInput.moveCursorRight();
       return;
     }
     if (key.type === "backspace") {
@@ -1411,6 +1421,19 @@ export class JournalScene implements Scene {
     if (key.type === "deleteWord") {
       this.searchInput.deleteWord();
       this.setQuery(this.searchInput.value);
+      return;
+    }
+    if (key.type === "delete") {
+      this.searchInput.delete(); // forward delete — mutates the query
+      this.setQuery(this.searchInput.value);
+      return;
+    }
+    if (key.type === "home") {
+      this.searchInput.moveToStart(); // caret only — query text unchanged
+      return;
+    }
+    if (key.type === "end") {
+      this.searchInput.moveToEnd();
       return;
     }
     if (key.type === "paste") {
