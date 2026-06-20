@@ -10,8 +10,9 @@
 // its place only when there is room (and yields below that floor).
 
 import { describe, test, expect } from "bun:test";
-import type { Cast, DisplayLanguage, Line } from "@iching/core";
-import { assembleCast, GUA } from "@iching/core";
+import type { Cast, DisplayLanguage } from "@iching/core";
+import { GUA } from "@iching/core";
+import { castOf } from "@iching/core/testing";
 import { CastScene, type CastGlyphInput } from "../scenes/cast/cast-scene.ts";
 import { buildReadingLines, readingPanelWidth } from "../scenes/cast/reading-lines.ts";
 import { CellBuffer } from "../render/buffer.ts";
@@ -20,15 +21,6 @@ import type { SceneContext } from "../scene/types.ts";
 const GLYPH_CFG: CastGlyphInput = { glyphAnim: "dots", glyphFont: "kaiti" };
 
 /** A correct Cast for `primary` with the given changing positions. */
-function makeCast(primary: number, changing: number[]): Cast {
-  const gua = GUA[primary - 1];
-  const lines: Line[] = gua.l.map((v, i) => ({
-    value: (changing.includes(i + 1) ? (v === 1 ? 9 : 6) : v === 1 ? 7 : 8) as Line["value"],
-    isYang: v === 1,
-    isChanging: changing.includes(i + 1),
-  }));
-  return assembleCast(lines);
-}
 
 /**
  * Run the full real-app path: construct with glyphConfig, skip to the
@@ -75,12 +67,12 @@ function hasGlyph(rows: string[]): boolean {
 
 // 0/1/3/4/5/6 changing lines, with correctly derived becoming hexagrams.
 const CASES: Array<{ label: string; cast: Cast }> = [
-  { label: "0 changing (hex 63)", cast: makeCast(63, []) },
-  { label: "1 changing (hex 21, line 4)", cast: makeCast(21, [4]) },
-  { label: "3 changing (hex 21, lines 1·3·4)", cast: makeCast(21, [1, 3, 4]) },
-  { label: "4 changing (hex 21 → becoming 卦辭)", cast: makeCast(21, [1, 2, 3, 4]) },
-  { label: "5 changing (hex 21 → becoming 卦辭)", cast: makeCast(21, [1, 2, 3, 4, 5]) },
-  { label: "6 changing (hex 1 → 用九)", cast: makeCast(1, [1, 2, 3, 4, 5, 6]) },
+  { label: "0 changing (hex 63)", cast: castOf(63, { changing: [] }) },
+  { label: "1 changing (hex 21, line 4)", cast: castOf(21, { changing: [4] }) },
+  { label: "3 changing (hex 21, lines 1·3·4)", cast: castOf(21, { changing: [1, 3, 4] }) },
+  { label: "4 changing (hex 21 → becoming 卦辭)", cast: castOf(21, { changing: [1, 2, 3, 4] }) },
+  { label: "5 changing (hex 21 → becoming 卦辭)", cast: castOf(21, { changing: [1, 2, 3, 4, 5] }) },
+  { label: "6 changing (hex 1 → 用九)", cast: castOf(1, { changing: [1, 2, 3, 4, 5, 6] }) },
 ];
 
 const SIZES: Array<[number, number]> = [
@@ -131,35 +123,35 @@ describe("the glyph yields to the texts — and returns when there is room", () 
   });
 
   test("100x30 zh-Hant, 1 changing: glyph (settled form) AND the texts share the frame", () => {
-    const cast = makeCast(21, [4]);
+    const cast = castOf(21, { changing: [4] });
     const frame = settledRows(cast, 100, 30, "zh-Hant");
     expect(hasGlyph(frame)).toBe(true);
     expect(rowOf(frame, GUA[20].yao[3])).toBeGreaterThanOrEqual(0);
   });
 
   test("100x30 zh-Hant, 0 changing: glyph AND the judgment share the frame", () => {
-    const cast = makeCast(63, []);
+    const cast = castOf(63, { changing: [] });
     const frame = settledRows(cast, 100, 30, "zh-Hant");
     expect(hasGlyph(frame)).toBe(true);
     expect(rowOf(frame, "卦辭 ·")).toBeGreaterThanOrEqual(0);
   });
 
   test("100x30 zh-Hant, 6 changing: glyph AND the 用九 text share the frame", () => {
-    const cast = makeCast(1, [1, 2, 3, 4, 5, 6]);
+    const cast = castOf(1, { changing: [1, 2, 3, 4, 5, 6] });
     const frame = settledRows(cast, 100, 30, "zh-Hant");
     expect(hasGlyph(frame)).toBe(true);
     expect(rowOf(frame, "用九 ·")).toBeGreaterThanOrEqual(0);
   });
 
   test("100x30 en, 3 changing: both judgments (longer) win — the glyph yields", () => {
-    const cast = makeCast(21, [1, 3, 4]); // 3 moving → primary + becoming 卦辭
+    const cast = castOf(21, { changing: [1, 3, 4] }); // 3 moving → primary + becoming 卦辭
     const frame = settledRows(cast, 100, 30, "en");
     expect(hasGlyph(frame)).toBe(false);
     expect(rowOf(frame, "Biting through brings success")).toBeGreaterThanOrEqual(0); // primary 卦辭 (gcEnW)
   });
 
   test("100x40 en, 1 changing: room for everything — glyph, title, texts", () => {
-    const cast = makeCast(21, [4]);
+    const cast = castOf(21, { changing: [4] });
     const frame = settledRows(cast, 100, 40, "en");
     expect(hasGlyph(frame)).toBe(true);
     expect(rowOf(frame, "Biting on dried gristly meat")).toBeGreaterThanOrEqual(0); // line 4
@@ -170,7 +162,7 @@ describe("the glyph yields to the texts — and returns when there is room", () 
     // The title rows are placed at fixed anchor offsets; at cramped heights the
     // becoming title used to spill onto the prompt row and the last line below
     // it. The title now clips at the prompt bar (height - 2) like the panel.
-    const cast = makeCast(21, [4]); // a becoming cast → has a becoming title
+    const cast = castOf(21, { changing: [4] }); // a becoming cast → has a becoming title
     for (const [cols, rows] of [[44, 24], [80, 12]] as Array<[number, number]>) {
       const frame = settledRows(cast, cols, rows, "en");
       expect(frame[rows - 1].trim()).toBe(""); // nothing below the prompt bar
@@ -182,7 +174,7 @@ describe("the glyph yields to the texts — and returns when there is room", () 
     // 0 changing → "卦辭 · <judgment>" on one row at 100x30. The label glyphs
     // ("卦辭 · ") render dim/tertiary; the oracle text after the separator is
     // the brighter secondary. Assert the row carries both, label-cells first.
-    const cast = makeCast(63, []);
+    const cast = castOf(63, { changing: [] });
     const scene = new CastScene(cast, "default", 100, GLYPH_CFG, 30, undefined, {
       language: "zh-Hant",
     });
@@ -233,7 +225,7 @@ describe("the glyph yields to the texts — and returns when there is room", () 
     // its first wrapped line + "…". The title now sheds its optional image and
     // trigram rows so the reading is whole. 坤's judgment is multi-line; its LAST
     // line (the load-bearing clause) must be on screen, with no "…".
-    const cast = makeCast(2, []);
+    const cast = castOf(2, { changing: [] });
     const frame = settledRows(cast, 80, 24, "en");
     const footerRow = 24 - 2;
     const panel = buildReadingLines(cast, "en", readingPanelWidth(80), Number.MAX_SAFE_INTEGER);
@@ -254,7 +246,7 @@ describe("the glyph yields to the texts — and returns when there is room", () 
     let truncated = 0;
     const footerRow = 24 - 2;
     for (let kw = 1; kw <= 64; kw++) {
-      const cast = makeCast(kw, []); // 0 changing → the judgment IS the reading
+      const cast = castOf(kw, { changing: [] }); // 0 changing → the judgment IS the reading
       const frame = settledRows(cast, 80, 24, "en");
       const panel = buildReadingLines(cast, "en", readingPanelWidth(80), Number.MAX_SAFE_INTEGER);
       const lastText = panel.filter((l) => l.role === "text").at(-1);
@@ -291,7 +283,7 @@ describe("cast-scene polish (review #3, #9)", () => {
     // skipToComplete(false) from the [s] handler: the central glyph snaps to its
     // static end-state. The old default (true) re-seeded a fresh animator
     // (glyphAnimDone=false), noisily re-playing the whole reveal.
-    const scene = new CastScene(makeCast(1, []), "default", 80, GLYPH_CFG, 40);
+    const scene = new CastScene(castOf(1, { changing: [] }), "default", 80, GLYPH_CFG, 40);
     const ctx: SceneContext = { cols: 80, rows: 40, done: false, colorSupport: "truecolor", language: "en" };
     scene.update(0, 0, ctx);
     scene.update(120, 33, ctx); // mid-reveal: the glyph is animating, not done
@@ -308,7 +300,7 @@ describe("cast-scene polish (review #3, #9)", () => {
     // carries the becoming) so the two don't garble each other. The becoming
     // hexagram NAME is the marker (it appears only in that title here — the 1-
     // moving-line reading is the line text, and the footer "[←→]" is not it).
-    const cast = makeCast(11, [2]); // 泰 line 2 → a real becoming
+    const cast = castOf(11, { changing: [2] }); // 泰 line 2 → a real becoming
     const becomingName = GUA[cast.becoming! - 1].n;
 
     const shown = renderAt(cast, 40, 30, /* showReading */ true);

@@ -5,30 +5,13 @@ import { buildStructure } from "../identify/structure.js";
 import { GUA } from "../data/gua.js";
 import { SeededRandomSource } from "../random.js";
 import type { Cast, DerivedType, Line } from "../types.js";
+import { castOf } from "../testing.js";
 import { nuclear } from "../derivation/nuclear.js";
 import { polarity } from "../derivation/polarity.js";
 import { mirror } from "../derivation/mirror.js";
 import { diagonal } from "../derivation/diagonal.js";
 
 /** Helper: build a Cast for a given KW number (no changing lines) */
-function makeCast(kw: number): Cast {
-  const g = GUA[kw - 1];
-  const lines: Line[] = g.l.map((v) => ({
-    value: (v === 1 ? 7 : 8) as 7 | 8,
-    isYang: v === 1,
-    isChanging: false,
-  }));
-  return {
-    lines,
-    primary: kw,
-    becoming: null,
-    changingPositions: [],
-    nuclear: nuclear(lines),
-    polarity: polarity(lines),
-    mirror: mirror(lines),
-    diagonal: diagonal(lines),
-  };
-}
 
 /** Helper: build a Cast with changing lines */
 function makeCastWithChanging(kw: number, becomingKw: number, changingPos: number[]): Cast {
@@ -63,7 +46,7 @@ function makeCastWithChanging(kw: number, becomingKw: number, changingPos: numbe
 
 describe("formatReading", () => {
   test("produces string with hexagram symbol, name, pinyin", () => {
-    const cast = makeCast(1); // 乾
+    const cast = castOf(1); // 乾
     const structure = buildStructure(cast);
     const result = formatReading(cast, "dx", structure);
 
@@ -85,7 +68,7 @@ describe("formatReading", () => {
   });
 
   test("st style shows trigram structure", () => {
-    const cast = makeCast(1); // 乾 = heaven/heaven
+    const cast = castOf(1); // 乾 = heaven/heaven
     const structure = buildStructure(cast);
     const result = formatReading(cast, "st", structure);
 
@@ -95,7 +78,7 @@ describe("formatReading", () => {
   });
 
   test("all 5 commentary styles produce non-empty output", () => {
-    const cast = makeCast(30); // 離
+    const cast = castOf(30); // 離
     const structure = buildStructure(cast);
 
     for (const style of ["dx", "tu", "en", "te", "w"] as const) {
@@ -108,7 +91,7 @@ describe("formatReading", () => {
 
 describe("formatDerived", () => {
   test("produces labeled string for each DerivedType", () => {
-    const cast = makeCast(3); // 屯 — has distinct nuclear/polarity/mirror/diagonal
+    const cast = castOf(3); // 屯 — has distinct nuclear/polarity/mirror/diagonal
     const source = new SeededRandomSource(42);
 
     const types: DerivedType[] = ["nuclear", "polarity", "mirror", "diagonal"];
@@ -121,7 +104,7 @@ describe("formatDerived", () => {
   });
 
   test("becoming returns empty string when becoming is null", () => {
-    const cast = makeCast(1); // no changing lines
+    const cast = castOf(1); // no changing lines
     const source = new SeededRandomSource(42);
     const result = formatDerived(cast, "becoming", source);
     expect(result).toBe("");
@@ -137,7 +120,7 @@ describe("formatDerived", () => {
 
   test("self-mirroring hexagram shows 自綜 or self-mirroring", () => {
     // 乾 (1) mirrors to itself
-    const cast = makeCast(1);
+    const cast = castOf(1);
     const source = new SeededRandomSource(42);
     const result = formatDerived(cast, "mirror", source);
     expect(result).toMatch(/自綜|self-mirroring/);
@@ -146,7 +129,7 @@ describe("formatDerived", () => {
 
   test("locked pair shows 错综同象", () => {
     // 泰 (11) is a locked pair
-    const cast = makeCast(11);
+    const cast = castOf(11);
     const source = new SeededRandomSource(42);
     const result = formatDerived(cast, "mirror", source);
     expect(result).toContain("错综同象");
