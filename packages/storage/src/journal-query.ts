@@ -9,6 +9,23 @@ export interface HexagramHistory {
   dates: string[];
 }
 
+/**
+ * Build a HexagramHistory from the dates a hexagram was drawn. `lastCastDate` is
+ * the MAX date, NOT the append-tail — a journal may hold out-of-order entries
+ * (imported / merged / hand-edited), and the patterns pane derives its
+ * per-hexagram "last" the same way, so the dictionary and the pane must agree on
+ * when a hexagram was last drawn. Empty dates → null: the per-kw scan can be
+ * asked about a never-drawn hexagram, while the all-hexagram scan only ever holds
+ * non-empty arrays (the guard is a no-op there, but keeps both paths identical).
+ */
+function historyFromDates(dates: string[]): HexagramHistory {
+  return {
+    castCount: dates.length,
+    lastCastDate: dates.length > 0 ? dates.reduce((max, d) => (d > max ? d : max)) : null,
+    dates,
+  };
+}
+
 /** Scan journal for all casts of a specific hexagram by KW number */
 export async function loadHexagramHistory(
   store: JournalStore,
@@ -22,16 +39,7 @@ export async function loadHexagramHistory(
     }
   }
 
-  // The latest date is the MAX, not the last appended — a journal may hold
-  // out-of-order entries (imported, merged, or hand-edited), and the patterns
-  // pane derives its per-hexagram "last" the same way (max over dates). Taking
-  // the append-tail here would make the dictionary and the pane disagree on
-  // when a hexagram was last drawn.
-  return {
-    castCount: dates.length,
-    lastCastDate: dates.length > 0 ? dates.reduce((max, d) => (d > max ? d : max)) : null,
-    dates,
-  };
+  return historyFromDates(dates);
 }
 
 /**
@@ -53,11 +61,7 @@ export async function loadHexagramHistories(
   }
   const out = new Map<number, HexagramHistory>();
   for (const [kw, dates] of datesByKw) {
-    out.set(kw, {
-      castCount: dates.length,
-      lastCastDate: dates.reduce((max, d) => (d > max ? d : max)),
-      dates,
-    });
+    out.set(kw, historyFromDates(dates));
   }
   return out;
 }
