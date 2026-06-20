@@ -2,7 +2,7 @@
 // and the too-small-terminal placeholder.
 
 import { describe, test, expect } from "bun:test";
-import { mockStdin, mockStdout } from "../testing.ts";
+import { mockStdin, mockStdout, bufferText } from "../testing.ts";
 import type { Clock } from "../clock.ts";
 import { ManualClock } from "../clock.ts";
 import { runScene, renderTooSmallNotice, MIN_COLS, MIN_ROWS } from "../scene/loop.ts";
@@ -22,16 +22,6 @@ function framesScene(frames: number, hooks?: Partial<Scene>): Scene {
     render() {},
     ...hooks,
   };
-}
-
-function rowText(buf: CellBuffer, row: number): string {
-  let out = "";
-  for (let col = 0; col < buf.width; col++) {
-    // Wide chars leave "" continuation cells — concatenating raw chars
-    // reconstructs the visible text without phantom gaps.
-    out += buf.getCell(row, col).char;
-  }
-  return out;
 }
 
 describe("runScene — session ownership", () => {
@@ -229,7 +219,7 @@ describe("renderTooSmallNotice", () => {
   test("renders the centered notice and the size floor", () => {
     const frame = CellBuffer.create(38, 10);
     renderTooSmallNotice(frame, ctx(38, 10));
-    const all = Array.from({ length: frame.height }, (_, r) => rowText(frame, r)).join("\n");
+    const all = bufferText(frame);
     expect(all).toContain("the window is too small");
     expect(all).toContain(`${MIN_COLS} × ${MIN_ROWS}`);
   });
@@ -237,7 +227,7 @@ describe("renderTooSmallNotice", () => {
   test("localizes the notice", () => {
     const frame = CellBuffer.create(38, 10);
     renderTooSmallNotice(frame, ctx(38, 10, "zh-Hant"));
-    const all = Array.from({ length: frame.height }, (_, r) => rowText(frame, r)).join("\n");
+    const all = bufferText(frame);
     expect(all).toContain("視窗過小");
   });
 

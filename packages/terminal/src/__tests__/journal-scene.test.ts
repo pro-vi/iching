@@ -2,7 +2,7 @@
 // dictionary jump, and the patterns pane.
 
 import { describe, test, expect } from "bun:test";
-import { rowText, sceneCtx } from "../testing.ts";
+import { rowText, sceneCtx, bufferText } from "../testing.ts";
 import type { Cast, ReflectionNote } from "@iching/core";
 import { lineOf } from "@iching/core/testing";
 import { computeJournalPatterns, GUA, TRIGRAMS, toSimplified } from "@iching/core";
@@ -51,9 +51,7 @@ function ctxFor(rows = 24, cols = 80): SceneContext {
 function renderText(scene: JournalScene, ctx: SceneContext): string {
   const buf = CellBuffer.create(ctx.cols, ctx.rows);
   scene.render(buf, ctx);
-  return Array.from({ length: buf.height }, (_, row) =>
-    rowText(buf, row),
-  ).join("\n");
+  return bufferText(buf);
 }
 
 function press(scene: JournalScene, ctx: SceneContext, ...keys: Array<string>): unknown {
@@ -679,13 +677,13 @@ describe("JournalScene reflection notes ([n])", () => {
     ];
     const scene = new JournalScene(entries);
     scene.enter(ctx);
-    const rowText =
+    const dateRow =
       renderText(scene, ctx)
         .split("\n")
         .find((l) => l.includes("2026-03-01")) ?? "";
-    expect(rowText).toContain("·note"); // the marker held its ground…
-    expect(rowText).toContain("…"); // …because the intention clipped to make room
-    expect(rowText).not.toContain("means for us"); // the intention tail was what gave way
+    expect(dateRow).toContain("·note"); // the marker held its ground…
+    expect(dateRow).toContain("…"); // …because the intention clipped to make room
+    expect(dateRow).not.toContain("means for us"); // the intention tail was what gave way
   });
 
   test("the ·註 marker survives a long CJK intention (zh-Hant, width-2 marker)", () => {
@@ -708,13 +706,13 @@ describe("JournalScene reflection notes ([n])", () => {
     ];
     const scene = new JournalScene(entries);
     scene.enter(ctx);
-    const rowText =
+    const dateRow =
       renderText(scene, ctx)
         .split("\n")
         .find((l) => l.includes("2026-03-01")) ?? "";
-    expect(rowText).toContain("·註"); // the width-2 marker survived…
-    expect(rowText).toContain("…"); // …the CJK intention clipped to make room
-    expect(rowText).not.toContain("意義"); // the intention tail gave way, on a glyph boundary
+    expect(dateRow).toContain("·註"); // the width-2 marker survived…
+    expect(dateRow).toContain("…"); // …the CJK intention clipped to make room
+    expect(dateRow).not.toContain("意義"); // the intention tail gave way, on a glyph boundary
   });
 });
 
@@ -1875,9 +1873,7 @@ describe("觀象 pane — 時 phase-of-day section", () => {
     scene.handleKey({ type: "char", char: "p" }, ctx);
     const buf = CellBuffer.create(100, 44);
     scene.render(buf, ctx);
-    const text = Array.from({ length: buf.height }, (_, r) =>
-      rowText(buf, r),
-    ).join("\n");
+    const text = bufferText(buf);
     expect(text).toContain("时"); // simplified section title (時 → 时)
     expect(text).toContain("昼"); // simplified 晝 day phase (晝 → 昼)
     expect(text).toContain("记时"); // simplified timed suffix (記時 → 记时)
