@@ -3,7 +3,8 @@
 // rendering tests (the 觀象 pane); this suite owns the data contract.
 
 import { describe, test, expect } from "bun:test";
-import type { Cast, Line, HistoryEntry } from "../types.js";
+import type { Cast, HistoryEntry } from "../types.js";
+import { lineOf } from "../testing.js";
 import {
   computeJournalPatterns,
   phaseOfHour,
@@ -12,20 +13,12 @@ import {
   entryTimeKey,
 } from "../journal/patterns.js";
 
-function makeLine(value: 6 | 7 | 8 | 9): Line {
-  return {
-    value,
-    isYang: value === 7 || value === 9,
-    isChanging: value === 6 || value === 9,
-  };
-}
-
 function makeCast(primary: number, becoming: number | null = null, changing: number[] = []): Cast {
   return {
     lines: [1, 2, 3, 4, 5, 6].map((pos) =>
       changing.includes(pos)
-        ? makeLine(pos % 2 === 0 ? 6 : 9)
-        : makeLine(pos % 2 === 0 ? 8 : 7),
+        ? lineOf(pos % 2 === 0 ? 6 : 9)
+        : lineOf(pos % 2 === 0 ? 8 : 7),
     ),
     primary,
     becoming,
@@ -215,7 +208,7 @@ describe("computeJournalPatterns", () => {
         date,
         method: "coin",
         cast: {
-          lines: [1, 2, 3, 4, 5, 6].map(() => makeLine(8)),
+          lines: [1, 2, 3, 4, 5, 6].map(() => lineOf(8)),
           primary: 1,
           becoming: null,
           changingPositions: positions,

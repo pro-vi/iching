@@ -2,7 +2,8 @@
 // dictionary jump, and the patterns pane.
 
 import { describe, test, expect } from "bun:test";
-import type { Cast, Line, ReflectionNote } from "@iching/core";
+import type { Cast, ReflectionNote } from "@iching/core";
+import { lineOf } from "@iching/core/testing";
 import { computeJournalPatterns, GUA, TRIGRAMS, toSimplified } from "@iching/core";
 import { CellBuffer } from "../render/buffer.ts";
 import { stringWidth } from "../layout/measure.ts";
@@ -17,20 +18,12 @@ import {
 } from "../scenes/journal/journal-scene.ts";
 import { countUnit, tr, type MessageKey } from "../i18n/messages.ts";
 
-function makeLine(value: 6 | 7 | 8 | 9): Line {
-  return {
-    value,
-    isYang: value === 7 || value === 9,
-    isChanging: value === 6 || value === 9,
-  };
-}
-
 function makeCast(primary: number, becoming: number | null = null, changing: number[] = []): Cast {
   return {
     lines: [1, 2, 3, 4, 5, 6].map((pos) =>
       changing.includes(pos)
-        ? makeLine(pos % 2 === 0 ? 6 : 9)
-        : makeLine(pos % 2 === 0 ? 8 : 7),
+        ? lineOf(pos % 2 === 0 ? 6 : 9)
+        : lineOf(pos % 2 === 0 ? 8 : 7),
     ),
     primary,
     becoming,
@@ -1550,11 +1543,11 @@ describe("JournalScene patterns pane ([p])", () => {
   test("兩儀 coda renders the yang/yin balance growing from a central axis", () => {
     // 8 all-yang casts (乾) + 3 all-yin casts (坤): 48 yang, 18 yin lines.
     const allYang = (): Cast => ({
-      lines: [1, 2, 3, 4, 5, 6].map(() => makeLine(7)),
+      lines: [1, 2, 3, 4, 5, 6].map(() => lineOf(7)),
       primary: 1, becoming: null, changingPositions: [], nuclear: 1, polarity: 2, mirror: 1, diagonal: 2,
     });
     const allYin = (): Cast => ({
-      lines: [1, 2, 3, 4, 5, 6].map(() => makeLine(8)),
+      lines: [1, 2, 3, 4, 5, 6].map(() => lineOf(8)),
       primary: 2, becoming: null, changingPositions: [], nuclear: 1, polarity: 2, mirror: 1, diagonal: 2,
     });
     const entries = [

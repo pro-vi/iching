@@ -15,12 +15,9 @@ import { DetailScene } from "../scenes/dict/detail-scene.ts";
 import { DetailModel } from "../scenes/dict/detail-model.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import type { SceneContext } from "../scene/types.ts";
-import type { Cast, Line, HistoryEntry, DisplayLanguage } from "@iching/core";
+import type { Cast, HistoryEntry, DisplayLanguage } from "@iching/core";
+import { lineOf } from "@iching/core/testing";
 import { SIMPLIFIED_MAP, SIMPLIFIED_EXCEPTIONS } from "@iching/core";
-
-function makeLine(value: 7 | 8): Line {
-  return { value, isYang: value === 7, isChanging: false };
-}
 
 const ctx: SceneContext = { cols: 80, rows: 24, done: false, colorSupport: "none" };
 function ctxFor(language: DisplayLanguage): SceneContext {
@@ -347,7 +344,7 @@ describe("CastScene reveal — hexagram name honors language (KW58 兌)", () => 
   // Hexagram 58 (兌 / The Joyous): both trigrams Lake, no becoming → centered
   // reveal. This is the P1-a path the structural oracle missed.
   const cast58: Cast = {
-    lines: [makeLine(7), makeLine(7), makeLine(8), makeLine(7), makeLine(7), makeLine(8)],
+    lines: [lineOf(7), lineOf(7), lineOf(8), lineOf(7), lineOf(7), lineOf(8)],
     primary: 58,
     becoming: null,
     changingPositions: [],
@@ -426,7 +423,7 @@ describe("JournalScene rows — name conversion (KW20 觀)", () => {
     date: "2026-06-02",
     method: "coin",
     cast: {
-      lines: [makeLine(8), makeLine(8), makeLine(8), makeLine(8), makeLine(7), makeLine(7)],
+      lines: [lineOf(8), lineOf(8), lineOf(8), lineOf(8), lineOf(7), lineOf(7)],
       primary: 20, // 觀 / Contemplation
       becoming: null,
       changingPositions: [],
@@ -584,7 +581,7 @@ describe("Glyph composition honors language — Simplified glyphs in zh-Hans", (
   });
 
   const cast58: Cast = {
-    lines: [makeLine(7), makeLine(7), makeLine(8), makeLine(7), makeLine(7), makeLine(8)],
+    lines: [lineOf(7), lineOf(7), lineOf(8), lineOf(7), lineOf(7), lineOf(8)],
     primary: 58,
     becoming: null,
     changingPositions: [],
