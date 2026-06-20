@@ -1,5 +1,6 @@
 import type { Cast, Line } from "@iching/core";
 import { assembleCast } from "@iching/core";
+import { isRecord } from "./is-record.js";
 
 /** True for a King Wen number: an integer 1-64, so GUA[n - 1] is safe. */
 function isKingWen(value: unknown): boolean {
@@ -9,8 +10,8 @@ function isKingWen(value: unknown): boolean {
 /** True for a persisted Line: the object every line walker dereferences, with
  *  its value and booleans mutually consistent. */
 function isLineShaped(value: unknown): boolean {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  const line = value as Record<string, unknown>;
+  if (!isRecord(value)) return false;
+  const line = value;
   if (
     typeof line.value !== "number" ||
     typeof line.isYang !== "boolean" ||
@@ -46,8 +47,8 @@ function isLineShaped(value: unknown): boolean {
  * predates the first release), so depth never rejects legitimate history.
  */
 export function isCastShaped(value: unknown): value is Cast {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  const cast = value as Record<string, unknown>;
+  if (!isRecord(value)) return false;
+  const cast = value;
   if (!isKingWen(cast.primary)) return false;
   if (cast.becoming !== null && !isKingWen(cast.becoming)) return false;
   if (!Array.isArray(cast.lines) || cast.lines.length !== 6 || !cast.lines.every(isLineShaped))

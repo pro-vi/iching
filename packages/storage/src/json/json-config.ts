@@ -2,6 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import type { UserConfig } from "../types.js";
 import type { ConfigStore } from "../config-store.js";
 import { atomicWriteJson } from "./atomic-write.js";
+import { isRecord } from "./is-record.js";
 
 const MOTION_OPTIONS = ["default", "brisk", "deep", "reduced"] as const;
 const LANGUAGE_OPTIONS = ["en", "zh-Hant", "zh-Hans"] as const;
@@ -123,9 +124,6 @@ export function detectSystemLanguage(
   return "en";
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function isOneOf<const T extends readonly string[]>(
   options: T,

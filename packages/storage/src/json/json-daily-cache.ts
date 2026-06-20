@@ -3,14 +3,15 @@ import type { DailyCacheRecord } from "../types.js";
 import type { DailyCacheStore } from "../daily-cache-store.js";
 import { atomicWriteJson } from "./atomic-write.js";
 import { isCastShaped } from "./cast-shape.js";
+import { isRecord } from "./is-record.js";
 
 /**
  * True for a trigram object carrying the string sym/n/img that the renderers
  * dereference unguarded (`structure.upper.sym` etc.).
  */
 function isTrigramShaped(value: unknown): boolean {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  const t = value as Record<string, unknown>;
+  if (!isRecord(value)) return false;
+  const t = value;
   return typeof t.sym === "string" && typeof t.n === "string" && typeof t.img === "string";
 }
 
@@ -25,14 +26,13 @@ function isTrigramShaped(value: unknown): boolean {
  * fully trigram-shaped.
  */
 function isStructureShaped(value: unknown): boolean {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  const structure = value as Record<string, unknown>;
+  if (!isRecord(value)) return false;
+  const structure = value;
   if (!isTrigramShaped(structure.upper) || !isTrigramShaped(structure.lower)) return false;
   const becoming = structure.becoming;
   if (becoming === null || becoming === undefined) return true;
-  if (typeof becoming !== "object" || Array.isArray(becoming)) return false;
-  const b = becoming as Record<string, unknown>;
-  return isTrigramShaped(b.upper) && isTrigramShaped(b.lower);
+  if (!isRecord(becoming)) return false;
+  return isTrigramShaped(becoming.upper) && isTrigramShaped(becoming.lower);
 }
 
 /**
@@ -43,8 +43,8 @@ function isStructureShaped(value: unknown): boolean {
  * (intention/method/rng) stay unchecked — their absence is normal.
  */
 export function isCacheShaped(parsed: unknown): parsed is DailyCacheRecord {
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return false;
-  const record = parsed as Record<string, unknown>;
+  if (!isRecord(parsed)) return false;
+  const record = parsed;
   if (typeof record.date !== "string") return false;
   if (typeof record.shown !== "boolean") return false;
   if (!isStructureShaped(record.structure)) return false;

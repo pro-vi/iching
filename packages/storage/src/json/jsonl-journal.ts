@@ -7,6 +7,7 @@ import { stripTerminalControls } from "@iching/core";
 import type { HistoryQuery } from "../types.js";
 import type { JournalStore } from "../journal-store.js";
 import { isCastShaped } from "./cast-shape.js";
+import { isRecord } from "./is-record.js";
 
 /**
  * Classify one JSONL line:
@@ -31,10 +32,10 @@ function parseLine(line: string): ParsedLine {
   } catch {
     return { type: "torn" };
   }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+  if (!isRecord(parsed)) {
     return { type: "torn" };
   }
-  const record = parsed as Record<string, unknown>;
+  const record = parsed;
   // Any record carrying a kind discriminator is not a reading. Unknown kinds
   // are forward-compatible: skip gracefully, don't flag the journal as torn.
   if (typeof record.kind === "string") return { type: "other", record };
@@ -44,7 +45,10 @@ function parseLine(line: string): ParsedLine {
   // record like {"date":"…","cast":{}} is damage — skipped and counted like a
   // torn line, never yielded for `journal list` to crash on.
   if (!isCastShaped(record.cast)) return { type: "torn" };
-  const entry = parsed as HistoryEntry;
+  // Validated boundary narrowing: isRecord proved an object, the checks above
+  // proved the HistoryEntry shape (date string, deep-valid cast) — assert it via
+  // `unknown` (the record/HistoryEntry types don't structurally overlap).
+  const entry = record as unknown as HistoryEntry;
   // Untrusted source: a hand-edited/imported date could carry ESC/OSC bytes that
   // replay live on `journal list` / `show` / `today` (every plain AND TUI render
   // emits the date raw). Neutralize at the source — like the note text on render
