@@ -43,6 +43,15 @@ const LEGACY_CAST_MODE: Record<string, { method: UserConfig["castMethod"]; mode:
   "yarrow-manual": { method: "yarrow", mode: "manual" },
 };
 
+/** Apply a legacy castMode string (if recognized) as the new castMethod+castMode pair. */
+function applyLegacyCastMode(merged: ForwardCompatibleUserConfig, rawCastMode: string): void {
+  const split = Object.hasOwn(LEGACY_CAST_MODE, rawCastMode) ? LEGACY_CAST_MODE[rawCastMode] : undefined;
+  if (split) {
+    merged.castMethod = split.method;
+    merged.castMode = split.mode;
+  }
+}
+
 // Legacy theme names → current canonical names.
 const THEME_ALIASES: Record<string, UserConfig["theme"]> = {
   "temple-night": "cinnabar",
@@ -172,21 +181,13 @@ function normalizeConfig(parsed: unknown): UserConfig {
   const rawCastMethod = stringValue(parsed, "castMethod");
   const rawCastMode = stringValue(parsed, "castMode");
   if (rawCastMode && rawCastMethod === undefined) {
-    const split = Object.hasOwn(LEGACY_CAST_MODE, rawCastMode) ? LEGACY_CAST_MODE[rawCastMode] : undefined;
-    if (split) {
-      merged.castMethod = split.method;
-      merged.castMode = split.mode;
-    }
+    applyLegacyCastMode(merged, rawCastMode);
   } else {
     if (isOneOf(CAST_METHOD_OPTIONS, rawCastMethod)) merged.castMethod = rawCastMethod;
     if (isOneOf(CAST_MODE_OPTIONS, rawCastMode)) {
       merged.castMode = rawCastMode;
     } else if (rawCastMode) {
-      const split = Object.hasOwn(LEGACY_CAST_MODE, rawCastMode) ? LEGACY_CAST_MODE[rawCastMode] : undefined;
-      if (split) {
-        merged.castMethod = split.method;
-        merged.castMode = split.mode;
-      }
+      applyLegacyCastMode(merged, rawCastMode);
     }
   }
 
