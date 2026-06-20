@@ -3,7 +3,7 @@
 import type { GlyphEntry, GlyphFont, GlyphSize } from "@iching/core";
 import { LARGE_GLYPHS } from "@iching/core";
 
-const CHAR_GAP = 1; // braille columns between characters
+export const CHAR_GAP = 1; // braille columns between characters
 
 /**
  * Look up and compose a multi-character name into a single GlyphEntry.
