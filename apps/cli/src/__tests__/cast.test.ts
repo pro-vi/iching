@@ -1,7 +1,8 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { runCli as spawnCli } from "../testing.ts";
 import { mkdtemp, rm, readFile, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import {
   castHexagram,
   buildStructure,
@@ -339,25 +340,8 @@ describe("cast entropy provenance output", () => {
 // state — `cast --seed abc` exited 0 with the same plausible-looking cast
 // forever. Non-numeric seeds must fail loudly.
 describe("cast --seed validation (subprocess)", () => {
-  const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
-  const MAIN_TS = resolve(REPO_ROOT, "apps/cli/src/main.ts");
 
-  async function runCast(seed: string): Promise<{ exitCode: number; stdout: string; stderr: string }> {
-    const proc = Bun.spawn(["bun", MAIN_TS, "--seed", seed, "cast"], {
-      cwd: REPO_ROOT,
-      stdin: "pipe",
-      stdout: "pipe",
-      stderr: "pipe",
-      env: { ...process.env, NO_COLOR: "1" },
-    });
-    proc.stdin.end();
-    const [stdout, stderr] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-    ]);
-    const exitCode = await proc.exited;
-    return { exitCode, stdout, stderr };
-  }
+    const runCast = (seed: string) => spawnCli(["--seed", seed, "cast"]);
 
   test("non-numeric seed errors on stderr and exits 1", async () => {
     const { exitCode, stdout, stderr } = await runCast("abc");
@@ -384,25 +368,8 @@ describe("cast --seed validation (subprocess)", () => {
 // binding the question argument as the intention. Provenance lands in the
 // JSON rng block; --seed remains its own deterministic path.
 describe("cast --bound / entropy config (subprocess)", () => {
-  const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
-  const MAIN_TS = resolve(REPO_ROOT, "apps/cli/src/main.ts");
 
-  async function runCli(args: string[]): Promise<{ exitCode: number; stdout: string; stderr: string }> {
-    const proc = Bun.spawn(["bun", MAIN_TS, "--data-dir", dataDir, ...args], {
-      cwd: REPO_ROOT,
-      stdin: "pipe",
-      stdout: "pipe",
-      stderr: "pipe",
-      env: { ...process.env, NO_COLOR: "1" },
-    });
-    proc.stdin.end();
-    const [stdout, stderr] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-    ]);
-    const exitCode = await proc.exited;
-    return { exitCode, stdout, stderr };
-  }
+    const runCli = (args: string[]) => spawnCli(args, { dataDir });
 
   test("default cast reports crypto provenance in --json", async () => {
     const { exitCode, stdout } = await runCli(["--json", "cast"]);
