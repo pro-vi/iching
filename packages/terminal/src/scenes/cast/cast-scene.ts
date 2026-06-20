@@ -6,6 +6,7 @@ import type { CellBuffer } from "../../render/buffer.ts";
 import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import type { MotionPreset } from "../../animation/presets.ts";
 import { getPreset } from "../../animation/presets.ts";
+import { nextPaceSpeed } from "../../animation/pace.ts";
 import { TimelineRunner } from "../../animation/runner.ts";
 import { CastModel } from "./model.ts";
 import { renderCoins } from "./coin-renderer.ts";
@@ -27,9 +28,6 @@ import { tr } from "../../i18n/messages.ts";
 import type { DisplayLanguage, GlyphSize } from "@iching/core";
 
 export type CastGlyphInput = Omit<CastGlyphConfig, "glyphSize">;
-
-/** Reveal pace multipliers cycled by f — same ladder as the yarrow ritual. */
-const PACE_SPEEDS = [1, 2, 4];
 
 export class CastScene implements Scene {
   private model: CastModel;
@@ -239,8 +237,7 @@ export class CastScene implements Scene {
         return;
       }
       if (key.type === "char" && key.char === "f") {
-        const next = (PACE_SPEEDS.indexOf(this.model.speed) + 1) % PACE_SPEEDS.length;
-        this.model.speed = PACE_SPEEDS[next];
+        this.model.speed = nextPaceSpeed(this.model.speed);
         return;
       }
     }

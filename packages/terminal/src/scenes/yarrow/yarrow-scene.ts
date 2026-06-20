@@ -20,9 +20,8 @@ import { buildYarrowTimeline } from "./yarrow-timeline.ts";
 import { renderYarrowField, canShowYarrowField, renderYarrowTooSmall } from "./field-renderer.ts";
 import { writeChromeFooter } from "../cast/ritual-chrome.ts";
 import { tr } from "../../i18n/messages.ts";
+import { nextPaceSpeed } from "../../animation/pace.ts";
 import type { DisplayLanguage } from "@iching/core";
-
-const SPEEDS = [1, 2, 4];
 
 export class YarrowScene implements Scene {
   private readonly model: YarrowModel;
@@ -89,8 +88,7 @@ export class YarrowScene implements Scene {
     } else if (key.type === "char" && key.char === "s") {
       this.skipToComplete();
     } else if (key.type === "char" && key.char === "f") {
-      const next = (SPEEDS.indexOf(this.model.speed) + 1) % SPEEDS.length;
-      this.model.speed = SPEEDS[next];
+      this.model.speed = nextPaceSpeed(this.model.speed);
     } else if (key.type === "arrow" && key.direction === "right") {
       this.stepToNextBeat();
     }
