@@ -5,7 +5,7 @@
 
 import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
-import { type GlyphAnimator, MIN_DURATION_SCALE } from "./types.ts";
+import { GlyphAnimatorBase } from "./animator-base.ts";
 import { isEmpty } from "./braille.ts";
 import { getTheme } from "../color/theme.ts";
 import { lerpColor } from "../color/lerp.ts";
@@ -15,19 +15,13 @@ import { easeOut } from "../animation/easing.ts";
 export const RADIAL_TOTAL_MS = 2400;
 const EDGE_WIDTH = 2.5; // cells of gradient at the expanding edge
 
-export class RadialAnimator implements GlyphAnimator {
-  private readonly glyph: GlyphEntry;
-  /** Motion-preset time dilation: <1 plays the same animation faster. */
-  private readonly durationScale: number;
+export class RadialAnimator extends GlyphAnimatorBase {
   private centerR: number;
   private centerC: number;
   private maxRadius: number;
-  private startTime = -1;
-  private localMs = 0;
 
   constructor(glyph: GlyphEntry, durationScale: number = 1) {
-    this.glyph = glyph;
-    this.durationScale = Math.max(MIN_DURATION_SCALE, durationScale);
+    super(glyph, durationScale, RADIAL_TOTAL_MS);
 
     // Compute center of mass from non-empty cells
     let sumR = 0, sumC = 0, count = 0;
@@ -51,12 +45,6 @@ export class RadialAnimator implements GlyphAnimator {
       Math.sqrt((glyph.height - this.centerR) ** 2 + (0 - this.centerC) ** 2),
       Math.sqrt((glyph.height - this.centerR) ** 2 + (glyph.width - this.centerC) ** 2),
     );
-  }
-
-  update(elapsed: number): boolean {
-    if (this.startTime < 0) this.startTime = elapsed;
-    this.localMs = (elapsed - this.startTime) / this.durationScale;
-    return this.localMs >= RADIAL_TOTAL_MS;
   }
 
   render(buf: CellBuffer, offsetR: number, offsetC: number): void {
@@ -94,7 +82,6 @@ export class RadialAnimator implements GlyphAnimator {
   }
 
   reset(): void {
-    this.startTime = -1;
-    this.localMs = 0;
+    this.resetClock();
   }
 }

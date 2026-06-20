@@ -6,7 +6,7 @@
 
 import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
-import { type GlyphAnimator, MIN_DURATION_SCALE } from "./types.ts";
+import { GlyphAnimatorBase } from "./animator-base.ts";
 import { isEmpty } from "./braille.ts";
 import { getTheme } from "../color/theme.ts";
 import { lerpColor } from "../color/lerp.ts";
@@ -59,17 +59,11 @@ interface CellMeta {
   dotInterval: number;
 }
 
-export class DotsAnimator implements GlyphAnimator {
-  private readonly glyph: GlyphEntry;
-  /** Motion-preset time dilation: <1 plays the same animation faster. */
-  private readonly durationScale: number;
+export class DotsAnimator extends GlyphAnimatorBase {
   private cells: CellMeta[][] = [];
-  private startTime = -1;
-  private localMs = 0;
 
   constructor(glyph: GlyphEntry, durationScale: number = 1) {
-    this.glyph = glyph;
-    this.durationScale = Math.max(MIN_DURATION_SCALE, durationScale);
+    super(glyph, durationScale, DOTS_TOTAL_MS);
     this.initCells();
   }
 
@@ -106,12 +100,6 @@ export class DotsAnimator implements GlyphAnimator {
       }
       this.cells.push(row);
     }
-  }
-
-  update(elapsed: number): boolean {
-    if (this.startTime < 0) this.startTime = elapsed;
-    this.localMs = (elapsed - this.startTime) / this.durationScale;
-    return this.localMs >= DOTS_TOTAL_MS;
   }
 
   render(buf: CellBuffer, offsetR: number, offsetC: number): void {
@@ -156,8 +144,7 @@ export class DotsAnimator implements GlyphAnimator {
   }
 
   reset(): void {
-    this.startTime = -1;
-    this.localMs = 0;
+    this.resetClock();
     this.initCells();
   }
 }
