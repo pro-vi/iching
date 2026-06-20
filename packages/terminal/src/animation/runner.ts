@@ -1,6 +1,7 @@
 // TimelineRunner — executes a Step tree against elapsed time
 
 import { type Step, stepDuration } from "./timeline.ts";
+import { clamp } from "@iching/core";
 
 /**
  * Evaluates a Step tree against elapsed time.
@@ -135,7 +136,7 @@ function advanceStep<Ctx>(
     case "tween": {
       const s = state as { kind: "tween"; lastProgress: number };
       if (local >= 0) {
-        const raw = step.ms <= 0 ? 1 : Math.min(1, Math.max(0, local / step.ms));
+        const raw = step.ms <= 0 ? 1 : clamp(local / step.ms, 0, 1);
         const eased = step.easing(raw);
         // Always apply — even if same progress (idempotent)
         step.apply(eased, ctx);

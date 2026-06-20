@@ -2,6 +2,7 @@
 
 import type { ColorSupport } from "../color/detect.ts";
 import { CSI } from "./csi.js";
+import { clamp } from "@iching/core";
 
 // Parse hex color "#RRGGBB" to [r, g, b]
 function hexToRgb(hex: string): [number, number, number] {
@@ -38,7 +39,7 @@ function rgbTo256(r: number, g: number, b: number): number {
     (CUBE_LEVELS[ri] - r) ** 2 + (CUBE_LEVELS[gi] - g) ** 2 + (CUBE_LEVELS[bi] - b) ** 2;
 
   // Candidate from the grayscale ramp (indices 232-255: values 8, 18, … 238)
-  const grayIdx = Math.min(23, Math.max(0, Math.round(((r + g + b) / 3 - 8) / 10)));
+  const grayIdx = clamp(Math.round(((r + g + b) / 3 - 8) / 10), 0, 23);
   const grayLevel = 8 + grayIdx * 10;
   const grayDist =
     (grayLevel - r) ** 2 + (grayLevel - g) ** 2 + (grayLevel - b) ** 2;

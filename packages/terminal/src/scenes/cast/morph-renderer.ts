@@ -1,6 +1,7 @@
 // morph-renderer.ts — render becoming transformation (line flip animation)
 
 import type { CellBuffer } from "../../render/buffer.ts";
+import { clamp } from "@iching/core";
 import type { StyledCell } from "../../render/cell.ts";
 import type { CastModel } from "./model.ts";
 import { GLYPHS, LINE_WIDTH } from "../../glyphs.ts";
@@ -20,7 +21,7 @@ export function morphFrame(isYangToYin: boolean, progress: number): string {
     ? GLYPHS.changingYangToYin
     : GLYPHS.changingYinToYang;
 
-  const clamped = Math.min(1, Math.max(0, progress));
+  const clamped = clamp(progress, 0, 1);
   const maxFrame = frames.length - 1;
   const frameIndex = Math.min(maxFrame, Math.floor(clamped * frames.length));
   return frames[Math.min(frameIndex, maxFrame)];

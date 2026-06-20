@@ -1,6 +1,7 @@
 // coin-renderer.ts — render 3 coins based on coin phase and progress
 
 import type { CellBuffer } from "../../render/buffer.ts";
+import { clamp } from "@iching/core";
 import type { StyledCell } from "../../render/cell.ts";
 import type { CastModel } from "./model.ts";
 import { GLYPHS, LINE_WIDTH } from "../../glyphs.ts";
@@ -44,8 +45,8 @@ export class CoinAutoPreview {
     switch (this.phase) {
       case "spin": {
         const p0 = Math.min(1, this.timer / this.spinMs);
-        const p1 = Math.min(1, Math.max(0, (this.timer - this.staggerMs) / (this.spinMs - this.staggerMs)));
-        const p2 = Math.min(1, Math.max(0, (this.timer - this.staggerMs * 2) / (this.spinMs - this.staggerMs * 2)));
+        const p1 = clamp((this.timer - this.staggerMs) / (this.spinMs - this.staggerMs), 0, 1);
+        const p2 = clamp((this.timer - this.staggerMs * 2) / (this.spinMs - this.staggerMs * 2), 0, 1);
         this.progress = [p0, p1, p2];
         if (p0 >= 1 && p1 >= 1 && p2 >= 1) {
           this.progress = [1, 1, 1];
