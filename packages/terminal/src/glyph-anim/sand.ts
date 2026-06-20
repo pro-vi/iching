@@ -10,6 +10,7 @@ import { GlyphAnimatorBase } from "./animator-base.ts";
 import { BRAILLE_BASE, BRAILLE_COUNT, isEmpty } from "./braille.ts";
 import { getTheme } from "../color/theme.ts";
 import { lerpColor } from "../color/lerp.ts";
+import { easeOut } from "../animation/easing.ts";
 
 /** Total run time (ms) at durationScale 1. */
 export const SAND_TOTAL_MS = 3500;
@@ -24,10 +25,6 @@ function randomBraille(): string {
 }
 
 /** Quadratic ease-out. */
-function easeOutQuad(t: number): number {
-  return 1 - (1 - t) * (1 - t);
-}
-
 interface Particle {
   targetR: number;
   targetC: number;
@@ -106,7 +103,7 @@ export class SandAnimator extends GlyphAnimatorBase {
       if (particleT <= 0) continue; // not launched yet
 
       const fallProgress = Math.min(1, particleT / p.fallDuration);
-      const easedProgress = easeOutQuad(fallProgress);
+      const easedProgress = easeOut(fallProgress);
 
       // Interpolate position
       const currentR = p.targetR + p.startOffsetR * (1 - easedProgress);
