@@ -1,5 +1,6 @@
 import { Command } from "commander";
-import { resolvePaths, JsonDailyCacheStore, JsonlJournalStore, JsonConfigStore } from "@iching/storage";
+import { JsonDailyCacheStore, JsonlJournalStore, JsonConfigStore } from "@iching/storage";
+import { resolvePathsFor } from "../util/paths.js";
 import { formatTodayPlain } from "../output/plain.js";
 import { outputJson, todayToJson, noTodayToJson } from "../output/json.js";
 import { localToday } from "../util/today.js";
@@ -11,9 +12,7 @@ export function registerTodayCommand(program: Command): void {
     .description("Show today's reading (cast in the TUI)")
     .action(async () => {
       const opts = program.opts();
-      const paths = resolvePaths(
-        opts.dataDir ? { dataDir: opts.dataDir } : undefined,
-      );
+      const paths = resolvePathsFor(opts.dataDir);
 
       // Quiet for the same per-prompt reason as the cache read below: `today`
       // can run from a shell greeting on every prompt, so a corrupt/unreadable

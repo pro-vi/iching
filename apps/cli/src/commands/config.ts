@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { isOneOf } from "@iching/core";
-import { resolvePaths, JsonConfigStore, canonicalLanguage } from "@iching/storage";
+import { JsonConfigStore, canonicalLanguage } from "@iching/storage";
+import { resolvePathsFor } from "../util/paths.js";
 import type { UserConfig } from "@iching/storage";
 import { outputJson, configToJson } from "../output/json.js";
 
@@ -141,9 +142,7 @@ export function registerConfigCommand(program: Command): void {
   // stay behaviorally identical (validation, exit codes, --json shapes).
   const runList = async (): Promise<void> => {
     const globalOpts = program.opts();
-    const paths = resolvePaths(
-      globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
-    );
+    const paths = resolvePathsFor(globalOpts.dataDir);
     const store = new JsonConfigStore(paths.config);
     const cfg = await store.load();
 
@@ -161,9 +160,7 @@ export function registerConfigCommand(program: Command): void {
 
   const runGet = async (key: string): Promise<void> => {
     const globalOpts = program.opts();
-    const paths = resolvePaths(
-      globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
-    );
+    const paths = resolvePathsFor(globalOpts.dataDir);
     const store = new JsonConfigStore(paths.config);
     const cfg = await store.load();
 
@@ -182,9 +179,7 @@ export function registerConfigCommand(program: Command): void {
 
   const runSet = async (key: string, value: string): Promise<void> => {
     const globalOpts = program.opts();
-    const paths = resolvePaths(
-      globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
-    );
+    const paths = resolvePathsFor(globalOpts.dataDir);
     const store = new JsonConfigStore(paths.config);
 
     // Validate BEFORE touching the store: loadOrSeed() persists a seeded
@@ -272,9 +267,7 @@ export function registerConfigCommand(program: Command): void {
     .description("Show config file location")
     .action(() => {
       const globalOpts = program.opts();
-      const paths = resolvePaths(
-        globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
-      );
+      const paths = resolvePathsFor(globalOpts.dataDir);
       if (globalOpts.json) {
         outputJson({ path: paths.config });
       } else {

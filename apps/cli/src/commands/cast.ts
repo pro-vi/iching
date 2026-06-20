@@ -8,7 +8,8 @@ import {
   SeededRandomSource,
   GUA,
 } from "@iching/core";
-import { resolvePaths, JsonConfigStore } from "@iching/storage";
+import { JsonConfigStore } from "@iching/storage";
+import { resolvePathsFor } from "../util/paths.js";
 import { formatCastPlain } from "../output/plain.js";
 import { outputJson, castToJson } from "../output/json.js";
 import { parseSeed } from "../util/parse-seed.js";
@@ -32,7 +33,7 @@ export function registerCastCommand(program: Command): void {
       // into local machine entropy — chance stays primary either way.
       let bound = cmdOpts.bound === true;
       if (!bound && seed === undefined) {
-        const paths = resolvePaths(opts.dataDir ? { dataDir: opts.dataDir } : undefined);
+        const paths = resolvePathsFor(opts.dataDir);
         const cfg = await new JsonConfigStore(paths.config).load();
         bound = cfg.entropy === "bound";
       }

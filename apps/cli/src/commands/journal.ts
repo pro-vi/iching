@@ -4,13 +4,13 @@ import { constants } from "node:fs";
 import { GUA, computeJournalPatterns, compareEntryTime } from "@iching/core";
 import type { HistoryEntry, ReflectionNote } from "@iching/core";
 import {
-  resolvePaths,
   JsonlJournalStore,
   JsonConfigStore,
   noteMatchesEntry,
   entryNoteRef,
   stripTerminalControls,
 } from "@iching/storage";
+import { resolvePathsFor } from "../util/paths.js";
 import {
   formatJournalListPlain,
   formatJournalShowPlain,
@@ -79,9 +79,7 @@ export function registerJournalCommand(program: Command): void {
     .option("--hexagram <n>", "only readings where hexagram <n> is primary or becoming")
     .action(async (cmdOpts) => {
       const globalOpts = program.opts();
-      const paths = resolvePaths(
-        globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
-      );
+      const paths = resolvePathsFor(globalOpts.dataDir);
       const store = new JsonlJournalStore(paths.state);
       await assertJournalReadable(paths.state);
 
@@ -163,9 +161,7 @@ export function registerJournalCommand(program: Command): void {
     .option("--until <date>", "only readings until date (YYYY-MM-DD)")
     .action(async (cmdOpts) => {
       const globalOpts = program.opts();
-      const paths = resolvePaths(
-        globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
-      );
+      const paths = resolvePathsFor(globalOpts.dataDir);
       const store = new JsonlJournalStore(paths.state);
       await assertJournalReadable(paths.state);
 
@@ -216,9 +212,7 @@ export function registerJournalCommand(program: Command): void {
     .argument("<date>", "date (YYYY-MM-DD), 'today', or 'latest'")
     .action(async (dateArg: string) => {
       const globalOpts = program.opts();
-      const paths = resolvePaths(
-        globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
-      );
+      const paths = resolvePathsFor(globalOpts.dataDir);
       const store = new JsonlJournalStore(paths.state);
       await assertJournalReadable(paths.state);
       const tz = (await new JsonConfigStore(paths.config).load()).timezone;
@@ -279,9 +273,7 @@ export function registerJournalCommand(program: Command): void {
     .option("--date <date>", "annotate the reading of a specific day (YYYY-MM-DD)")
     .action(async (text: string, cmdOpts) => {
       const globalOpts = program.opts();
-      const paths = resolvePaths(
-        globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
-      );
+      const paths = resolvePathsFor(globalOpts.dataDir);
       const store = new JsonlJournalStore(paths.state);
       await assertJournalReadable(paths.state);
       const tz = (await new JsonConfigStore(paths.config).load()).timezone;

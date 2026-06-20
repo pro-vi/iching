@@ -2,7 +2,8 @@ import { Command } from "commander";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { GUA, BINARY_TO_KW, TRIGRAMS } from "@iching/core";
-import { resolvePaths, JsonlJournalStore, isCacheShaped } from "@iching/storage";
+import { JsonlJournalStore, isCacheShaped } from "@iching/storage";
+import { resolvePathsFor } from "../util/paths.js";
 import { outputJson } from "../output/json.js";
 
 interface CheckResult {
@@ -96,7 +97,7 @@ function checkTerminal(): CheckResult {
 }
 
 function checkPaths(dataDir?: string): CheckResult {
-  const paths = resolvePaths(dataDir ? { dataDir } : undefined);
+  const paths = resolvePathsFor(dataDir);
   const configExists = existsSync(paths.config);
   const stateExists = existsSync(paths.state);
   const cacheExists = existsSync(paths.cache);
@@ -115,7 +116,7 @@ function checkPaths(dataDir?: string): CheckResult {
 }
 
 async function checkJournal(dataDir?: string): Promise<CheckResult> {
-  const paths = resolvePaths(dataDir ? { dataDir } : undefined);
+  const paths = resolvePathsFor(dataDir);
   if (!existsSync(paths.state)) {
     return {
       name: "Journal",
@@ -200,12 +201,12 @@ async function checkJsonFile(
 }
 
 async function checkConfig(dataDir?: string): Promise<CheckResult> {
-  const paths = resolvePaths(dataDir ? { dataDir } : undefined);
+  const paths = resolvePathsFor(dataDir);
   return checkJsonFile("Config", paths.config);
 }
 
 async function checkCache(dataDir?: string): Promise<CheckResult> {
-  const paths = resolvePaths(dataDir ? { dataDir } : undefined);
+  const paths = resolvePathsFor(dataDir);
   // Pass the store's own shape predicate: a parseable but non-record cache (e.g.
   // just `{"date":…}`) would be quarantined and reset, so it is not "valid".
   // Config takes none — its loader merges known keys onto defaults, never resets.
