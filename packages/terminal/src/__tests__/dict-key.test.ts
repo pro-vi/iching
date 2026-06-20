@@ -1,8 +1,8 @@
 import { describe, test, expect } from "bun:test";
+import { sceneCtx } from "../testing.ts";
 import { CastScene } from "../scenes/cast/cast-scene.ts";
 import type { Cast } from "@iching/core";
 import { lineOf } from "@iching/core/testing";
-import type { SceneContext } from "../scene/types.ts";
 
 const mockCast: Cast = {
   lines: [lineOf(7), lineOf(8), lineOf(7), lineOf(7), lineOf(8), lineOf(7)],
@@ -15,17 +15,13 @@ const mockCast: Cast = {
   diagonal: 2,
 };
 
-function makeCtx(): SceneContext {
-  return { cols: 80, rows: 24, done: false, colorSupport: "none" };
-}
-
 describe("CastScene dictionary key", () => {
   test("[d] returns dictionary goto when prompt shown", () => {
     const scene = new CastScene(mockCast, "reduced", 80);
     // Force prompt to show
     scene.getModel().showPrompt = true;
 
-    const signal = scene.handleKey({ type: "char", char: "d" }, makeCtx());
+    const signal = scene.handleKey({ type: "char", char: "d" }, sceneCtx());
     expect(signal).toEqual({ type: "openDictionary" });
   });
 
@@ -33,7 +29,7 @@ describe("CastScene dictionary key", () => {
     const scene = new CastScene(mockCast, "reduced", 80);
     scene.getModel().showPrompt = false;
 
-    const signal = scene.handleKey({ type: "char", char: "d" }, makeCtx());
+    const signal = scene.handleKey({ type: "char", char: "d" }, sceneCtx());
     expect(signal).toBeUndefined();
   });
 });

@@ -1,11 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { sceneCtx } from "../testing.ts";
 import { SettingsScene } from "../scenes/settings/settings-scene.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import type { SceneContext } from "../scene/types.ts";
-
-function makeCtx(cols = 80, rows = 24): SceneContext {
-  return { cols, rows, done: false, colorSupport: "none" };
-}
 
 function makeScene(language: "zh-Hans" | "zh-Hant" | "en" = "en"): SettingsScene {
   return new SettingsScene({
@@ -34,7 +31,7 @@ describe("SettingsScene language", () => {
 
   test("renders compact language choices", () => {
     const scene = makeScene();
-    const ctx = makeCtx();
+    const ctx = sceneCtx();
     const buf = CellBuffer.create(ctx.cols, ctx.rows);
     scene.render(buf, ctx);
     const text = bufferText(buf);
@@ -44,7 +41,7 @@ describe("SettingsScene language", () => {
 
   test("left/right changes the language row", () => {
     const scene = makeScene("zh-Hant");
-    const ctx = makeCtx();
+    const ctx = sceneCtx();
     scene.handleKey({ type: "arrow", direction: "down" }, ctx);
     scene.handleKey({ type: "arrow", direction: "right" }, ctx);
     expect(scene.getValues().language).toBe("zh-Hans");
@@ -82,7 +79,7 @@ describe("SettingsScene layout", () => {
   // window of settings so the focused row stays visible above the footer.
   test("focused last row stays visible (and editable) at h=20", () => {
     const scene = makeScene("en");
-    const ctx = makeCtx(80, 20);
+    const ctx = sceneCtx(80, 20);
     for (let i = 0; i < 6; i++) scene.handleKey({ type: "arrow", direction: "down" }, ctx); // focus Cast Mode
     const buf = CellBuffer.create(80, 20);
     scene.render(buf, ctx);
@@ -96,7 +93,7 @@ describe("SettingsScene layout", () => {
 
   test("renders all 8 rows without scrolling at h=24", () => {
     const scene = makeScene("en");
-    const ctx = makeCtx(80, 24);
+    const ctx = sceneCtx(80, 24);
     const buf = CellBuffer.create(80, 24);
     scene.render(buf, ctx);
     const text = bufferText(buf);
@@ -114,7 +111,7 @@ describe("SettingsScene entropy row", () => {
 
   test("left/right toggles entropy crypto ↔ bound", () => {
     const scene = makeScene("en");
-    const ctx = makeCtx();
+    const ctx = sceneCtx();
     for (let i = 0; i < 7; i++) scene.handleKey({ type: "arrow", direction: "down" }, ctx); // focus Entropy
     scene.handleKey({ type: "arrow", direction: "right" }, ctx);
     expect(scene.getValues().entropy).toBe("bound");
@@ -147,7 +144,7 @@ describe("SettingsScene entropy row", () => {
       castMode: "auto",
       entropy: "bound",
     });
-    const ctx = makeCtx(100, 30);
+    const ctx = sceneCtx(100, 30);
     const buf = CellBuffer.create(100, 30);
     scene.render(buf, ctx);
     const text = bufferText(buf);
@@ -172,7 +169,7 @@ describe("SettingsScene getValues — identity-bound, not positional", () => {
     const scene = makeScene("en");
     (scene as unknown as { rows: unknown[] }).rows.reverse();
     // After reversal, focused row 0 is Entropy (was Theme). Toggle it.
-    const ctx = makeCtx();
+    const ctx = sceneCtx();
     scene.handleKey({ type: "arrow", direction: "right" }, ctx);
     const vals = scene.getValues();
     expect(vals.entropy).toBe("bound"); // the toggled row's field moved…
@@ -197,7 +194,7 @@ describe("SettingsScene entropy preview", () => {
 
   test("crypto shows a single machine lane flowing into a hexagram stream", () => {
     const scene = makeScene("en");
-    const ctx = makeCtx(80, 40); // tall enough for the preview pane
+    const ctx = sceneCtx(80, 40); // tall enough for the preview pane
     focusEntropy(scene, ctx);
     const text = renderText(scene, ctx);
     expect(text).toContain("machine");
@@ -209,7 +206,7 @@ describe("SettingsScene entropy preview", () => {
 
   test("bound shows machine, intention, and moment tributaries", () => {
     const scene = makeScene("en");
-    const ctx = makeCtx(80, 40);
+    const ctx = sceneCtx(80, 40);
     focusEntropy(scene, ctx);
     scene.handleKey({ type: "arrow", direction: "right" }, ctx); // crypto → bound
     const text = renderText(scene, ctx);
@@ -233,7 +230,7 @@ describe("SettingsScene entropy preview", () => {
       castMode: "auto",
       entropy: "bound",
     });
-    const ctx = makeCtx(80, 40);
+    const ctx = sceneCtx(80, 40);
     focusEntropy(scene, ctx);
     const text = renderText(scene, ctx);
     expect(text).toContain("機器");
@@ -243,7 +240,7 @@ describe("SettingsScene entropy preview", () => {
 
   test("the stream re-casts over time (chance keeps moving)", () => {
     const scene = makeScene("en");
-    const ctx = makeCtx(80, 40);
+    const ctx = sceneCtx(80, 40);
     focusEntropy(scene, ctx, 1000);
     const early = renderText(scene, ctx);
     scene.update(9000, 16, ctx); // several epochs later — all six slots re-cast
@@ -257,7 +254,7 @@ describe("SettingsScene entropy preview", () => {
 
   test("no hexagram stream renders while a non-entropy row is focused", () => {
     const scene = makeScene("en");
-    const ctx = makeCtx(80, 40);
+    const ctx = sceneCtx(80, 40);
     scene.update(3000, 16, ctx); // focused on Theme — glyph preview, no stream arrow
     const text = renderText(scene, ctx);
     expect(text).not.toContain("▶");

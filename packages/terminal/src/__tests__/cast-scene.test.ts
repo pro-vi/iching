@@ -1,4 +1,5 @@
 import { describe, test, expect } from "bun:test";
+import { sceneCtx } from "../testing.ts";
 import { CastScene } from "../scenes/cast/cast-scene.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import type { SceneContext } from "../scene/types.ts";
@@ -47,10 +48,6 @@ function makeChangingCast(): Cast {
   };
 }
 
-function makeCtx(): SceneContext {
-  return { cols: 80, rows: 24, done: false, colorSupport: "truecolor" };
-}
-
 describe("CastScene", () => {
   test("creates from Cast data without error", () => {
     const cast = makeCast();
@@ -70,7 +67,7 @@ describe("CastScene", () => {
     // per-frame dt (like the yarrow scene), or it fast-forwards past the reveal —
     // multiplied at 2×/4× pace.
     const scene = new CastScene(makeCast(), "default", 80, undefined, 24);
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
     scene.getModel().speed = 4; // [f] fast pace
     scene.update(100_000, 50, ctx); // a huge elapsed jump, but dt clamped to 50
     const s = scene as unknown as { virtualElapsed: number };
@@ -80,7 +77,7 @@ describe("CastScene", () => {
   test("update/render cycle produces non-empty buffer", () => {
     const cast = makeCast();
     const scene = new CastScene(cast, "reduced");
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
 
     scene.enter(ctx);
 
@@ -113,7 +110,7 @@ describe("CastScene", () => {
     const cast = makeCast();
     const evil = "seek]0;pwnedtruth";
     const scene = new CastScene(cast, "reduced", 80, undefined, 24, evil);
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.skipToComplete(false); // reveal the prompt row where the intention shows
 
@@ -133,7 +130,7 @@ describe("CastScene", () => {
   test("handleKey('q') returns 'exit'", () => {
     const cast = makeCast();
     const scene = new CastScene(cast);
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
 
     const result = scene.handleKey({ type: "char", char: "q" }, ctx);
     expect(result).toEqual({ type: "home" });
@@ -142,7 +139,7 @@ describe("CastScene", () => {
   test("handleKey(enter) after prompt shown enters exploration mode", () => {
     const cast = makeCast();
     const scene = new CastScene(cast, "reduced");
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
 
     scene.enter(ctx);
 
@@ -160,7 +157,7 @@ describe("CastScene", () => {
   test("handleKey(j) after prompt shown returns goto journal", () => {
     const cast = makeCast();
     const scene = new CastScene(cast, "reduced");
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
 
     scene.enter(ctx);
 
@@ -175,7 +172,7 @@ describe("CastScene", () => {
   test("with ManualClock-style advance, reaches completion", () => {
     const cast = makeCast();
     const scene = new CastScene(cast, "reduced");
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
 
     scene.enter(ctx);
 
@@ -194,7 +191,7 @@ describe("CastScene", () => {
   test("ctrl-c returns exit", () => {
     const cast = makeCast();
     const scene = new CastScene(cast);
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
 
     const result = scene.handleKey({ type: "ctrl", char: "c" }, ctx);
     expect(result).toEqual({ type: "exit" });
@@ -212,7 +209,7 @@ describe("CastScene", () => {
   test("side-by-side activates for wide terminal with becoming", () => {
     const cast = makeChangingCast();
     const scene = new CastScene(cast, "reduced", 80); // wide terminal
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
 
     scene.enter(ctx);
 
@@ -230,7 +227,7 @@ describe("CastScene", () => {
   test("narrow terminal falls back to in-place morph", () => {
     const cast = makeChangingCast();
     const scene = new CastScene(cast, "reduced", 40); // narrow terminal
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
 
     scene.enter(ctx);
 
@@ -250,7 +247,7 @@ describe("CastScene", () => {
   test("side-by-side renders without errors on wide buffer", () => {
     const cast = makeChangingCast();
     const scene = new CastScene(cast, "reduced", 80);
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
 
     scene.enter(ctx);
 
@@ -292,13 +289,13 @@ function frameText(scene: CastScene, ctx: SceneContext): string[] {
 describe("CastScene escape key", () => {
   test("escape returns home during animation", () => {
     const scene = new CastScene(makeCast(), "reduced");
-    const result = scene.handleKey({ type: "escape" }, makeCtx());
+    const result = scene.handleKey({ type: "escape" }, sceneCtx(80, 24, "truecolor"));
     expect(result).toEqual({ type: "home" });
   });
 
   test("escape returns home in exploration mode (footer advertises it)", () => {
     const scene = new CastScene(makeChangingCast(), "reduced", 80);
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.skipToComplete(false);
     expect(scene.getModel().explorationMode).toBe(true);
@@ -311,8 +308,8 @@ describe("CastScene escape key", () => {
 describe("CastScene exitSignal option", () => {
   test("default esc/q exit to home — the standalone cast flow is unchanged", () => {
     const scene = new CastScene(makeCast(), "reduced");
-    expect(scene.handleKey({ type: "escape" }, makeCtx())).toEqual({ type: "home" });
-    expect(scene.handleKey({ type: "char", char: "q" }, makeCtx())).toEqual({ type: "home" });
+    expect(scene.handleKey({ type: "escape" }, sceneCtx(80, 24, "truecolor"))).toEqual({ type: "home" });
+    expect(scene.handleKey({ type: "char", char: "q" }, sceneCtx(80, 24, "truecolor"))).toEqual({ type: "home" });
   });
 
   test("exitSignal 'back' routes esc/q to a router pop (journal replay)", () => {
@@ -322,15 +319,15 @@ describe("CastScene exitSignal option", () => {
       exitSignal: "back",
     });
     scene.skipToComplete(false);
-    expect(scene.handleKey({ type: "escape" }, makeCtx())).toEqual({ type: "back" });
-    expect(scene.handleKey({ type: "char", char: "q" }, makeCtx())).toEqual({ type: "back" });
+    expect(scene.handleKey({ type: "escape" }, sceneCtx(80, 24, "truecolor"))).toEqual({ type: "back" });
+    expect(scene.handleKey({ type: "char", char: "q" }, sceneCtx(80, 24, "truecolor"))).toEqual({ type: "back" });
   });
 });
 
 describe("CastScene pace control", () => {
   test("space toggles pause during the reveal", () => {
     const scene = new CastScene(makeCast(), "reduced");
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.update(100, 33, ctx);
 
@@ -349,7 +346,7 @@ describe("CastScene pace control", () => {
 
   test("s skips to the fully revealed state", () => {
     const scene = new CastScene(makeChangingCast(), "reduced", 80);
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.update(100, 33, ctx);
 
@@ -362,7 +359,7 @@ describe("CastScene pace control", () => {
 
   test("f cycles speed 1 → 2 → 4 → 1", () => {
     const scene = new CastScene(makeCast(), "reduced");
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.update(100, 33, ctx);
 
@@ -376,7 +373,7 @@ describe("CastScene pace control", () => {
 
   test("pace keys are inert once the prompt is shown", () => {
     const scene = new CastScene(makeCast(), "reduced");
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.skipToComplete(false);
     expect(scene.getModel().showPrompt).toBe(true);
@@ -389,7 +386,7 @@ describe("CastScene pace control", () => {
 
   test("pace footer is shown during the reveal", () => {
     const scene = new CastScene(makeCast(), "reduced");
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.update(100, 33, ctx);
 
@@ -402,7 +399,7 @@ describe("CastScene pace control", () => {
 describe("CastScene reading panel", () => {
   test("[r] reveals the changing lines' texts, read top-down", () => {
     const scene = new CastScene(makeChangingCast(), "reduced", 80);
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.skipToComplete(false);
 
@@ -419,7 +416,7 @@ describe("CastScene reading panel", () => {
 
   test("[r] reveals the judgment when no lines move", () => {
     const scene = new CastScene(makeCast(), "reduced");
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.skipToComplete(false);
     scene.handleKey({ type: "char", char: "r" }, ctx); // reveal the reading
@@ -431,7 +428,7 @@ describe("CastScene reading panel", () => {
 
   test("no reading panel before the reveal settles", () => {
     const scene = new CastScene(makeChangingCast(), "reduced", 80);
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.update(100, 33, ctx);
 
@@ -462,7 +459,7 @@ describe("CastScene reading panel", () => {
 
   test("[r] toggles the reading texts; the figure and prompt stay", () => {
     const scene = new CastScene(makeChangingCast(), "reduced", 80);
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.skipToComplete(false);
 
@@ -491,7 +488,7 @@ describe("CastScene reading panel", () => {
 describe("CastScene openDetail cast context", () => {
   test("primary detail carries the changing positions", () => {
     const scene = new CastScene(makeChangingCast(), "reduced", 80);
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.skipToComplete(false);
 
@@ -503,7 +500,7 @@ describe("CastScene openDetail cast context", () => {
 
   test("becoming detail opens without cast context", () => {
     const scene = new CastScene(makeChangingCast(), "reduced", 80);
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.skipToComplete(false);
 
@@ -514,7 +511,7 @@ describe("CastScene openDetail cast context", () => {
 
   test("unchanging cast opens primary detail without context", () => {
     const scene = new CastScene(makeCast(), "reduced");
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.skipToComplete(false);
     scene.handleKey({ type: "enter" }, ctx); // enter exploration
@@ -538,7 +535,7 @@ describe("CastScene journal replay (skipToComplete(false))", () => {
       { language: "en" },
     );
     scene.skipToComplete(false);
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
 
     // Intention shows regardless; the reading is hidden by default and revealed
@@ -559,7 +556,7 @@ describe("CastScene journal replay (skipToComplete(false))", () => {
       language: "en",
     });
     scene.skipToComplete(false);
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.handleKey({ type: "char", char: "r" }, ctx); // reveal the reading
 

@@ -2,15 +2,11 @@
 // consistency (escape is a no-op on Home; q and Ctrl+C remain the exits).
 
 import { describe, expect, test } from "bun:test";
+import { sceneCtx } from "../testing.ts";
 import { buildStructure, castHexagram, SeededRandomSource } from "@iching/core";
 import type { DailyCache } from "@iching/core";
 import { HomeScene } from "../scenes/home/home-scene.ts";
 import { CellBuffer } from "../render/buffer.ts";
-import type { SceneContext } from "../scene/types.ts";
-
-function makeCtx(cols = 80, rows = 30): SceneContext {
-  return { cols, rows, done: false, colorSupport: "none" };
-}
 
 function makeTodayCast(): DailyCache {
   const cast = castHexagram(new SeededRandomSource(7));
@@ -36,7 +32,7 @@ function bufferText(buf: CellBuffer): string {
 describe("HomeScene today menu item", () => {
   test("shows [t] Today between cast and dictionary when a cast exists", () => {
     const scene = makeScene(makeTodayCast());
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 30);
     const buf = CellBuffer.create(ctx.cols, ctx.rows);
     scene.render(buf, ctx);
     const rows = bufferText(buf).split("\n");
@@ -50,7 +46,7 @@ describe("HomeScene today menu item", () => {
 
   test("hides [t] when there is no cast today (quiet empty line stays)", () => {
     const scene = makeScene(null);
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 30);
     const buf = CellBuffer.create(ctx.cols, ctx.rows);
     scene.render(buf, ctx);
     const text = bufferText(buf);
@@ -60,13 +56,13 @@ describe("HomeScene today menu item", () => {
 
   test("t emits openToday when a cast exists", () => {
     const scene = makeScene(makeTodayCast());
-    const signal = scene.handleKey({ type: "char", char: "t" }, makeCtx());
+    const signal = scene.handleKey({ type: "char", char: "t" }, sceneCtx(80, 30));
     expect(signal).toEqual({ type: "openToday" });
   });
 
   test("t is inert when there is no cast today", () => {
     const scene = makeScene(null);
-    const signal = scene.handleKey({ type: "char", char: "t" }, makeCtx());
+    const signal = scene.handleKey({ type: "char", char: "t" }, sceneCtx(80, 30));
     expect(signal).toBeUndefined();
   });
 });
@@ -76,13 +72,13 @@ describe("HomeScene quit/back consistency", () => {
   // after backing out of the journal terminated the session.
   test("escape is a no-op on Home", () => {
     const scene = makeScene(makeTodayCast());
-    const signal = scene.handleKey({ type: "escape" }, makeCtx());
+    const signal = scene.handleKey({ type: "escape" }, sceneCtx(80, 30));
     expect(signal).toBeUndefined();
   });
 
   test("q and Ctrl+C still exit", () => {
     const scene = makeScene(null);
-    expect(scene.handleKey({ type: "char", char: "q" }, makeCtx())).toEqual({ type: "exit" });
-    expect(scene.handleKey({ type: "ctrl", char: "c" }, makeCtx())).toEqual({ type: "exit" });
+    expect(scene.handleKey({ type: "char", char: "q" }, sceneCtx(80, 30))).toEqual({ type: "exit" });
+    expect(scene.handleKey({ type: "ctrl", char: "c" }, sceneCtx(80, 30))).toEqual({ type: "exit" });
   });
 });

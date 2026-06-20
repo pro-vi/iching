@@ -3,12 +3,8 @@
 // q to back/home, and Settings has no text input that needs the character.
 
 import { describe, expect, test } from "bun:test";
+import { sceneCtx } from "../testing.ts";
 import { SettingsScene } from "../scenes/settings/settings-scene.ts";
-import type { SceneContext } from "../scene/types.ts";
-
-function makeCtx(cols = 80, rows = 24): SceneContext {
-  return { cols, rows, done: false, colorSupport: "none" };
-}
 
 function makeScene(): SettingsScene {
   return new SettingsScene({
@@ -26,7 +22,7 @@ function makeScene(): SettingsScene {
 describe("SettingsScene q key", () => {
   test("q saves & backs exactly like escape", () => {
     const scene = makeScene();
-    const ctx = makeCtx();
+    const ctx = sceneCtx();
     // Change a value first so "save" is observable through getValues().
     scene.handleKey({ type: "arrow", direction: "down" }, ctx); // focus Language
     scene.handleKey({ type: "arrow", direction: "right" }, ctx); // en -> zh-Hant
@@ -37,13 +33,13 @@ describe("SettingsScene q key", () => {
 
   test("escape still saves & backs (unchanged)", () => {
     const scene = makeScene();
-    const signal = scene.handleKey({ type: "escape" }, makeCtx());
+    const signal = scene.handleKey({ type: "escape" }, sceneCtx());
     expect(signal).toEqual({ type: "home" });
   });
 
   test("Ctrl+C still exits (revert path)", () => {
     const scene = makeScene();
-    const signal = scene.handleKey({ type: "ctrl", char: "c" }, makeCtx());
+    const signal = scene.handleKey({ type: "ctrl", char: "c" }, sceneCtx());
     expect(signal).toEqual({ type: "exit" });
   });
 });

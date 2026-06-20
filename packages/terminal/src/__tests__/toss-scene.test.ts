@@ -1,12 +1,8 @@
 import { describe, test, expect } from "bun:test";
+import { sceneCtx } from "../testing.ts";
 import { TossScene } from "../scenes/toss/toss-scene.ts";
 import { anchorRow } from "../scenes/cast/hexagram-renderer.ts";
 import { CellBuffer } from "../render/buffer.ts";
-import type { SceneContext } from "../scene/types.ts";
-
-function makeCtx(cols = 80, rows = 24): SceneContext {
-  return { cols, rows, done: false, colorSupport: "truecolor" };
-}
 
 /** The row that used to hold the casting-surface line (one below the landing). */
 function formerGroundRow(rows: number): number {
@@ -19,7 +15,7 @@ const COIN_GLYPHS = new Set(["◉", "◑", "│", "◐", "○"]);
 describe("TossScene minimal surface", () => {
   test("draws no ground/surface line — the coins toss in open space", () => {
     const scene = new TossScene();
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
 
     const frame = new CellBuffer(80, 24);
@@ -35,7 +31,7 @@ describe("TossScene minimal surface", () => {
 
   test("no surface line appears at any point through a coin's flight", () => {
     const scene = new TossScene();
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.handleKey({ type: "char", char: " " }, ctx); // launch first coin
 
@@ -52,7 +48,7 @@ describe("TossScene minimal surface", () => {
 
   test("a launched coin still renders (the bounce physics are kept)", () => {
     const scene = new TossScene();
-    const ctx = makeCtx();
+    const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.handleKey({ type: "char", char: " " }, ctx); // launch first coin
 

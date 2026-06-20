@@ -1,11 +1,7 @@
 import { describe, test, expect } from "bun:test";
+import { sceneCtx } from "../testing.ts";
 import { DetailScene } from "../scenes/dict/detail-scene.ts";
 import { CellBuffer } from "../render/buffer.ts";
-import type { SceneContext } from "../scene/types.ts";
-
-function makeCtx(cols = 80, rows = 24): SceneContext {
-  return { cols, rows, done: false, colorSupport: "none" };
-}
 
 describe("DetailScene", () => {
   test("constructs for hexagram 1", () => {
@@ -16,7 +12,7 @@ describe("DetailScene", () => {
 
   test("render does not crash", () => {
     const scene = new DetailScene(1);
-    const ctx = makeCtx();
+    const ctx = sceneCtx();
     scene.enter(ctx);
     const buf = CellBuffer.create(80, 24);
     scene.render(buf, ctx);
@@ -25,51 +21,51 @@ describe("DetailScene", () => {
 
   test("escape returns back", () => {
     const scene = new DetailScene(1);
-    const signal = scene.handleKey({ type: "escape" }, makeCtx());
+    const signal = scene.handleKey({ type: "escape" }, sceneCtx());
     expect(signal).toEqual({ type: "back" });
   });
 
   test("backspace returns back", () => {
     const scene = new DetailScene(1);
-    const signal = scene.handleKey({ type: "backspace" }, makeCtx());
+    const signal = scene.handleKey({ type: "backspace" }, sceneCtx());
     expect(signal).toEqual({ type: "back" });
   });
 
   test("q pops back", () => {
     const scene = new DetailScene(1);
-    const signal = scene.handleKey({ type: "char", char: "q" }, makeCtx());
+    const signal = scene.handleKey({ type: "char", char: "q" }, sceneCtx());
     expect(signal).toEqual({ type: "back" });
   });
 
   test("tab toggles focus", () => {
     const scene = new DetailScene(1);
     expect(scene.getModel().focus).toBe("content");
-    scene.handleKey({ type: "tab" }, makeCtx());
+    scene.handleKey({ type: "tab" }, sceneCtx());
     expect(scene.getModel().focus).toBe("derived");
-    scene.handleKey({ type: "tab" }, makeCtx());
+    scene.handleKey({ type: "tab" }, sceneCtx());
     expect(scene.getModel().focus).toBe("content");
   });
 
   test("arrow down in content scrolls", () => {
     const scene = new DetailScene(1);
-    scene.enter(makeCtx());
+    scene.enter(sceneCtx());
     // Build content first by rendering
-    scene.render(CellBuffer.create(80, 24), makeCtx());
-    scene.handleKey({ type: "arrow", direction: "down" }, makeCtx());
+    scene.render(CellBuffer.create(80, 24), sceneCtx());
+    scene.handleKey({ type: "arrow", direction: "down" }, sceneCtx());
     expect(scene.getModel().scrollOffset).toBe(1);
   });
 
   test("arrow down in derived moves cursor", () => {
     const scene = new DetailScene(1);
-    scene.handleKey({ type: "tab" }, makeCtx()); // focus derived
-    scene.handleKey({ type: "arrow", direction: "down" }, makeCtx());
+    scene.handleKey({ type: "tab" }, sceneCtx()); // focus derived
+    scene.handleKey({ type: "arrow", direction: "down" }, sceneCtx());
     expect(scene.getModel().derivedCursor).toBe(1);
   });
 
   test("enter on derived navigates", () => {
     const scene = new DetailScene(1);
-    scene.handleKey({ type: "tab" }, makeCtx()); // focus derived
-    const signal = scene.handleKey({ type: "enter" }, makeCtx());
+    scene.handleKey({ type: "tab" }, sceneCtx()); // focus derived
+    const signal = scene.handleKey({ type: "enter" }, sceneCtx());
     expect(signal).toBeDefined();
     expect(typeof signal).toBe("object");
     const result = signal as { type: string; kw?: number };
@@ -99,7 +95,7 @@ describe("DetailScene", () => {
   test("renders all 64 hexagrams without crash", () => {
     for (let kw = 1; kw <= 64; kw++) {
       const scene = new DetailScene(kw);
-      const ctx = makeCtx();
+      const ctx = sceneCtx();
       scene.enter(ctx);
       const buf = CellBuffer.create(80, 24);
       scene.render(buf, ctx);
