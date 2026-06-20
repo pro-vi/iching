@@ -5,6 +5,7 @@ import { atomicWriteJson } from "./atomic-write.js";
 import { isCastShaped } from "./cast-shape.js";
 import { isRecord } from "./is-record.js";
 import { quarantineCorrupt } from "./quarantine-corrupt.js";
+import { createCorruptWarner } from "./warn-once.js";
 
 /**
  * True for a trigram object carrying the string sym/n/img that the renderers
@@ -62,13 +63,14 @@ export class JsonDailyCacheStore implements DailyCacheStore {
    * long-lived process → deduped, and the notice is surfaced where the user acts).
    */
   private readonly quiet: boolean;
+  private readonly warn: (message: string) => void;
 
   constructor(private readonly path: string, opts: { quiet?: boolean } = {}) {
     this.quiet = opts.quiet ?? false;
+    this.warn = createCorruptWarner(this.quiet);
   }
 
   /** The corrupt warning fires once per store instance (cf. JsonConfigStore). */
-  private warnedCorrupt = false;
 
   async read(): Promise<DailyCacheRecord | null> {
     let raw: string;
@@ -82,7 +84,7 @@ export class JsonDailyCacheStore implements DailyCacheStore {
       // cache is a performance mirror, never the source of truth (the journal
       // is) — warn once, reusing the corrupt-cache notice (we can't quarantine
       // bytes we couldn't read), and start fresh.
-      this.warnUnreadable(`iching: daily cache at ${this.path} is unreadable — starting fresh.`);
+      this.warn(`iching: daily cache at ${this.path} is unreadable — starting fresh.`);
       return null;
     }
     let parsed: unknown;
@@ -109,7 +111,7 @@ export class JsonDailyCacheStore implements DailyCacheStore {
   private async quarantine(raw: string): Promise<null> {
     const backupOk = await quarantineCorrupt(this.path, raw);
     const saved = backupOk ? ` The old bytes are saved at ${this.path}.corrupt.` : "";
-    this.warnUnreadable(`iching: daily cache at ${this.path} is unreadable — starting fresh.${saved}`);
+    this.warn(`iching: daily cache at ${this.path} is unreadable — starting fresh.${saved}`);
     return null;
   }
 
@@ -119,11 +121,6 @@ export class JsonDailyCacheStore implements DailyCacheStore {
    * quiet, exactly as the inlined guards did). Callers pass the full message so
    * each user-facing literal stays at its site (and in the language inventory);
    * JsonConfigStore carries the same helper. */
-  private warnUnreadable(message: string): void {
-    if (this.warnedCorrupt) return;
-    this.warnedCorrupt = true;
-    if (!this.quiet) console.error(message);
-  }
 
   async write(record: DailyCacheRecord): Promise<void> {
     await atomicWriteJson(this.path, record);

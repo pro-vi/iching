@@ -4,6 +4,7 @@ import type { ConfigStore } from "../config-store.js";
 import { atomicWriteJson } from "./atomic-write.js";
 import { isRecord } from "./is-record.js";
 import { quarantineCorrupt } from "./quarantine-corrupt.js";
+import { createCorruptWarner } from "./warn-once.js";
 import { isOneOf } from "@iching/core";
 
 const MOTION_OPTIONS = ["default", "brisk", "deep", "reduced"] as const;
@@ -217,9 +218,11 @@ export class JsonConfigStore implements ConfigStore {
    * can see and act on it; the hook stays silent and falls back to defaults.
    */
   private readonly quiet: boolean;
+  private readonly warn: (message: string) => void;
 
   constructor(private readonly path: string, opts: { quiet?: boolean } = {}) {
     this.quiet = opts.quiet ?? false;
+    this.warn = createCorruptWarner(this.quiet);
   }
 
   /**
@@ -234,7 +237,6 @@ export class JsonConfigStore implements ConfigStore {
   /** The corrupt warning fires once per store instance — loads repeat during a
    * TUI session (startup, open-Settings, save&back) while the terminal owns the
    * screen in raw mode, and raw stderr would scramble the rendered frame. */
-  private warnedCorrupt = false;
 
   /** Whether the unreadable original is safely copied to .corrupt — healing the
    * live file is only allowed when this is true (never destroy the only copy). */
@@ -259,7 +261,7 @@ export class JsonConfigStore implements ConfigStore {
       // Fall back to defaults like a corrupt config — but with no .corrupt
       // backup (we couldn't read the bytes), so omit the recovery note. Reuses
       // the corrupt notice's prefix, keeping the language inventory clean.
-      this.warnUnreadable(`iching: config at ${this.path} is unreadable — using defaults.`);
+      this.warn(`iching: config at ${this.path} is unreadable — using defaults.`);
       return "corrupt";
     }
     let parsed: unknown;
@@ -267,7 +269,7 @@ export class JsonConfigStore implements ConfigStore {
       parsed = JSON.parse(raw);
     } catch {
       this.corruptBackupOk = await quarantineCorrupt(this.path, raw);
-      this.warnUnreadable(
+      this.warn(
         `iching: config at ${this.path} is unreadable — using defaults. ` +
           `Your old settings are saved at ${this.path}.corrupt; restore them by fixing the JSON and renaming the file back.`,
       );
@@ -282,11 +284,6 @@ export class JsonConfigStore implements ConfigStore {
    * exactly as the inlined guards did). Callers pass the full message so each
    * user-facing literal stays at its site (and in the language inventory);
    * JsonDailyCacheStore carries the same helper. */
-  private warnUnreadable(message: string): void {
-    if (this.warnedCorrupt) return;
-    this.warnedCorrupt = true;
-    if (!this.quiet) console.error(message);
-  }
 
   async load(): Promise<UserConfig> {
     // Unpersisted live state (failed save, or a first-boot seed that couldn't be
