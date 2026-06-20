@@ -26,7 +26,7 @@ old checkbox.
 |---|---|---|
 | Workspace monorepo | Implemented | `apps/cli`, `packages/core`, `packages/storage`, `packages/terminal` |
 | Core domain | Implemented | casting, derivation, lookup, detail, search, formatters, exhaustive tests |
-| Storage | Implemented | paths, JSON/JSONL stores, config store, legacy discovery, atomic-write tests |
+| Storage | Implemented | paths, JSON/JSONL stores, config store, atomic-write tests |
 | CLI commands | Implemented | `cast`, `today`, `journal`, `hexagram`, `config`, `paths`, `doctor`, `dict` |
 | Terminal primitives | Implemented | cell buffer, diff renderer, ANSI, key parser, raw input, session lifecycle |
 | Animation engine | Implemented | timeline DSL, runner, easing, presets, scene loop |

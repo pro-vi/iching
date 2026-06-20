@@ -33,9 +33,5 @@ export {
 // Terminal-safe text (journal notes are replayed to terminals)
 export { stripTerminalControls } from "./sanitize.js";
 
-// Legacy discovery
-export { discoverLegacyPaths } from "./legacy/discovery.js";
-export type { LegacyPaths } from "./legacy/discovery.js";
-
 // Schema shape (source of truth for persisted keys)
 export { SCHEMA_KEYS } from "./schema-keys.js";
