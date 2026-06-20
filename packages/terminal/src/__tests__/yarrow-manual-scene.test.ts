@@ -1,4 +1,5 @@
 import { describe, test, expect } from "bun:test";
+import { sceneCtx } from "../testing.ts";
 import { SeededRandomSource } from "@iching/core";
 import { YarrowManualScene } from "../scenes/yarrow/yarrow-manual-scene.ts";
 import { CellBuffer } from "../render/buffer.ts";
@@ -7,8 +8,8 @@ import type { KeyEvent } from "../input/key-parser.ts";
 
 // Above the yarrow field floor (52 × 21), so update/handleKey run the ritual;
 // the freeze test passes its own small dims.
-const ctx = { cols: 80, rows: 40, colorSupport: "truecolor", language: "en", done: false } as SceneContext;
-const smallCtx = { cols: 41, rows: 12, colorSupport: "truecolor", language: "en", done: false } as SceneContext;
+const ctx = sceneCtx(80, 40, "truecolor", "en");
+const smallCtx = sceneCtx(41, 12, "truecolor", "en");
 const space = { type: "char", char: " " } satisfies KeyEvent;
 const escape = { type: "escape" } satisfies KeyEvent;
 const ctrlC = { type: "ctrl", char: "c" } satisfies KeyEvent;

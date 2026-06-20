@@ -2,7 +2,7 @@
 // dictionary jump, and the patterns pane.
 
 import { describe, test, expect } from "bun:test";
-import { rowText } from "../testing.ts";
+import { rowText, sceneCtx } from "../testing.ts";
 import type { Cast, ReflectionNote } from "@iching/core";
 import { lineOf } from "@iching/core/testing";
 import { computeJournalPatterns, GUA, TRIGRAMS, toSimplified } from "@iching/core";
@@ -1292,7 +1292,7 @@ describe("JournalScene patterns pane ([p])", () => {
     const entries = [1, 1, 1, 1, 1, 2, 2, 3, 4, 5].map((kw, i) =>
       makeEntry(`2026-03-${String(i + 1).padStart(2, "0")}`, kw, { method: "coin" }),
     );
-    const ctx: SceneContext = { cols: 80, rows: 50, colorSupport: "none", language: "en", done: false };
+    const ctx = sceneCtx(80, 50, "none", "en");
     const scene = new JournalScene(entries, { today: () => "2026-04-15" });
     scene.enter(ctx);
     press(scene, ctx, "p");

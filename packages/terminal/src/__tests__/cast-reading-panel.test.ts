@@ -10,6 +10,7 @@
 // its place only when there is room (and yields below that floor).
 
 import { describe, test, expect } from "bun:test";
+import { sceneCtx } from "../testing.ts";
 import type { Cast, DisplayLanguage } from "@iching/core";
 import { GUA } from "@iching/core";
 import { castOf } from "@iching/core/testing";
@@ -284,7 +285,7 @@ describe("cast-scene polish (review #3, #9)", () => {
     // static end-state. The old default (true) re-seeded a fresh animator
     // (glyphAnimDone=false), noisily re-playing the whole reveal.
     const scene = new CastScene(castOf(1, { changing: [] }), "default", 80, GLYPH_CFG, 40);
-    const ctx: SceneContext = { cols: 80, rows: 40, done: false, colorSupport: "truecolor", language: "en" };
+    const ctx = sceneCtx(80, 40, "truecolor", "en");
     scene.update(0, 0, ctx);
     scene.update(120, 33, ctx); // mid-reveal: the glyph is animating, not done
     expect(scene.getModel().showPrompt).toBe(false);

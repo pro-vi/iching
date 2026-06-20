@@ -2,7 +2,7 @@
 // English mode must not leak Chinese product-ui labels; Chinese modes must not
 // leak the English label they replace. Grows one describe-block per wired scene.
 import { describe, expect, test } from "bun:test";
-import { bufferText } from "../testing.ts";
+import { bufferText, sceneCtx } from "../testing.ts";
 import { SettingsScene } from "../scenes/settings/settings-scene.ts";
 import { settingsValues } from "../testing.ts";
 import { HomeScene } from "../scenes/home/home-scene.ts";
@@ -21,9 +21,9 @@ import type { Cast, HistoryEntry, DisplayLanguage } from "@iching/core";
 import { lineOf } from "@iching/core/testing";
 import { SIMPLIFIED_MAP, SIMPLIFIED_EXCEPTIONS } from "@iching/core";
 
-const ctx: SceneContext = { cols: 80, rows: 24, done: false, colorSupport: "none" };
+const ctx = sceneCtx(80, 24, "none");
 function ctxFor(language: DisplayLanguage): SceneContext {
-  return { cols: 80, rows: 24, done: false, colorSupport: "none", language };
+  return sceneCtx(80, 24, "none", language);
 }
 
 function renderScene(

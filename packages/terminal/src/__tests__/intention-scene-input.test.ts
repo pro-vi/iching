@@ -1,11 +1,12 @@
 // IntentionScene input handling — delete key and bracketed paste.
 
 import { describe, test, expect } from "bun:test";
+import { sceneCtx } from "../testing.ts";
 import { IntentionScene } from "../scenes/intention/intention-scene.ts";
 import type { SceneContext } from "../scene/types.ts";
 
 function ctx(): SceneContext {
-  return { cols: 80, rows: 24, colorSupport: "truecolor", done: false };
+  return sceneCtx(80, 24, "truecolor");
 }
 
 function type(scene: IntentionScene, text: string): void {

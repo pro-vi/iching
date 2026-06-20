@@ -1,4 +1,5 @@
 import { describe, test, expect } from "bun:test";
+import { sceneCtx } from "../testing.ts";
 import { TimelineRunner } from "../animation/runner.ts";
 import { seq, par, wait, call, tween } from "../animation/timeline.ts";
 import { stepDuration } from "../animation/timeline.ts";
@@ -204,7 +205,7 @@ describe("CastScene fastForward equivalence", () => {
 
     // Path A: run to completion
     const sceneA = new CastScene(cast, "reduced", 80);
-    const ctxA = { cols: 80, rows: 24, done: false, colorSupport: "none" as const };
+    const ctxA = sceneCtx(80, 24, "none");
     sceneA.enter(ctxA);
     const durationA = sceneA.getTimeline().duration;
     // Advance via repeated CLAMPED-dt frames (the virtual clock credits the
@@ -253,7 +254,7 @@ describe("CastScene fastForward equivalence", () => {
 
     // Path A: run to completion
     const sceneA = new CastScene(cast, "reduced", 80);
-    const ctxA = { cols: 80, rows: 24, done: false, colorSupport: "none" as const };
+    const ctxA = sceneCtx(80, 24, "none");
     sceneA.enter(ctxA);
     const durationA = sceneA.getTimeline().duration;
     // Advance via repeated CLAMPED-dt frames (the virtual clock credits the
