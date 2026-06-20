@@ -2,7 +2,7 @@
 
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
-import type { KeyEvent } from "../../input/key-parser.ts";
+import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import { stripTerminalControls } from "@iching/core";
 import { BrowseModel } from "./browse-model.ts";
 import { TextInput } from "../../widgets/text-input.ts";
@@ -48,7 +48,7 @@ export class BrowseScene implements Scene {
     if (key.type === "char" && key.char === "q" && !this.model.searchActive) {
       return { type: "back" };
     }
-    if (key.type === "ctrl" && key.char === "c") {
+    if (isCtrlC(key)) {
       return { type: "exit" };
     }
 

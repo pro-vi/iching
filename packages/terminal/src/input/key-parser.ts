@@ -16,6 +16,15 @@ export type KeyEvent =
   | { type: "delete" }
   | { type: "paste"; text: string };
 
+/**
+ * The Ctrl-C interrupt. Every scene treats it as an immediate exit, so the
+ * compound `type === "ctrl" && char === "c"` check lives here once rather than
+ * inlined in each handler — one definition of what "interrupt" means.
+ */
+export function isCtrlC(key: KeyEvent): boolean {
+  return key.type === "ctrl" && key.char === "c";
+}
+
 export interface ParseResult {
   /**
    * The decoded event, or null when the sequence was consumed but

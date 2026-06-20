@@ -3,7 +3,7 @@
 
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
-import type { KeyEvent } from "../../input/key-parser.ts";
+import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import {
   castLine, linesToBinary, BINARY_TO_KW, CryptoRandomSource,
   nuclear, polarity, mirror, diagonal,
@@ -128,7 +128,7 @@ export class TossScene implements Scene {
   }
 
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
-    if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
+    if (isCtrlC(key)) return { type: "exit" };
     if (key.type === "escape") return { type: "home" };
 
     if (key.type === "char") {

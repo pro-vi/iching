@@ -3,7 +3,7 @@
 import { type Cast, GUA, toSimplified, stripTerminalControls } from "@iching/core";
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
-import type { KeyEvent } from "../../input/key-parser.ts";
+import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import type { MotionPreset } from "../../animation/presets.ts";
 import { getPreset } from "../../animation/presets.ts";
 import { TimelineRunner } from "../../animation/runner.ts";
@@ -295,7 +295,7 @@ export class CastScene implements Scene {
     }
 
     // Ctrl-C
-    if (key.type === "ctrl" && key.char === "c") {
+    if (isCtrlC(key)) {
       return { type: "exit" };
     }
   }

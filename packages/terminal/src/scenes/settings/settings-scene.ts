@@ -2,7 +2,7 @@
 
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
-import type { KeyEvent } from "../../input/key-parser.ts";
+import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import type { GlyphAnimator, GlyphAnimStyle } from "../../glyph-anim/types.ts";
 import type { DisplayLanguage, GlyphFont, GlyphSize } from "@iching/core";
 import { GUA } from "@iching/core";
@@ -502,7 +502,7 @@ export class SettingsScene implements Scene {
       this.values = this.getValues();
       return { type: "home" };
     }
-    if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
+    if (isCtrlC(key)) return { type: "exit" };
 
     if (key.type === "arrow") {
       switch (key.direction) {

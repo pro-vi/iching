@@ -2,7 +2,7 @@
 
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
-import type { KeyEvent } from "../../input/key-parser.ts";
+import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import type { DailyCache } from "@iching/core";
 import { GUA, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
@@ -112,7 +112,7 @@ export class HomeScene implements Scene {
         case "q": return { type: "exit" };
       }
     }
-    if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
+    if (isCtrlC(key)) return { type: "exit" };
     // Escape is deliberately a no-op on Home: everywhere else it means "back",
     // so a habitual extra esc after backing out of a scene must not kill the
     // session. q and Ctrl+C remain the exits.

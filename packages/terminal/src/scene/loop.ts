@@ -6,7 +6,7 @@ import type { ColorSupport } from "../color/detect.ts";
 import type { DisplayLanguage } from "@iching/core";
 import { TerminalSession } from "../session/terminal-session.ts";
 import type { KeyEvent } from "../input/key-parser.ts";
-import { KeyParser } from "../input/key-parser.ts";
+import { KeyParser, isCtrlC } from "../input/key-parser.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import { DiffRenderer } from "../render/diff-render.ts";
 import { getTheme } from "../color/theme.ts";
@@ -130,7 +130,7 @@ export async function runScene(
       while (inputQueue.length > 0) {
         const key = inputQueue.shift()!;
         if (tooSmall) {
-          if (key.type === "ctrl" && key.char === "c") {
+          if (isCtrlC(key)) {
             exitSignal = { type: "exit" };
             ctx.done = true;
             break;

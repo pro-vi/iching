@@ -11,7 +11,7 @@ import {
 } from "@iching/core";
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
-import type { KeyEvent } from "../../input/key-parser.ts";
+import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import type { MotionPreset } from "../../animation/presets.ts";
 import { getYarrowTiming } from "../../animation/yarrow-presets.ts";
 import { TimelineRunner } from "../../animation/runner.ts";
@@ -66,7 +66,7 @@ export class YarrowScene implements Scene {
   }
 
   handleKey(key: KeyEvent, ctx: SceneContext): SceneSignal | void {
-    if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
+    if (isCtrlC(key)) return { type: "exit" };
     if (key.type === "escape") return { type: "home" };
     if (key.type === "char" && key.char === "q") return { type: "home" };
 

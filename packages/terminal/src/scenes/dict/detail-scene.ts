@@ -2,7 +2,7 @@
 
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
-import type { KeyEvent } from "../../input/key-parser.ts";
+import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import type { DisplayLanguage, GlyphFont } from "@iching/core";
 import { toSimplified } from "@iching/core";
 import type { GlyphAnimStyle } from "../../glyph-anim/types.ts";
@@ -90,7 +90,7 @@ export class DetailScene implements Scene {
     if (key.type === "char" && key.char === "q") {
       return { type: "back" };
     }
-    if (key.type === "ctrl" && key.char === "c") {
+    if (isCtrlC(key)) {
       return { type: "exit" };
     }
 

@@ -2,7 +2,7 @@
 
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
-import type { KeyEvent } from "../../input/key-parser.ts";
+import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import { stripTerminalControls } from "@iching/core";
 import { TextInput } from "../../widgets/text-input.ts";
 import { getTheme } from "../../color/theme.ts";
@@ -76,7 +76,7 @@ export class IntentionScene implements Scene {
       return { type: "home" };
     }
 
-    if (key.type === "ctrl" && key.char === "c") {
+    if (isCtrlC(key)) {
       return { type: "exit" };
     }
 

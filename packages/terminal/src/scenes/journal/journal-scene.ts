@@ -6,7 +6,7 @@
 
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
-import type { KeyEvent } from "../../input/key-parser.ts";
+import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import type { DisplayLanguage, HistoryEntry } from "@iching/core";
 import { GUA, TRIGRAMS, compareEntryTime, stripTerminalControls, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
@@ -1171,7 +1171,7 @@ export class JournalScene implements Scene {
   }
 
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
-    if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
+    if (isCtrlC(key)) return { type: "exit" };
 
     if (this.entries.length === 0) {
       if (key.type === "char" && (key.char === "q" || key.char === "d")) return { type: "back" };
