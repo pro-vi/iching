@@ -4,7 +4,7 @@ import type { Hexagram } from "./types.js";
 import { GUA } from "./data/gua.js";
 import { foldForSearch } from "./text-fold.js";
 import { TRIGRAMS } from "./data/trigrams.js";
-import { trigramIndex } from "./identify/structure.js";
+import { trigramIndices } from "./identify/structure.js";
 import { BINARY_TO_KW } from "./identify/lookup.js";
 import { toSimplified } from "./i18n/simplify.js";
 
@@ -155,8 +155,7 @@ export function searchHexagramsScored(query: string): ScoredHexagram[] {
 
     // Single trigram token — upper or lower trigram membership (score 3)
     if (bestScore > 3 && singleTrigram !== null) {
-      const lower = trigramIndex(gua.l.slice(0, 3));
-      const upper = trigramIndex(gua.l.slice(3, 6));
+      const { lower, upper } = trigramIndices(gua.l);
       if (lower === singleTrigram || upper === singleTrigram) {
         bestScore = 3;
       }

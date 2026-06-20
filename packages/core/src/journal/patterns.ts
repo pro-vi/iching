@@ -11,7 +11,7 @@
 // summary) — and the data contract in patterns/types.ts.
 
 import { GUA } from "../data/gua.js";
-import { trigramIndex } from "../identify/structure.js";
+import { trigramIndices } from "../identify/structure.js";
 import { hourInZone } from "../zone.js";
 import type { HistoryEntry } from "../types.js";
 
@@ -199,8 +199,7 @@ export function computeJournalPatterns(
 
     const gua = GUA[entry.cast.primary - 1];
     if (gua) {
-      const lower = trigramIndex(gua.l.slice(0, 3));
-      const upper = trigramIndex(gua.l.slice(3, 6));
+      const { lower, upper } = trigramIndices(gua.l);
       addTrigram(trigramFreq, lower, "lower");
       addTrigram(trigramFreq, upper, "upper");
       if (family !== "unknown") {

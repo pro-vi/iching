@@ -7,14 +7,22 @@ export function trigramIndex(lines: number[]): number {
   return lines.reduce((acc, v, i) => acc + (v === 1 ? 1 << i : 0), 0);
 }
 
+/** Split a hexagram's six binary lines into its lower (lines 1-3) and upper
+ *  (lines 4-6) trigram indices — the bottom three lines form the lower trigram. */
+export function trigramIndices(lines: number[]): { lower: number; upper: number } {
+  return {
+    lower: trigramIndex(lines.slice(0, 3)),
+    upper: trigramIndex(lines.slice(3, 6)),
+  };
+}
+
 /** Get upper/lower trigram structure for a King Wen hexagram number */
 export function getStructure(kw: number): {
   upper: TrigramInfo;
   lower: TrigramInfo;
 } {
   const g = GUA[kw - 1];
-  const lower = trigramIndex(g.l.slice(0, 3));
-  const upper = trigramIndex(g.l.slice(3, 6));
+  const { lower, upper } = trigramIndices(g.l);
   return { upper: TRIGRAMS[upper], lower: TRIGRAMS[lower] };
 }
 
