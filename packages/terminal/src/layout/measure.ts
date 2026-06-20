@@ -166,3 +166,14 @@ export function truncateToWidth(text: string, maxWidth: number): string {
   }
   return out + "…";
 }
+
+
+/**
+ * Pad to a display-column width. String.padEnd counts UTF-16 code units, so a
+ * label holding a hexagram glyph or CJK name would land 1–2 columns short and
+ * break a pane's shared value column — pad by stringWidth instead.
+ */
+export function padToWidth(text: string, width: number): string {
+  const w = stringWidth(text);
+  return w >= width ? text : text + " ".repeat(width - w);
+}

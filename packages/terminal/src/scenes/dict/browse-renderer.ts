@@ -9,7 +9,7 @@ import { viewportHeight } from "../../widgets/scroll.ts";
 import { kwOf, toSimplified } from "@iching/core";
 import type { DisplayLanguage } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth, truncateToWidth } from "../../layout/measure.ts";
+import { stringWidth, truncateToWidth, padToWidth } from "../../layout/measure.ts";
 import { tr, countUnit } from "../../i18n/messages.ts";
 
 const HEADER_ROWS = 2; // header + separator
@@ -127,9 +127,7 @@ function renderRow(
   const enStart = pinyinCol + pinyinFixedWidth + 2;
   const enWidth = width - enStart - 1;
 
-  const chineseWidth = stringWidth(chinese);
-  const chinesePadded =
-    chinese + " ".repeat(Math.max(0, chineseFixedWidth - chineseWidth));
+  const chinesePadded = padToWidth(chinese, chineseFixedWidth);
 
   // enWidth ≤ 0 keeps the full name (it isn't rendered then — see the guard
   // below); otherwise clip to the column via the shared CJK-aware helper.

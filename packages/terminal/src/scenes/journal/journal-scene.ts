@@ -10,7 +10,7 @@ import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import type { DisplayLanguage, HistoryEntry } from "@iching/core";
 import { GUA, TRIGRAMS, clamp, compareEntryTime, dateInZone, foldForSearch, formatTime, stripTerminalControls, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth, truncateToWidth, fitLine, centerCol } from "../../layout/measure.ts";
+import { stringWidth, truncateToWidth, fitLine, centerCol, padToWidth } from "../../layout/measure.ts";
 // Re-exported for callers that have long imported it from here (e.g. tests).
 export { truncateToWidth };
 import { ScrollableRegion } from "../../widgets/scrollable.ts";
@@ -1492,16 +1492,6 @@ export class JournalScene implements Scene {
 function formatNumber(value: number, digits: number): string {
   if (!Number.isFinite(value)) return "0";
   return value.toFixed(digits).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
-}
-
-/**
- * Pad to a display-column width. String.padEnd counts UTF-16 code units, so a
- * label holding a hexagram glyph or CJK name would land 1–2 columns short and
- * break the pane's shared value column — pad by stringWidth instead.
- */
-function padToWidth(text: string, width: number): string {
-  const w = stringWidth(text);
-  return w >= width ? text : text + " ".repeat(width - w);
 }
 
 function structuralEchoLabel(kind: StructuralEcho["kind"], lang: DisplayLanguage): string {
