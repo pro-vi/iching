@@ -19,6 +19,14 @@ function makeEntry(date: string): HistoryEntry {
   return { date, cast: castOf(63) };
 }
 
+/** A history.jsonl line truncated mid-record — a write interrupted partway. */
+const TORN_LINE = '{"date":"2025-01-0';
+
+/** Append a raw line to the history.jsonl in a test's data dir. */
+async function appendHistory(dir: string, content: string): Promise<void> {
+  await appendFile(join(dir, "history.jsonl"), content, "utf-8");
+}
+
 describe("JsonlJournalStore", () => {
   let dir: string;
   let store: JsonlJournalStore;
@@ -166,7 +174,7 @@ describe("JsonlJournalStore", () => {
       await store.append(makeEntry("2025-01-01"));
       await store.append(makeEntry("2025-01-02"));
       // Torn append: no newline, truncated mid-object
-      await appendFile(join(dir, "history.jsonl"), '{"date":"2025-01-0', "utf-8");
+      await appendHistory(dir, TORN_LINE);
 
       const results: HistoryEntry[] = [];
       for await (const entry of store.stream()) {
@@ -216,7 +224,7 @@ describe("JsonlJournalStore", () => {
     test("latest falls back past a torn final line to the last good entry", async () => {
       await store.append(makeEntry("2025-01-01"));
       await store.append(makeEntry("2025-01-02"));
-      await appendFile(join(dir, "history.jsonl"), '{"date":"2025-01-0', "utf-8");
+      await appendHistory(dir, TORN_LINE);
 
       const last = await store.latest();
       expect(last).not.toBeNull();
@@ -365,7 +373,7 @@ describe("JsonlJournalStore", () => {
     test("append after a torn final line starts a fresh line", async () => {
       await store.append(makeEntry("2025-01-01"));
       // Torn append: no trailing newline, truncated mid-object.
-      await appendFile(join(dir, "history.jsonl"), '{"date":"2025-01-0', "utf-8");
+      await appendHistory(dir, TORN_LINE);
 
       await store.append(makeEntry("2025-01-02"));
 
@@ -481,7 +489,7 @@ describe("JsonlJournalStore", () => {
 
     test("skippedLines resets between reads", async () => {
       await store.append(makeEntry("2025-01-01"));
-      await appendFile(join(dir, "history.jsonl"), "garbage", "utf-8");
+      await appendHistory(dir, "garbage");
 
       await store.latest();
       expect(store.skippedLines).toBe(1);
@@ -555,7 +563,7 @@ describe("JsonlJournalStore reflection notes", () => {
     // Legacy: a note written into history.jsonl by a pre-sidecar binary.
     const legacy = makeNote("2025-01-01", "legacy note");
     await store.append(makeEntry("2025-01-01"));
-    await appendFile(join(dir, "history.jsonl"), JSON.stringify(legacy) + "\n", "utf-8");
+    await appendHistory(dir, JSON.stringify(legacy) + "\n");
     // Current: a note appended through the sidecar path.
     await store.appendNote(makeNote("2025-01-01", "sidecar note"));
 
@@ -613,8 +621,8 @@ describe("JsonlJournalStore reflection notes", () => {
   test("streamNotes yields notes in append order, skipping readings and damage", async () => {
     await store.append(makeEntry("2025-01-01"));
     await store.appendNote(makeNote("2025-01-01", "first"));
-    await appendFile(join(dir, "history.jsonl"), '{"date":"2025-01-0', "utf-8");
-    await appendFile(join(dir, "history.jsonl"), "\n", "utf-8");
+    await appendHistory(dir, TORN_LINE);
+    await appendHistory(dir, "\n");
     await store.appendNote(makeNote("2025-01-01", "second"));
 
     const notes: ReflectionNote[] = [];
