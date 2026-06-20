@@ -22,6 +22,12 @@ const TRIGRAM_PINYIN: string[] = ["kun", "zhen", "kan", "dui", "gen", "li", "xun
  * names are spoken (山風蠱 = mountain over wind). */
 const TRIGRAM_IMAGE_CN: string[] = ["地", "雷", "水", "澤", "山", "火", "風", "天"];
 
+/** Does the folded token equal `text` in either Chinese script — Traditional or its
+ *  Simplified form? Lowercased so a Latin token can't slip past on case. */
+function matchesEitherScript(token: string, text: string): boolean {
+  return token === text.toLowerCase() || token === toSimplified(text).toLowerCase();
+}
+
 /**
  * Resolve a single normalized token to a trigram index (0-7), or null.
  * Accepted forms per trigram: English image word ("fire"), Unicode symbol
@@ -34,11 +40,9 @@ function resolveTrigramToken(token: string): number | null {
     if (
       token === t.img ||
       token === t.sym ||
-      token === t.n.toLowerCase() ||
-      token === toSimplified(t.n).toLowerCase() ||
+      matchesEitherScript(token, t.n) ||
       token === TRIGRAM_PINYIN[i] ||
-      token === TRIGRAM_IMAGE_CN[i] ||
-      token === toSimplified(TRIGRAM_IMAGE_CN[i])
+      matchesEitherScript(token, TRIGRAM_IMAGE_CN[i])
     ) {
       return i;
     }
