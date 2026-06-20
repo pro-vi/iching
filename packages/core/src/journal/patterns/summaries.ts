@@ -45,6 +45,17 @@ export function addPair(
   pairs.set(key, current);
 }
 
+export function addHexagram(
+  freq: Map<number, { count: number; lastDate: string }>,
+  kw: number,
+  date: string,
+): void {
+  const current = freq.get(kw) ?? { count: 0, lastDate: "" };
+  current.count++;
+  if (date > current.lastDate) current.lastDate = date;
+  freq.set(kw, current);
+}
+
 /** Rank count-bearing items: annotate each with its share of the total, sort by
  *  count descending then a caller-supplied tiebreak, and keep the top `limit`.
  *  Shared by the frequency summaries (pairs, structural echoes) so they agree on

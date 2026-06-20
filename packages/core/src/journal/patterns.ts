@@ -66,6 +66,7 @@ import {
 import {
   addTrigram,
   addPair,
+  addHexagram,
   addStructuralEcho,
   kingWenPair,
   hammingDistance,
@@ -149,10 +150,7 @@ export function computeJournalPatterns(
       recentEntry = entry;
     }
 
-    const f = freq.get(entry.cast.primary) ?? { count: 0, lastDate: "" };
-    f.count++;
-    if (entry.date > f.lastDate) f.lastDate = entry.date;
-    freq.set(entry.cast.primary, f);
+    addHexagram(freq, entry.cast.primary, entry.date);
 
     // Normalize the moving positions once so every distribution describes the
     // SAME population. The app's writer only ever emits unique values in 1–6,
@@ -182,10 +180,7 @@ export function computeJournalPatterns(
     }
 
     if (family !== "unknown") {
-      const known = knownFreq.get(entry.cast.primary) ?? { count: 0, lastDate: "" };
-      known.count++;
-      if (entry.date > known.lastDate) known.lastDate = entry.date;
-      knownFreq.set(entry.cast.primary, known);
+      addHexagram(knownFreq, entry.cast.primary, entry.date);
 
       knownMovingCountBins[changing.length]++; // changing is normalized to 0–6 unique
       for (const pos of changing) knownLineCounts[pos - 1]++;
