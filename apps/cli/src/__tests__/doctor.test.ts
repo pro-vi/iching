@@ -1,7 +1,8 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { runCli as spawnCli } from "../testing.ts";
 import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { GUA, BINARY_TO_KW, TRIGRAMS } from "@iching/core";
 
 describe("doctor checks", () => {
@@ -71,8 +72,6 @@ describe("doctor checks", () => {
 // Journal integrity check — doctor must stream the journal, not just stat it:
 // torn lines surface as a WARN with a count, never a hard failure.
 describe("doctor journal check (subprocess)", () => {
-  const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
-  const MAIN_TS = resolve(REPO_ROOT, "apps/cli/src/main.ts");
 
   let dataDir: string;
 
@@ -84,22 +83,7 @@ describe("doctor journal check (subprocess)", () => {
     await rm(dataDir, { recursive: true, force: true });
   });
 
-  async function runDoctor(): Promise<{ exitCode: number; stdout: string }> {
-    const proc = Bun.spawn(
-      ["bun", MAIN_TS, "--data-dir", dataDir, "doctor"],
-      {
-        cwd: REPO_ROOT,
-        stdin: "pipe",
-        stdout: "pipe",
-        stderr: "pipe",
-        env: { ...process.env, NO_COLOR: "1" },
-      },
-    );
-    proc.stdin.end();
-    const stdout = await new Response(proc.stdout).text();
-    const exitCode = await proc.exited;
-    return { exitCode, stdout };
-  }
+  const runDoctor = () => spawnCli(["doctor"], { dataDir });
 
   const GOOD_LINE = JSON.stringify({
     date: "2025-01-15",
@@ -169,16 +153,7 @@ describe("doctor journal check (subprocess)", () => {
     // consumer reads exit 0 and treats a broken environment as healthy. The
     // JSON payload still streams in full (exitCode, not a hard exit()).
     await mkdir(join(dataDir, "history.jsonl")); // → a failed Journal check
-    const proc = Bun.spawn(["bun", MAIN_TS, "--data-dir", dataDir, "--json", "doctor"], {
-      cwd: REPO_ROOT,
-      stdin: "pipe",
-      stdout: "pipe",
-      stderr: "pipe",
-      env: { ...process.env, NO_COLOR: "1" },
-    });
-    proc.stdin.end();
-    const stdout = await new Response(proc.stdout).text();
-    const exitCode = await proc.exited;
+    const { exitCode, stdout } = await spawnCli(["--json", "doctor"], { dataDir });
     expect(exitCode).not.toBe(0); // failure surfaced through the exit code…
     const checks = JSON.parse(stdout); // …and the JSON still parses in full
     expect(checks.some((c: { status: string }) => c.status === "fail")).toBe(true);
