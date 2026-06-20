@@ -47,7 +47,10 @@ export async function runHookAdapter(): Promise<void> {
   const _payload = await readStdin();
 
   const paths = resolvePaths();
-  const cacheStore = new JsonDailyCacheStore(paths.cache);
+  // Quiet like the config read below: the hook fires on every shell prompt, so a
+  // corrupt/unreadable daily cache must not spam stderr each prompt (the persist
+  // path is already silent; the TUI surfaces the notice).
+  const cacheStore = new JsonDailyCacheStore(paths.cache, { quiet: true });
   const journal = new JsonlJournalStore(paths.state);
 
   // Read config once, QUIET (a corrupt/unreadable config must not spam stderr on

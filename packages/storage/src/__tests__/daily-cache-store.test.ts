@@ -69,6 +69,32 @@ describe("JsonDailyCacheStore", () => {
       expect(backup).toBe('{"date":"2025-01-15","cas');
     });
 
+    test("a quiet store stays silent on an unreadable OR corrupt cache (hook/today path)", async () => {
+      // The hook and `iching today` run per shell prompt in fresh processes, so a
+      // persistently-broken cache must not spam stderr each prompt. quiet:true
+      // suppresses BOTH notice sites (unreadable-file + quarantine) while still
+      // starting fresh (null) and sidecaring the bytes. The loud default warns
+      // (covered by the test below); the interactive TUI keeps that.
+      const { mkdir, writeFile, readFile } = await import("node:fs/promises");
+      const errors: string[] = [];
+      const origErr = console.error;
+      console.error = (...a: unknown[]) => void errors.push(a.map(String).join(" "));
+      try {
+        // (1) unreadable — a directory at the cache path (Codex's directory / root-owned case)
+        const blocked = join(dir, "blocked.json");
+        await mkdir(blocked);
+        expect(await new JsonDailyCacheStore(blocked, { quiet: true }).read()).toBeNull();
+        // (2) corrupt bytes — the quarantine path
+        const corrupt = join(dir, "corrupt.json");
+        await writeFile(corrupt, "{ not json", "utf-8");
+        expect(await new JsonDailyCacheStore(corrupt, { quiet: true }).read()).toBeNull();
+        expect(await readFile(`${corrupt}.corrupt`, "utf-8")).toBe("{ not json"); // bytes still saved
+      } finally {
+        console.error = origErr;
+      }
+      expect(errors).toHaveLength(0); // both paths silent under quiet
+    });
+
     test("a later corruption never clobbers the first backup", async () => {
       const { writeFile, readFile } = await import("node:fs/promises");
       const path = join(dir, "daily-cache.json");

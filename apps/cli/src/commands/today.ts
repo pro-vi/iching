@@ -21,7 +21,10 @@ export function registerTodayCommand(program: Command): void {
       // so `today` agrees with the TUI [t] reopen and the hook on what today's
       // reading is — even when the cache is missing, stale, or quarantined.
       const reading = await resolveTodayReading(
-        new JsonDailyCacheStore(paths.cache),
+        // Quiet: `iching today` can run from a shell greeting on every prompt, so
+        // a corrupt cache must not spam stderr there (the hook is quiet for the
+        // same reason; the interactive TUI stays loud and surfaces the notice).
+        new JsonDailyCacheStore(paths.cache, { quiet: true }),
         new JsonlJournalStore(paths.state),
         () => today,
       );

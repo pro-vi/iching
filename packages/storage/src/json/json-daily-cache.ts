@@ -43,7 +43,19 @@ export function isCacheShaped(parsed: unknown): parsed is DailyCacheRecord {
 }
 
 export class JsonDailyCacheStore implements DailyCacheStore {
-  constructor(private readonly path: string) {}
+  /**
+   * When true, the corrupt/unreadable-cache notices are suppressed. The hook and
+   * `iching today` run on every shell prompt in a fresh process (so warnedCorrupt
+   * can't dedup across runs) and must keep output clean — a persistently-corrupt
+   * cache would otherwise spam stderr on every prompt, exactly like the config
+   * read (cf. JsonConfigStore's quiet). The interactive TUI/CLI stay loud (one
+   * long-lived process → deduped, and the notice is surfaced where the user acts).
+   */
+  private readonly quiet: boolean;
+
+  constructor(private readonly path: string, opts: { quiet?: boolean } = {}) {
+    this.quiet = opts.quiet ?? false;
+  }
 
   /** The corrupt warning fires once per store instance (cf. JsonConfigStore). */
   private warnedCorrupt = false;
@@ -62,7 +74,9 @@ export class JsonDailyCacheStore implements DailyCacheStore {
       // bytes we couldn't read), and start fresh.
       if (!this.warnedCorrupt) {
         this.warnedCorrupt = true;
-        console.error(`iching: daily cache at ${this.path} is unreadable — starting fresh.`);
+        if (!this.quiet) {
+          console.error(`iching: daily cache at ${this.path} is unreadable — starting fresh.`);
+        }
       }
       return null;
     }
@@ -99,8 +113,10 @@ export class JsonDailyCacheStore implements DailyCacheStore {
     }
     if (!this.warnedCorrupt) {
       this.warnedCorrupt = true;
-      const saved = backupOk ? ` The old bytes are saved at ${this.path}.corrupt.` : "";
-      console.error(`iching: daily cache at ${this.path} is unreadable — starting fresh.${saved}`);
+      if (!this.quiet) {
+        const saved = backupOk ? ` The old bytes are saved at ${this.path}.corrupt.` : "";
+        console.error(`iching: daily cache at ${this.path} is unreadable — starting fresh.${saved}`);
+      }
     }
     return null;
   }
