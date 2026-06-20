@@ -127,6 +127,7 @@ async function main() {
         const flowDeps = {
           run, runRouter,
           paths, cacheStore, today,
+          timeZone: savedConfig.timezone,
           session: { cols: session.cols, rows: session.rows },
           glyphConfig,
           language,

@@ -74,6 +74,8 @@ export interface ReadingFlowDeps {
    * it actually completed.
    */
   today: () => string;
+  /** config.timezone — threaded to the journal scene's patterns binning. */
+  timeZone?: string;
   session: SessionDims;
   glyphConfig: CastGlyphInput;
   language: DisplayLanguage;
@@ -249,6 +251,11 @@ async function runPostCastNavigation(
       journal,
       entries,
       session: deps.session,
+      // Thread the configured clock so reflection-note dates stamped here match
+      // the daily anchor (not machine-local), and the 觀象 pane bins by the same
+      // zone — parity with the Home → Journal path in main.ts.
+      today: deps.today,
+      timeZone: deps.timeZone,
     };
     const router = new SceneRouter(
       makeJournalScene(factoryDeps),

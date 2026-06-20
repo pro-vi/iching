@@ -8,6 +8,7 @@ import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { castOf } from "@iching/core/testing";
+import type { ReflectionNote } from "@iching/core";
 import { JsonlJournalStore } from "@iching/storage";
 import {
   BrowseScene,
@@ -16,6 +17,7 @@ import {
   DetailScene,
   JournalScene,
   type JournalEntryView,
+  type SceneContext,
   SceneRouter,
 } from "@iching/terminal";
 import {
@@ -472,5 +474,48 @@ describe("makeJournalScene — reflection-note persistence wiring", () => {
       "for the oldest",
     ]);
     expect(byTs("2026-01-03T09:00:00.000Z")?.notes ?? []).toEqual([]);
+  });
+});
+
+describe("makeJournalScene — reflection-note date follows the configured clock", () => {
+  test("a committed note is persisted with deps.today, not machine-local", async () => {
+    // The post-cast j → journal path (reading-flow) and Home → Journal (main)
+    // both thread a timezone-aware `today`; makeJournalScene must stamp the
+    // persisted note with it, or a note saved near a timezone boundary lands on
+    // the wrong local day and disagrees with the daily anchor. deps.today returns
+    // an obviously-non-machine date here.
+    let saved: ReflectionNote | undefined;
+    const journalStub = {
+      skippedLines: 0,
+      append: async () => {},
+      appendNote: async (n: ReflectionNote) => {
+        saved = n;
+      },
+      stream: async function* () {},
+      streamNotes: async function* () {},
+      latest: async () => null,
+    } as unknown as JsonlJournalStore;
+
+    const scene = makeJournalScene({
+      journal: journalStub,
+      entries: [makeReplayEntry("2026-03-01", "2026-03-01T08:00:00.000Z")],
+      session: { cols: 80, rows: 24 },
+      today: () => "2099-12-31",
+    });
+    const ctx = {
+      cols: 80,
+      rows: 24,
+      done: false,
+      colorSupport: "none",
+      language: "en",
+    } as unknown as SceneContext;
+    scene.enter(ctx);
+    scene.handleKey({ type: "char", char: "n" }, ctx); // open the note input
+    for (const ch of "noted") scene.handleKey({ type: "char", char: ch }, ctx);
+    scene.handleKey({ type: "enter" }, ctx); // commit
+    await scene.exit(); // drain the in-flight note append
+
+    expect(saved?.date).toBe("2099-12-31"); // the configured today, not machine-local
+    expect(saved?.text).toBe("noted");
   });
 });
