@@ -5,7 +5,6 @@ import {
   buildStructure,
   CryptoRandomSource,
   type RandomSource,
-  type RngProvenance,
   SeededRandomSource,
   GUA,
 } from "@iching/core";
@@ -13,6 +12,7 @@ import { resolvePaths, JsonConfigStore } from "@iching/storage";
 import { formatCastPlain } from "../output/plain.js";
 import { outputJson, castToJson } from "../output/json.js";
 import { parseSeed } from "../util/parse-seed.js";
+import { rngProvenanceFor } from "../util/rng-provenance.js";
 
 export function registerCastCommand(program: Command): void {
   program
@@ -37,17 +37,14 @@ export function registerCastCommand(program: Command): void {
         bound = cfg.entropy === "bound";
       }
       let source: RandomSource;
-      let rng: RngProvenance;
       if (seed !== undefined) {
         source = new SeededRandomSource(seed);
-        rng = { source: "seed", intentionBound: false };
       } else if (bound) {
         source = new BoundRandomSource(question ?? "");
-        rng = { source: "bound", intentionBound: question !== undefined && question !== "" };
       } else {
         source = new CryptoRandomSource();
-        rng = { source: "crypto", intentionBound: false };
       }
+      const rng = rngProvenanceFor({ seeded: seed !== undefined, bound, boundText: question });
 
       const cast = castHexagram(source);
       const primary = GUA[cast.primary - 1];

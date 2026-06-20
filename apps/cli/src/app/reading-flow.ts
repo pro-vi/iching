@@ -44,6 +44,7 @@ import {
   makeJournalScene,
   type SessionDims,
 } from "./scene-factories.ts";
+import { rngProvenanceFor } from "../util/rng-provenance.js";
 
 export type ReadingSource =
   | { type: "auto"; seed?: number }
@@ -164,14 +165,17 @@ export async function runReadingFlow(
     // The manual coin toss draws its line values inside TossScene from its
     // own CryptoRandomSource (keypresses only trigger the toss), so it is
     // recorded as plain crypto regardless of the entropy setting.
+    // The manual coin toss is always plain crypto (TossScene draws its own bytes
+    // regardless of the entropy setting); the seed / bound / crypto rule is the
+    // shared one the CLI `cast` command also records.
     const rng: RngProvenance =
       opts.source.type === "manual"
         ? { source: "crypto", intentionBound: false }
-        : usedSeed
-          ? { source: "seed", intentionBound: false }
-          : deps.entropy === "bound"
-            ? { source: "bound", intentionBound: intention !== undefined && intention !== "" }
-            : { source: "crypto", intentionBound: false };
+        : rngProvenanceFor({
+            seeded: usedSeed,
+            bound: deps.entropy === "bound",
+            boundText: intention,
+          });
     // Best-effort persist: a read-only or full data dir must not swallow the
     // reading the user just cast. Persisting happens BEFORE the reveal, so an
     // unguarded throw here would lose the reading AND never show it — crashing
