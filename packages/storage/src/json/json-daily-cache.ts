@@ -81,12 +81,7 @@ export class JsonDailyCacheStore implements DailyCacheStore {
       // cache is a performance mirror, never the source of truth (the journal
       // is) — warn once, reusing the corrupt-cache notice (we can't quarantine
       // bytes we couldn't read), and start fresh.
-      if (!this.warnedCorrupt) {
-        this.warnedCorrupt = true;
-        if (!this.quiet) {
-          console.error(`iching: daily cache at ${this.path} is unreadable — starting fresh.`);
-        }
-      }
+      this.warnUnreadable();
       return null;
     }
     let parsed: unknown;
@@ -120,14 +115,23 @@ export class JsonDailyCacheStore implements DailyCacheStore {
       // full) is best-effort — a cache must never block startup.
       backupOk = (err as NodeJS.ErrnoException).code === "EEXIST";
     }
-    if (!this.warnedCorrupt) {
-      this.warnedCorrupt = true;
-      if (!this.quiet) {
-        const saved = backupOk ? ` The old bytes are saved at ${this.path}.corrupt.` : "";
-        console.error(`iching: daily cache at ${this.path} is unreadable — starting fresh.${saved}`);
-      }
-    }
+    const saved = backupOk ? ` The old bytes are saved at ${this.path}.corrupt.` : "";
+    this.warnUnreadable(saved);
     return null;
+  }
+
+  /**
+   * Warn once per store instance that the cache is unreadable — unless quiet.
+   * Both the can't-read (read) and can't-parse (quarantine) paths surface the
+   * same notice; `savedSuffix` names the .corrupt backup when one was written.
+   * The dedup flag flips even when quiet, exactly as the inlined guards did.
+   */
+  private warnUnreadable(savedSuffix = ""): void {
+    if (this.warnedCorrupt) return;
+    this.warnedCorrupt = true;
+    if (!this.quiet) {
+      console.error(`iching: daily cache at ${this.path} is unreadable — starting fresh.${savedSuffix}`);
+    }
   }
 
   async write(record: DailyCacheRecord): Promise<void> {
