@@ -1,22 +1,12 @@
 import { describe, test, expect } from "bun:test";
+import { mockStdout } from "../testing.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import { DiffRenderer } from "../render/diff-render.ts";
 
 /** Mock output that captures write calls */
-function mockOutput() {
-  const writes: string[] = [];
-  return {
-    write(data: string) {
-      writes.push(data);
-      return true;
-    },
-    writes,
-  };
-}
-
 describe("DiffRenderer", () => {
   test("identical buffers produce no output", () => {
-    const out = mockOutput();
+    const out = mockStdout();
     const renderer = new DiffRenderer(out, "truecolor");
     const a = CellBuffer.create(10, 3);
     const b = CellBuffer.create(10, 3);
@@ -25,7 +15,7 @@ describe("DiffRenderer", () => {
   });
 
   test("single changed cell produces output", () => {
-    const out = mockOutput();
+    const out = mockStdout();
     const renderer = new DiffRenderer(out, "truecolor");
     const prev = CellBuffer.create(10, 3);
     const next = CellBuffer.create(10, 3);
@@ -39,7 +29,7 @@ describe("DiffRenderer", () => {
   });
 
   test("changed row emits cursor-move + styled text", () => {
-    const out = mockOutput();
+    const out = mockStdout();
     const renderer = new DiffRenderer(out, "truecolor");
     const prev = CellBuffer.create(10, 5);
     const next = CellBuffer.create(10, 5);
@@ -56,7 +46,7 @@ describe("DiffRenderer", () => {
   });
 
   test("collects output into a single write call", () => {
-    const out = mockOutput();
+    const out = mockStdout();
     const renderer = new DiffRenderer(out, "truecolor");
     const prev = CellBuffer.create(10, 5);
     const next = CellBuffer.create(10, 5);
@@ -70,7 +60,7 @@ describe("DiffRenderer", () => {
   });
 
   test("unchanged rows are not emitted", () => {
-    const out = mockOutput();
+    const out = mockStdout();
     const renderer = new DiffRenderer(out, "truecolor");
     const prev = CellBuffer.create(10, 5);
     prev.writeText(0, 0, "same");
@@ -89,7 +79,7 @@ describe("DiffRenderer", () => {
   });
 
   test("generates 256-color fallback when configured", () => {
-    const out = mockOutput();
+    const out = mockStdout();
     const renderer = new DiffRenderer(out, "256");
     const prev = CellBuffer.create(5, 1);
     const next = CellBuffer.create(5, 1);
@@ -104,7 +94,7 @@ describe("DiffRenderer", () => {
   // input sanitization, so a control char placed directly in a cell would be
   // emitted raw and EXECUTED by the terminal. (Render review, H5.)
   test("a control char in a cell is replaced, never emitted raw (H5)", () => {
-    const out = mockOutput();
+    const out = mockStdout();
     const renderer = new DiffRenderer(out, "truecolor");
     const prev = CellBuffer.create(3, 1);
     const next = CellBuffer.create(3, 1);
@@ -119,7 +109,7 @@ describe("DiffRenderer", () => {
   // clearToEndOfLine erases with the active SGR background, so the style must be
   // reset BEFORE the clear or a leftover bg paints the cleared span. (H2.)
   test("a row clear is preceded by a style reset (H2)", () => {
-    const out = mockOutput();
+    const out = mockStdout();
     const renderer = new DiffRenderer(out, "truecolor");
     const prev = CellBuffer.create(5, 1);
     const next = CellBuffer.create(5, 1);
@@ -133,7 +123,7 @@ describe("DiffRenderer", () => {
   // present() iterates only next.height; when the terminal shrinks, the rows the
   // taller previous frame painted below it must still be cleared. (H1.)
   test("a shorter next buffer clears the rows the old frame left below (H1)", () => {
-    const out = mockOutput();
+    const out = mockStdout();
     const renderer = new DiffRenderer(out, "truecolor");
     const prev = CellBuffer.create(5, 4);
     prev.writeText(2, 0, "gone");

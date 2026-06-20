@@ -6,7 +6,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { runCli } from "../testing.ts";
 import { rm, writeFile } from "node:fs/promises";
-import { freshTempDir, seedJournal } from "../testing.ts";
+import { freshTempDir, seedJournal, utcToday } from "../testing.ts";
 import { join } from "node:path";
 import { buildStructure } from "@iching/core";
 import type { DailyCache } from "@iching/core";
@@ -18,10 +18,6 @@ import { castOf } from "@iching/core/testing";
  * shell TZ would otherwise leak into the spawned CLI and skew the date near
  * midnight boundaries.
  */
-function utcToday(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 /** KW3 屯 with line 1 moving → becoming KW8 比 (water over earth). The lines
  *  draw 屯; assembleCast derives primary 3, becoming 8, and the four hexagrams
  *  consistently, so the record passes isCastShaped's reconstruct-and-compare. */

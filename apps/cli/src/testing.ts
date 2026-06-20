@@ -58,3 +58,8 @@ export async function seedJournal(dataDir: string, entries: unknown[]): Promise<
   const lines = entries.map((e) => JSON.stringify(e)).join("\n") + "\n";
   await writeFile(join(dataDir, "history.jsonl"), lines, "utf-8");
 }
+
+/** Today's date (YYYY-MM-DD) in UTC — the test clock's "today". */
+export function utcToday(): string {
+  return new Date().toISOString().slice(0, 10);
+}

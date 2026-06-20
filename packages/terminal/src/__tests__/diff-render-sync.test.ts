@@ -1,23 +1,13 @@
 // DiffRenderer synchronized output (DEC 2026) — frames present atomically.
 
 import { describe, test, expect } from "bun:test";
+import { mockStdout } from "../testing.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import { DiffRenderer } from "../render/diff-render.ts";
 
-function mockOutput() {
-  const writes: string[] = [];
-  return {
-    write(data: string) {
-      writes.push(data);
-      return true;
-    },
-    writes,
-  };
-}
-
 describe("DiffRenderer — synchronized output", () => {
   test("non-empty frames are wrapped in DEC 2026 begin/end guards", () => {
-    const out = mockOutput();
+    const out = mockStdout();
     const renderer = new DiffRenderer(out, "truecolor");
     const prev = CellBuffer.create(10, 3);
     const next = CellBuffer.create(10, 3);
@@ -30,7 +20,7 @@ describe("DiffRenderer — synchronized output", () => {
   });
 
   test("identical buffers emit nothing — no empty sync wrappers", () => {
-    const out = mockOutput();
+    const out = mockStdout();
     const renderer = new DiffRenderer(out, "truecolor");
     const a = CellBuffer.create(10, 3);
     const b = CellBuffer.create(10, 3);

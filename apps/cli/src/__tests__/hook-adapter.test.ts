@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { runCli as spawnCli } from "../testing.ts";
 import { rm, readFile, writeFile, mkdir } from "node:fs/promises";
-import { freshTempDir } from "../testing.ts";
+import { freshTempDir, utcToday } from "../testing.ts";
 import { join } from "node:path";
 import {
   castHexagram,
@@ -29,10 +29,6 @@ afterEach(async () => {
  * while a spawned child runs in the system timezone, so the two can disagree
  * on the date — runHook pins the child to TZ=UTC to keep them aligned.
  */
-function utcToday(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 /** Run bare `iching` with piped stdin (hook mode) against an ICHING_HOME dir. */
 async function runHook(home: string): Promise<number> {
   // The adapter resolves paths without a --data-dir override; collapse all
