@@ -1,14 +1,14 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { mkdtemp, mkdir, readFile, readdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { freshTempDir } from "../testing.ts";
 import { atomicWriteJson } from "../json/atomic-write.js";
 
 describe("atomicWriteJson", () => {
   let dir: string;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "atomic-test-"));
+    dir = await freshTempDir("atomic-test");
   });
 
   test("writes file atomically (file exists after write)", async () => {

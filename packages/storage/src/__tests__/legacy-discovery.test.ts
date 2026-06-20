@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { freshTempDir } from "../testing.ts";
 
 // We test legacy discovery by importing its internals and overriding homedir
 // Since discoverLegacyPaths uses os.homedir() directly, we test at a higher
@@ -11,7 +11,7 @@ describe("legacy discovery", () => {
   let fakeHome: string;
 
   beforeEach(async () => {
-    fakeHome = await mkdtemp(join(tmpdir(), "legacy-test-"));
+    fakeHome = await freshTempDir("legacy-test");
   });
 
   test("finds existing ~/.claude/iching.json", async () => {

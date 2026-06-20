@@ -1,7 +1,6 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { freshTempDir } from "../testing.ts";
 import type { DailyCache, Structure } from "@iching/core";
 import { castOf } from "@iching/core/testing";
 import { JsonDailyCacheStore } from "../json/json-daily-cache.js";
@@ -24,7 +23,7 @@ describe("JsonDailyCacheStore", () => {
   let store: JsonDailyCacheStore;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "cache-test-"));
+    dir = await freshTempDir("cache-test");
     store = new JsonDailyCacheStore(join(dir, "daily-cache.json"));
   });
 

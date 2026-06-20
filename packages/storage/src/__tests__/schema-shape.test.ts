@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { freshTempDir } from "../testing.ts";
 import type { Cast, Structure, HistoryEntry, ReflectionNote } from "@iching/core";
 import type { DailyCacheRecord, UserConfig } from "../types.js";
 import { JsonConfigStore } from "../json/json-config.js";
@@ -53,7 +53,7 @@ function assertShape(
 describe("schema shape — config", () => {
   let dir: string;
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "schema-config-"));
+    dir = await freshTempDir("schema-config");
   });
 
   test("default config keys match SCHEMA_KEYS.config", async () => {
@@ -87,7 +87,7 @@ describe("schema shape — config", () => {
 describe("schema shape — cache", () => {
   let dir: string;
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "schema-cache-"));
+    dir = await freshTempDir("schema-cache");
   });
 
   test("required-only record keys match SCHEMA_KEYS.cache", async () => {
@@ -127,7 +127,7 @@ describe("schema shape — cache", () => {
 describe("schema shape — history", () => {
   let dir: string;
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "schema-history-"));
+    dir = await freshTempDir("schema-history");
   });
 
   test("required-only entry keys match SCHEMA_KEYS.history", async () => {
@@ -163,7 +163,7 @@ describe("schema shape — history", () => {
 describe("schema shape — note", () => {
   let dir: string;
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "schema-note-"));
+    dir = await freshTempDir("schema-note");
   });
 
   test("note record keys match SCHEMA_KEYS.note", async () => {

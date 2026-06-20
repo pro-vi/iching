@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { mkdtemp, writeFile, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { writeFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { freshTempDir } from "../testing.ts";
 import type { UserConfig } from "../types.js";
 import { JsonConfigStore, detectSystemLanguage } from "../json/json-config.js";
 
@@ -26,7 +26,7 @@ describe("JsonConfigStore", () => {
   let store: JsonConfigStore;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "config-test-"));
+    dir = await freshTempDir("config-test");
     store = new JsonConfigStore(join(dir, "config.json"));
   });
 

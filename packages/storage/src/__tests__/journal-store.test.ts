@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { freshTempDir } from "../testing.ts";
 import type { HistoryEntry, Line, ReflectionNote } from "@iching/core";
 import { assembleCast } from "@iching/core";
 import { castOf, lineOf } from "@iching/core/testing";
@@ -24,7 +24,7 @@ describe("JsonlJournalStore", () => {
   let store: JsonlJournalStore;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "journal-test-"));
+    dir = await freshTempDir("journal-test");
     store = new JsonlJournalStore(join(dir, "history.jsonl"));
   });
 
@@ -524,7 +524,7 @@ describe("JsonlJournalStore reflection notes", () => {
   let store: JsonlJournalStore;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "journal-notes-test-"));
+    dir = await freshTempDir("journal-notes-test");
     store = new JsonlJournalStore(join(dir, "history.jsonl"));
   });
 

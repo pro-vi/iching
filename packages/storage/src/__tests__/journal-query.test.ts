@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { tmpdir } from "node:os";
-import { mkdtemp, rm } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
+import { freshTempDir } from "../testing.ts";
 import { JsonlJournalStore } from "../json/jsonl-journal.js";
 import { loadHexagramHistory, loadEntriesWithNotes, noteMatchesEntry, entryNoteRef } from "../journal-query.js";
 import type { ReflectionNote } from "@iching/core";
@@ -16,7 +16,7 @@ describe("loadHexagramHistory", () => {
   let store: JsonlJournalStore;
 
   beforeEach(async () => {
-    tmpDir = await mkdtemp(join(tmpdir(), "iching-test-"));
+    tmpDir = await freshTempDir("iching-test");
     store = new JsonlJournalStore(join(tmpDir, "history.jsonl"));
   });
 
@@ -68,7 +68,7 @@ describe("loadEntriesWithNotes", () => {
   let store: JsonlJournalStore;
 
   beforeEach(async () => {
-    tmpDir = await mkdtemp(join(tmpdir(), "iching-notes-query-"));
+    tmpDir = await freshTempDir("iching-notes-query");
     store = new JsonlJournalStore(join(tmpDir, "history.jsonl"));
   });
 
