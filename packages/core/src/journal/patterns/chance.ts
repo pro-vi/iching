@@ -45,17 +45,28 @@ export const MOVING_COUNT_PROBABILITIES = [
 ] as const;
 
 /**
+ * Observed's lift over expected: observed / expected, or null when there's no
+ * usable expectation (absent or ≤ 0) — the null-returning sibling of shareOf.
+ * Shared by `comparison` and the trigram frequency so both report lift the same
+ * way (a hexagram and a trigram never disagree on what "no baseline" means).
+ */
+export function liftOf(observed: number, expected: number | null): number | null {
+  return expected !== null && expected > 0 ? observed / expected : null;
+}
+
+/**
  * Observed-vs-expected for one quantity: lift (observed/expected) and a
  * Poisson-style residual. Returns nulls (not throws) when there is no usable
  * expectation, so callers can render "—" instead of dividing by zero.
  */
 export function comparison(observed: number, expected: number | null): ExpectedComparison {
-  if (expected === null) return { observed, expected: 0, lift: null, residual: null };
-  if (expected <= 0) return { observed, expected, lift: null, residual: null };
+  const lift = liftOf(observed, expected);
+  if (expected === null) return { observed, expected: 0, lift, residual: null };
+  if (expected <= 0) return { observed, expected, lift, residual: null };
   return {
     observed,
     expected,
-    lift: observed / expected,
+    lift,
     residual: (observed - expected) / Math.sqrt(expected),
   };
 }

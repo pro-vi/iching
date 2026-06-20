@@ -53,6 +53,7 @@ import type {
 import {
   methodFamily,
   comparison,
+  liftOf,
   LINE_PROBABILITIES,
   MOVING_COUNT_PROBABILITIES,
 } from "./patterns/chance.js";
@@ -284,7 +285,7 @@ export function computeJournalPatterns(
         knownCount,
         share: shareOf(t.count, totalTrigramAppearances),
         expected: expectedTrigramCount,
-        lift: expectedTrigramCount > 0 ? knownCount / expectedTrigramCount : null,
+        lift: liftOf(knownCount, expectedTrigramCount),
       };
     })
     .sort((a, b) => b.count - a.count || nullableDesc(a.lift, b.lift) || a.index - b.index)
