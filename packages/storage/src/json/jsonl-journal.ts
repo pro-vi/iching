@@ -84,6 +84,11 @@ async function endsMidLine(path: string): Promise<boolean> {
     handle = await open(path, "r");
   } catch (err: unknown) {
     if (errnoCode(err) === "ENOENT") return false;
+    // FIXME: a non-ENOENT open() failure (EACCES/EISDIR) rethrows here, so journal
+    // append crashes on a read-only / permission-denied file — while json-config and
+    // json-daily-cache reads degrade on the same errno (warn + return null/"corrupt").
+    // `return false` would match that contract (the later appendFile still fails if
+    // truly inaccessible). Behavior change, deferred for a decision pass. (R147 sweep.)
     throw err;
   }
   try {
