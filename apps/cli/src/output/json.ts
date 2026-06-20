@@ -233,6 +233,12 @@ export function journalPatternsToJson(p: JournalPatterns): Record<string, unknow
     expected: dir.expected,
     lift: dir.lift,
   });
+  /** The method-marked comparison block shared by every distribution item: the
+   *  chance count/expected/lift, or null when there is no method-marked baseline. */
+  const methodComparison = (item: { knownCount: number; expected: number; lift: number | null }) =>
+    item.expected > 0
+      ? { basis: "method-marked", count: item.knownCount, expected: item.expected, lift: item.lift }
+      : null;
   return {
     // One note so a consuming script never crosses bases: descriptive `count`
     // fields tally every reading; a `comparison` block (when present) holds
@@ -311,10 +317,7 @@ export function journalPatternsToJson(p: JournalPatterns): Record<string, unknow
       share: h.share, // count / total
       lastDate: h.lastDate,
       // Same-basis comparison: method-marked count vs method-marked expectation.
-      comparison:
-        h.expected > 0
-          ? { basis: "method-marked", count: h.knownCount, expected: h.expected, lift: h.lift }
-          : null,
+      comparison: methodComparison(h),
     })),
     // Same comparison discipline as topHexagrams: descriptive count (all
     // readings) at the top, the method-marked chance comparison namespaced
@@ -323,19 +326,13 @@ export function journalPatternsToJson(p: JournalPatterns): Record<string, unknow
       position: l.position,
       count: l.count,
       share: l.share,
-      comparison:
-        l.expected > 0
-          ? { basis: "method-marked", count: l.knownCount, expected: l.expected, lift: l.lift }
-          : null,
+      comparison: methodComparison(l),
     })),
     movingLineCounts: p.movingLineCounts.map((b) => ({
       movingLines: b.movingLines,
       count: b.count,
       share: b.share,
-      comparison:
-        b.expected > 0
-          ? { basis: "method-marked", count: b.knownCount, expected: b.expected, lift: b.lift }
-          : null,
+      comparison: methodComparison(b),
     })),
     // Same comparison discipline as topHexagrams/movingLines: descriptive
     // counts (all readings) at the top, the chance figure namespaced under the
@@ -347,10 +344,7 @@ export function journalPatternsToJson(p: JournalPatterns): Record<string, unknow
       upperCount: t.upperCount,
       lowerCount: t.lowerCount,
       share: t.share,
-      comparison:
-        t.expected > 0
-          ? { basis: "method-marked", count: t.knownCount, expected: t.expected, lift: t.lift }
-          : null,
+      comparison: methodComparison(t),
     })),
     topTransformations: p.topTransformations.map((t) => pair(t.from, t.to, t.count, t.lastDate)),
     topTransitions: p.topTransitions.map((t) => pair(t.from, t.to, t.count, t.lastDate)),
