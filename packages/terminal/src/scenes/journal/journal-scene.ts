@@ -14,7 +14,7 @@ import { stringWidth, truncateToWidth, fitLine } from "../../layout/measure.ts";
 // Re-exported for callers that have long imported it from here (e.g. tests).
 export { truncateToWidth };
 import { ScrollableRegion } from "../../widgets/scrollable.ts";
-import { lastIndex } from "../../widgets/scroll.ts";
+import { lastIndex, viewportHeight } from "../../widgets/scroll.ts";
 import { TextInput } from "../../widgets/text-input.ts";
 import { tr, countUnit, type MessageKey } from "../../i18n/messages.ts";
 import {
@@ -123,14 +123,6 @@ export function sanitizeFieldText(text: string): string {
 /** Strip diacritics for accent-insensitive pinyin matching. */
 
 /** Does this hexagram match the query (name / simplified / pinyin / ename / number)? */
-/** List/patterns viewport height: the rows left after reserving `chrome` for the
- *  header, footer, and friends, floored at 1. The floor matters — a sub-chrome
- *  terminal (rows <= chrome) would otherwise seed a <=0 height into the scroll,
- *  cursor-visibility, and percentage math. Every viewport computation shares it. */
-function viewportFor(totalRows: number, chrome: number): number {
-  return Math.max(1, totalRows - chrome);
-}
-
 function hexagramMatches(kw: number, q: string): boolean {
   const gua = GUA[kw - 1];
   if (!gua) return false;
@@ -251,13 +243,13 @@ export class JournalScene implements Scene {
   }
 
   enter(ctx: SceneContext): void {
-    this.scroll.viewportHeight = viewportFor(ctx.rows, 4); // header(2) + preview + footer
+    this.scroll.viewportHeight = viewportHeight(ctx.rows, 4); // header(2) + preview + footer
     // Re-entry (the router pops back from a replayed reading) calls enter() again
     // with a preserved cursor; if the terminal shrank while away, reseeding the
     // viewport here without the same re-clamp resize() runs would leave the
     // selection below the fold until the user arrows it back. (Review #7.)
     this.ensureCursorVisible();
-    this.patternsScroll.viewportHeight = viewportFor(ctx.rows, 3); // top margin + indicator + footer
+    this.patternsScroll.viewportHeight = viewportHeight(ctx.rows, 3); // top margin + indicator + footer
     this.patternsScroll.scrollDown(0);
   }
 
@@ -278,13 +270,13 @@ export class JournalScene implements Scene {
   update(_elapsed: number, _dt: number, _ctx: SceneContext): void {}
 
   resize(_cols: number, rows: number): void {
-    this.scroll.viewportHeight = viewportFor(rows, 4);
+    this.scroll.viewportHeight = viewportHeight(rows, 4);
     // A shrink can leave the selection below the new fold: the patterns scroll
     // re-clamps itself (scrollDown(0)), but the list cursor needs the same
     // care, or the highlighted reading vanishes off the bottom until the user
     // arrows it back. Re-run the cursor-into-view math the move keys use.
     this.ensureCursorVisible();
-    this.patternsScroll.viewportHeight = viewportFor(rows, 3);
+    this.patternsScroll.viewportHeight = viewportHeight(rows, 3);
     this.patternsScroll.scrollDown(0);
   }
 
@@ -435,7 +427,7 @@ export class JournalScene implements Scene {
     // vacuously false even for a single entry, and the position percentage
     // divides 0/(1-1) → renders "1/1 (NaN%)". Flooring at 1 both kills that
     // NaN and reads honestly: one entry has nothing to scroll, so no indicator.
-    const viewportH = viewportFor(rows, 4);
+    const viewportH = viewportHeight(rows, 4);
     if (this.filtered.length <= viewportH) return null;
     const pct = Math.round((this.cursor / (this.filtered.length - 1)) * 100);
     return `${this.cursor + 1}/${this.filtered.length} (${pct}%)`;
@@ -507,7 +499,7 @@ export class JournalScene implements Scene {
     // No journal-list header above the pane any more, so it opens near the top
     // (row 0 is a calm margin); the 觀象 rule is its own title. viewport = total
     // rows − margin − indicator − footer.
-    this.patternsScroll.viewportHeight = viewportFor(ctx.rows, 3);
+    this.patternsScroll.viewportHeight = viewportHeight(ctx.rows, 3);
     // ScrollableRegion only needs row count for its math; joined text suffices.
     this.patternsScroll.contentLines = rows.map((row) =>
       row.segments.map((seg) => seg.text).join(""),

@@ -26,6 +26,14 @@ export function lastIndex(length: number): number {
   return Math.max(0, length - 1);
 }
 
+/** Usable viewport height: terminal rows minus the `chrome` reserved for header,
+ *  footer, and friends, floored at 1. The floor is load-bearing — a sub-chrome
+ *  terminal would otherwise feed a <=0 height into the scroll, cursor, and
+ *  percentage math. Shared so every scene's viewport agrees on it. */
+export function viewportHeight(termRows: number, chrome: number): number {
+  return Math.max(1, termRows - chrome);
+}
+
 /**
  * New scroll offset that keeps `cursor` within a `viewport`-sized window,
  * scrolling only when the cursor leaves the window (stateful list navigation).

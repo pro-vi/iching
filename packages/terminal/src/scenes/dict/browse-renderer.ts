@@ -5,6 +5,7 @@ import { FOOTER_ROWS } from "./layout.ts";
 import type { SceneContext } from "../../scene/types.ts";
 import type { BrowseModel } from "./browse-model.ts";
 import type { TextInput } from "../../widgets/text-input.ts";
+import { viewportHeight } from "../../widgets/scroll.ts";
 import { kwOf, toSimplified } from "@iching/core";
 import type { DisplayLanguage } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
@@ -15,7 +16,7 @@ const HEADER_ROWS = 2; // header + separator
 
 /** Calculate how many list rows fit in the viewport */
 export function listViewportHeight(termRows: number): number {
-  return Math.max(1, termRows - HEADER_ROWS - FOOTER_ROWS);
+  return viewportHeight(termRows, HEADER_ROWS + FOOTER_ROWS);
 }
 
 /** Render the full browse scene */
