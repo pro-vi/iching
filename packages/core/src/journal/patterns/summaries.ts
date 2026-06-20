@@ -45,15 +45,27 @@ export function addPair(
   pairs.set(key, current);
 }
 
+/** Rank count-bearing items: annotate each with its share of the total, sort by
+ *  count descending then a caller-supplied tiebreak, and keep the top `limit`.
+ *  Shared by the frequency summaries (pairs, structural echoes) so they agree on
+ *  share semantics and the count-first ordering. */
+function rankByShare<T extends { count: number }>(
+  items: T[],
+  limit: number,
+  tiebreak: (a: T, b: T) => number,
+): (T & { share: number })[] {
+  const total = items.reduce((sum, item) => sum + item.count, 0);
+  return items
+    .map((item) => ({ ...item, share: shareOf(item.count, total) }))
+    .sort((a, b) => b.count - a.count || tiebreak(a, b))
+    .slice(0, limit);
+}
+
 export function pairList(
   pairs: Map<string, { from: number; to: number; count: number; lastDate: string }>,
   limit: number,
 ): PairFrequency[] {
-  const total = [...pairs.values()].reduce((sum, pair) => sum + pair.count, 0);
-  return [...pairs.values()]
-    .map((pair) => ({ ...pair, share: shareOf(pair.count, total) }))
-    .sort((a, b) => b.count - a.count || a.from - b.from || a.to - b.to)
-    .slice(0, limit);
+  return rankByShare([...pairs.values()], limit, (a, b) => a.from - b.from || a.to - b.to);
 }
 
 export function computeDiversity(
@@ -195,15 +207,13 @@ export function structuralEchoList(echoes: Map<string, StructuralEcho>, limit: n
     mirror: 2,
     kingWenPair: 3,
   };
-  const total = [...echoes.values()].reduce((sum, echo) => sum + echo.count, 0);
-  return [...echoes.values()]
-    .map((echo) => ({ ...echo, share: shareOf(echo.count, total) }))
-    .sort((a, b) =>
-      b.count - a.count ||
+  return rankByShare(
+    [...echoes.values()],
+    limit,
+    (a, b) =>
       byKind[a.kind] - byKind[b.kind] ||
-      (a.kw ?? a.pairStart ?? 0) - (b.kw ?? b.pairStart ?? 0)
-    )
-    .slice(0, limit);
+      (a.kw ?? a.pairStart ?? 0) - (b.kw ?? b.pairStart ?? 0),
+  );
 }
 
 export function kingWenPair(kw: number): [number, number] {
