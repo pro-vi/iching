@@ -97,6 +97,12 @@ async function endsMidLine(path: string): Promise<boolean> {
   }
 }
 
+/** Open a UTF-8 line reader for `path`, treating CRLF as a single break so a
+ *  Windows-edited journal splits the same as a Unix-written one. */
+function openLineReader(path: string) {
+  return createInterface({ input: createReadStream(path, { encoding: "utf-8" }), crlfDelay: Infinity });
+}
+
 export class JsonlJournalStore implements JournalStore {
   /**
    * Malformed lines skipped by the most recent stream() or latest() call.
@@ -141,10 +147,7 @@ export class JsonlJournalStore implements JournalStore {
     this.skippedLines = 0;
     if (!(await this.exists(this.path))) return;
 
-    const rl = createInterface({
-      input: createReadStream(this.path, { encoding: "utf-8" }),
-      crlfDelay: Infinity,
-    });
+    const rl = openLineReader(this.path);
 
     let count = 0;
     for await (const line of rl) {
@@ -187,10 +190,7 @@ export class JsonlJournalStore implements JournalStore {
   private async *notesIn(path: string): AsyncIterable<ReflectionNote> {
     if (!(await this.exists(path))) return;
 
-    const rl = createInterface({
-      input: createReadStream(path, { encoding: "utf-8" }),
-      crlfDelay: Infinity,
-    });
+    const rl = openLineReader(path);
 
     try {
       for await (const line of rl) {
