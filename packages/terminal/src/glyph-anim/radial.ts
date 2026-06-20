@@ -6,6 +6,7 @@
 import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
 import type { GlyphAnimator } from "./types.ts";
+import { isEmpty } from "./braille.ts";
 import { getTheme } from "../color/theme.ts";
 import { lerpColor } from "../color/lerp.ts";
 import { easeOut } from "../animation/easing.ts";
@@ -13,10 +14,6 @@ import { easeOut } from "../animation/easing.ts";
 /** Total run time (ms) at durationScale 1. */
 export const RADIAL_TOTAL_MS = 2400;
 const EDGE_WIDTH = 2.5; // cells of gradient at the expanding edge
-
-function isEmpty(ch: string): boolean {
-  return ch === "\u2800" || ch === " ";
-}
 
 export class RadialAnimator implements GlyphAnimator {
   private readonly glyph: GlyphEntry;

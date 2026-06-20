@@ -7,6 +7,7 @@
 import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
 import type { GlyphAnimator } from "./types.ts";
+import { isEmpty } from "./braille.ts";
 import { getTheme } from "../color/theme.ts";
 import { lerpColor } from "../color/lerp.ts";
 
@@ -17,10 +18,6 @@ export const DOTS_TOTAL_MS = 3000;
 // Bit layout: dot1=0x01, dot2=0x02, dot3=0x04, dot4=0x08,
 //             dot5=0x10, dot6=0x20, dot7=0x40, dot8=0x80
 const DOT_BITS = [0x01, 0x02, 0x04, 0x40, 0x08, 0x10, 0x20, 0x80];
-
-function isEmpty(ch: string): boolean {
-  return ch === "\u2800" || ch === " ";
-}
 
 /** Get the braille dot pattern (0-255) from a braille character. */
 function brailleValue(ch: string): number {

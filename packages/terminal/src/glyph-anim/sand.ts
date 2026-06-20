@@ -7,6 +7,7 @@
 import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
 import type { GlyphAnimator } from "./types.ts";
+import { BRAILLE_BASE, BRAILLE_COUNT, isEmpty } from "./braille.ts";
 import { getTheme } from "../color/theme.ts";
 import { lerpColor } from "../color/lerp.ts";
 
@@ -14,18 +15,12 @@ import { lerpColor } from "../color/lerp.ts";
 export const SAND_TOTAL_MS = 3500;
 
 // Braille block for random in-flight appearance
-const BRAILLE_BASE = 0x2800;
-const BRAILLE_COUNT = 256;
 
 function randomBraille(): string {
   // Use sparse patterns (few dots) for in-flight look
   const sparse = [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80,
                   0x03, 0x05, 0x09, 0x11, 0x41, 0x21, 0x44, 0x22];
   return String.fromCharCode(BRAILLE_BASE + sparse[Math.floor(Math.random() * sparse.length)]);
-}
-
-function isEmpty(ch: string): boolean {
-  return ch === "\u2800" || ch === " ";
 }
 
 /** Quadratic ease-out. */
