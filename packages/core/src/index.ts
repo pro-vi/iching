@@ -88,6 +88,9 @@ export { clamp } from "./clamp.js";
 // Type guard — value ∈ a readonly string-literal list, shared by the two config validators
 export { isOneOf } from "./is-one-of.js";
 
+// Search-fold: NFD + strip diacritics + lowercase, shared by hexagram + journal search
+export { foldForSearch } from "./text-fold.js";
+
 // Detail
 export { type HexagramDetail, buildHexagramDetail } from "./detail.js";
 

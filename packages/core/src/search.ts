@@ -2,18 +2,13 @@
 
 import type { Hexagram } from "./types.js";
 import { GUA } from "./data/gua.js";
+import { foldForSearch } from "./text-fold.js";
 import { TRIGRAMS } from "./data/trigrams.js";
 import { trigramIndex } from "./identify/structure.js";
 import { BINARY_TO_KW } from "./identify/lookup.js";
 import { toSimplified } from "./i18n/simplify.js";
 
 /** Strip diacritics from a string for accent-insensitive matching */
-function normalize(str: string): string {
-  return str
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
 
 // ---------------------------------------------------------------------------
 // Trigram vocabulary — how practitioners actually name the eight trigrams.
@@ -104,7 +99,7 @@ export interface ScoredHexagram {
  * terminal dict-browse filter) that just want the ranked list.
  */
 export function searchHexagramsScored(query: string): ScoredHexagram[] {
-  const q = normalize(query.trim());
+  const q = foldForSearch(query.trim());
   if (q.length === 0) return GUA.map((gua, i) => ({ kw: i + 1, gua, score: 0 }));
 
   // Trigram resolution — a pair pins one KW number; a single token marks a family.
@@ -123,8 +118,8 @@ export function searchHexagramsScored(query: string): ScoredHexagram[] {
     // dictionary displays toSimplified(gua.n) (e.g. 兑), so a user types the
     // simplified form they see — which would never match the Traditional gua.n.
     const chineseSimp = toSimplified(gua.n).toLowerCase();
-    const pinyin = normalize(gua.p);
-    const english = normalize(gua.ename);
+    const pinyin = foldForSearch(gua.p);
+    const english = foldForSearch(gua.ename);
 
     let bestScore = Infinity;
 

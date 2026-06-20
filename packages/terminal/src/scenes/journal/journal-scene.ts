@@ -8,7 +8,7 @@ import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import type { DisplayLanguage, HistoryEntry } from "@iching/core";
-import { GUA, TRIGRAMS, clamp, compareEntryTime, dateInZone, formatTime, stripTerminalControls, toSimplified } from "@iching/core";
+import { GUA, TRIGRAMS, clamp, compareEntryTime, dateInZone, foldForSearch, formatTime, stripTerminalControls, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth, truncateToWidth, fitLine } from "../../layout/measure.ts";
 // Re-exported for callers that have long imported it from here (e.g. tests).
@@ -120,12 +120,6 @@ export function sanitizeFieldText(text: string): string {
 }
 
 /** Strip diacritics for accent-insensitive pinyin matching. */
-function normalize(str: string): string {
-  return str
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
 
 /** Does this hexagram match the query (name / simplified / pinyin / ename / number)? */
 function hexagramMatches(kw: number, q: string): boolean {
@@ -134,23 +128,23 @@ function hexagramMatches(kw: number, q: string): boolean {
   return (
     gua.n.includes(q) ||
     toSimplified(gua.n).includes(q) ||
-    normalize(gua.p).includes(q) ||
-    normalize(gua.ename).includes(q) ||
+    foldForSearch(gua.p).includes(q) ||
+    foldForSearch(gua.ename).includes(q) ||
     String(kw).startsWith(q)
   );
 }
 
 /** Live search predicate: intention text + primary/becoming hexagram. */
 export function entryMatchesQuery(entry: JournalEntryView, query: string): boolean {
-  const q = normalize(query.trim());
+  const q = foldForSearch(query.trim());
   if (q.length === 0) return true;
-  if (entry.intention && normalize(entry.intention).includes(q)) return true;
+  if (entry.intention && foldForSearch(entry.intention).includes(q)) return true;
   if (hexagramMatches(entry.cast.primary, q)) return true;
   if (entry.cast.becoming !== null && hexagramMatches(entry.cast.becoming, q)) return true;
   // A reflection note is the richest thing you write about a reading — find a
   // cast by what you later made of it, not only the question you first asked.
   // A failed attempt never reached disk, so it is not searchable.
-  if (entry.notes?.some((n) => n.state !== "failed" && normalize(n.text).includes(q))) return true;
+  if (entry.notes?.some((n) => n.state !== "failed" && foldForSearch(n.text).includes(q))) return true;
   return false;
 }
 
@@ -171,7 +165,7 @@ function entrySearchHaystack(entry: JournalEntryView): string {
     const gua = GUA[kw - 1];
     if (gua) parts.push(gua.n, toSimplified(gua.n), gua.p, gua.ename);
   }
-  return normalize(parts.join("\n"));
+  return foldForSearch(parts.join("\n"));
 }
 
 export class JournalScene implements Scene {
@@ -1464,7 +1458,7 @@ export class JournalScene implements Scene {
   }
 
   private setQuery(query: string): void {
-    const q = normalize(query.trim());
+    const q = foldForSearch(query.trim());
     // Fast path equivalent to entryMatchesQuery: the static text (intention +
     // hexagram fields) is a precomputed substring check; numbers stay prefix-
     // matched and notes stay live (sparse, and a note added this session must be
@@ -1477,7 +1471,7 @@ export class JournalScene implements Scene {
               this.searchHaystacks[i].includes(q) ||
               String(e.cast.primary).startsWith(q) ||
               (e.cast.becoming !== null && String(e.cast.becoming).startsWith(q)) ||
-              (e.notes?.some((n) => n.state !== "failed" && normalize(n.text).includes(q)) ?? false),
+              (e.notes?.some((n) => n.state !== "failed" && foldForSearch(n.text).includes(q)) ?? false),
           );
     if (this.cursor >= this.filtered.length) {
       this.cursor = Math.max(0, this.filtered.length - 1);
@@ -1497,7 +1491,6 @@ export class JournalScene implements Scene {
     this.scroll.ensureVisible(this.cursor);
   }
 }
-
 
 function formatNumber(value: number, digits: number): string {
   if (!Number.isFinite(value)) return "0";
