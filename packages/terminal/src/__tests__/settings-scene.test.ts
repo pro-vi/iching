@@ -1,20 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { bufferText, sceneCtx } from "../testing.ts";
+import { bufferText, sceneCtx, settingsValues } from "../testing.ts";
 import { SettingsScene } from "../scenes/settings/settings-scene.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import type { SceneContext } from "../scene/types.ts";
 
 function makeScene(language: "zh-Hans" | "zh-Hant" | "en" = "en"): SettingsScene {
-  return new SettingsScene({
-    theme: "bone",
-    language,
-    taijituStyle: "dots",
-    glyphAnim: "dots",
-    glyphFont: "kaiti",
-    castMethod: "coin",
-    castMode: "auto",
-    entropy: "crypto",
-  });
+  return new SettingsScene(settingsValues({ language }));
 }
 
 describe("SettingsScene language", () => {
@@ -114,30 +105,12 @@ describe("SettingsScene entropy row", () => {
   });
 
   test("an initial bound value is preserved", () => {
-    const scene = new SettingsScene({
-      theme: "bone",
-      language: "en",
-      taijituStyle: "dots",
-      glyphAnim: "dots",
-      glyphFont: "kaiti",
-      castMethod: "coin",
-      castMode: "auto",
-      entropy: "bound",
-    });
+    const scene = new SettingsScene(settingsValues({ entropy: "bound" }));
     expect(scene.getValues().entropy).toBe("bound");
   });
 
   test("zh chips render the ratified labels (繫於心念 / 系于心念)", () => {
-    const scene = new SettingsScene({
-      theme: "bone",
-      language: "zh-Hant",
-      taijituStyle: "dots",
-      glyphAnim: "dots",
-      glyphFont: "kaiti",
-      castMethod: "coin",
-      castMode: "auto",
-      entropy: "bound",
-    });
+    const scene = new SettingsScene(settingsValues({ language: "zh-Hant", entropy: "bound" }));
     const ctx = sceneCtx(100, 30);
     const buf = CellBuffer.create(100, 30);
     scene.render(buf, ctx);
@@ -214,16 +187,7 @@ describe("SettingsScene entropy preview", () => {
   });
 
   test("zh-Hant tributary labels render 機器/心念/此刻", () => {
-    const scene = new SettingsScene({
-      theme: "bone",
-      language: "zh-Hant",
-      taijituStyle: "dots",
-      glyphAnim: "dots",
-      glyphFont: "kaiti",
-      castMethod: "coin",
-      castMode: "auto",
-      entropy: "bound",
-    });
+    const scene = new SettingsScene(settingsValues({ language: "zh-Hant", entropy: "bound" }));
     const ctx = sceneCtx(80, 40);
     focusEntropy(scene, ctx);
     const text = renderText(scene, ctx);

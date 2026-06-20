@@ -3,20 +3,11 @@
 // q to back/home, and Settings has no text input that needs the character.
 
 import { describe, expect, test } from "bun:test";
-import { sceneCtx } from "../testing.ts";
+import { sceneCtx, settingsValues } from "../testing.ts";
 import { SettingsScene } from "../scenes/settings/settings-scene.ts";
 
 function makeScene(): SettingsScene {
-  return new SettingsScene({
-    theme: "bone",
-    language: "en",
-    taijituStyle: "dots",
-    glyphAnim: "dots",
-    glyphFont: "kaiti",
-    castMethod: "coin",
-    castMode: "auto",
-    entropy: "crypto",
-  });
+  return new SettingsScene(settingsValues());
 }
 
 describe("SettingsScene q key", () => {
