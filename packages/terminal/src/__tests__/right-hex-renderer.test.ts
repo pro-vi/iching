@@ -1,28 +1,8 @@
 import { describe, test, expect } from "bun:test";
+import { changingCast } from "../testing.ts";
 import { renderRightHexagram, renderRightMorph } from "../scenes/cast/right-hex-renderer.ts";
 import { CastModel } from "../scenes/cast/model.ts";
 import { CellBuffer } from "../render/buffer.ts";
-import type { Cast } from "@iching/core";
-
-function makeChangingCast(): Cast {
-  return {
-    lines: [
-      { value: 9, isYang: true, isChanging: true },   // line 1: old yang -> yin
-      { value: 8, isYang: false, isChanging: false },  // line 2: young yin
-      { value: 7, isYang: true, isChanging: false },   // line 3: young yang
-      { value: 6, isYang: false, isChanging: true },   // line 4: old yin -> yang
-      { value: 7, isYang: true, isChanging: false },   // line 5: young yang
-      { value: 8, isYang: false, isChanging: false },  // line 6: young yin
-    ],
-    primary: 21,
-    becoming: 42,
-    changingPositions: [1, 4],
-    nuclear: 39,
-    polarity: 48,
-    mirror: 22,
-    diagonal: 47,
-  };
-}
 
 function bufHasContentAtRow(buf: CellBuffer, row: number): boolean {
   for (let c = 0; c < buf.width; c++) {
@@ -34,7 +14,7 @@ function bufHasContentAtRow(buf: CellBuffer, row: number): boolean {
 describe("right-hex-renderer", () => {
   describe("renderRightHexagram", () => {
     test("does not render when layout is centered", () => {
-      const cast = makeChangingCast();
+      const cast = changingCast();
       const model = new CastModel(cast);
       model.layout = "centered";
       model.splitProgress = 0;
@@ -54,7 +34,7 @@ describe("right-hex-renderer", () => {
     });
 
     test("renders non-changing lines at offset when split", () => {
-      const cast = makeChangingCast();
+      const cast = changingCast();
       const model = new CastModel(cast);
       model.layout = "side-by-side";
       model.splitProgress = 1;
@@ -79,7 +59,7 @@ describe("right-hex-renderer", () => {
     });
 
     test("skips changing lines with active morph", () => {
-      const cast = makeChangingCast();
+      const cast = changingCast();
       const model = new CastModel(cast);
       model.layout = "side-by-side";
       model.splitProgress = 1;
@@ -106,7 +86,7 @@ describe("right-hex-renderer", () => {
     });
 
     test("renders transformed lines when morph is complete", () => {
-      const cast = makeChangingCast();
+      const cast = changingCast();
       const model = new CastModel(cast);
       model.layout = "side-by-side";
       model.splitProgress = 1;
@@ -131,7 +111,7 @@ describe("right-hex-renderer", () => {
 
   describe("renderRightMorph", () => {
     test("does not render when layout is centered", () => {
-      const cast = makeChangingCast();
+      const cast = changingCast();
       const model = new CastModel(cast);
       model.layout = "centered";
       model.rightHexMorphProgress[0] = 0.5;
@@ -150,7 +130,7 @@ describe("right-hex-renderer", () => {
     });
 
     test("renders morphing lines when split and morph in progress", () => {
-      const cast = makeChangingCast();
+      const cast = changingCast();
       const model = new CastModel(cast);
       model.layout = "side-by-side";
       model.splitProgress = 1;
@@ -172,7 +152,7 @@ describe("right-hex-renderer", () => {
     });
 
     test("does not render when morph is complete", () => {
-      const cast = makeChangingCast();
+      const cast = changingCast();
       const model = new CastModel(cast);
       model.layout = "side-by-side";
       model.splitProgress = 1;

@@ -2,7 +2,7 @@
 // __tests__ (the cross-package analogue is @iching/core/testing); not part of the
 // public surface.
 
-import type { DisplayLanguage } from "@iching/core";
+import type { Cast, DisplayLanguage } from "@iching/core";
 import type { ColorSupport } from "./color/detect.ts";
 import type { SceneContext } from "./scene/types.ts";
 import type { CellBuffer } from "./render/buffer.ts";
@@ -33,4 +33,29 @@ export function bufferText(buf: CellBuffer): string {
   return Array.from({ length: buf.height }, (_, row) =>
     buf.getRow(row).map((cell) => cell.char).join(""),
   ).join("\n");
+}
+
+/**
+ * Hexagram 21 with lines 1 and 4 changing (→ 42). Three render suites shared this
+ * exact fixed cast: the line values, becoming, and four derivations are hardcoded
+ * (not computed via castOf) so rendered output stays deterministic across runs.
+ */
+export function changingCast(): Cast {
+  return {
+    lines: [
+      { value: 9, isYang: true, isChanging: true }, // line 1: old yang -> yin
+      { value: 8, isYang: false, isChanging: false }, // line 2: young yin
+      { value: 7, isYang: true, isChanging: false }, // line 3: young yang
+      { value: 6, isYang: false, isChanging: true }, // line 4: old yin -> yang
+      { value: 7, isYang: true, isChanging: false }, // line 5: young yang
+      { value: 8, isYang: false, isChanging: false }, // line 6: young yin
+    ],
+    primary: 21,
+    becoming: 42,
+    changingPositions: [1, 4],
+    nuclear: 39,
+    polarity: 48,
+    mirror: 22,
+    diagonal: 47,
+  };
 }

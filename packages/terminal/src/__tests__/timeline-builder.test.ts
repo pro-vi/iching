@@ -1,10 +1,10 @@
 import { describe, test, expect } from "bun:test";
+import { changingCast } from "../testing.ts";
 import { buildCastTimeline, type CastGlyphConfig } from "../scenes/cast/timeline-builder.ts";
 import { CastModel } from "../scenes/cast/model.ts";
 import { getPreset } from "../animation/presets.ts";
 import { stepDuration } from "../animation/timeline.ts";
 import { GLYPH_ANIM_DURATION_MS } from "../glyph-anim/factory.ts";
-import type { Cast } from "@iching/core";
 
 function makeCast(overrides?: Partial<Cast>): Cast {
   return {
@@ -24,26 +24,6 @@ function makeCast(overrides?: Partial<Cast>): Cast {
     mirror: 64,
     diagonal: 63,
     ...overrides,
-  };
-}
-
-function makeChangingCast(): Cast {
-  return {
-    lines: [
-      { value: 9, isYang: true, isChanging: true },
-      { value: 8, isYang: false, isChanging: false },
-      { value: 7, isYang: true, isChanging: false },
-      { value: 6, isYang: false, isChanging: true },
-      { value: 7, isYang: true, isChanging: false },
-      { value: 8, isYang: false, isChanging: false },
-    ],
-    primary: 21,
-    becoming: 42,
-    changingPositions: [1, 4],
-    nuclear: 39,
-    polarity: 48,
-    mirror: 22,
-    diagonal: 47,
   };
 }
 
@@ -100,7 +80,7 @@ describe("buildCastTimeline", () => {
   });
 
   test("timeline with changing lines includes morph steps", () => {
-    const cast = makeChangingCast();
+    const cast = changingCast();
     const model = new CastModel(cast);
     const timing = getPreset("default");
     const step = buildCastTimeline(cast, model, timing);
@@ -152,7 +132,7 @@ describe("buildCastTimeline", () => {
   });
 
   test("changing cast does not set unchanging subtitle", () => {
-    const cast = makeChangingCast();
+    const cast = changingCast();
     const model = new CastModel(cast);
     const timing = getPreset("reduced");
     const step = buildCastTimeline(cast, model, timing);
@@ -165,7 +145,7 @@ describe("buildCastTimeline", () => {
   });
 
   test("wide terminal timeline includes split steps for becoming cast", () => {
-    const cast = makeChangingCast();
+    const cast = changingCast();
     const model = new CastModel(cast);
     const timing = getPreset("reduced");
     const step = buildCastTimeline(cast, model, timing, 80); // wide
@@ -185,7 +165,7 @@ describe("buildCastTimeline", () => {
   });
 
   test("narrow terminal uses in-place morph for becoming cast", () => {
-    const cast = makeChangingCast();
+    const cast = changingCast();
     const model = new CastModel(cast);
     const timing = getPreset("reduced");
     const step = buildCastTimeline(cast, model, timing, 40); // narrow
@@ -204,7 +184,7 @@ describe("buildCastTimeline", () => {
   });
 
   test("wide terminal timeline has positive duration with changing lines", () => {
-    const cast = makeChangingCast();
+    const cast = changingCast();
     const model = new CastModel(cast);
     const timing = getPreset("default");
     const step = buildCastTimeline(cast, model, timing, 80);

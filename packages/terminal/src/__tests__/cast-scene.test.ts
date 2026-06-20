@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { sceneCtx } from "../testing.ts";
+import { changingCast, sceneCtx } from "../testing.ts";
 import { CastScene } from "../scenes/cast/cast-scene.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import type { SceneContext } from "../scene/types.ts";
@@ -28,25 +28,6 @@ function makeCast(overrides?: Partial<Cast>): Cast {
 }
 
 /** Cast with changing lines (becoming) */
-function makeChangingCast(): Cast {
-  return {
-    lines: [
-      { value: 9, isYang: true, isChanging: true },
-      { value: 8, isYang: false, isChanging: false },
-      { value: 7, isYang: true, isChanging: false },
-      { value: 6, isYang: false, isChanging: true },
-      { value: 7, isYang: true, isChanging: false },
-      { value: 8, isYang: false, isChanging: false },
-    ],
-    primary: 21,
-    becoming: 42,
-    changingPositions: [1, 4],
-    nuclear: 39,
-    polarity: 48,
-    mirror: 22,
-    diagonal: 47,
-  };
-}
 
 describe("CastScene", () => {
   test("creates from Cast data without error", () => {
@@ -56,7 +37,7 @@ describe("CastScene", () => {
   });
 
   test("creates from Cast with changing lines without error", () => {
-    const cast = makeChangingCast();
+    const cast = changingCast();
     const scene = new CastScene(cast);
     expect(scene).toBeDefined();
   });
@@ -207,7 +188,7 @@ describe("CastScene", () => {
   });
 
   test("side-by-side activates for wide terminal with becoming", () => {
-    const cast = makeChangingCast();
+    const cast = changingCast();
     const scene = new CastScene(cast, "reduced", 80); // wide terminal
     const ctx = sceneCtx(80, 24, "truecolor");
 
@@ -225,7 +206,7 @@ describe("CastScene", () => {
   });
 
   test("narrow terminal falls back to in-place morph", () => {
-    const cast = makeChangingCast();
+    const cast = changingCast();
     const scene = new CastScene(cast, "reduced", 40); // narrow terminal
     const ctx = sceneCtx(80, 24, "truecolor");
 
@@ -245,7 +226,7 @@ describe("CastScene", () => {
   });
 
   test("side-by-side renders without errors on wide buffer", () => {
-    const cast = makeChangingCast();
+    const cast = changingCast();
     const scene = new CastScene(cast, "reduced", 80);
     const ctx = sceneCtx(80, 24, "truecolor");
 
@@ -294,7 +275,7 @@ describe("CastScene escape key", () => {
   });
 
   test("escape returns home in exploration mode (footer advertises it)", () => {
-    const scene = new CastScene(makeChangingCast(), "reduced", 80);
+    const scene = new CastScene(changingCast(), "reduced", 80);
     const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.skipToComplete(false);
@@ -345,7 +326,7 @@ describe("CastScene pace control", () => {
   });
 
   test("s skips to the fully revealed state", () => {
-    const scene = new CastScene(makeChangingCast(), "reduced", 80);
+    const scene = new CastScene(changingCast(), "reduced", 80);
     const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.update(100, 33, ctx);
@@ -398,7 +379,7 @@ describe("CastScene pace control", () => {
 
 describe("CastScene reading panel", () => {
   test("[r] reveals the changing lines' texts, read top-down", () => {
-    const scene = new CastScene(makeChangingCast(), "reduced", 80);
+    const scene = new CastScene(changingCast(), "reduced", 80);
     const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.skipToComplete(false);
@@ -427,7 +408,7 @@ describe("CastScene reading panel", () => {
   });
 
   test("no reading panel before the reveal settles", () => {
-    const scene = new CastScene(makeChangingCast(), "reduced", 80);
+    const scene = new CastScene(changingCast(), "reduced", 80);
     const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.update(100, 33, ctx);
@@ -441,7 +422,7 @@ describe("CastScene reading panel", () => {
     // different widths, so per-line centering would land them at different
     // columns. Left-alignment puts both at the panel block's left edge (col 4).
     const cols = 200;
-    const scene = new CastScene(makeChangingCast(), "reduced", cols, undefined, 40);
+    const scene = new CastScene(changingCast(), "reduced", cols, undefined, 40);
     const ctx: SceneContext = { cols, rows: 40, done: false, colorSupport: "truecolor", language: "en" };
     scene.enter(ctx);
     scene.skipToComplete(false);
@@ -458,7 +439,7 @@ describe("CastScene reading panel", () => {
   });
 
   test("[r] toggles the reading texts; the figure and prompt stay", () => {
-    const scene = new CastScene(makeChangingCast(), "reduced", 80);
+    const scene = new CastScene(changingCast(), "reduced", 80);
     const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.skipToComplete(false);
@@ -487,7 +468,7 @@ describe("CastScene reading panel", () => {
 
 describe("CastScene openDetail cast context", () => {
   test("primary detail carries the changing positions", () => {
-    const scene = new CastScene(makeChangingCast(), "reduced", 80);
+    const scene = new CastScene(changingCast(), "reduced", 80);
     const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.skipToComplete(false);
@@ -499,7 +480,7 @@ describe("CastScene openDetail cast context", () => {
   });
 
   test("becoming detail opens without cast context", () => {
-    const scene = new CastScene(makeChangingCast(), "reduced", 80);
+    const scene = new CastScene(changingCast(), "reduced", 80);
     const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.skipToComplete(false);
@@ -526,7 +507,7 @@ describe("CastScene journal replay (skipToComplete(false))", () => {
   // reading turns on would be an empty ritual.
   test("replayed changing cast shows the reading panel and intention", () => {
     const scene = new CastScene(
-      makeChangingCast(),
+      changingCast(),
       "reduced",
       80,
       undefined,
