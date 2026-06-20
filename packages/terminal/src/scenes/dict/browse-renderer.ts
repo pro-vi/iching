@@ -1,6 +1,7 @@
 // BrowseRenderer — render header, list rows, footer, search input
 
 import type { CellBuffer } from "../../render/buffer.ts";
+import { FOOTER_ROWS } from "./layout.ts";
 import type { SceneContext } from "../../scene/types.ts";
 import type { BrowseModel } from "./browse-model.ts";
 import type { TextInput } from "../../widgets/text-input.ts";
@@ -11,7 +12,6 @@ import { stringWidth, truncateToWidth } from "../../layout/measure.ts";
 import { tr, countUnit } from "../../i18n/messages.ts";
 
 const HEADER_ROWS = 2; // header + separator
-const FOOTER_ROWS = 2; // separator + footer
 
 /** Calculate how many list rows fit in the viewport */
 export function listViewportHeight(termRows: number): number {

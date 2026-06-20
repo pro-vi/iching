@@ -1,6 +1,7 @@
 // DetailScene — full hexagram reference view
 
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
+import { FOOTER_ROWS } from "./layout.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import type { DisplayLanguage, GlyphFont } from "@iching/core";
@@ -16,8 +17,6 @@ export interface DetailGlyphConfig {
   glyphAnim: GlyphAnimStyle;
   glyphFont: GlyphFont;
 }
-
-const FOOTER_ROWS = 2;
 
 export class DetailScene implements Scene {
   private model: DetailModel;

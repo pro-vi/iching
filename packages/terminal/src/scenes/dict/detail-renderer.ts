@@ -1,6 +1,7 @@
 // DetailRenderer — render hexagram detail into CellBuffer
 
 import type { CellBuffer } from "../../render/buffer.ts";
+import { FOOTER_ROWS } from "./layout.ts";
 import type { SceneContext } from "../../scene/types.ts";
 import type { DetailModel, DerivedLink } from "./detail-model.ts";
 import type { DisplayLanguage } from "@iching/core";
@@ -12,7 +13,6 @@ import { GLYPHS } from "../../glyphs.ts";
 import { tr } from "../../i18n/messages.ts";
 import { pageIndicator } from "../../widgets/scroll.ts";
 
-const FOOTER_ROWS = 2;
 const PADDING = 2;
 
 /** Build the full content as an array of {text, style} lines */
