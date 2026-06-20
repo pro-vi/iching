@@ -89,6 +89,21 @@ function structureLines(structure: Pick<Structure, "upper" | "lower">): [string,
   ];
 }
 
+/**
+ * The becoming-hexagram line — `Becoming: ䷁ 坤 (Kūn) — Hexagram 2 [lines 1,3]`.
+ * Shared by the cast and journal-show surfaces. The moving-line bracket is
+ * appended only when positions exist; a becoming is always derived FROM moving
+ * lines, so the guard never trips in practice — it just makes both surfaces
+ * agree (formatCastPlain previously appended the bracket unconditionally).
+ */
+function becomingLine(hex: Hexagram, kw: number, positions: number[]): string {
+  const moving =
+    positions.length > 0
+      ? ` [${positions.length === 1 ? "line" : "lines"} ${positions.join(",")}]`
+      : "";
+  return `Becoming: ${hex.u} ${hex.n} (${hex.p}) — Hexagram ${kw}${moving}`;
+}
+
 /** Format a full reading as plain text */
 export function formatCastPlain(
   cast: Cast,
@@ -131,9 +146,7 @@ export function formatCastPlain(
   // Becoming
   if (cast.becoming !== null) {
     const b = GUA[cast.becoming - 1];
-    lines.push(
-      `Becoming: ${b.u} ${b.n} (${b.p}) — Hexagram ${cast.becoming} [${cast.changingPositions.length === 1 ? "line" : "lines"} ${cast.changingPositions.join(",")}]`,
-    );
+    lines.push(becomingLine(b, cast.becoming, cast.changingPositions));
     lines.push("");
   }
 
@@ -310,12 +323,8 @@ export function formatJournalShowPlain(
 
   if (entry.cast.becoming !== null) {
     const b = GUA[entry.cast.becoming - 1];
-    const pos = entry.cast.changingPositions;
     lines.push("");
-    lines.push(
-      `Becoming: ${b.u} ${b.n} (${b.p}) — Hexagram ${entry.cast.becoming}` +
-        (pos.length > 0 ? ` [${pos.length === 1 ? "line" : "lines"} ${pos.join(",")}]` : ""),
-    );
+    lines.push(becomingLine(b, entry.cast.becoming, entry.cast.changingPositions));
   }
 
   // The reading is the crux you sit with — the texts the cast turns on by the
