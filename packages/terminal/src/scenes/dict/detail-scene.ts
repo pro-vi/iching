@@ -2,6 +2,7 @@
 
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import { FOOTER_ROWS } from "./layout.ts";
+import { viewportHeight } from "../../widgets/scroll.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import type { DisplayLanguage, GlyphFont } from "@iching/core";
@@ -36,7 +37,7 @@ export class DetailScene implements Scene {
   }
 
   enter(ctx: SceneContext): void {
-    this.model.viewportHeight = ctx.rows - FOOTER_ROWS;
+    this.model.viewportHeight = viewportHeight(ctx.rows, FOOTER_ROWS);
 
     // Create glyph animator on entry (skip if already completed from prior visit)
     if (this.glyphConfig && !this.model.glyphAnimDone) {
@@ -82,7 +83,7 @@ export class DetailScene implements Scene {
   }
 
   resize(_cols: number, rows: number): void {
-    this.model.viewportHeight = rows - FOOTER_ROWS;
+    this.model.viewportHeight = viewportHeight(rows, FOOTER_ROWS);
   }
 
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
