@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { errnoCode } from "../fs-errors.js";
 import type { UserConfig } from "../types.js";
 import type { ConfigStore } from "../config-store.js";
 import { atomicWriteJson } from "./atomic-write.js";
@@ -254,7 +255,7 @@ export class JsonConfigStore implements ConfigStore {
     try {
       raw = await readFile(this.path, "utf-8");
     } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+      if (errnoCode(err) === "ENOENT") return null;
       // The config exists but can't be read at all — a directory left at the
       // path, permission denied (a root-owned config after a sudo run). load()
       // runs at startup, so an unguarded throw crashes the app before it draws.

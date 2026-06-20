@@ -1,4 +1,5 @@
 import { appendFile, readFile, mkdir, open, stat } from "node:fs/promises";
+import { errnoCode } from "../fs-errors.js";
 import { dirname, join } from "node:path";
 import { createReadStream } from "node:fs";
 import { createInterface } from "node:readline";
@@ -82,7 +83,7 @@ async function endsMidLine(path: string): Promise<boolean> {
   try {
     handle = await open(path, "r");
   } catch (err: unknown) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return false;
+    if (errnoCode(err) === "ENOENT") return false;
     throw err;
   }
   try {

@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { errnoCode } from "../fs-errors.js";
 import type { DailyCacheRecord } from "../types.js";
 import type { DailyCacheStore } from "../daily-cache-store.js";
 import { atomicWriteJson } from "./atomic-write.js";
@@ -77,7 +78,7 @@ export class JsonDailyCacheStore implements DailyCacheStore {
     try {
       raw = await readFile(this.path, "utf-8");
     } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+      if (errnoCode(err) === "ENOENT") return null;
       // The cache exists but can't be read at all — a directory left at the
       // path, permission denied (a root-owned cache after a sudo run). read()
       // runs every launch, so an unguarded throw here crashes startup. The

@@ -9,6 +9,7 @@ import {
   noteMatchesEntry,
   entryNoteRef,
   stripTerminalControls,
+  errnoCode,
 } from "@iching/storage";
 import { resolvePathsFor } from "../util/paths.js";
 import {
@@ -44,7 +45,7 @@ async function assertJournalReadable(statePath: string): Promise<void> {
       return; // present, a file, readable — proceed to the read
     }
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return; // no journal yet — reads empty
+    if (errnoCode(err) === "ENOENT") return; // no journal yet — reads empty
     // any other stat/access failure falls through to the calm message below
   }
   console.error(`iching: couldn't read your journal at ${statePath} (permission denied, or not a file?).`);

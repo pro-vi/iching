@@ -1,4 +1,5 @@
 import { writeFile } from "node:fs/promises";
+import { errnoCode } from "../fs-errors.js";
 
 /**
  * Best-effort back up corrupt bytes to `${path}.corrupt`, never clobbering an
@@ -13,6 +14,6 @@ export async function quarantineCorrupt(path: string, raw: string): Promise<bool
     await writeFile(`${path}.corrupt`, raw, { encoding: "utf-8", flag: "wx" });
     return true;
   } catch (err: unknown) {
-    return (err as NodeJS.ErrnoException).code === "EEXIST";
+    return errnoCode(err) === "EEXIST";
   }
 }

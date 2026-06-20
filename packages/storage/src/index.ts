@@ -5,6 +5,7 @@ export type { DailyCacheRecord, UserConfig, HistoryQuery } from "./types.js";
 
 // Paths
 export { resolvePaths } from "./paths.js";
+export { errnoCode } from "./fs-errors.js";
 export type { ResolvedPaths } from "./paths.js";
 
 // Store interfaces
