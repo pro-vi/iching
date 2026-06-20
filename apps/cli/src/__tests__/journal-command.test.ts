@@ -2,46 +2,20 @@
 // name-enriched JSON output, method provenance notes, and torn-line survival.
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { runCli as spawnCli, type RunResult } from "../testing.ts";
 import { mkdtemp, rm, writeFile, appendFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import type { HistoryEntry } from "@iching/core";
 import { GUA, castHexagram, SeededRandomSource } from "@iching/core";
 import { castOf } from "@iching/core/testing";
 import { localToday } from "../util/today.ts";
 
-const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
-const MAIN_TS = resolve(REPO_ROOT, "apps/cli/src/main.ts");
-
-interface RunResult {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}
-
 async function runCli(dataDir: string, args: string[]): Promise<RunResult> {
-  const proc = Bun.spawn(
-    ["bun", MAIN_TS, "--data-dir", dataDir, ...args],
-    {
-      cwd: REPO_ROOT,
-      stdin: "pipe",
-      stdout: "pipe",
-      stderr: "pipe",
-      // Pin the subprocess clock to UTC. `bun test` resolves `new Date()` in
-      // UTC, but a spawned subprocess otherwise uses the system timezone — so
-      // the test process and the CLI computed different `localToday()` values
-      // during the window between UTC midnight and local midnight, making the
-      // daily-anchor ("show today") tests fail there. One TZ for both ends it.
-      env: { ...process.env, NO_COLOR: "1", TZ: "UTC" },
-    },
-  );
-  proc.stdin.end();
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-  const exitCode = await proc.exited;
-  return { exitCode, stdout, stderr };
+  // Pin the subprocess clock to UTC so the test and the spawned CLI agree on
+  // localToday() — without it the daily-anchor tests flake between UTC midnight
+  // and local midnight.
+  return spawnCli(args, { dataDir, env: { TZ: "UTC" } });
 }
 
 // A genuine cast OF `primary` that becomes `becoming` (castOf flips exactly the
