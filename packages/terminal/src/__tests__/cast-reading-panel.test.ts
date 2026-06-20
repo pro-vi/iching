@@ -41,10 +41,12 @@ function settledRows(
   language: DisplayLanguage,
 ): string[] {
   const scene = new CastScene(cast, "default", cols, GLYPH_CFG, rows, undefined, { language });
-  scene.skipToComplete();
+  // Settle directly to the static end-state (glyph included). The virtual clock
+  // now advances by the clamped per-frame dt, so a single big update() no longer
+  // fast-forwards the glyph; skipToComplete(false) IS the settled state.
+  scene.skipToComplete(false);
   const ctx: SceneContext = { cols, rows, done: false, colorSupport: "truecolor", language };
-  scene.update(0, 0, ctx); // anchor the glyph animator's clock
-  scene.update(120_000, 33, ctx); // then advance far past any glyph animation
+  scene.update(0, 0, ctx);
   expect(scene.getModel().showPrompt).toBe(true);
   // The reading is hidden by default; reveal it with [r] — these tests verify
   // how the reading renders (survives the glyph, fits, left-aligns), so it must
@@ -265,5 +267,57 @@ describe("the glyph yields to the texts — and returns when there is room", () 
     // ≤15 today (the irreducible long-judgment limit at 80×24). A jump above
     // this means the title stopped yielding and the headline bug is back.
     expect(truncated).toBeLessThanOrEqual(15);
+  });
+});
+
+describe("cast-scene polish (review #3, #9)", () => {
+  function renderAt(cast: Cast, cols: number, rows: number, showReading: boolean): string {
+    const scene = new CastScene(cast, "default", cols, GLYPH_CFG, rows);
+    scene.skipToComplete(false); // settled end-state (clamped-dt clock; see settledRows)
+    const ctx: SceneContext = { cols, rows, done: false, colorSupport: "truecolor", language: "en" };
+    scene.update(0, 0, ctx);
+    if (showReading) scene.handleKey({ type: "char", char: "r" }, ctx); // reveal the reading
+    const frame = CellBuffer.create(cols, rows);
+    scene.render(frame, ctx);
+    let text = "";
+    for (let r = 0; r < frame.height; r++) {
+      for (let c = 0; c < frame.width; c++) text += frame.getCell(r, c).char;
+      text += "\n";
+    }
+    return text;
+  }
+
+  test("#3: [s] settles the glyph instead of re-seeding its reveal", () => {
+    // skipToComplete(false) from the [s] handler: the central glyph snaps to its
+    // static end-state. The old default (true) re-seeded a fresh animator
+    // (glyphAnimDone=false), noisily re-playing the whole reveal.
+    const scene = new CastScene(makeCast(1, []), "default", 80, GLYPH_CFG, 40);
+    const ctx: SceneContext = { cols: 80, rows: 40, done: false, colorSupport: "truecolor", language: "en" };
+    scene.update(0, 0, ctx);
+    scene.update(120, 33, ctx); // mid-reveal: the glyph is animating, not done
+    expect(scene.getModel().showPrompt).toBe(false);
+    scene.handleKey({ type: "char", char: "s" }, ctx);
+    expect(scene.getModel().glyphAnimDone).toBe(true); // settled…
+    expect(scene.getModel().glyphAnimator).toBeNull(); // …not re-seeded to replay
+  });
+
+  test("#9: centered+becoming suppresses the standalone becoming title when the reading shows", () => {
+    // Tall-narrow (< MIN_SPLIT_WIDTH → centered, no side-by-side; no glyph either)
+    // renders the "→ <becoming>" title a few rows below the primary — exactly
+    // where the reading panel stacks down. Suppressed while the reading shows (it
+    // carries the becoming) so the two don't garble each other. The becoming
+    // hexagram NAME is the marker (it appears only in that title here — the 1-
+    // moving-line reading is the line text, and the footer "[←→]" is not it).
+    const cast = makeCast(11, [2]); // 泰 line 2 → a real becoming
+    const becomingName = GUA[cast.becoming! - 1].n;
+
+    const shown = renderAt(cast, 40, 30, /* showReading */ true);
+    expect(/[⠀-⣿]/.test(shown)).toBe(false); // no glyph at this width
+    expect(shown).not.toContain(becomingName); // the becoming title is suppressed
+    expect(shown).toContain("·"); // …while the reading itself still renders
+
+    // [r]-hidden, the becoming title comes back (nothing to overlap).
+    const hidden = renderAt(cast, 40, 30, /* showReading */ false);
+    expect(hidden).toContain(becomingName);
   });
 });

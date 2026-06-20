@@ -64,6 +64,19 @@ describe("CastScene", () => {
     expect(scene).toBeDefined();
   });
 
+  test("the virtual clock advances by the CLAMPED dt, not the unclamped elapsed gap", () => {
+    // The loop skips update() while the terminal is below the size floor but
+    // `elapsed` keeps growing; on restore the scene must credit only the clamped
+    // per-frame dt (like the yarrow scene), or it fast-forwards past the reveal —
+    // multiplied at 2×/4× pace.
+    const scene = new CastScene(makeCast(), "default", 80, undefined, 24);
+    const ctx = makeCtx();
+    scene.getModel().speed = 4; // [f] fast pace
+    scene.update(100_000, 50, ctx); // a huge elapsed jump, but dt clamped to 50
+    const s = scene as unknown as { virtualElapsed: number };
+    expect(s.virtualElapsed).toBe(200); // 50 × 4 — NOT 100000 (×4 = 400000)
+  });
+
   test("update/render cycle produces non-empty buffer", () => {
     const cast = makeCast();
     const scene = new CastScene(cast, "reduced");
@@ -134,8 +147,7 @@ describe("CastScene", () => {
     scene.enter(ctx);
 
     // Advance to completion
-    const duration = scene.getTimeline().duration;
-    scene.update(duration + 100, 33, ctx);
+    scene.skipToComplete(false);
 
     // Model should have prompt shown
     expect(scene.getModel().showPrompt).toBe(true);
@@ -152,8 +164,7 @@ describe("CastScene", () => {
 
     scene.enter(ctx);
 
-    const duration = scene.getTimeline().duration;
-    scene.update(duration + 100, 33, ctx);
+    scene.skipToComplete(false);
 
     expect(scene.getModel().showPrompt).toBe(true);
 
@@ -206,8 +217,7 @@ describe("CastScene", () => {
     scene.enter(ctx);
 
     // Advance to completion
-    const duration = scene.getTimeline().duration;
-    scene.update(duration + 100, 33, ctx);
+    scene.skipToComplete(false);
 
     const model = scene.getModel();
     // Wide terminal should use side-by-side layout
@@ -225,8 +235,7 @@ describe("CastScene", () => {
     scene.enter(ctx);
 
     // Advance to completion
-    const duration = scene.getTimeline().duration;
-    scene.update(duration + 100, 33, ctx);
+    scene.skipToComplete(false);
 
     const model = scene.getModel();
     // Narrow terminal should stay centered with in-place morph
@@ -246,8 +255,7 @@ describe("CastScene", () => {
     scene.enter(ctx);
 
     // Advance to completion
-    const duration = scene.getTimeline().duration;
-    scene.update(duration + 100, 33, ctx);
+    scene.skipToComplete(false);
 
     const frame = CellBuffer.create(80, 24);
     // Should not throw
@@ -292,7 +300,7 @@ describe("CastScene escape key", () => {
     const scene = new CastScene(makeChangingCast(), "reduced", 80);
     const ctx = makeCtx();
     scene.enter(ctx);
-    scene.update(scene.getTimeline().duration + 100, 33, ctx);
+    scene.skipToComplete(false);
     expect(scene.getModel().explorationMode).toBe(true);
 
     const result = scene.handleKey({ type: "escape" }, ctx);
@@ -329,7 +337,7 @@ describe("CastScene pace control", () => {
     scene.handleKey({ type: "char", char: " " }, ctx);
     expect(scene.getModel().paused).toBe(true);
 
-    // While paused, the timeline does not advance
+    // While paused, the timeline does not advance — even a big update is ignored.
     const before = scene.getModel().titleProgress;
     scene.update(scene.getTimeline().duration + 5000, 33, ctx);
     expect(scene.getModel().showPrompt).toBe(false);
@@ -370,7 +378,7 @@ describe("CastScene pace control", () => {
     const scene = new CastScene(makeCast(), "reduced");
     const ctx = makeCtx();
     scene.enter(ctx);
-    scene.update(scene.getTimeline().duration + 100, 33, ctx);
+    scene.skipToComplete(false);
     expect(scene.getModel().showPrompt).toBe(true);
 
     scene.handleKey({ type: "char", char: " " }, ctx);
@@ -396,7 +404,7 @@ describe("CastScene reading panel", () => {
     const scene = new CastScene(makeChangingCast(), "reduced", 80);
     const ctx = makeCtx();
     scene.enter(ctx);
-    scene.update(scene.getTimeline().duration + 100, 33, ctx);
+    scene.skipToComplete(false);
 
     // Hidden by default — the bare figure settles first.
     expect(frameText(scene, ctx).join("\n")).not.toContain("Biting on dried gristly meat");
@@ -413,7 +421,7 @@ describe("CastScene reading panel", () => {
     const scene = new CastScene(makeCast(), "reduced");
     const ctx = makeCtx();
     scene.enter(ctx);
-    scene.update(scene.getTimeline().duration + 100, 33, ctx);
+    scene.skipToComplete(false);
     scene.handleKey({ type: "char", char: "r" }, ctx); // reveal the reading
 
     const text = frameText(scene, ctx).join("\n");
@@ -439,7 +447,7 @@ describe("CastScene reading panel", () => {
     const scene = new CastScene(makeChangingCast(), "reduced", cols, undefined, 40);
     const ctx: SceneContext = { cols, rows: 40, done: false, colorSupport: "truecolor", language: "en" };
     scene.enter(ctx);
-    scene.update(scene.getTimeline().duration + 100, 33, ctx);
+    scene.skipToComplete(false);
     scene.handleKey({ type: "char", char: "r" }, ctx); // reveal the reading
 
     const rows = frameText(scene, ctx);
@@ -456,7 +464,7 @@ describe("CastScene reading panel", () => {
     const scene = new CastScene(makeChangingCast(), "reduced", 80);
     const ctx = makeCtx();
     scene.enter(ctx);
-    scene.update(scene.getTimeline().duration + 100, 33, ctx);
+    scene.skipToComplete(false);
 
     // Hidden by default — the bare figure settles first — and the footer
     // advertises the toggle so it's discoverable.
@@ -485,7 +493,7 @@ describe("CastScene openDetail cast context", () => {
     const scene = new CastScene(makeChangingCast(), "reduced", 80);
     const ctx = makeCtx();
     scene.enter(ctx);
-    scene.update(scene.getTimeline().duration + 100, 33, ctx);
+    scene.skipToComplete(false);
 
     const model = scene.getModel();
     model.focusedHex = "primary";
@@ -497,7 +505,7 @@ describe("CastScene openDetail cast context", () => {
     const scene = new CastScene(makeChangingCast(), "reduced", 80);
     const ctx = makeCtx();
     scene.enter(ctx);
-    scene.update(scene.getTimeline().duration + 100, 33, ctx);
+    scene.skipToComplete(false);
 
     scene.getModel().focusedHex = "becoming";
     const result = scene.handleKey({ type: "enter" }, ctx);
@@ -508,7 +516,7 @@ describe("CastScene openDetail cast context", () => {
     const scene = new CastScene(makeCast(), "reduced");
     const ctx = makeCtx();
     scene.enter(ctx);
-    scene.update(scene.getTimeline().duration + 100, 33, ctx);
+    scene.skipToComplete(false);
     scene.handleKey({ type: "enter" }, ctx); // enter exploration
     const result = scene.handleKey({ type: "enter" }, ctx);
     expect(result).toEqual({ type: "openDetail", kw: 63 });

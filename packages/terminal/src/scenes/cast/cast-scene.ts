@@ -40,7 +40,6 @@ export class CastScene implements Scene {
   // Scene-controlled clock — pace control (pause/speed) modulates how fast
   // this advances relative to the loop's elapsed time.
   private virtualElapsed = 0;
-  private lastElapsed = 0;
   // Motion-preset time dilation for glyph reveals on focus changes (0 = static).
   private glyphAnimScale = 1;
   // Where esc/q land. Standalone casts unwind to the home menu; a journal
@@ -114,11 +113,14 @@ export class CastScene implements Scene {
     // Nothing special on enter
   }
 
-  update(elapsed: number, _dt: number, _ctx: SceneContext): void {
-    // Advance the virtual clock from the loop's elapsed time, honoring
-    // pause/speed. At speed 1 unpaused this tracks `elapsed` exactly.
-    const delta = Math.max(0, elapsed - this.lastElapsed);
-    this.lastElapsed = elapsed;
+  update(_elapsed: number, dt: number, _ctx: SceneContext): void {
+    // Advance the virtual clock by the loop's CLAMPED per-frame dt (capped at
+    // MAX_DT), honoring pause/speed — exactly as the yarrow scene does. Deriving
+    // the delta from the unclamped `elapsed` instead would credit the ENTIRE
+    // hidden gap on the first frame after a size-floor pause (the loop skips
+    // update() while too-small but `elapsed` keeps growing), fast-forwarding past
+    // the reveal — multiplied at 2×/4× pace.
+    const delta = Math.max(0, dt);
     if (!this.model.paused) {
       this.virtualElapsed += delta * this.model.speed;
     }
@@ -180,7 +182,18 @@ export class CastScene implements Scene {
     } else {
       // No glyph: use split title layout as before
       renderTitle(frame, model, leftOffset, lang);
-      renderBecomingTitle(frame, model, isSplit ? rightOffset : 0, lang);
+      // In CENTERED layout the becoming title sits a few rows below the primary —
+      // exactly where the settled reading panel stacks down. On a tall-narrow
+      // terminal (no room for the side-by-side split, tall enough for the reading
+      // to reach those rows) the two collide. The reading panel already carries
+      // the becoming hexagram (its judgment label), so suppress the standalone
+      // becoming title while the reading is showing.
+      const readingShowing = model.showPrompt && !model.readingHidden;
+      const becomingOverlapsReading =
+        model.layout === "centered" && model.cast.becoming !== null && readingShowing;
+      if (!becomingOverlapsReading) {
+        renderBecomingTitle(frame, model, isSplit ? rightOffset : 0, lang);
+      }
     }
 
     // Render intention (after reveal)
@@ -219,7 +232,10 @@ export class CastScene implements Scene {
       }
       if (key.type === "char" && key.char === "s") {
         this.model.paused = false;
-        this.skipToComplete();
+        // Settle to the static end-state — animate:false. The default (true)
+        // re-seeds a fresh glyph animator (setFocusedHex), noisily re-playing the
+        // central glyph's whole reveal from scratch, partly defeating "skip".
+        this.skipToComplete(false);
         return;
       }
       if (key.type === "char" && key.char === "f") {

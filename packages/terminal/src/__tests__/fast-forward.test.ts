@@ -207,7 +207,10 @@ describe("CastScene fastForward equivalence", () => {
     const ctxA = { cols: 80, rows: 24, done: false, colorSupport: "none" as const };
     sceneA.enter(ctxA);
     const durationA = sceneA.getTimeline().duration;
-    sceneA.update(durationA + 1000, 33, ctxA);
+    // Advance via repeated CLAMPED-dt frames (the virtual clock credits the
+    // per-frame dt now, not the elapsed jump), reaching the same settled
+    // state skipToComplete() jumps to.
+    for (let e = 100; e <= durationA + 1000; e += 100) sceneA.update(e, 100, ctxA);
     const modelA = sceneA.getModel();
 
     // Path B: fastForward
@@ -253,7 +256,10 @@ describe("CastScene fastForward equivalence", () => {
     const ctxA = { cols: 80, rows: 24, done: false, colorSupport: "none" as const };
     sceneA.enter(ctxA);
     const durationA = sceneA.getTimeline().duration;
-    sceneA.update(durationA + 1000, 33, ctxA);
+    // Advance via repeated CLAMPED-dt frames (the virtual clock credits the
+    // per-frame dt now, not the elapsed jump), reaching the same settled
+    // state skipToComplete() jumps to.
+    for (let e = 100; e <= durationA + 1000; e += 100) sceneA.update(e, 100, ctxA);
     const modelA = sceneA.getModel();
 
     // Path B: fastForward
