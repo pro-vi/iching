@@ -84,9 +84,9 @@ export class CastScene implements Scene {
       outer: for (const wantMode of ["normal", "compact"] as const) {
         for (const size of [64, 48, 32] as const) {
           const entries = names.map((n) => composeGlyph(n, glyphConfig.glyphFont, size));
-          if (entries.some((e) => e === null)) continue;
-          const glyphHeight = Math.max(...entries.map((e) => e!.height));
-          const glyphWidth = Math.max(...entries.map((e) => e!.width));
+          if (!entries.every((e): e is NonNullable<typeof e> => e !== null)) continue;
+          const glyphHeight = Math.max(...entries.map((e) => e.height));
+          const glyphWidth = Math.max(...entries.map((e) => e.width));
           if (glyphWidth > termWidth) continue;
           if (glyphRevealMode(termRows, anchor, glyphHeight, titleLines, panelRows) === wantMode) {
             fitted = size;
