@@ -18,6 +18,7 @@ import type {
 import { GUA } from "../../data/gua.js";
 import { comparison } from "./chance.js";
 import { dayOrdinal } from "./time.js";
+import { shareOf } from "./share.js";
 
 export function addTrigram(
   freq: Map<number, { count: number; upperCount: number; lowerCount: number }>,
@@ -50,7 +51,7 @@ export function pairList(
 ): PairFrequency[] {
   const total = [...pairs.values()].reduce((sum, pair) => sum + pair.count, 0);
   return [...pairs.values()]
-    .map((pair) => ({ ...pair, share: total > 0 ? pair.count / total : 0 }))
+    .map((pair) => ({ ...pair, share: shareOf(pair.count, total) }))
     .sort((a, b) => b.count - a.count || a.from - b.from || a.to - b.to)
     .slice(0, limit);
 }
@@ -103,7 +104,7 @@ export function computeDiversity(
     knownDistinctHexagrams: knownCounts.length,
     entropyBits,
     maxEntropyBits,
-    normalizedEntropy: maxEntropyBits > 0 ? entropyBits / maxEntropyBits : 0,
+    normalizedEntropy: shareOf(entropyBits, maxEntropyBits),
     topShare: maxCount / total,
     concentration,
     expectedDistinctHexagrams,
@@ -193,7 +194,7 @@ export function structuralEchoList(echoes: Map<string, StructuralEcho>, limit: n
   };
   const total = [...echoes.values()].reduce((sum, echo) => sum + echo.count, 0);
   return [...echoes.values()]
-    .map((echo) => ({ ...echo, share: total > 0 ? echo.count / total : 0 }))
+    .map((echo) => ({ ...echo, share: shareOf(echo.count, total) }))
     .sort((a, b) =>
       b.count - a.count ||
       byKind[a.kind] - byKind[b.kind] ||

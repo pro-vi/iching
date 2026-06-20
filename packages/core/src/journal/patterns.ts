@@ -74,6 +74,7 @@ import {
   computeCadence,
   hammingDrift,
 } from "./patterns/summaries.js";
+import { shareOf } from "./patterns/share.js";
 
 // Re-export the public temporal surface unchanged — index.ts and the test suite
 // import these names from patterns.js.
@@ -242,7 +243,7 @@ export function computeJournalPatterns(
         count: f.count,
         knownCount: known,
         lastDate: f.lastDate,
-        share: total > 0 ? f.count / total : 0,
+        share: shareOf(f.count, total),
         ...comparison(known, expectedHexagramCount),
       };
     })
@@ -253,7 +254,7 @@ export function computeJournalPatterns(
     position: i + 1,
     count,
     knownCount: knownLineCounts[i],
-    share: totalMovingLines > 0 ? count / totalMovingLines : 0,
+    share: shareOf(count, totalMovingLines),
     // P(line moves)=1/4 for both methods → expected per position = known/4.
     ...comparison(knownLineCounts[i], methodCounts.known / 4),
   }));
@@ -262,7 +263,7 @@ export function computeJournalPatterns(
     movingLines,
     count,
     knownCount: knownMovingCountBins[movingLines],
-    share: total > 0 ? count / total : 0,
+    share: shareOf(count, total),
     ...comparison(knownMovingCountBins[movingLines], methodCounts.known * MOVING_COUNT_PROBABILITIES[movingLines]),
   }));
 
@@ -281,7 +282,7 @@ export function computeJournalPatterns(
         upperCount: t.upperCount,
         lowerCount: t.lowerCount,
         knownCount,
-        share: totalTrigramAppearances > 0 ? t.count / totalTrigramAppearances : 0,
+        share: shareOf(t.count, totalTrigramAppearances),
         expected: expectedTrigramCount,
         lift: expectedTrigramCount > 0 ? knownCount / expectedTrigramCount : null,
       };
