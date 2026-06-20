@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { mockStdin } from "../testing.ts";
+import { mockStdin, mockStdout } from "../testing.ts";
 import { ManualClock } from "../clock.ts";
 import { runScene } from "../scene/loop.ts";
 import type { Scene, SceneContext } from "../scene/types.ts";
@@ -8,13 +8,6 @@ import type { KeyEvent } from "../input/key-parser.ts";
 import { TerminalSession } from "../session/terminal-session.ts";
 
 // Minimal mock stdout that satisfies TerminalSession
-function mockStdout() {
-  return {
-    write(_data: string) { return true; },
-    columns: 80,
-    rows: 24,
-  };
-}
 
 // Minimal mock stdin
 

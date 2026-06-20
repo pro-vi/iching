@@ -2,21 +2,8 @@
 // isActive, mid-session clear, and bracketed paste mode toggling.
 
 import { describe, test, expect } from "bun:test";
-import { mockStdin } from "../testing.ts";
+import { mockStdin, mockStdout } from "../testing.ts";
 import { TerminalSession } from "../session/terminal-session.ts";
-
-function mockStdout() {
-  const writes: string[] = [];
-  return {
-    write(data: string) {
-      writes.push(data);
-      return true;
-    },
-    columns: 80,
-    rows: 24,
-    writes,
-  };
-}
 
 describe("TerminalSession", () => {
   test("enter is idempotent — alt screen entered exactly once", () => {

@@ -2,7 +2,7 @@
 // and the too-small-terminal placeholder.
 
 import { describe, test, expect } from "bun:test";
-import { mockStdin } from "../testing.ts";
+import { mockStdin, mockStdout } from "../testing.ts";
 import type { Clock } from "../clock.ts";
 import { ManualClock } from "../clock.ts";
 import { runScene, renderTooSmallNotice, MIN_COLS, MIN_ROWS } from "../scene/loop.ts";
@@ -10,19 +10,6 @@ import type { Scene, SceneContext } from "../scene/types.ts";
 import type { KeyEvent } from "../input/key-parser.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import { TerminalSession } from "../session/terminal-session.ts";
-
-function mockStdout(columns = 80, rows = 24) {
-  const writes: string[] = [];
-  return {
-    write(data: string) {
-      writes.push(data);
-      return true;
-    },
-    columns,
-    rows,
-    writes,
-  };
-}
 
 /** Scene that exits after `frames` update calls. */
 function framesScene(frames: number, hooks?: Partial<Scene>): Scene {

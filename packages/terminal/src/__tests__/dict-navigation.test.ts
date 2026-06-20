@@ -4,7 +4,7 @@
 // column, quiet empty-search hint).
 
 import { describe, test, expect } from "bun:test";
-import { bufferText, mockStdin, sceneCtx } from "../testing.ts";
+import { bufferText, mockStdin, mockStdout, sceneCtx } from "../testing.ts";
 import { ManualClock } from "../clock.ts";
 import { SceneRouter } from "../scene/router.ts";
 import type { Scene, SceneContext, SceneSignal } from "../scene/types.ts";
@@ -79,15 +79,6 @@ describe("DetailScene sequence walk", () => {
 // ---------------------------------------------------------------------------
 // SceneRouter — openDetail with replace swaps the top scene (esc stays sane)
 // ---------------------------------------------------------------------------
-function mockStdout(columns = 80, rows = 24) {
-  return {
-    write(_data: string) {
-      return true;
-    },
-    columns,
-    rows,
-  };
-}
 
 /** Scene that exits (no signal) after one update. */
 function quietScene(): Scene {
@@ -122,7 +113,7 @@ describe("SceneRouter replace-on-openDetail", () => {
       signal.type === "openDetail" ? next : null,
     );
     const session = new TerminalSession(
-      mockStdout() as never,
+      mockStdout(),
       mockStdin(),
     );
     const promise = router.run(session, new ManualClock(), "truecolor");

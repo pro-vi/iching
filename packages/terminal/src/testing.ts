@@ -106,3 +106,24 @@ export function mockStdin(): typeof process.stdin {
     },
   } as unknown as typeof process.stdin;
 }
+
+/**
+ * A minimal process.stdout stand-in: write() records into `writes` (so loop/
+ * session suites can assert on emitted ANSI) and returns true; columns/rows
+ * default to 80×24. TerminalSession's structural { write, columns, rows } param
+ * accepts it directly, and the recorded `writes` is harmless for suites that
+ * ignore it — so this one capturing factory replaces four near-copies (two that
+ * captured, two that didn't) with no call-site cast.
+ */
+export function mockStdout(columns = 80, rows = 24) {
+  const writes: string[] = [];
+  return {
+    write(data: string) {
+      writes.push(data);
+      return true;
+    },
+    columns,
+    rows,
+    writes,
+  };
+}
