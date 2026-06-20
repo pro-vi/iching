@@ -17,39 +17,42 @@ export interface ResolvedPaths {
  * When `dataDir` is provided or ICHING_HOME is set, all three files live
  * under that single directory. Otherwise each file follows its XDG category.
  */
-export function resolvePaths(overrides?: { dataDir?: string }): ResolvedPaths {
-  const home = homedir();
+/** The four storage filenames — one source of truth across every layout mode. */
+const FILES = {
+  config: "config.json",
+  state: "history.jsonl",
+  notes: "notes.jsonl",
+  cache: "daily-cache.json",
+} as const;
 
+/** Collapse all four files directly under one directory (override / ICHING_HOME). */
+function flatLayout(dir: string): ResolvedPaths {
+  return {
+    config: join(dir, FILES.config),
+    state: join(dir, FILES.state),
+    notes: join(dir, FILES.notes),
+    cache: join(dir, FILES.cache),
+  };
+}
+
+export function resolvePaths(overrides?: { dataDir?: string }): ResolvedPaths {
   // 1. Explicit override collapses everything into one dir
-  if (overrides?.dataDir) {
-    return {
-      config: join(overrides.dataDir, "config.json"),
-      state: join(overrides.dataDir, "history.jsonl"),
-      notes: join(overrides.dataDir, "notes.jsonl"),
-      cache: join(overrides.dataDir, "daily-cache.json"),
-    };
-  }
+  if (overrides?.dataDir) return flatLayout(overrides.dataDir);
 
   // 2. ICHING_HOME env var — same collapse
   const ichingHome = process.env.ICHING_HOME;
-  if (ichingHome) {
-    return {
-      config: join(ichingHome, "config.json"),
-      state: join(ichingHome, "history.jsonl"),
-      notes: join(ichingHome, "notes.jsonl"),
-      cache: join(ichingHome, "daily-cache.json"),
-    };
-  }
+  if (ichingHome) return flatLayout(ichingHome);
 
   // 3. XDG defaults (respect per-category overrides)
+  const home = homedir();
   const xdgConfig = process.env.XDG_CONFIG_HOME ?? join(home, ".config");
   const xdgState = process.env.XDG_STATE_HOME ?? join(home, ".local", "state");
   const xdgCache = process.env.XDG_CACHE_HOME ?? join(home, ".cache");
 
   return {
-    config: join(xdgConfig, "iching", "config.json"),
-    state: join(xdgState, "iching", "history.jsonl"),
-    notes: join(xdgState, "iching", "notes.jsonl"),
-    cache: join(xdgCache, "iching", "daily-cache.json"),
+    config: join(xdgConfig, "iching", FILES.config),
+    state: join(xdgState, "iching", FILES.state),
+    notes: join(xdgState, "iching", FILES.notes),
+    cache: join(xdgCache, "iching", FILES.cache),
   };
 }
