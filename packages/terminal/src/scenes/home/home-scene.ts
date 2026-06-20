@@ -61,8 +61,8 @@ export class HomeScene implements Scene {
     // returning to sit with it is the most common daily action after the cast.
     const items: { key: string; msgKey: MessageKey; fg: string }[] = [
       { key: "c", msgKey: "menu.cast", fg: t.accent },
-      ...(this.state.devMode ? [{ key: "p", msgKey: "menu.play" as MessageKey, fg: t.secondary }] : []),
-      ...(this.state.todayCast ? [{ key: "t", msgKey: "menu.today" as MessageKey, fg: t.primary }] : []),
+      ...(this.state.devMode ? ([{ key: "p", msgKey: "menu.play", fg: t.secondary }] as const) : []),
+      ...(this.state.todayCast ? ([{ key: "t", msgKey: "menu.today", fg: t.primary }] as const) : []),
       { key: "d", msgKey: "menu.dictionary", fg: t.primary },
       { key: "j", msgKey: "menu.journal", fg: t.secondary },
       { key: "s", msgKey: "menu.settings", fg: t.secondary },
