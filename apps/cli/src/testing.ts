@@ -2,7 +2,7 @@
 // own __tests__ (the analogue of @iching/core/testing); not part of the public
 // surface.
 
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 
@@ -51,4 +51,10 @@ export async function runCli(
 /** Create a fresh OS temp directory for a test, `prefix`-tagged for debuggability. */
 export async function freshTempDir(prefix: string): Promise<string> {
   return mkdtemp(join(tmpdir(), `${prefix}-`));
+}
+
+/** Seed a data dir's history.jsonl with `entries` — one JSON record per line. */
+export async function seedJournal(dataDir: string, entries: unknown[]): Promise<void> {
+  const lines = entries.map((e) => JSON.stringify(e)).join("\n") + "\n";
+  await writeFile(join(dataDir, "history.jsonl"), lines, "utf-8");
 }

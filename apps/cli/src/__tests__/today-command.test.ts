@@ -6,7 +6,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { runCli } from "../testing.ts";
 import { rm, writeFile } from "node:fs/promises";
-import { freshTempDir } from "../testing.ts";
+import { freshTempDir, seedJournal } from "../testing.ts";
 import { join } from "node:path";
 import { buildStructure } from "@iching/core";
 import type { DailyCache } from "@iching/core";
@@ -58,11 +58,6 @@ function todayEntry(): Record<string, unknown> {
     method: "yarrow",
     intention: "recovered from history",
   };
-}
-
-async function seedJournal(dataDir: string, entries: Record<string, unknown>[]): Promise<void> {
-  const lines = entries.map((e) => JSON.stringify(e)).join("\n") + "\n";
-  await writeFile(join(dataDir, "history.jsonl"), lines, "utf-8");
 }
 
 describe("today command", () => {

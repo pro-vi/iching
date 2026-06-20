@@ -3,8 +3,8 @@
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { runCli as spawnCli, type RunResult } from "../testing.ts";
-import { rm, writeFile, appendFile, mkdir, readFile } from "node:fs/promises";
-import { freshTempDir } from "../testing.ts";
+import { rm, appendFile, mkdir, readFile } from "node:fs/promises";
+import { freshTempDir, seedJournal } from "../testing.ts";
 import { join } from "node:path";
 import type { HistoryEntry } from "@iching/core";
 import { GUA, castHexagram, SeededRandomSource } from "@iching/core";
@@ -33,11 +33,6 @@ function makeEntry(
   method?: HistoryEntry["method"],
 ): HistoryEntry {
   return { date, cast: makeCast(primary, becoming), timestamp: `${date}T09:00:00.000Z`, method };
-}
-
-async function seedJournal(dataDir: string, entries: HistoryEntry[]): Promise<void> {
-  const lines = entries.map((e) => JSON.stringify(e)).join("\n") + "\n";
-  await writeFile(join(dataDir, "history.jsonl"), lines, "utf-8");
 }
 
 describe("journal command", () => {
