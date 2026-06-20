@@ -248,7 +248,7 @@ export function computeJournalPatterns(
         ...comparison(known, expectedHexagramCount),
       };
     })
-    .sort((a, b) => b.count - a.count || nullableDesc(a.lift, b.lift) || a.kw - b.kw)
+    .sort(byFrequencyThenLift((x) => x.kw))
     .slice(0, topN);
 
   const movingLines: MovingLineFrequency[] = lineCounts.map((count, i) => ({
@@ -288,7 +288,7 @@ export function computeJournalPatterns(
         lift: liftOf(knownCount, expectedTrigramCount),
       };
     })
-    .sort((a, b) => b.count - a.count || nullableDesc(a.lift, b.lift) || a.index - b.index)
+    .sort(byFrequencyThenLift((x) => x.index))
     .slice(0, topN);
 
   const chronological = [...entries].sort(compareEntryTime);
@@ -348,4 +348,13 @@ function nullableDesc(a: number | null, b: number | null): number {
   if (a === null) return 1;
   if (b === null) return -1;
   return b - a;
+}
+
+/** Rank an empirical distribution: most frequent first, ties broken by lift (most
+ *  surprising first, nulls last), then a stable key. The hexagram and trigram
+ *  frequency tables share this ordering so the two read consistently. */
+function byFrequencyThenLift<T extends { count: number; lift: number | null }>(
+  keyOf: (item: T) => number,
+): (a: T, b: T) => number {
+  return (a, b) => b.count - a.count || nullableDesc(a.lift, b.lift) || keyOf(a) - keyOf(b);
 }
