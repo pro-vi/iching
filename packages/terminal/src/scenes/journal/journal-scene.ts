@@ -351,7 +351,7 @@ export class JournalScene implements Scene {
     const t = getTheme();
     const maxW = ctx.cols;
     const viewportTop = 2;
-    const viewportH = ctx.rows - 4;
+    const viewportH = viewportHeight(ctx.rows, 4);
     const visibleStart = this.scroll.scrollOffset;
     const visibleEnd = Math.min(this.filtered.length, visibleStart + viewportH);
 
