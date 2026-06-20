@@ -105,6 +105,9 @@ export function computeDiversity(
     entropyBits,
     maxEntropyBits,
     normalizedEntropy: shareOf(entropyBits, maxEntropyBits),
+    // Raw division is safe here: total > 0 (the total === 0 guard returned above).
+    // normalizedEntropy needs shareOf instead because ITS divisor, maxEntropyBits =
+    // log2(min(64, total)), is 0 when total === 1.
     topShare: maxCount / total,
     concentration,
     expectedDistinctHexagrams,
