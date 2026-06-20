@@ -265,12 +265,7 @@ export class JsonConfigStore implements ConfigStore {
       // Fall back to defaults like a corrupt config — but with no .corrupt
       // backup (we couldn't read the bytes), so omit the recovery note. Reuses
       // the corrupt notice's prefix, keeping the language inventory clean.
-      if (!this.warnedCorrupt) {
-        this.warnedCorrupt = true;
-        if (!this.quiet) {
-          console.error(`iching: config at ${this.path} is unreadable — using defaults.`);
-        }
-      }
+      this.warnUnreadable(`iching: config at ${this.path} is unreadable — using defaults.`);
       return "corrupt";
     }
     let parsed: unknown;
@@ -287,18 +282,25 @@ export class JsonConfigStore implements ConfigStore {
         // full) means it isn't — and healing must not run.
         this.corruptBackupOk = (err as NodeJS.ErrnoException).code === "EEXIST";
       }
-      if (!this.warnedCorrupt) {
-        this.warnedCorrupt = true;
-        if (!this.quiet) {
-          console.error(
-            `iching: config at ${this.path} is unreadable — using defaults. ` +
-              `Your old settings are saved at ${this.path}.corrupt; restore them by fixing the JSON and renaming the file back.`,
-          );
-        }
-      }
+      this.warnUnreadable(
+        `iching: config at ${this.path} is unreadable — using defaults. ` +
+          `Your old settings are saved at ${this.path}.corrupt; restore them by fixing the JSON and renaming the file back.`,
+      );
       return "corrupt";
     }
     return isRecord(parsed) ? parsed : {};
+  }
+
+  /**
+   * Warn once per store instance, unless quiet — both readRaw corrupt paths
+   * (can't-read, can't-parse) share one dedup flag (which flips even when quiet,
+   * exactly as the inlined guards did). Callers pass the full message so each
+   * user-facing literal stays at its site (and in the language inventory);
+   * JsonDailyCacheStore carries the same helper. */
+  private warnUnreadable(message: string): void {
+    if (this.warnedCorrupt) return;
+    this.warnedCorrupt = true;
+    if (!this.quiet) console.error(message);
   }
 
   async load(): Promise<UserConfig> {
