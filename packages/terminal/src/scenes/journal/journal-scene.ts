@@ -8,7 +8,7 @@ import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import type { DisplayLanguage, HistoryEntry } from "@iching/core";
-import { GUA, TRIGRAMS, compareEntryTime, formatTime, stripTerminalControls, toSimplified } from "@iching/core";
+import { GUA, TRIGRAMS, compareEntryTime, dateInZone, formatTime, stripTerminalControls, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth, truncateToWidth, fitLine } from "../../layout/measure.ts";
 // Re-exported for callers that have long imported it from here (e.g. tests).
@@ -1518,8 +1518,12 @@ function structuralEchoLabel(kind: StructuralEcho["kind"], lang: DisplayLanguage
   }
 }
 
-/** Local YYYY-MM-DD (default for the injected `today`). */
+/**
+ * Machine-local YYYY-MM-DD — the default when no timezone-aware `today` is
+ * injected (production passes one wired to config.timezone). Delegates to core's
+ * dateInZone so the date-formatting rule lives in one place, shared with the CLI
+ * localToday; machine-local is exactly dateInZone with no zone.
+ */
 function localToday(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return dateInZone(new Date());
 }
