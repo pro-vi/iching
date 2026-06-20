@@ -19,6 +19,11 @@ function makeCache(date: string): DailyCache {
   return { date, cast, shown: false, structure };
 }
 
+/** Write a valid-JSON daily-cache.json fixture into a test's data dir. */
+async function seedCache(dir: string, content: Record<string, unknown>): Promise<void> {
+  await writeFile(join(dir, "daily-cache.json"), JSON.stringify(content), "utf-8");
+}
+
 describe("JsonDailyCacheStore", () => {
   let dir: string;
   let store: JsonDailyCacheStore;
@@ -140,7 +145,7 @@ describe("JsonDailyCacheStore", () => {
     test("read returns null when date is not a string", async () => {
       const record = makeCache("2025-01-15") as unknown as Record<string, unknown>;
       record.date = 20250115;
-      await writeFile(join(dir, "daily-cache.json"), JSON.stringify(record), "utf-8");
+      await seedCache(dir, record);
       expect(await store.read()).toBeNull();
     });
 
@@ -192,7 +197,7 @@ describe("JsonDailyCacheStore", () => {
         JSON.stringify(makeCache("2025-01-15")),
       ) as Record<string, unknown>;
       mutate(record);
-      await writeFile(join(dir, "daily-cache.json"), JSON.stringify(record), "utf-8");
+      await seedCache(dir, record);
       return store.read();
     }
 
