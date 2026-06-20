@@ -1,36 +1,14 @@
 import { describe, test, expect } from "bun:test";
-import type { Cast } from "@iching/core";
-import { changingCast } from "../testing.ts";
+import { changingCast, staticCast } from "../testing.ts";
 import { buildCastTimeline, type CastGlyphConfig } from "../scenes/cast/timeline-builder.ts";
 import { CastModel } from "../scenes/cast/model.ts";
 import { getPreset } from "../animation/presets.ts";
 import { stepDuration } from "../animation/timeline.ts";
 import { GLYPH_ANIM_DURATION_MS } from "../glyph-anim/factory.ts";
 
-function makeCast(overrides?: Partial<Cast>): Cast {
-  return {
-    lines: [
-      { value: 7, isYang: true, isChanging: false },
-      { value: 8, isYang: false, isChanging: false },
-      { value: 7, isYang: true, isChanging: false },
-      { value: 8, isYang: false, isChanging: false },
-      { value: 7, isYang: true, isChanging: false },
-      { value: 8, isYang: false, isChanging: false },
-    ],
-    primary: 63,
-    becoming: null,
-    changingPositions: [],
-    nuclear: 64,
-    polarity: 64,
-    mirror: 64,
-    diagonal: 63,
-    ...overrides,
-  };
-}
-
 describe("buildCastTimeline", () => {
   test("built timeline has positive duration for default preset", () => {
-    const cast = makeCast();
+    const cast = staticCast();
     const model = new CastModel(cast);
     const timing = getPreset("default");
     const step = buildCastTimeline(cast, model, timing);
@@ -39,7 +17,7 @@ describe("buildCastTimeline", () => {
   });
 
   test("reduced motion preset produces shorter timeline than default", () => {
-    const cast = makeCast();
+    const cast = staticCast();
 
     const modelDefault = new CastModel(cast);
     const defaultStep = buildCastTimeline(cast, modelDefault, getPreset("default"));
@@ -53,7 +31,7 @@ describe("buildCastTimeline", () => {
   });
 
   test("brisk preset produces shorter timeline than default", () => {
-    const cast = makeCast();
+    const cast = staticCast();
 
     const modelDefault = new CastModel(cast);
     const defaultStep = buildCastTimeline(cast, modelDefault, getPreset("default"));
@@ -67,7 +45,7 @@ describe("buildCastTimeline", () => {
   });
 
   test("deep preset produces longer timeline than default", () => {
-    const cast = makeCast();
+    const cast = staticCast();
 
     const modelDefault = new CastModel(cast);
     const defaultStep = buildCastTimeline(cast, modelDefault, getPreset("default"));
@@ -88,7 +66,7 @@ describe("buildCastTimeline", () => {
     const duration = stepDuration(step);
 
     // Should be longer than a non-changing cast
-    const noChangeCast = makeCast();
+    const noChangeCast = staticCast();
     const noChangeModel = new CastModel(noChangeCast);
     const noChangeStep = buildCastTimeline(noChangeCast, noChangeModel, timing);
     const noChangeDuration = stepDuration(noChangeStep);
@@ -100,7 +78,7 @@ describe("buildCastTimeline", () => {
   });
 
   test("timeline references all 6 lines via model mutations", () => {
-    const cast = makeCast();
+    const cast = staticCast();
     const model = new CastModel(cast);
     const timing = getPreset("reduced");
     const step = buildCastTimeline(cast, model, timing);
@@ -120,7 +98,7 @@ describe("buildCastTimeline", () => {
   });
 
   test("unchanging cast sets subtitle text", () => {
-    const cast = makeCast(); // no changing lines
+    const cast = staticCast(); // no changing lines
     const model = new CastModel(cast);
     const timing = getPreset("reduced");
     const step = buildCastTimeline(cast, model, timing);
@@ -200,7 +178,7 @@ describe("glyph reveal timing", () => {
   }
 
   test("reveal hold tracks the chosen style's duration", () => {
-    const cast = makeCast();
+    const cast = staticCast();
     const timing = getPreset("default");
     const sand = buildCastTimeline(cast, new CastModel(cast), timing, 80, makeGlyphConfig("sand"));
     const radial = buildCastTimeline(cast, new CastModel(cast), timing, 80, makeGlyphConfig("radial"));
@@ -210,7 +188,7 @@ describe("glyph reveal timing", () => {
   });
 
   test("glyphAnimScale scales the reveal hold", () => {
-    const cast = makeCast();
+    const cast = staticCast();
     const base = getPreset("default");
     const halved = { ...base, glyphAnimScale: 0.5 };
     const full = buildCastTimeline(cast, new CastModel(cast), base, 80, makeGlyphConfig("noise"));
@@ -221,7 +199,7 @@ describe("glyph reveal timing", () => {
   });
 
   test("reduced motion shows the settled glyph immediately, no animation", () => {
-    const cast = makeCast();
+    const cast = staticCast();
     const model = new CastModel(cast);
     const timing = getPreset("reduced");
     const step = buildCastTimeline(cast, model, timing, 80, makeGlyphConfig("noise"));
@@ -236,7 +214,7 @@ describe("glyph reveal timing", () => {
   });
 
   test("non-reduced presets create a real animator", () => {
-    const cast = makeCast();
+    const cast = staticCast();
     const model = new CastModel(cast);
     const timing = getPreset("default");
     const step = buildCastTimeline(cast, model, timing, 80, makeGlyphConfig("noise"));

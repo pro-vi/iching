@@ -62,6 +62,33 @@ export function changingCast(): Cast {
 }
 
 /**
+ * A static (no changing lines) cast of hexagram 63 (既濟, After Completion) with
+ * fixed derivations; spread `overrides` to vary fields. Two cast suites shared it.
+ * Like changingCast, the values are fixed (not derived via castOf) for
+ * deterministic render/timeline output.
+ */
+export function staticCast(overrides?: Partial<Cast>): Cast {
+  return {
+    lines: [
+      { value: 7, isYang: true, isChanging: false },
+      { value: 8, isYang: false, isChanging: false },
+      { value: 7, isYang: true, isChanging: false },
+      { value: 8, isYang: false, isChanging: false },
+      { value: 7, isYang: true, isChanging: false },
+      { value: 8, isYang: false, isChanging: false },
+    ],
+    primary: 63,
+    becoming: null,
+    changingPositions: [],
+    nuclear: 64,
+    polarity: 64,
+    mirror: 64,
+    diagonal: 63,
+    ...overrides,
+  };
+}
+
+/**
  * A SettingsValues for tests. The settings suites repeated this 8-field default
  * (theme "bone", glyphs dots/kaiti, coin/auto/crypto) and varied one or two
  * fields per case; pass those as `overrides` so a new SettingsValues field lands

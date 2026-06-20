@@ -1,37 +1,17 @@
 import { describe, test, expect } from "bun:test";
-import { changingCast, sceneCtx } from "../testing.ts";
+import { changingCast, sceneCtx, staticCast } from "../testing.ts";
 import { CastScene } from "../scenes/cast/cast-scene.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import type { SceneContext } from "../scene/types.ts";
 import type { Cast } from "@iching/core";
 
 /** Build a Cast with all young lines (no changing) */
-function makeCast(overrides?: Partial<Cast>): Cast {
-  return {
-    lines: [
-      { value: 7, isYang: true, isChanging: false },
-      { value: 8, isYang: false, isChanging: false },
-      { value: 7, isYang: true, isChanging: false },
-      { value: 8, isYang: false, isChanging: false },
-      { value: 7, isYang: true, isChanging: false },
-      { value: 8, isYang: false, isChanging: false },
-    ],
-    primary: 63, // After Completion
-    becoming: null,
-    changingPositions: [],
-    nuclear: 64,
-    polarity: 64,
-    mirror: 64,
-    diagonal: 63,
-    ...overrides,
-  };
-}
 
 /** Cast with changing lines (becoming) */
 
 describe("CastScene", () => {
   test("creates from Cast data without error", () => {
-    const cast = makeCast();
+    const cast = staticCast();
     const scene = new CastScene(cast);
     expect(scene).toBeDefined();
   });
@@ -47,7 +27,7 @@ describe("CastScene", () => {
     // `elapsed` keeps growing; on restore the scene must credit only the clamped
     // per-frame dt (like the yarrow scene), or it fast-forwards past the reveal —
     // multiplied at 2×/4× pace.
-    const scene = new CastScene(makeCast(), "default", 80, undefined, 24);
+    const scene = new CastScene(staticCast(), "default", 80, undefined, 24);
     const ctx = sceneCtx(80, 24, "truecolor");
     scene.getModel().speed = 4; // [f] fast pace
     scene.update(100_000, 50, ctx); // a huge elapsed jump, but dt clamped to 50
@@ -56,7 +36,7 @@ describe("CastScene", () => {
   });
 
   test("update/render cycle produces non-empty buffer", () => {
-    const cast = makeCast();
+    const cast = staticCast();
     const scene = new CastScene(cast, "reduced");
     const ctx = sceneCtx(80, 24, "truecolor");
 
@@ -88,7 +68,7 @@ describe("CastScene", () => {
     // STORED intention. A synced / imported / hand-edited journal can carry
     // escapes the input path never sanitized — they must not reach the frame
     // (and thence the terminal). ESC + BEL woven between visible words.
-    const cast = makeCast();
+    const cast = staticCast();
     const evil = "seek]0;pwnedtruth";
     const scene = new CastScene(cast, "reduced", 80, undefined, 24, evil);
     const ctx = sceneCtx(80, 24, "truecolor");
@@ -109,7 +89,7 @@ describe("CastScene", () => {
   });
 
   test("handleKey('q') returns 'exit'", () => {
-    const cast = makeCast();
+    const cast = staticCast();
     const scene = new CastScene(cast);
     const ctx = sceneCtx(80, 24, "truecolor");
 
@@ -118,7 +98,7 @@ describe("CastScene", () => {
   });
 
   test("handleKey(enter) after prompt shown enters exploration mode", () => {
-    const cast = makeCast();
+    const cast = staticCast();
     const scene = new CastScene(cast, "reduced");
     const ctx = sceneCtx(80, 24, "truecolor");
 
@@ -136,7 +116,7 @@ describe("CastScene", () => {
   });
 
   test("handleKey(j) after prompt shown returns goto journal", () => {
-    const cast = makeCast();
+    const cast = staticCast();
     const scene = new CastScene(cast, "reduced");
     const ctx = sceneCtx(80, 24, "truecolor");
 
@@ -151,7 +131,7 @@ describe("CastScene", () => {
   });
 
   test("with ManualClock-style advance, reaches completion", () => {
-    const cast = makeCast();
+    const cast = staticCast();
     const scene = new CastScene(cast, "reduced");
     const ctx = sceneCtx(80, 24, "truecolor");
 
@@ -170,7 +150,7 @@ describe("CastScene", () => {
   });
 
   test("ctrl-c returns exit", () => {
-    const cast = makeCast();
+    const cast = staticCast();
     const scene = new CastScene(cast);
     const ctx = sceneCtx(80, 24, "truecolor");
 
@@ -179,7 +159,7 @@ describe("CastScene", () => {
   });
 
   test("all presets create valid scenes", () => {
-    const cast = makeCast();
+    const cast = staticCast();
     for (const preset of ["default", "brisk", "deep", "reduced"] as const) {
       const scene = new CastScene(cast, preset);
       expect(scene).toBeDefined();
@@ -269,7 +249,7 @@ function frameText(scene: CastScene, ctx: SceneContext): string[] {
 
 describe("CastScene escape key", () => {
   test("escape returns home during animation", () => {
-    const scene = new CastScene(makeCast(), "reduced");
+    const scene = new CastScene(staticCast(), "reduced");
     const result = scene.handleKey({ type: "escape" }, sceneCtx(80, 24, "truecolor"));
     expect(result).toEqual({ type: "home" });
   });
@@ -288,7 +268,7 @@ describe("CastScene escape key", () => {
 
 describe("CastScene exitSignal option", () => {
   test("default esc/q exit to home — the standalone cast flow is unchanged", () => {
-    const scene = new CastScene(makeCast(), "reduced");
+    const scene = new CastScene(staticCast(), "reduced");
     expect(scene.handleKey({ type: "escape" }, sceneCtx(80, 24, "truecolor"))).toEqual({ type: "home" });
     expect(scene.handleKey({ type: "char", char: "q" }, sceneCtx(80, 24, "truecolor"))).toEqual({ type: "home" });
   });
@@ -296,7 +276,7 @@ describe("CastScene exitSignal option", () => {
   test("exitSignal 'back' routes esc/q to a router pop (journal replay)", () => {
     // The journal factory builds replays with exitSignal "back" so esc pops
     // to the ORIGINAL journal list instead of unwinding the router to Home.
-    const scene = new CastScene(makeCast(), "reduced", 80, undefined, 24, undefined, {
+    const scene = new CastScene(staticCast(), "reduced", 80, undefined, 24, undefined, {
       exitSignal: "back",
     });
     scene.skipToComplete(false);
@@ -307,7 +287,7 @@ describe("CastScene exitSignal option", () => {
 
 describe("CastScene pace control", () => {
   test("space toggles pause during the reveal", () => {
-    const scene = new CastScene(makeCast(), "reduced");
+    const scene = new CastScene(staticCast(), "reduced");
     const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.update(100, 33, ctx);
@@ -339,7 +319,7 @@ describe("CastScene pace control", () => {
   });
 
   test("f cycles speed 1 → 2 → 4 → 1", () => {
-    const scene = new CastScene(makeCast(), "reduced");
+    const scene = new CastScene(staticCast(), "reduced");
     const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.update(100, 33, ctx);
@@ -353,7 +333,7 @@ describe("CastScene pace control", () => {
   });
 
   test("pace keys are inert once the prompt is shown", () => {
-    const scene = new CastScene(makeCast(), "reduced");
+    const scene = new CastScene(staticCast(), "reduced");
     const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.skipToComplete(false);
@@ -366,7 +346,7 @@ describe("CastScene pace control", () => {
   });
 
   test("pace footer is shown during the reveal", () => {
-    const scene = new CastScene(makeCast(), "reduced");
+    const scene = new CastScene(staticCast(), "reduced");
     const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.update(100, 33, ctx);
@@ -396,7 +376,7 @@ describe("CastScene reading panel", () => {
   });
 
   test("[r] reveals the judgment when no lines move", () => {
-    const scene = new CastScene(makeCast(), "reduced");
+    const scene = new CastScene(staticCast(), "reduced");
     const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.skipToComplete(false);
@@ -491,7 +471,7 @@ describe("CastScene openDetail cast context", () => {
   });
 
   test("unchanging cast opens primary detail without context", () => {
-    const scene = new CastScene(makeCast(), "reduced");
+    const scene = new CastScene(staticCast(), "reduced");
     const ctx = sceneCtx(80, 24, "truecolor");
     scene.enter(ctx);
     scene.skipToComplete(false);
@@ -533,7 +513,7 @@ describe("CastScene journal replay (skipToComplete(false))", () => {
   });
 
   test("replayed still cast shows the judgment as the reading", () => {
-    const scene = new CastScene(makeCast(), "reduced", 80, undefined, 24, undefined, {
+    const scene = new CastScene(staticCast(), "reduced", 80, undefined, 24, undefined, {
       language: "en",
     });
     scene.skipToComplete(false);
