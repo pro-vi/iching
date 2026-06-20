@@ -7,18 +7,10 @@
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { existsSync } from "node:fs";
+import { runCli as spawnCli, type RunResult } from "../testing.ts";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-
-const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
-const MAIN_TS = resolve(REPO_ROOT, "apps/cli/src/main.ts");
-
-interface RunResult {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}
+import { join } from "node:path";
 
 let dataDir: string;
 
@@ -30,26 +22,9 @@ afterEach(async () => {
   await rm(dataDir, { recursive: true, force: true });
 });
 
-async function runCli(args: string[]): Promise<RunResult> {
-  // Always pass --data-dir to an ephemeral temp dir so a regression that
-  // routes routing-mode args into hook/TUI mode can't write to the user's
-  // real ~/.local/state/iching journal or cache.
-  const proc = Bun.spawn(["bun", MAIN_TS, "--data-dir", dataDir, ...args], {
-    cwd: REPO_ROOT,
-    stdin: "pipe",
-    stdout: "pipe",
-    stderr: "pipe",
-    env: { ...process.env, NO_COLOR: "1" },
-  });
-  // Close stdin immediately so any reader (e.g. hook mode) sees EOF.
-  proc.stdin.end();
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-  const exitCode = await proc.exited;
-  return { exitCode, stdout, stderr };
-}
+// Always route through an ephemeral --data-dir so a routing-mode regression
+// can't write to the user's real ~/.local/state/iching journal or cache.
+const runCli = (args: string[]): Promise<RunResult> => spawnCli(args, { dataDir });
 
 describe("main.ts mode routing", () => {
   test("--help reaches Commander, not hook/TUI mode", async () => {
@@ -96,19 +71,9 @@ describe("main.ts mode routing", () => {
     // loudly before either mode touches storage or the alt screen.
     // ICHING_HOME pins ALL storage (hook mode ignores --data-dir) to the
     // ephemeral temp dir so even a regression can't touch real user data.
-    const proc = Bun.spawn(["bun", MAIN_TS, "--seed", "abc"], {
-      cwd: REPO_ROOT,
-      stdin: "pipe",
-      stdout: "pipe",
-      stderr: "pipe",
-      env: { ...process.env, NO_COLOR: "1", ICHING_HOME: dataDir },
+    const { exitCode, stdout, stderr } = await spawnCli(["--seed", "abc"], {
+      env: { ICHING_HOME: dataDir },
     });
-    proc.stdin.end();
-    const [stdout, stderr] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-    ]);
-    const exitCode = await proc.exited;
 
     expect(exitCode).toBe(1);
     expect(stderr).toContain('Invalid --seed "abc"');
