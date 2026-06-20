@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { sceneCtx } from "../testing.ts";
+import { bufferText, sceneCtx } from "../testing.ts";
 import { SettingsScene } from "../scenes/settings/settings-scene.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import type { SceneContext } from "../scene/types.ts";
@@ -15,12 +15,6 @@ function makeScene(language: "zh-Hans" | "zh-Hant" | "en" = "en"): SettingsScene
     castMode: "auto",
     entropy: "crypto",
   });
-}
-
-function bufferText(buf: CellBuffer): string {
-  return Array.from({ length: buf.height }, (_, row) =>
-    buf.getRow(row).map((cell) => cell.char).join(""),
-  ).join("\n");
 }
 
 describe("SettingsScene language", () => {

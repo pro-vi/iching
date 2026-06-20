@@ -2,7 +2,7 @@
 // consistency (escape is a no-op on Home; q and Ctrl+C remain the exits).
 
 import { describe, expect, test } from "bun:test";
-import { sceneCtx } from "../testing.ts";
+import { bufferText, sceneCtx } from "../testing.ts";
 import { buildStructure, castHexagram, SeededRandomSource } from "@iching/core";
 import type { DailyCache } from "@iching/core";
 import { HomeScene } from "../scenes/home/home-scene.ts";
@@ -21,12 +21,6 @@ function makeTodayCast(): DailyCache {
 
 function makeScene(todayCast: DailyCache | null): HomeScene {
   return new HomeScene({ todayCast, taijituStyle: "dots" });
-}
-
-function bufferText(buf: CellBuffer): string {
-  return Array.from({ length: buf.height }, (_, row) =>
-    buf.getRow(row).map((cell) => cell.char).join(""),
-  ).join("\n");
 }
 
 describe("HomeScene today menu item", () => {

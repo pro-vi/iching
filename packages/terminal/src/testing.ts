@@ -5,6 +5,7 @@
 import type { DisplayLanguage } from "@iching/core";
 import type { ColorSupport } from "./color/detect.ts";
 import type { SceneContext } from "./scene/types.ts";
+import type { CellBuffer } from "./render/buffer.ts";
 
 /**
  * A SceneContext for tests. Nine scene suites each hand-rolled this same shape
@@ -21,4 +22,15 @@ export function sceneCtx(
   return language === undefined
     ? { cols, rows, done: false, colorSupport }
     : { cols, rows, done: false, colorSupport, language };
+}
+
+/**
+ * Flatten a rendered CellBuffer to text — one line per row, each row its cells'
+ * chars joined. The shape four scene suites used for snapshot-style assertions on
+ * what a scene drew.
+ */
+export function bufferText(buf: CellBuffer): string {
+  return Array.from({ length: buf.height }, (_, row) =>
+    buf.getRow(row).map((cell) => cell.char).join(""),
+  ).join("\n");
 }

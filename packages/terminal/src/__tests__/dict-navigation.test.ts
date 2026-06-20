@@ -4,7 +4,7 @@
 // column, quiet empty-search hint).
 
 import { describe, test, expect } from "bun:test";
-import { sceneCtx } from "../testing.ts";
+import { bufferText, sceneCtx } from "../testing.ts";
 import { ManualClock } from "../clock.ts";
 import { SceneRouter } from "../scene/router.ts";
 import type { Scene, SceneContext, SceneSignal } from "../scene/types.ts";
@@ -15,12 +15,6 @@ import { BrowseScene } from "../scenes/dict/browse-scene.ts";
 import { BrowseModel } from "../scenes/dict/browse-model.ts";
 import { renderBrowse } from "../scenes/dict/browse-renderer.ts";
 import { TextInput } from "../widgets/text-input.ts";
-
-function bufferText(buf: CellBuffer): string {
-  return Array.from({ length: buf.height }, (_, row) =>
-    buf.getRow(row).map((cell) => cell.char).join(""),
-  ).join("\n");
-}
 
 // ---------------------------------------------------------------------------
 // DetailScene — ←/→ (and h/l) walk the King Wen sequence
