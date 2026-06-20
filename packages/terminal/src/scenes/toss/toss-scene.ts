@@ -4,10 +4,7 @@
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
 import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
-import {
-  castLine, linesToBinary, BINARY_TO_KW, CryptoRandomSource,
-  nuclear, polarity, mirror, diagonal,
-} from "@iching/core";
+import { castLine, CryptoRandomSource, assembleCast } from "@iching/core";
 import type { Line, Cast } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
 import { renderLine } from "../cast/line-renderer.ts";
@@ -191,35 +188,13 @@ export class TossScene implements Scene {
 
     if (this.lines.length >= 6) {
       this.phase = "complete";
-      this.completedCast = this.buildCast(this.lines);
+      // Hand the six lines to the canonical assembler (primary / becoming /
+      // changingPositions / derived) rather than re-deriving them here — the
+      // manual toss must produce the SAME Cast an auto cast or yarrow would.
+      this.completedCast = assembleCast(this.lines);
     } else {
       this.phase = "waiting";
     }
-  }
-
-  private buildCast(lines: Line[]): Cast {
-    const primaryBinary = linesToBinary(lines);
-    const primary = BINARY_TO_KW[primaryBinary];
-    const changingPositions: number[] = [];
-    let becoming: number | null = null;
-
-    const hasChanging = lines.some(l => l.isChanging);
-    if (hasChanging) {
-      const bl = lines.map(l => ({ ...l, isYang: l.isChanging ? !l.isYang : l.isYang }));
-      becoming = BINARY_TO_KW[linesToBinary(bl)] ?? null;
-      lines.forEach((l, i) => { if (l.isChanging) changingPositions.push(i + 1); });
-    }
-
-    return {
-      lines,
-      primary,
-      becoming,
-      changingPositions,
-      nuclear: nuclear(lines),
-      polarity: polarity(lines),
-      mirror: mirror(lines),
-      diagonal: diagonal(lines),
-    };
   }
 
   private lineValueToCoins(value: number): [boolean, boolean, boolean] {
