@@ -1478,7 +1478,7 @@ export class JournalScene implements Scene {
   }
 
   private moveCursor(delta: number): void {
-    this.cursor = Math.min(Math.max(0, this.cursor + delta), lastIndex(this.filtered.length));
+    this.cursor = clamp(this.cursor + delta, 0, lastIndex(this.filtered.length));
     this.ensureCursorVisible();
   }
 
