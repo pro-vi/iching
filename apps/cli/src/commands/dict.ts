@@ -2,6 +2,7 @@
 
 import { Command } from "commander";
 import { resolveHexagramQuery } from "./hexagram.js";
+import { formatError } from "../util/format-error.js";
 
 export function registerDictCommand(program: Command): void {
   program
@@ -59,7 +60,7 @@ export function registerDictCommand(program: Command): void {
       // interactive session was the uneven twin that lacked it.
       const onFatal = (err: unknown) => {
         session.exit();
-        console.error(err instanceof Error ? (err.stack ?? err.message) : String(err));
+        console.error(formatError(err));
         process.exit(1);
       };
       process.once("uncaughtException", onFatal);

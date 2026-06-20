@@ -4,6 +4,7 @@ import { parseSeed } from "./util/parse-seed.js";
 import { localToday } from "./util/today.js";
 import { resolveTodayReading } from "./util/today-cache.js";
 import { deferDiagnostics, flushDiagnostics } from "./util/deferred-diagnostics.js";
+import { formatError } from "./util/format-error.js";
 
 async function main() {
   // Operands are non-option args — i.e. actual subcommand names.
@@ -89,7 +90,7 @@ async function main() {
     const onFatal = (err: unknown) => {
       session.exit();
       flushDiagnostics();
-      console.error(err instanceof Error ? err.stack ?? err.message : String(err));
+      console.error(formatError(err));
       process.exit(1);
     };
     process.once("uncaughtException", onFatal);
@@ -292,6 +293,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(err instanceof Error ? err.stack ?? err.message : String(err));
+  console.error(formatError(err));
   process.exit(1);
 });
