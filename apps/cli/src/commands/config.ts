@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { isOneOf } from "@iching/core";
 import { resolvePaths, JsonConfigStore, canonicalLanguage } from "@iching/storage";
 import type { UserConfig } from "@iching/storage";
 import { outputJson, configToJson } from "../output/json.js";
@@ -11,12 +12,6 @@ type ConfigEntry = {
   set: (cfg: UserConfig, value: string) => boolean;
 };
 
-function isOneOf<const T extends readonly string[]>(
-  options: T,
-  value: string,
-): value is T[number] {
-  return options.includes(value as T[number]);
-}
 
 const THEME_VALUES = ["ink", "bone", "cinnabar", "jade", "river"] as const;
 const MOTION_VALUES = ["default", "brisk", "deep", "reduced"] as const;

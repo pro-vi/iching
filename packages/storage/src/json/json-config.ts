@@ -3,6 +3,7 @@ import type { UserConfig } from "../types.js";
 import type { ConfigStore } from "../config-store.js";
 import { atomicWriteJson } from "./atomic-write.js";
 import { isRecord } from "./is-record.js";
+import { isOneOf } from "@iching/core";
 
 const MOTION_OPTIONS = ["default", "brisk", "deep", "reduced"] as const;
 const LANGUAGE_OPTIONS = ["en", "zh-Hant", "zh-Hans"] as const;
@@ -125,12 +126,6 @@ export function detectSystemLanguage(
 }
 
 
-function isOneOf<const T extends readonly string[]>(
-  options: T,
-  value: unknown,
-): value is T[number] {
-  return typeof value === "string" && options.includes(value as T[number]);
-}
 
 function stringValue(
   record: Record<string, unknown>,

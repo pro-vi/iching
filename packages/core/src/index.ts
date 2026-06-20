@@ -85,6 +85,9 @@ export { stripTerminalControls } from "./terminal-text.js";
 // Numeric utility — clamp to [lo, hi], shared by core patterns + terminal renderers
 export { clamp } from "./clamp.js";
 
+// Type guard — value ∈ a readonly string-literal list, shared by the two config validators
+export { isOneOf } from "./is-one-of.js";
+
 // Detail
 export { type HexagramDetail, buildHexagramDetail } from "./detail.js";
 
