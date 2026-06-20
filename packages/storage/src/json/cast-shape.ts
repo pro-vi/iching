@@ -1,5 +1,5 @@
 import type { Cast, Line } from "@iching/core";
-import { assembleCast } from "@iching/core";
+import { assembleCast, isYangValue, isChangingValue } from "@iching/core";
 import { isRecord } from "./is-record.js";
 
 /** True for a King Wen number: an integer 1-64, so GUA[n - 1] is safe. */
@@ -26,7 +26,7 @@ function isLineShaped(value: unknown): boolean {
   // yang (so isYang ⇔ 7|9, isChanging ⇔ 6|9).
   const v = line.value;
   if (v !== 6 && v !== 7 && v !== 8 && v !== 9) return false;
-  return line.isYang === (v === 7 || v === 9) && line.isChanging === (v === 6 || v === 9);
+  return line.isYang === isYangValue(v) && line.isChanging === isChangingValue(v);
 }
 
 /**

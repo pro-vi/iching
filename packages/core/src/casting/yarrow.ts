@@ -1,6 +1,7 @@
 import type { RandomSource } from "../random.js";
 import type { Cast, Line, LineValue } from "../types.js";
 import { assembleCast } from "./cast.js";
+import { isYangValue, isChangingValue } from "./line-value.js";
 
 /**
  * Faithful 49-stalk yarrow casting.
@@ -129,8 +130,8 @@ export function toLineValue(n: number): LineValue {
 export function lineFromValue(value: LineValue): Line {
   return {
     value,
-    isYang: value === 7 || value === 9,
-    isChanging: value === 6 || value === 9,
+    isYang: isYangValue(value),
+    isChanging: isChangingValue(value),
   };
 }
 

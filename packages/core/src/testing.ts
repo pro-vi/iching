@@ -8,13 +8,14 @@
 import type { Cast, Line } from "./types.js";
 import { GUA } from "./data/gua.js";
 import { assembleCast } from "./casting/cast.js";
+import { isYangValue, isChangingValue } from "./casting/line-value.js";
 
 /** A single line by its value: 6 old-yin, 7 young-yang, 8 young-yin, 9 old-yang. */
 export function lineOf(value: 6 | 7 | 8 | 9): Line {
   return {
     value,
-    isYang: value === 7 || value === 9,
-    isChanging: value === 6 || value === 9,
+    isYang: isYangValue(value),
+    isChanging: isChangingValue(value),
   };
 }
 

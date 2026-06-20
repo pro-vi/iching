@@ -1,5 +1,6 @@
 import type { RandomSource } from "../random.js";
 import type { Line, LineValue } from "../types.js";
+import { isYangValue, isChangingValue } from "./line-value.js";
 
 /**
  * Cast a single line using the provided random source.
@@ -12,7 +13,7 @@ export function castLine(source: RandomSource): Line {
 
   return {
     value: sum,
-    isYang: sum === 7 || sum === 9,
-    isChanging: sum === 6 || sum === 9,
+    isYang: isYangValue(sum),
+    isChanging: isChangingValue(sum),
   };
 }
