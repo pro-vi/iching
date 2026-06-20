@@ -179,7 +179,7 @@ export function hexagramToJson(
 /** Resolved name block for one hexagram by KW number */
 function hexagramNames(kw: number): Record<string, unknown> {
   const hex = GUA[kw - 1];
-  return { kw, n: hex.n, p: hex.p, ename: hex.ename, u: hex.u };
+  return hex ? { kw, n: hex.n, p: hex.p, ename: hex.ename, u: hex.u } : { kw };
 }
 
 /**
@@ -217,13 +217,9 @@ export function journalEntryToJson(
  * and rates only — observation over what arrived, never prediction.
  */
 export function journalPatternsToJson(p: JournalPatterns): Record<string, unknown> {
-  const named = (kw: number): Record<string, unknown> => {
-    const g = GUA[kw - 1];
-    return g ? { kw, n: g.n, p: g.p, ename: g.ename, u: g.u } : { kw };
-  };
   const pair = (from: number, to: number, count: number, lastDate?: string) => ({
-    from: named(from),
-    to: named(to),
+    from: hexagramNames(from),
+    to: hexagramNames(to),
     count,
     ...(lastDate !== undefined ? { lastDate } : {}),
   });
@@ -307,10 +303,10 @@ export function journalPatternsToJson(p: JournalPatterns): Record<string, unknow
     field: {
       counts: p.field.counts,
       maxCount: p.field.maxCount,
-      recent: p.field.recent !== null ? named(p.field.recent) : null,
+      recent: p.field.recent !== null ? hexagramNames(p.field.recent) : null,
     },
     topHexagrams: p.topHexagrams.map((h) => ({
-      ...named(h.kw),
+      ...hexagramNames(h.kw),
       count: h.count, // all readings of this primary
       share: h.share, // count / total
       lastDate: h.lastDate,
@@ -361,7 +357,7 @@ export function journalPatternsToJson(p: JournalPatterns): Record<string, unknow
     topStructuralEchoes: p.topStructuralEchoes.map((e) =>
       e.kind === "kingWenPair"
         ? { kind: e.kind, pair: [e.pairStart, e.pairEnd], count: e.count, lastDate: e.lastDate }
-        : { kind: e.kind, ...(e.kw !== undefined ? named(e.kw) : {}), count: e.count, lastDate: e.lastDate },
+        : { kind: e.kind, ...(e.kw !== undefined ? hexagramNames(e.kw) : {}), count: e.count, lastDate: e.lastDate },
     ),
     hammingDrift: p.hammingDrift,
   };
