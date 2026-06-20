@@ -104,9 +104,15 @@ export function canonicalLanguage(raw: string): UserConfig["language"] | undefin
  * forms; an explicit script subtag wins over region. Anything non-Chinese —
  * including empty / "C" / "POSIX" — falls back to English.
  */
+/** The base of a POSIX locale token — lang_TERRITORY with the .CODESET and @MODIFIER
+ *  suffixes stripped (e.g. "en_US.UTF-8@euro" → "en_US"). */
+function localeBase(locale: string): string {
+  return locale.split(/[.@]/)[0];
+}
+
 /** Map one locale token to a supported display language, or null if unsupported. */
 function mapLocaleToken(token: string): UserConfig["language"] | null {
-  const parts = token.split(/[.@]/)[0].replace(/_/g, "-").toLowerCase().split("-");
+  const parts = localeBase(token).replace(/_/g, "-").toLowerCase().split("-");
   const lang = parts[0];
   if (lang === "en") return "en"; // app supports English — stop scanning
   if (lang !== "zh") return null; // unsupported language → try the next candidate
@@ -122,7 +128,7 @@ export function detectSystemLanguage(
 ): UserConfig["language"] {
   // Effective locale (LANGUAGE excluded — it only selects the message language).
   const locale = env.LC_ALL || env.LC_MESSAGES || env.LANG || "";
-  const localeLang = locale.split(/[.@]/)[0].toLowerCase();
+  const localeLang = localeBase(locale).toLowerCase();
   // Not localized (C / POSIX / unset): no language intent, and GNU LANGUAGE is
   // disabled in the C locale → English.
   if (localeLang === "" || localeLang === "c" || localeLang === "posix") return "en";
