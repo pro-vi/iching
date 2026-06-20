@@ -30,10 +30,13 @@ export function sceneCtx(
  * chars joined. The shape four scene suites used for snapshot-style assertions on
  * what a scene drew.
  */
+/** A single rendered row as a string — its cells' chars joined. */
+export function rowText(buf: CellBuffer, row: number): string {
+  return buf.getRow(row).map((cell) => cell.char).join("");
+}
+
 export function bufferText(buf: CellBuffer): string {
-  return Array.from({ length: buf.height }, (_, row) =>
-    buf.getRow(row).map((cell) => cell.char).join(""),
-  ).join("\n");
+  return Array.from({ length: buf.height }, (_, row) => rowText(buf, row)).join("\n");
 }
 
 /**

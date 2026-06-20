@@ -1,4 +1,5 @@
 import { describe, test, expect } from "bun:test";
+import { rowText } from "../testing.ts";
 import { SeededRandomSource } from "@iching/core";
 import { YarrowScene } from "../scenes/yarrow/yarrow-scene.ts";
 import { CellBuffer } from "../render/buffer.ts";
@@ -39,7 +40,7 @@ describe("YarrowScene", () => {
   function renderAt(s: YarrowScene, cols: number, rows: number): string {
     const buf = CellBuffer.create(cols, rows);
     s.render(buf, { cols, rows, colorSupport: "truecolor", language: "en", done: false });
-    return Array.from({ length: rows }, (_, r) => buf.getRow(r).map((c) => c.char).join("")).join(
+    return Array.from({ length: rows }, (_, r) => rowText(buf, r)).join(
       "\n",
     );
   }

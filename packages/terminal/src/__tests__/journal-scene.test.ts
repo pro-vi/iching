@@ -2,6 +2,7 @@
 // dictionary jump, and the patterns pane.
 
 import { describe, test, expect } from "bun:test";
+import { rowText } from "../testing.ts";
 import type { Cast, ReflectionNote } from "@iching/core";
 import { lineOf } from "@iching/core/testing";
 import { computeJournalPatterns, GUA, TRIGRAMS, toSimplified } from "@iching/core";
@@ -51,7 +52,7 @@ function renderText(scene: JournalScene, ctx: SceneContext): string {
   const buf = CellBuffer.create(ctx.cols, ctx.rows);
   scene.render(buf, ctx);
   return Array.from({ length: buf.height }, (_, row) =>
-    buf.getRow(row).map((cell) => cell.char).join(""),
+    rowText(buf, row),
   ).join("\n");
 }
 
@@ -99,7 +100,7 @@ describe("JournalScene resize", () => {
     const buf = CellBuffer.create(short.cols, short.rows);
     scene.render(buf, short);
     const selRow = Array.from({ length: short.rows }, (_, r) =>
-      buf.getRow(r).map((c) => c.char).join(""),
+      rowText(buf, r),
     ).findIndex((l) => l.trimStart().startsWith(">"));
     expect(selRow).toBeGreaterThanOrEqual(0); // the selection is still on screen…
     expect(selRow).toBeLessThan(short.rows - 2); // …above the preview/footer rows
@@ -121,7 +122,7 @@ describe("JournalScene resize", () => {
     scene.enter(ctx);
     const buf = CellBuffer.create(ctx.cols, ctx.rows);
     scene.render(buf, ctx);
-    const previewRow = buf.getRow(ctx.rows - 2).map((c) => c.char).join("");
+    const previewRow = rowText(buf, ctx.rows - 2);
     expect(previewRow).toMatch(/\d+\/\d+ \(\d+%\)/); // the indicator renders in full…
     expect(previewRow).toContain("mountain"); // …the image previews (謙: "A mountain…")…
     expect(previewRow).not.toMatch(/…\S/); // …and nothing is glued after its ellipsis.
@@ -162,7 +163,7 @@ describe("JournalScene resize", () => {
         scene.enter(ctx);
         const buf = CellBuffer.create(ctx.cols, ctx.rows);
         scene.render(buf, ctx);
-        const previewRow = buf.getRow(ctx.rows - 2).map((c) => c.char).join("");
+        const previewRow = rowText(buf, ctx.rows - 2);
         expect(previewRow).toMatch(/\d+\/15 \(\d+%\)/); // the indicator renders in full…
         expect(previewRow).not.toMatch(/…\S/); // …nothing glues after the note's ellipsis…
         for (let r = 0; r < buf.height; r++) {
@@ -1037,7 +1038,7 @@ describe("JournalScene patterns pane ([p])", () => {
     const buf = CellBuffer.create(ctx.cols, ctx.rows);
     scene.render(buf, ctx);
     const lines = Array.from({ length: ctx.rows }, (_, r) =>
-      buf.getRow(r).map((c) => c.char).join(""),
+      rowText(buf, r),
     );
     // No journal-list title, and no centred 60-dash separator row above the pane.
     expect(lines.join("\n")).not.toContain("Journal");
@@ -1298,7 +1299,7 @@ describe("JournalScene patterns pane ([p])", () => {
     const buf = CellBuffer.create(80, 50);
     expect(() => scene.render(buf, ctx)).not.toThrow();
     const text = Array.from({ length: 50 }, (_, r) =>
-      buf.getRow(r).map((c) => c.char).join(""),
+      rowText(buf, r),
     ).join("\n");
     // Textual content and bars survive (they don't depend on color).
     expect(text).toContain("觀象 · patterns");
@@ -1671,7 +1672,7 @@ describe("JournalScene CJK display-width truncation", () => {
 
     const buf = CellBuffer.create(ctx.cols, ctx.rows);
     scene.render(buf, ctx);
-    const painted = buf.getRow(2).map((c) => c.char).join("").trimEnd();
+    const painted = rowText(buf, 2).trimEnd();
     // The ellipsis must be on screen (code-unit slicing pushed it past the
     // edge, where writeText clipped it) and the row must fit its columns.
     expect(painted.endsWith("…")).toBe(true);
@@ -1689,7 +1690,7 @@ describe("JournalScene CJK display-width truncation", () => {
 
     const buf = CellBuffer.create(ctx.cols, ctx.rows);
     scene.render(buf, ctx);
-    const painted = buf.getRow(ctx.rows - 2).map((c) => c.char).join("").trimEnd();
+    const painted = rowText(buf, ctx.rows - 2).trimEnd();
     expect(painted.endsWith("…")).toBe(true);
     expect(stringWidth(painted)).toBeLessThanOrEqual(40);
   });
@@ -1705,7 +1706,7 @@ describe("JournalScene CJK display-width truncation", () => {
     scene.enter(ctx);
     const buf = CellBuffer.create(ctx.cols, ctx.rows);
     scene.render(buf, ctx);
-    const painted = buf.getRow(ctx.rows - 2).map((c) => c.char).join("").trimEnd();
+    const painted = rowText(buf, ctx.rows - 2).trimEnd();
     expect(painted.trim().length).toBeGreaterThan(0); // not the old blank row…
     expect(painted).toContain("mountain"); // …the natural-image opening survives…
     expect(painted.endsWith("…")).toBe(true); // …with a visible ellipsis…
@@ -1875,7 +1876,7 @@ describe("觀象 pane — 時 phase-of-day section", () => {
     const buf = CellBuffer.create(100, 44);
     scene.render(buf, ctx);
     const text = Array.from({ length: buf.height }, (_, r) =>
-      buf.getRow(r).map((c) => c.char).join(""),
+      rowText(buf, r),
     ).join("\n");
     expect(text).toContain("时"); // simplified section title (時 → 时)
     expect(text).toContain("昼"); // simplified 晝 day phase (晝 → 昼)
@@ -2036,7 +2037,7 @@ describe("JournalScene search + re-entry polish (review #6, #7)", () => {
     const buf = CellBuffer.create(short.cols, short.rows);
     scene.render(buf, short);
     const selRow = Array.from({ length: short.rows }, (_, r) =>
-      buf.getRow(r).map((c) => c.char).join(""),
+      rowText(buf, r),
     ).findIndex((l) => l.trimStart().startsWith(">"));
     expect(selRow).toBeGreaterThanOrEqual(0); // selection on screen…
     expect(selRow).toBeLessThan(short.rows - 2); // …above the preview/footer rows
