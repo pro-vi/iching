@@ -7,6 +7,7 @@ import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import type { MotionPreset } from "../../animation/presets.ts";
 import { getPreset } from "../../animation/presets.ts";
 import { nextPaceSpeed } from "../../animation/pace.ts";
+import { activePaceFooter } from "./ritual-chrome.ts";
 import { TimelineRunner } from "../../animation/runner.ts";
 import { CastModel } from "./model.ts";
 import { renderCoins } from "./coin-renderer.ts";
@@ -403,10 +404,9 @@ function renderPrompt(buf: CellBuffer, model: CastModel, language: DisplayLangua
 /** Render the pace-control hints while the reveal is still unfolding. */
 function renderPaceFooter(buf: CellBuffer, model: CastModel, language: DisplayLanguage): void {
   const t = getTheme();
-  const speed = model.speed > 1 ? `  ·  ${model.speed}×` : "";
   const text = model.paused
     ? `[space] ${tr(language, "verb.resume")}  ·  [s] ${tr(language, "verb.skip")}  ·  [esc] ${tr(language, "verb.back")}`
-    : `[space] ${tr(language, "verb.pause")}  ·  [f] ${tr(language, "verb.speed")}  ·  [s] ${tr(language, "verb.skip")}  ·  [esc] ${tr(language, "verb.back")}${speed}`;
+    : activePaceFooter(model.speed, language);
   const row = buf.height - 2;
   if (row < 0) return;
   const w = stringWidth(text);
@@ -426,6 +426,6 @@ function renderIntention(buf: CellBuffer, intention: string): void {
   if (stringWidth(text) > maxW) {
     text = text.slice(0, maxW - 1) + "\u2026";
   }
-  const col = Math.max(0, Math.floor((buf.width - stringWidth(text)) / 2));
+  const col = centerCol(buf.width, stringWidth(text));
   buf.writeText(0, col, text, { fg: t.tertiary, dim: true });
 }

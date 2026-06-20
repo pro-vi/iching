@@ -18,7 +18,7 @@ import { TimelineRunner } from "../../animation/runner.ts";
 import { YarrowModel } from "./model.ts";
 import { buildYarrowTimeline } from "./yarrow-timeline.ts";
 import { renderYarrowField, canShowYarrowField, renderYarrowTooSmall } from "./field-renderer.ts";
-import { writeChromeFooter } from "../cast/ritual-chrome.ts";
+import { writeChromeFooter, activePaceFooter } from "../cast/ritual-chrome.ts";
 import { tr } from "../../i18n/messages.ts";
 import { nextPaceSpeed } from "../../animation/pace.ts";
 import type { DisplayLanguage } from "@iching/core";
@@ -115,8 +115,7 @@ export class YarrowScene implements Scene {
     } else if (this.model.paused) {
       text = `[space] ${tr(lang, "verb.resume")}  ·  [→] ${tr(lang, "verb.step")}  ·  [s] ${tr(lang, "verb.skip")}  ·  [esc] ${tr(lang, "verb.back")}`;
     } else {
-      const speed = this.model.speed > 1 ? `  ·  ${this.model.speed}×` : "";
-      text = `[space] ${tr(lang, "verb.pause")}  ·  [f] ${tr(lang, "verb.speed")}  ·  [s] ${tr(lang, "verb.skip")}  ·  [esc] ${tr(lang, "verb.back")}${speed}`;
+      text = activePaceFooter(this.model.speed, lang);
     }
     writeChromeFooter(frame, text);
   }
