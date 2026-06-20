@@ -10,7 +10,7 @@ import { KeyParser, isCtrlC } from "../input/key-parser.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import { DiffRenderer } from "../render/diff-render.ts";
 import { getTheme } from "../color/theme.ts";
-import { stringWidth } from "../layout/measure.ts";
+import { stringWidth, centerCol } from "../layout/measure.ts";
 import { tr } from "../i18n/messages.ts";
 
 const TARGET_FPS = 30;
@@ -40,10 +40,10 @@ export function renderTooSmallNotice(
   // so the hint is honest.
   const dims = `${minCols} × ${minRows}`;
   const msgRow = Math.max(0, Math.floor(frame.height / 2) - 1);
-  frame.writeText(msgRow, Math.max(0, Math.floor((frame.width - stringWidth(msg)) / 2)), msg, {
+  frame.writeText(msgRow, centerCol(frame.width, stringWidth(msg)), msg, {
     fg: t.secondary,
   });
-  frame.writeText(msgRow + 2, Math.max(0, Math.floor((frame.width - stringWidth(dims)) / 2)), dims, {
+  frame.writeText(msgRow + 2, centerCol(frame.width, stringWidth(dims)), dims, {
     fg: t.tertiary,
     dim: true,
   });

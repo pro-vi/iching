@@ -10,7 +10,7 @@ import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import type { DisplayLanguage, HistoryEntry } from "@iching/core";
 import { GUA, TRIGRAMS, clamp, compareEntryTime, dateInZone, foldForSearch, formatTime, stripTerminalControls, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth, truncateToWidth, fitLine } from "../../layout/measure.ts";
+import { stringWidth, truncateToWidth, fitLine, centerCol } from "../../layout/measure.ts";
 // Re-exported for callers that have long imported it from here (e.g. tests).
 export { truncateToWidth };
 import { ScrollableRegion } from "../../widgets/scrollable.ts";
@@ -296,7 +296,7 @@ export class JournalScene implements Scene {
 
     // Header
     const title = tr(lang, "journal.title");
-    const titleCol = Math.max(0, Math.floor((maxW - stringWidth(title)) / 2));
+    const titleCol = centerCol(maxW, stringWidth(title));
     frame.writeText(0, titleCol, title, { fg: t.primary, bold: true });
 
     const countText = `${this.filtered.length} ${countUnit(lang, this.filtered.length, "journal.countSuffix")}`;
@@ -310,21 +310,21 @@ export class JournalScene implements Scene {
       this.searchInput.render(frame, 1, 1 + labelW, maxW - 2 - labelW, { fg: t.primary });
     } else {
       const sep = "─".repeat(Math.min(maxW, 60));
-      const sepCol = Math.max(0, Math.floor((maxW - stringWidth(sep)) / 2));
+      const sepCol = centerCol(maxW, stringWidth(sep));
       frame.writeText(1, sepCol, sep, { fg: t.tertiary, dim: true });
     }
 
     if (this.entries.length === 0) {
       const midRow = Math.floor(ctx.rows / 2);
       const empty = tr(lang, "journal.empty");
-      const emptyCol = Math.max(0, Math.floor((maxW - stringWidth(empty)) / 2));
+      const emptyCol = centerCol(maxW, stringWidth(empty));
       frame.writeText(midRow, emptyCol, empty, { fg: t.secondary });
       // A quieter line beneath orients what this space holds — but only when it
       // clears the footer (a sub-chrome height would otherwise overwrite it).
       const invite = tr(lang, "journal.emptyInvite");
       const inviteRow = midRow + 1;
       if (inviteRow < ctx.rows - 1) {
-        const inviteCol = Math.max(0, Math.floor((maxW - stringWidth(invite)) / 2));
+        const inviteCol = centerCol(maxW, stringWidth(invite));
         frame.writeText(inviteRow, inviteCol, invite, { fg: t.tertiary, dim: true });
       }
       this.renderFooter(frame, ctx, lang); // with no readings, still show the way out
@@ -336,7 +336,7 @@ export class JournalScene implements Scene {
     // filtered is only empty while searching (otherwise it mirrors entries).
     if (this.filtered.length === 0) {
       const hint = tr(lang, "journal.emptyHint");
-      const hintCol = Math.max(0, Math.floor((maxW - stringWidth(hint)) / 2));
+      const hintCol = centerCol(maxW, stringWidth(hint));
       frame.writeText(Math.floor(ctx.rows / 2), hintCol, hint, { fg: t.tertiary, dim: true });
       this.renderFooter(frame, ctx, lang);
       return;
