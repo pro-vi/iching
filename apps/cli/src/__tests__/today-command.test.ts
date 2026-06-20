@@ -4,50 +4,22 @@
 // LLM/scripting integration surface: castToJson payload + date/intention/method.
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { runCli } from "../testing.ts";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { buildStructure } from "@iching/core";
 import type { DailyCache } from "@iching/core";
 import { castOf } from "@iching/core/testing";
 
-const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
-const MAIN_TS = resolve(REPO_ROOT, "apps/cli/src/main.ts");
-
 /**
- * The subprocess is pinned to TZ=UTC (see runCli) so the CLI's localToday() agrees
+ * The subprocess is pinned to TZ=UTC (via the env on each runCli call) so the CLI's localToday() agrees
  * with this UTC formula — bun test itself defaults to UTC, but the machine's
  * shell TZ would otherwise leak into the spawned CLI and skew the date near
  * midnight boundaries.
  */
 function utcToday(): string {
   return new Date().toISOString().slice(0, 10);
-}
-
-interface RunResult {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}
-
-async function runCli(dataDir: string, args: string[]): Promise<RunResult> {
-  const proc = Bun.spawn(
-    ["bun", MAIN_TS, "--data-dir", dataDir, ...args],
-    {
-      cwd: REPO_ROOT,
-      stdin: "pipe",
-      stdout: "pipe",
-      stderr: "pipe",
-      env: { ...process.env, NO_COLOR: "1", TZ: "UTC" },
-    },
-  );
-  proc.stdin.end();
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-  const exitCode = await proc.exited;
-  return { exitCode, stdout, stderr };
 }
 
 /** KW3 屯 with line 1 moving → becoming KW8 比 (water over earth). The lines
@@ -106,7 +78,7 @@ describe("today command", () => {
 
   test("prints the full reading when today's cast exists", async () => {
     await seedCache(dataDir, makeCache(utcToday()));
-    const { exitCode, stdout } = await runCli(dataDir, ["today"]);
+    const { exitCode, stdout } = await runCli(["today"], { dataDir, env: { TZ: "UTC" } });
     expect(exitCode).toBe(0);
     // Day context
     expect(stdout).toContain(`Date: ${utcToday()}`);
@@ -126,7 +98,7 @@ describe("today command", () => {
 
   test("--json emits the castToJson payload plus date/intention/method", async () => {
     await seedCache(dataDir, makeCache(utcToday()));
-    const { exitCode, stdout } = await runCli(dataDir, ["--json", "today"]);
+    const { exitCode, stdout } = await runCli(["--json", "today"], { dataDir, env: { TZ: "UTC" } });
     expect(exitCode).toBe(0);
     const payload = JSON.parse(stdout);
     expect(payload.date).toBe(utcToday());
@@ -144,7 +116,7 @@ describe("today command", () => {
   }, 20_000);
 
   test("no cache yet: calm invitation on stdout, exit 0", async () => {
-    const { exitCode, stdout, stderr } = await runCli(dataDir, ["today"]);
+    const { exitCode, stdout, stderr } = await runCli(["today"], { dataDir, env: { TZ: "UTC" } });
     expect(exitCode).toBe(0);
     expect(stdout).toContain("no reading yet today — run `iching` to cast");
     expect(stderr).toBe("");
@@ -152,14 +124,14 @@ describe("today command", () => {
 
   test("stale cache (yesterday) counts as no reading today", async () => {
     await seedCache(dataDir, makeCache("2001-01-01"));
-    const { exitCode, stdout } = await runCli(dataDir, ["today"]);
+    const { exitCode, stdout } = await runCli(["today"], { dataDir, env: { TZ: "UTC" } });
     expect(exitCode).toBe(0);
     expect(stdout).toContain("no reading yet today");
     expect(stdout).not.toContain("Hexagram 3");
   }, 20_000);
 
   test("--json with no cast: stable null payload, exit 0", async () => {
-    const { exitCode, stdout } = await runCli(dataDir, ["--json", "today"]);
+    const { exitCode, stdout } = await runCli(["--json", "today"], { dataDir, env: { TZ: "UTC" } });
     expect(exitCode).toBe(0);
     const payload = JSON.parse(stdout);
     expect(payload.date).toBe(utcToday());
@@ -180,12 +152,12 @@ describe("today command", () => {
   // consumers branching on key presence broke. Both states must expose the
   // IDENTICAL key set; only the values differ.
   test("--json key set is identical with and without a cast", async () => {
-    const empty = await runCli(dataDir, ["--json", "today"]);
+    const empty = await runCli(["--json", "today"], { dataDir, env: { TZ: "UTC" } });
     expect(empty.exitCode).toBe(0);
     const emptyKeys = Object.keys(JSON.parse(empty.stdout)).sort();
 
     await seedCache(dataDir, makeCache(utcToday()));
-    const full = await runCli(dataDir, ["--json", "today"]);
+    const full = await runCli(["--json", "today"], { dataDir, env: { TZ: "UTC" } });
     expect(full.exitCode).toBe(0);
     const fullKeys = Object.keys(JSON.parse(full.stdout)).sort();
 
@@ -198,7 +170,7 @@ describe("today command", () => {
   // today's reading from history.jsonl rather than claim "no reading yet".
   test("recovers today's reading from the journal when the cache is missing", async () => {
     await seedJournal(dataDir, [todayEntry()]); // no daily-cache.json written
-    const { exitCode, stdout } = await runCli(dataDir, ["today"]);
+    const { exitCode, stdout } = await runCli(["today"], { dataDir, env: { TZ: "UTC" } });
     expect(exitCode).toBe(0);
     expect(stdout).not.toContain("no reading yet today");
     expect(stdout).toContain(`Date: ${utcToday()}`);
@@ -213,7 +185,7 @@ describe("today command", () => {
   test("a stale cache does not hide today's journal reading", async () => {
     await seedCache(dataDir, makeCache("2001-01-01")); // yesterday's cache lingers…
     await seedJournal(dataDir, [todayEntry()]); // …but history holds today
-    const { exitCode, stdout } = await runCli(dataDir, ["today"]);
+    const { exitCode, stdout } = await runCli(["today"], { dataDir, env: { TZ: "UTC" } });
     expect(exitCode).toBe(0);
     expect(stdout).not.toContain("no reading yet today");
     expect(stdout).toContain("Hexagram 3");
@@ -221,7 +193,7 @@ describe("today command", () => {
 
   test("--json recovers today's reading from the journal", async () => {
     await seedJournal(dataDir, [todayEntry()]);
-    const { exitCode, stdout } = await runCli(dataDir, ["--json", "today"]);
+    const { exitCode, stdout } = await runCli(["--json", "today"], { dataDir, env: { TZ: "UTC" } });
     expect(exitCode).toBe(0);
     const payload = JSON.parse(stdout);
     expect(payload.date).toBe(utcToday());
