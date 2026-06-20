@@ -65,6 +65,17 @@ function readingPlainLines(cast: Cast): string[] {
   return lines;
 }
 
+/**
+ * The header line that names a hexagram in plain output —
+ * `䷀  乾 (Qián) — The Creative — Hexagram 1` — with the English name folded in
+ * only when present. Shared by the cast, single-hexagram, and journal-show
+ * surfaces so the format (spacing, the two " — " separators) stays identical.
+ */
+function hexagramTitleLine(hex: Hexagram, kw: number): string {
+  const ename = hex.ename ? ` — ${hex.ename}` : "";
+  return `${hex.u}  ${hex.n} (${hex.p})${ename} — Hexagram ${kw}`;
+}
+
 /** Format a full reading as plain text */
 export function formatCastPlain(
   cast: Cast,
@@ -82,8 +93,7 @@ export function formatCastPlain(
   }
 
   // Primary hexagram
-  const ename = primary.ename ? ` — ${primary.ename}` : "";
-  lines.push(`${primary.u}  ${primary.n} (${primary.p})${ename} — Hexagram ${cast.primary}`);
+  lines.push(hexagramTitleLine(primary, cast.primary));
   lines.push("");
 
   // Line values
@@ -163,8 +173,7 @@ export function formatHexagramPlain(
   const lines: string[] = [];
   const s = getStructure(kw);
 
-  const ename = hex.ename ? ` — ${hex.ename}` : "";
-  lines.push(`${hex.u}  ${hex.n} (${hex.p})${ename} — Hexagram ${kw}`);
+  lines.push(hexagramTitleLine(hex, kw));
   lines.push("");
   lines.push(
     `Upper: ${s.upper.sym} ${s.upper.n} (${s.upper.img})`,
@@ -279,7 +288,6 @@ export function formatJournalShowPlain(
   const structure = getStructure(entry.cast.primary);
   const lines: string[] = [];
 
-  const ename = g.ename ? ` — ${g.ename}` : "";
   lines.push(`Date: ${entry.date}${entry.timestamp ? `  ${formatTime(entry.timestamp)}` : ""}`);
   if (entry.intention) {
     lines.push(`Intention: ${stripTerminalControls(entry.intention)}`);
@@ -293,7 +301,7 @@ export function formatJournalShowPlain(
   if (entropy) {
     lines.push(entropy);
   }
-  lines.push(`${g.u}  ${g.n} (${g.p})${ename} — Hexagram ${entry.cast.primary}`);
+  lines.push(hexagramTitleLine(g, entry.cast.primary));
   lines.push("");
   lines.push(
     `Upper: ${structure.upper.sym} ${structure.upper.n} (${structure.upper.img})`,
