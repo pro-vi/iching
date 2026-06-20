@@ -76,6 +76,19 @@ function hexagramTitleLine(hex: Hexagram, kw: number): string {
   return `${hex.u}  ${hex.n} (${hex.p})${ename} — Hexagram ${kw}`;
 }
 
+/**
+ * The upper/lower trigram pair as two plain lines — `Upper: ☰ 乾 (Heaven)` /
+ * `Lower: ☷ 坤 (Earth)`. Shared by every plain surface that prints a hexagram's
+ * structure (cast, single-hexagram, journal-show); spread into the line list so
+ * each caller keeps its own surrounding blank lines.
+ */
+function structureLines(structure: Pick<Structure, "upper" | "lower">): [string, string] {
+  return [
+    `Upper: ${structure.upper.sym} ${structure.upper.n} (${structure.upper.img})`,
+    `Lower: ${structure.lower.sym} ${structure.lower.n} (${structure.lower.img})`,
+  ];
+}
+
 /** Format a full reading as plain text */
 export function formatCastPlain(
   cast: Cast,
@@ -112,12 +125,7 @@ export function formatCastPlain(
   lines.push("");
 
   // Structure
-  lines.push(
-    `Upper: ${structure.upper.sym} ${structure.upper.n} (${structure.upper.img})`,
-  );
-  lines.push(
-    `Lower: ${structure.lower.sym} ${structure.lower.n} (${structure.lower.img})`,
-  );
+  lines.push(...structureLines(structure));
   lines.push("");
 
   // Becoming
@@ -175,12 +183,7 @@ export function formatHexagramPlain(
 
   lines.push(hexagramTitleLine(hex, kw));
   lines.push("");
-  lines.push(
-    `Upper: ${s.upper.sym} ${s.upper.n} (${s.upper.img})`,
-  );
-  lines.push(
-    `Lower: ${s.lower.sym} ${s.lower.n} (${s.lower.img})`,
-  );
+  lines.push(...structureLines(s));
   lines.push("");
 
   if (style && style !== "st") {
@@ -303,12 +306,7 @@ export function formatJournalShowPlain(
   }
   lines.push(hexagramTitleLine(g, entry.cast.primary));
   lines.push("");
-  lines.push(
-    `Upper: ${structure.upper.sym} ${structure.upper.n} (${structure.upper.img})`,
-  );
-  lines.push(
-    `Lower: ${structure.lower.sym} ${structure.lower.n} (${structure.lower.img})`,
-  );
+  lines.push(...structureLines(structure));
 
   if (entry.cast.becoming !== null) {
     const b = GUA[entry.cast.becoming - 1];
