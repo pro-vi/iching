@@ -127,7 +127,7 @@ export function centerCol(totalWidth: number, itemWidth: number, offset = 0): nu
 export function centerPad(str: string, totalWidth: number): string {
   const w = stringWidth(str);
   if (w >= totalWidth) return str;
-  const leftPad = Math.floor((totalWidth - w) / 2);
+  const leftPad = centerCol(totalWidth, w);
   const rightPad = totalWidth - w - leftPad;
   return " ".repeat(leftPad) + str + " ".repeat(rightPad);
 }

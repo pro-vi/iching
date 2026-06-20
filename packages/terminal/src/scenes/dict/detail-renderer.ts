@@ -7,7 +7,7 @@ import type { DetailModel, DerivedLink } from "./detail-model.ts";
 import type { DisplayLanguage } from "@iching/core";
 import { SEQUENCE, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth, centerPad, truncateToWidth } from "../../layout/measure.ts";
+import { stringWidth, centerPad, centerCol, truncateToWidth } from "../../layout/measure.ts";
 import { wordWrap } from "./word-wrap.ts";
 import { GLYPHS } from "../../glyphs.ts";
 import { tr } from "../../i18n/messages.ts";
@@ -333,7 +333,7 @@ export function renderDetail(
   // Glyph rendering state
   const glyphEntry = model.glyphEntry;
   const glyphCol = glyphEntry
-    ? Math.max(0, Math.floor((ctx.cols - glyphEntry.width) / 2))
+    ? centerCol(ctx.cols, glyphEntry.width)
     : 0;
 
   for (let i = model.scrollOffset; i < visibleEnd; i++) {
