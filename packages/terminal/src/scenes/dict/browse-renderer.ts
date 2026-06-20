@@ -130,10 +130,9 @@ function renderRow(
   const chinesePadded =
     chinese + " ".repeat(Math.max(0, chineseFixedWidth - chineseWidth));
 
-  const ename =
-    enWidth > 0 && hex.ename.length > enWidth
-      ? hex.ename.slice(0, enWidth - 1) + "…"
-      : hex.ename;
+  // enWidth ≤ 0 keeps the full name (it isn't rendered then — see the guard
+  // below); otherwise clip to the column via the shared CJK-aware helper.
+  const ename = enWidth > 0 ? truncateToWidth(hex.ename, enWidth) : hex.ename;
 
   const fg = isSelected ? t.primary : t.secondary;
   const bgStyle = isSelected ? { bg: t.dimmed } : {};

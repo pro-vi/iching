@@ -5,7 +5,7 @@ import type { CastModel } from "./model.ts";
 import { GUA, getStructure, toSimplified } from "@iching/core";
 import type { DisplayLanguage } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth } from "../../layout/measure.ts";
+import { stringWidth, truncateToWidth } from "../../layout/measure.ts";
 import { anchorRow, TITLE_ROW_OFFSET } from "./hexagram-renderer.ts";
 import { canSplit, glyphRevealMode, glyphTitleLineCount, type GlyphRevealMode } from "./layout-calc.ts";
 import { readingPanelRows, readingPanelWidth } from "./reading-lines.ts";
@@ -102,7 +102,7 @@ export function titleLayout(
       lines = [gua.p];
     } else if (english) {
       const maxWidth = Math.max(20, buf.width - 8);
-      const enLine = stringWidth(gua.en) > maxWidth ? gua.en.slice(0, maxWidth - 1) + "…" : gua.en;
+      const enLine = truncateToWidth(gua.en, maxWidth);
       lines = [gua.p, gua.ename ?? "", enLine, structLine];
     } else {
       lines = [gua.p, structLine];
@@ -114,7 +114,7 @@ export function titleLayout(
       lines = [line1, line2];
     } else if (english) {
       const maxWidth = Math.max(20, buf.width - 8);
-      const line3 = stringWidth(gua.en) > maxWidth ? gua.en.slice(0, maxWidth - 1) + "…" : gua.en;
+      const line3 = truncateToWidth(gua.en, maxWidth);
       const full = [line1, line2, line3, structLine];
       // The texts are the heart of the reading. When the full English title
       // (name · pinyin · image · trigrams) would starve the panel — at 24-row
