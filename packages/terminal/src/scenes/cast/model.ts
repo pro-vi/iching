@@ -48,6 +48,10 @@ export class CastModel {
   showPrompt: boolean;
   promptChoice: string | null;
 
+  // Pace control during the reveal (mirrors the yarrow ritual)
+  paused: boolean;
+  speed: number;
+
   // Large glyph reveal
   glyphAnimator: GlyphAnimator | null;
   glyphAnimDone: boolean;
@@ -57,6 +61,12 @@ export class CastModel {
   // Interactive exploration (after becoming reveal)
   explorationMode: boolean;
   focusedHex: "primary" | "becoming";
+
+  // Reading panel visibility — the oracle texts (爻辭/卦辭) shown beneath the
+  // figure. Hidden by default so a cast settles to the bare figure first; [r]
+  // reveals the reading once you choose to sit with the texts. The figure and
+  // its moving-line marks always show; only the reading texts toggle.
+  readingHidden: boolean;
 
   // Intention text for this cast
   intention?: string;
@@ -99,6 +109,9 @@ export class CastModel {
     this.showPrompt = false;
     this.promptChoice = null;
 
+    this.paused = false;
+    this.speed = 1;
+
     this.glyphAnimator = null;
     this.glyphAnimDone = false;
     this.primaryGlyphEntry = null;
@@ -106,5 +119,6 @@ export class CastModel {
 
     this.explorationMode = false;
     this.focusedHex = "primary";
+    this.readingHidden = true;
   }
 }

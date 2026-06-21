@@ -6,41 +6,25 @@
 
 import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
-import type { GlyphAnimator } from "./types.ts";
+import { GlyphAnimatorBase } from "./animator-base.ts";
+import { EMPTY_BRAILLE, brailleFromMask, isEmpty } from "./braille.ts";
 import { getTheme } from "../color/theme.ts";
+import { lerpColor } from "../color/lerp.ts";
+import { easeOut } from "../animation/easing.ts";
 
-const TOTAL_MS = 3500;
+/** Total run time (ms) at durationScale 1. */
+export const SAND_TOTAL_MS = 3500;
 
 // Braille block for random in-flight appearance
-const BRAILLE_BASE = 0x2800;
-const BRAILLE_COUNT = 256;
 
 function randomBraille(): string {
   // Use sparse patterns (few dots) for in-flight look
   const sparse = [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80,
                   0x03, 0x05, 0x09, 0x11, 0x41, 0x21, 0x44, 0x22];
-  return String.fromCharCode(BRAILLE_BASE + sparse[Math.floor(Math.random() * sparse.length)]);
-}
-
-function isEmpty(ch: string): boolean {
-  return ch === "\u2800" || ch === " ";
+  return brailleFromMask(sparse[Math.floor(Math.random() * sparse.length)]);
 }
 
 /** Quadratic ease-out. */
-function easeOutQuad(t: number): number {
-  return 1 - (1 - t) * (1 - t);
-}
-
-function lerpColor(a: string, b: string, t: number): string {
-  const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
-  const ar = parseInt(a.slice(1, 3), 16), ag = parseInt(a.slice(3, 5), 16), ab = parseInt(a.slice(5, 7), 16);
-  const br = parseInt(b.slice(1, 3), 16), bg = parseInt(b.slice(3, 5), 16), bb = parseInt(b.slice(5, 7), 16);
-  const r = clamp(ar + (br - ar) * t);
-  const g = clamp(ag + (bg - ag) * t);
-  const bv = clamp(ab + (bb - ab) * t);
-  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${bv.toString(16).padStart(2, "0")}`;
-}
-
 interface Particle {
   targetR: number;
   targetC: number;
@@ -55,22 +39,19 @@ interface Particle {
   fallDuration: number;
 }
 
-export class SandAnimator implements GlyphAnimator {
-  private readonly glyph: GlyphEntry;
+export class SandAnimator extends GlyphAnimatorBase {
   private particles: Particle[] = [];
-  private startTime = -1;
-  private localMs = 0;
 
-  constructor(glyph: GlyphEntry) {
-    this.glyph = glyph;
+  constructor(glyph: GlyphEntry, durationScale: number = 1) {
+    super(glyph, durationScale, SAND_TOTAL_MS);
     this.initParticles();
   }
 
   private initParticles(): void {
     this.particles = [];
-    const staggerWindow = TOTAL_MS * 0.4; // first 40% is stagger
-    const fallBase = TOTAL_MS * 0.45;     // base fall duration
-    const fallJitter = TOTAL_MS * 0.15;   // jitter on fall duration
+    const staggerWindow = SAND_TOTAL_MS * 0.4; // first 40% is stagger
+    const fallBase = SAND_TOTAL_MS * 0.45;     // base fall duration
+    const fallJitter = SAND_TOTAL_MS * 0.15;   // jitter on fall duration
 
     // Collect content cells
     const contentCells: { r: number; c: number; ch: string }[] = [];
@@ -105,12 +86,6 @@ export class SandAnimator implements GlyphAnimator {
     }
   }
 
-  update(elapsed: number): boolean {
-    if (this.startTime < 0) this.startTime = elapsed;
-    this.localMs = elapsed - this.startTime;
-    return this.localMs >= TOTAL_MS;
-  }
-
   render(buf: CellBuffer, offsetR: number, offsetC: number): void {
     const th = getTheme();
     const t = this.localMs;
@@ -118,7 +93,7 @@ export class SandAnimator implements GlyphAnimator {
     // First, render empty braille for all positions (background)
     for (let r = 0; r < this.glyph.height; r++) {
       for (let c = 0; c < this.glyph.width; c++) {
-        buf.writeText(offsetR + r, offsetC + c, "\u2800", { fg: th.tertiary });
+        buf.writeText(offsetR + r, offsetC + c, EMPTY_BRAILLE, { fg: th.tertiary });
       }
     }
 
@@ -128,7 +103,7 @@ export class SandAnimator implements GlyphAnimator {
       if (particleT <= 0) continue; // not launched yet
 
       const fallProgress = Math.min(1, particleT / p.fallDuration);
-      const easedProgress = easeOutQuad(fallProgress);
+      const easedProgress = easeOut(fallProgress);
 
       // Interpolate position
       const currentR = p.targetR + p.startOffsetR * (1 - easedProgress);
@@ -158,8 +133,7 @@ export class SandAnimator implements GlyphAnimator {
   }
 
   reset(): void {
-    this.startTime = -1;
-    this.localMs = 0;
+    this.resetClock();
     this.initParticles();
   }
 }

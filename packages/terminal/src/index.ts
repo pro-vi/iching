@@ -129,8 +129,19 @@ export { type TaijituStyle } from "./scenes/home/taijitu-render.ts";
 export { IntentionScene } from "./scenes/intention/intention-scene.ts";
 
 
-// Scenes: journal (placeholder)
-export { JournalScene } from "./scenes/journal/journal-scene.ts";
+// Scenes: journal
+export {
+  JournalScene,
+  type JournalEntryView,
+  type JournalNoteView,
+  type JournalSceneOptions,
+} from "./scenes/journal/journal-scene.ts";
+// Re-exported from core (the derivation moved there); kept for API stability.
+export {
+  computeJournalPatterns,
+  type JournalPatterns,
+  type HexagramFrequency,
+} from "@iching/core";
 
 // Scenes: toss playground
 export { TossScene } from "./scenes/toss/toss-scene.ts";

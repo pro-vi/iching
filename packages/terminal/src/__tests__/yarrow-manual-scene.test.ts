@@ -1,11 +1,15 @@
 import { describe, test, expect } from "bun:test";
+import { sceneCtx } from "../testing.ts";
 import { SeededRandomSource } from "@iching/core";
 import { YarrowManualScene } from "../scenes/yarrow/yarrow-manual-scene.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import type { SceneContext } from "../scene/types.ts";
 import type { KeyEvent } from "../input/key-parser.ts";
 
-const ctx = {} as SceneContext;
+// Above the yarrow field floor (52 × 21), so update/handleKey run the ritual;
+// the freeze test passes its own small dims.
+const ctx = sceneCtx(80, 40, "truecolor", "en");
+const smallCtx = sceneCtx(41, 12, "truecolor", "en");
 const space = { type: "char", char: " " } satisfies KeyEvent;
 const escape = { type: "escape" } satisfies KeyEvent;
 const ctrlC = { type: "ctrl", char: "c" } satisfies KeyEvent;
@@ -89,7 +93,10 @@ describe("YarrowManualScene — 18-cut full manual", () => {
     pumpThroughSnap(s);
     expect(s.getPhase()).toBe("playing");
     expect(s.getModel().transcript[0].rounds[0]).toBeDefined();
-    const k = s.getModel().transcript[0].rounds[0].splitAt;
+    const round = s.getModel().currentRound();
+    expect(round).not.toBeNull();
+    if (round === null) throw new Error("expected round 0 to be current");
+    const k = round.splitAt;
     expect(k).toBeGreaterThanOrEqual(left);
     expect(k).toBeLessThanOrEqual(left + 3);
     expect(s.getCommittedK()).toBe(k);
@@ -159,6 +166,25 @@ describe("YarrowManualScene — 18-cut full manual", () => {
 
   test("ctrl-c exits at any phase", () => {
     expect(scene().handleKey(ctrlC, ctx)).toEqual({ type: "exit" });
+  });
+
+  test("below the field floor the manual ritual ignores its keys, but esc/ctrl-c leave", () => {
+    // The too-small notice is render-only; without gating, the cut key acted on
+    // a field the user couldn't see. The cut is ignored while hidden; leaving works.
+    const s = scene();
+    s.handleKey(space, smallCtx);
+    expect(s.getPhase()).toBe("gathering"); // not advanced to sweeping
+    expect(s.handleKey(escape, smallCtx)).toEqual({ type: "home" });
+    expect(s.handleKey(ctrlC, smallCtx)).toEqual({ type: "exit" });
+  });
+
+  test("below the field floor the manual sweep does not advance unseen", () => {
+    const s = scene();
+    s.handleKey(space, ctx); // start the sweep at full size
+    expect(s.getPhase()).toBe("sweeping");
+    const aperture = s.getApertureLeft();
+    for (let i = 0; i < 10; i++) s.update(0, 150, smallCtx);
+    expect(s.getApertureLeft()).toBe(aperture); // frozen behind the notice
   });
 
   test("render does not throw for any phase", () => {

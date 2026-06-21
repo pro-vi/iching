@@ -2,37 +2,88 @@
 
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { CastModel } from "./model.ts";
-import { GUA, getStructure, toSimplified } from "@iching/core";
+import { GUA, clamp, getStructure, toSimplified } from "@iching/core";
 import type { DisplayLanguage } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth } from "../../layout/measure.ts";
+import { stringWidth, truncateToWidth, centerCol } from "../../layout/measure.ts";
 import { anchorRow, TITLE_ROW_OFFSET } from "./hexagram-renderer.ts";
+import { canSplit, glyphRevealMode, glyphTitleLineCount, type GlyphRevealMode } from "./layout-calc.ts";
+import { readingPanelRows, readingPanelWidth } from "./reading-lines.ts";
 import { tr } from "../../i18n/messages.ts";
 
+/** The focused glyph entry — the one renderLargeGlyph would draw. */
+function focusedGlyphEntry(model: CastModel) {
+  return model.focusedHex === "primary"
+    ? model.primaryGlyphEntry
+    : (model.becomingGlyphEntry ?? model.primaryGlyphEntry);
+}
+
 /**
- * Render the title block: Chinese name, pinyin, English, trigram meta.
- * Fade in based on titleProgress.
+ * How the glyph shares the rows below the hexagram with the title block and
+ * the reading panel — "normal", "compact" (title yields), or "none" (glyph
+ * yields). Single source of truth for glyph-renderer, titleLayout, and the
+ * reading panel, so all three agree on the same geometry.
+ *
+ * Computed from the settled-state layout (split prediction, full panel
+ * height) rather than the current animation phase, so the glyph never
+ * jumps rows when the exploration phase begins.
  */
-export function renderTitle(
+export function glyphDisplayMode(
   buf: CellBuffer,
   model: CastModel,
-  xOffset: number = 0,
   language: DisplayLanguage = "en",
-): void {
-  if (model.titleProgress <= 0) return;
+): GlyphRevealMode {
+  const glyphHeight = focusedGlyphEntry(model)?.height ?? 0;
+  const hasGlyph = glyphHeight > 0 && (model.glyphAnimator !== null || model.glyphAnimDone);
+  if (!hasGlyph) return "none";
+  const willSplit = model.cast.becoming !== null && canSplit(buf.width);
+  const titleLines = glyphTitleLineCount(willSplit, language === "en");
+  const panelRows = readingPanelRows(model.cast, language, readingPanelWidth(buf.width));
+  return glyphRevealMode(buf.height, anchorRow(buf.height), glyphHeight, titleLines, panelRows);
+}
 
-  const t = getTheme();
+/**
+ * Would the reading panel truncate if the title took `titleLines` rows starting
+ * at `baseRow`? The panel ends at buf.height - 3 (matching reading-renderer),
+ * so the rows it gets are everything between the title and that floor; if it
+ * wants more than that, the texts get cut.
+ */
+function panelStarved(
+  buf: CellBuffer,
+  model: CastModel,
+  language: DisplayLanguage,
+  baseRow: number,
+  titleLines: number,
+): boolean {
+  const wants = readingPanelRows(model.cast, language, readingPanelWidth(buf.width));
+  const available = buf.height - 3 - (baseRow + titleLines) + 1;
+  return wants > available;
+}
+
+/**
+ * Title-block layout: where the block starts and which text lines it shows.
+ * Shared by renderTitle and the reading panel (which starts below the block).
+ * In compact glyph mode the title yields all its rows to the reading texts —
+ * the glyph IS the name; the detail view holds the rest.
+ */
+export function titleLayout(
+  buf: CellBuffer,
+  model: CastModel,
+  language: DisplayLanguage = "en",
+): { baseRow: number; lines: string[] } {
   const anchor = anchorRow(buf.height);
   // Use focused hexagram — focusedHex is authoritative regardless of explorationMode
   const focusedKw = model.focusedHex === "becoming" && model.cast.becoming
     ? model.cast.becoming
     : model.cast.primary;
 
-  const glyphEntry = model.focusedHex === "primary"
-    ? model.primaryGlyphEntry
-    : (model.becomingGlyphEntry ?? model.primaryGlyphEntry);
-  const glyphHeight = glyphEntry?.height ?? 0;
-  const hasGlyph = glyphHeight > 0 && (model.glyphAnimator !== null || model.glyphAnimDone);
+  const glyphHeight = focusedGlyphEntry(model)?.height ?? 0;
+  const mode = glyphDisplayMode(buf, model, language);
+  if (mode === "compact") {
+    // Glyph hugs the hexagram at `anchor`; the first free row follows it.
+    return { baseRow: anchor + glyphHeight, lines: [] };
+  }
+  const hasGlyph = mode === "normal";
   const baseRow = anchor + TITLE_ROW_OFFSET + (hasGlyph ? glyphHeight + 1 : 0);
   const gua = GUA[focusedKw - 1];
   const structure = getStructure(focusedKw);
@@ -51,7 +102,7 @@ export function renderTitle(
       lines = [gua.p];
     } else if (english) {
       const maxWidth = Math.max(20, buf.width - 8);
-      const enLine = stringWidth(gua.en) > maxWidth ? gua.en.slice(0, maxWidth - 1) + "…" : gua.en;
+      const enLine = truncateToWidth(gua.en, maxWidth);
       lines = [gua.p, gua.ename ?? "", enLine, structLine];
     } else {
       lines = [gua.p, structLine];
@@ -63,20 +114,43 @@ export function renderTitle(
       lines = [line1, line2];
     } else if (english) {
       const maxWidth = Math.max(20, buf.width - 8);
-      const line3 = stringWidth(gua.en) > maxWidth ? gua.en.slice(0, maxWidth - 1) + "…" : gua.en;
-      lines = [line1, line2, line3, structLine];
+      const line3 = truncateToWidth(gua.en, maxWidth);
+      const full = [line1, line2, line3, structLine];
+      // The texts are the heart of the reading. When the full English title
+      // (name · pinyin · image · trigrams) would starve the panel — at 24-row
+      // terminals most judgments need three wrapped lines — shed the optional
+      // image and trigram rows so the reading keeps its space; the detail view
+      // still holds them. Only when the panel would otherwise truncate.
+      lines = panelStarved(buf, model, language, baseRow, full.length) ? [line1, line2] : full;
     } else {
       lines = [line1, line2, structLine];
     }
   }
+  return { baseRow, lines };
+}
+
+/**
+ * Render the title block: Chinese name, pinyin, English, trigram meta.
+ * Fade in based on titleProgress.
+ */
+export function renderTitle(
+  buf: CellBuffer,
+  model: CastModel,
+  xOffset: number = 0,
+  language: DisplayLanguage = "en",
+): void {
+  if (model.titleProgress <= 0) return;
+
+  const t = getTheme();
+  const { baseRow, lines } = titleLayout(buf, model, language);
   const progress = model.titleProgress;
 
   for (let i = 0; i < lines.length; i++) {
     const row = baseRow + i;
-    if (row >= buf.height) break;
+    if (row >= buf.height - 2) break; // never collide with the prompt bar
 
     // Stagger: each line appears slightly later
-    const lineProgress = Math.max(0, Math.min(1, (progress - i * 0.15) / 0.4));
+    const lineProgress = clamp((progress - i * 0.15) / 0.4, 0, 1);
     if (lineProgress <= 0) continue;
 
     // Color: dim initially, then brighter
@@ -90,16 +164,16 @@ export function renderTitle(
     }
 
     const w = stringWidth(lines[i]);
-    const col = Math.max(0, Math.floor((buf.width - w) / 2) + xOffset);
+    const col = centerCol(buf.width, w, xOffset);
     buf.writeText(row, col, lines[i], { fg, dim: lineProgress < 0.3 });
   }
 
   // Subtitle ("unchanging" or becoming title)
   if (model.subtitleText) {
     const subRow = baseRow + 5;
-    if (subRow < buf.height) {
+    if (subRow < buf.height - 2) {
       const w = stringWidth(model.subtitleText);
-      const col = Math.max(0, Math.floor((buf.width - w) / 2) + xOffset);
+      const col = centerCol(buf.width, w, xOffset);
       buf.writeText(subRow, col, model.subtitleText, {
         fg: t.tertiary,
         dim: true,
@@ -124,8 +198,12 @@ export function renderBecomingTitle(
   const isSplit = model.layout !== "centered";
   const glyphEntry = model.primaryGlyphEntry ?? model.becomingGlyphEntry;
   const glyphHeight = glyphEntry?.height ?? 0;
-  const hasGlyph = glyphHeight > 0 && (model.glyphAnimator !== null || model.glyphAnimDone);
-  const glyphOffset = hasGlyph ? glyphHeight + 1 : 0;
+  // Offset below the glyph only when the glyph actually holds its normal
+  // place — in compact/none modes the becoming title is not glyph-shifted.
+  const glyphOffset =
+    glyphHeight > 0 && glyphDisplayMode(buf, model, language) === "normal"
+      ? glyphHeight + 1
+      : 0;
   // In split mode, becoming title renders at same row as primary title (not +6)
   const baseRow = anchor + TITLE_ROW_OFFSET + glyphOffset + (isSplit ? 0 : 6);
   const hexNum = model.cast.becoming;
@@ -141,14 +219,14 @@ export function renderBecomingTitle(
   const lines = [line1, line2];
   for (let i = 0; i < lines.length; i++) {
     const row = baseRow + i;
-    if (row >= buf.height) break;
+    if (row >= buf.height - 2) break; // never collide with the prompt bar
 
-    const lineProgress = Math.max(0, Math.min(1, (progress - i * 0.2) / 0.6));
+    const lineProgress = clamp((progress - i * 0.2) / 0.6, 0, 1);
     if (lineProgress <= 0) continue;
 
     const fg = i === 0 ? t.changingYin : t.tertiary;
     const w = stringWidth(lines[i]);
-    const col = Math.max(0, Math.floor((buf.width - w) / 2) + xOffset);
+    const col = centerCol(buf.width, w, xOffset);
     buf.writeText(row, col, lines[i], { fg });
   }
 }

@@ -1,14 +1,14 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { mkdtemp, mkdir, readFile, readdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, readdir, chmod } from "node:fs/promises";
 import { join } from "node:path";
+import { freshTempDir } from "../testing.ts";
 import { atomicWriteJson } from "../json/atomic-write.js";
 
 describe("atomicWriteJson", () => {
   let dir: string;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "atomic-test-"));
+    dir = await freshTempDir("atomic-test");
   });
 
   test("writes file atomically (file exists after write)", async () => {
@@ -58,5 +58,23 @@ describe("atomicWriteJson", () => {
     await expect(atomicWriteJson(path, { v: 1 })).rejects.toThrow();
     const leftovers = (await readdir(dir)).filter((f) => f.endsWith(".tmp"));
     expect(leftovers).toEqual([]); // repeated failed saves must not accumulate temps
+  });
+
+  test("a failed write leaves the previous file intact (atomic durability)", async () => {
+    const path = join(dir, "durable.json");
+    await atomicWriteJson(path, { version: 1 });
+
+    // Read-only dir → the temp-file open fails: the exact point where a NON-atomic
+    // writer (open the target with "w", truncating v1, then fail) would corrupt the
+    // original. The write-tmp-then-rename indirection must leave v1 intact.
+    await chmod(dir, 0o555);
+    try {
+      await expect(atomicWriteJson(path, { version: 2 })).rejects.toThrow();
+    } finally {
+      await chmod(dir, 0o755); // restore so the temp dir can be cleaned up
+    }
+
+    const raw = await readFile(path, "utf-8");
+    expect(JSON.parse(raw)).toEqual({ version: 1 }); // v2 never landed; v1 survived
   });
 });

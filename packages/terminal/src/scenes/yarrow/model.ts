@@ -1,12 +1,19 @@
 // YarrowModel — mutable animation state for the yarrow stalk ritual.
 //
 // Auto mode (full transcript known at construction) passes a `YarrowCast`
-// to the constructor and never mutates the transcript. Manual mode (H4
-// 6-cut hold-release) passes `null`, then calls `appendLine(result)` after
-// each user gesture, finally `commitCast()` once all 6 lines have landed.
+// to the constructor and never mutates the transcript. Manual mode passes
+// `null`, then grows draft transcript rows round-by-round before calling
+// `commitCast()` once all 6 lines have landed.
 // The animation timeline only ever writes to the live progress fields.
 
-import { assembleCast, type Cast, type YarrowCast, type YarrowLineResult } from "@iching/core";
+import {
+  assembleCast,
+  type Cast,
+  type Line,
+  type YarrowCast,
+  type YarrowLineResult,
+  type YarrowRound,
+} from "@iching/core";
 import type { LineAnimState } from "../cast/model.ts";
 
 /** The beat currently animating within a round (or the line/ritual edges). */
@@ -21,9 +28,15 @@ export type YarrowBeat =
   | "fuse"
   | "done";
 
+/** Manual mode grows one transcript row over three rounds before the line is known. */
+export interface YarrowLineTranscript {
+  rounds: Array<YarrowRound | undefined>;
+  line: Line | null;
+}
+
 export class YarrowModel {
-  /** Ritual transcript — grows incrementally in manual mode; locked in auto. */
-  transcript: YarrowLineResult[];
+  /** Ritual transcript — complete in auto mode, grows incrementally in manual mode. */
+  transcript: YarrowLineTranscript[];
   /** Assembled hexagram — null until `commitCast()` runs (or set at construction in auto). */
   cast: Cast | null;
 
@@ -99,6 +112,26 @@ export class YarrowModel {
     return this.transcript[this.activeLine]?.rounds[this.activeRound] ?? null;
   }
 
+  /** Complete transcript row for a finished line, or null while manual mode is still assembling it. */
+  lineResult(lineIdx: number): YarrowLineResult | null {
+    const entry = this.transcript[lineIdx];
+    if (!entry || entry.line === null) return null;
+    const first = entry.rounds[0];
+    const second = entry.rounds[1];
+    const third = entry.rounds[2];
+    if (!first || !second || !third) return null;
+    return { rounds: [first, second, third], line: entry.line };
+  }
+
+  /** Complete transcript row accessor for timeline paths that require a finished line. */
+  requireLineResult(lineIdx: number): YarrowLineResult {
+    const result = this.lineResult(lineIdx);
+    if (!result) {
+      throw new Error(`requireLineResult: line ${lineIdx} is not complete`);
+    }
+    return result;
+  }
+
   /**
    * Reset all per-round progress and pose for a fresh line at lineIdx.
    * Called between lines in H4 manual mode and by the settings preview
@@ -130,7 +163,11 @@ export class YarrowModel {
     if (this.transcript.length !== 6) {
       throw new Error(`commitCast: requires 6 lines, have ${this.transcript.length}`);
     }
-    this.cast = assembleCast(this.transcript.map((r) => r.line));
+    const lines: Line[] = [];
+    for (let i = 0; i < 6; i++) {
+      lines.push(this.requireLineResult(i).line);
+    }
+    this.cast = assembleCast(lines);
   }
 
   /** Asserting accessor — use at emit sites and in tests that assume the

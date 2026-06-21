@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { mkdtemp, writeFile, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { freshTempDir } from "../testing.ts";
 import type { UserConfig } from "../types.js";
 import { JsonConfigStore, detectSystemLanguage } from "../json/json-config.js";
 
@@ -21,12 +21,17 @@ function withLocaleEnv(vars: Partial<Record<(typeof LOCALE_VARS)[number], string
   };
 }
 
+/** Write a valid-JSON config.json fixture into a test's data dir. */
+async function seedConfig(dir: string, content: Record<string, unknown>): Promise<void> {
+  await writeFile(join(dir, "config.json"), JSON.stringify(content), "utf-8");
+}
+
 describe("JsonConfigStore", () => {
   let dir: string;
   let store: JsonConfigStore;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "config-test-"));
+    dir = await freshTempDir("config-test");
     store = new JsonConfigStore(join(dir, "config.json"));
   });
 
@@ -44,6 +49,7 @@ describe("JsonConfigStore", () => {
       taijituStyle: "dots",
       castMethod: "coin",
       castMode: "auto",
+      entropy: "crypto",
     });
   });
 
@@ -59,6 +65,7 @@ describe("JsonConfigStore", () => {
       taijituStyle: "dense",
       castMethod: "yarrow",
       castMode: "manual",
+      entropy: "bound",
     };
 
     await store.save(custom);
@@ -70,7 +77,7 @@ describe("JsonConfigStore", () => {
 
   test("load merges with defaults for partial config file", async () => {
     const partial = { motion: "deep" };
-    await writeFile(join(dir, "config.json"), JSON.stringify(partial), "utf-8");
+    await seedConfig(dir, partial);
 
     const config = await store.load();
     expect(config).toEqual({
@@ -84,7 +91,14 @@ describe("JsonConfigStore", () => {
       taijituStyle: "dots",
       castMethod: "coin",
       castMode: "auto",
+      entropy: "crypto",
     });
+  });
+
+  test("load defaults invalid entropy values to crypto", async () => {
+    await seedConfig(dir, { entropy: "quantum" });
+    const loaded = await store.load();
+    expect(loaded.entropy).toBe("crypto");
   });
 
   test("load migrates legacy single-string castMode → method+mode pair", async () => {
@@ -97,7 +111,7 @@ describe("JsonConfigStore", () => {
       ["yarrow-manual", "yarrow", "manual"],
     ];
     for (const [legacy, expectedMethod, expectedMode] of cases) {
-      await writeFile(join(dir, "config.json"), JSON.stringify({ castMode: legacy }), "utf-8");
+      await seedConfig(dir, { castMode: legacy });
       const loaded = await store.load();
       expect(loaded.castMethod).toBe(expectedMethod as UserConfig["castMethod"]);
       expect(loaded.castMode).toBe(expectedMode as UserConfig["castMode"]);
@@ -105,27 +119,27 @@ describe("JsonConfigStore", () => {
   });
 
   test("load migrates legacy taijituStyle values", async () => {
-    await writeFile(join(dir, "config.json"), JSON.stringify({ taijituStyle: "yinDots" }), "utf-8");
+    await seedConfig(dir, { taijituStyle: "yinDots" });
     const a = await store.load();
     expect(a.taijituStyle).toBe("dots");
 
-    await writeFile(join(dir, "config.json"), JSON.stringify({ taijituStyle: "yangDense" }), "utf-8");
+    await seedConfig(dir, { taijituStyle: "yangDense" });
     const b = await store.load();
     expect(b.taijituStyle).toBe("dense");
   });
 
   test("load defaults invalid language values", async () => {
-    await writeFile(join(dir, "config.json"), JSON.stringify({ language: "klingon" }), "utf-8");
+    await seedConfig(dir, { language: "klingon" });
     const loaded = await store.load();
     expect(loaded.language).toBe("en");
   });
 
   test("load accepts display language aliases from hand-edited config", async () => {
-    await writeFile(join(dir, "config.json"), JSON.stringify({ language: "简" }), "utf-8");
+    await seedConfig(dir, { language: "简" });
     const simplified = await store.load();
     expect(simplified.language).toBe("zh-Hans");
 
-    await writeFile(join(dir, "config.json"), JSON.stringify({ language: "EN" }), "utf-8");
+    await seedConfig(dir, { language: "EN" });
     const english = await store.load();
     expect(english.language).toBe("en");
   });
@@ -135,7 +149,7 @@ describe("JsonConfigStore", () => {
   test("inherited prototype names as values do NOT resolve via alias maps", async () => {
     for (const key of ["language", "theme", "castMode"]) {
       for (const bad of ["constructor", "__proto__", "toString"]) {
-        await writeFile(join(dir, "config.json"), JSON.stringify({ [key]: bad }), "utf-8");
+        await seedConfig(dir, { [key]: bad });
         const cfg = await store.load();
         expect(typeof cfg.language).toBe("string");
         expect(typeof cfg.theme).toBe("string");
@@ -147,13 +161,13 @@ describe("JsonConfigStore", () => {
 
   test("language matching is case-insensitive (BCP-47)", async () => {
     for (const [raw, want] of [["zh-hans", "zh-Hans"], ["ZH-HANT", "zh-Hant"], ["En", "en"]] as const) {
-      await writeFile(join(dir, "config.json"), JSON.stringify({ language: raw }), "utf-8");
+      await seedConfig(dir, { language: raw });
       expect((await store.load()).language).toBe(want);
     }
   });
 
   test("unknown own-keys survive a load→save round-trip (schemas only expand)", async () => {
-    await writeFile(join(dir, "config.json"), JSON.stringify({ theme: "ink", futureKey: "keepme" }), "utf-8");
+    await seedConfig(dir, { theme: "ink", futureKey: "keepme" });
     const cfg = await store.load();
     expect((cfg as unknown as Record<string, unknown>).futureKey).toBe("keepme");
     await store.save(cfg);
@@ -206,6 +220,31 @@ describe("JsonConfigStore", () => {
     const cfg = await store.load();
     expect(cfg.language).toBe("en");
     expect(cfg.theme).toBe("bone"); // full defaults, not a crash
+  });
+
+  test("load() degrades to defaults on an UNREADABLE config — does not throw at startup", async () => {
+    // A directory left at the config path (→ EISDIR; in the wild a root-owned
+    // file → EACCES) is a whole-file read failure, not corrupt bytes. load()
+    // runs at startup, so an unguarded throw would crash the app before it
+    // draws. Fall back to defaults like a corrupt config, with a warning.
+    const cfgPath = join(dir, "blocked-config.json");
+    await mkdir(cfgPath); // a directory where the config file should be
+    const blocked = new JsonConfigStore(cfgPath);
+
+    const errors: string[] = [];
+    const origErr = console.error;
+    console.error = (...a: unknown[]) => {
+      errors.push(a.map(String).join(" "));
+    };
+    let cfg: Awaited<ReturnType<typeof blocked.load>> | undefined;
+    try {
+      cfg = await blocked.load();
+    } finally {
+      console.error = origErr;
+    }
+    expect(cfg?.theme).toBe("bone"); // full defaults, not a crash…
+    expect(cfg?.language).toBe("en");
+    expect(errors.join("\n")).toMatch(/config.*is unreadable/i); // …with a warning
   });
 
   // PIN FLIP (review P1/P2): the recoverable copy is .corrupt — leaving the live
@@ -296,6 +335,30 @@ describe("JsonConfigStore", () => {
     expect(calls.length).toBe(1);
   });
 
+  test("a quiet store stays silent on a corrupt config but still degrades to defaults", async () => {
+    // The hook runs on every shell prompt in a fresh process, so the
+    // once-per-instance dedup above can't help across runs — a persistently
+    // corrupt config would print on every prompt. A quiet store suppresses the
+    // notice entirely (the TUI/CLI still surface it where the user can act).
+    const path = join(dir, "config.json");
+    await writeFile(path, "{ corrupt", "utf-8");
+    const quiet = new JsonConfigStore(path, { quiet: true });
+    const calls: unknown[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => void calls.push(args);
+    let cfg: Awaited<ReturnType<typeof quiet.load>> | undefined;
+    try {
+      cfg = await quiet.load();
+    } finally {
+      console.error = original;
+    }
+    expect(calls.length).toBe(0); // not one warning
+    expect(cfg?.theme).toBe("bone"); // …yet still falls back to full defaults
+    expect(cfg?.language).toBe("en");
+    // The bytes are still backed up — quiet suppresses the message, not recovery.
+    expect(await readFile(`${path}.corrupt`, "utf-8")).toBe("{ corrupt");
+  });
+
   test("loadOrSeed() does not crash when persisting the first-boot seed fails", async () => {
     // First-boot scenario where the file is absent (ENOENT → seed) but the
     // persist fails (read-only / full data dir). Stub save() to reject so the
@@ -337,7 +400,7 @@ describe("JsonConfigStore", () => {
     const restore = withLocaleEnv({ LC_ALL: "zh_TW.UTF-8" });
     try {
       // a config from before the language field existed: settings but no `language`
-      await writeFile(join(dir, "config.json"), JSON.stringify({ theme: "ink", motion: "brisk" }), "utf-8");
+      await seedConfig(dir, { theme: "ink", motion: "brisk" });
       const cfg = await store.loadOrSeed();
       expect(cfg.language).toBe("zh-Hant"); // seeded from the locale
       expect(cfg.theme).toBe("ink"); // existing settings preserved
@@ -352,7 +415,7 @@ describe("JsonConfigStore", () => {
   test("loadOrSeed does NOT re-seed when a language key is already present", async () => {
     const restore = withLocaleEnv({ LC_ALL: "zh_TW.UTF-8" });
     try {
-      await writeFile(join(dir, "config.json"), JSON.stringify({ language: "en", theme: "ink" }), "utf-8");
+      await seedConfig(dir, { language: "en", theme: "ink" });
       expect((await store.loadOrSeed()).language).toBe("en"); // honors the stored choice
     } finally {
       restore();

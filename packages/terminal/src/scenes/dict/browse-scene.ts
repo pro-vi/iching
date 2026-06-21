@@ -2,18 +2,30 @@
 
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
-import type { KeyEvent } from "../../input/key-parser.ts";
+import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
+import { stripTerminalControls } from "@iching/core";
 import { BrowseModel } from "./browse-model.ts";
 import { TextInput } from "../../widgets/text-input.ts";
+import { maxOffset, lastIndex } from "../../widgets/scroll.ts";
 import { renderBrowse, listViewportHeight } from "./browse-renderer.ts";
 
 export class BrowseScene implements Scene {
   private model: BrowseModel;
   private textInput: TextInput;
 
-  constructor() {
+  /**
+   * `initialQuery` opens the browser with the search already active and
+   * filtered (e.g. `iching dict tai` lands on the matching shortlist).
+   */
+  constructor(initialQuery?: string) {
     this.model = new BrowseModel();
     this.textInput = new TextInput();
+    if (initialQuery && initialQuery.trim().length > 0) {
+      this.textInput.value = initialQuery;
+      this.textInput.moveToEnd();
+      this.model.searchActive = true;
+      this.model.setQuery(initialQuery);
+    }
   }
 
   enter(ctx: SceneContext): void {
@@ -37,7 +49,7 @@ export class BrowseScene implements Scene {
     if (key.type === "char" && key.char === "q" && !this.model.searchActive) {
       return { type: "back" };
     }
-    if (key.type === "ctrl" && key.char === "c") {
+    if (isCtrlC(key)) {
       return { type: "exit" };
     }
 
@@ -86,11 +98,8 @@ export class BrowseScene implements Scene {
     }
 
     if (key.type === "end") {
-      this.model.cursor = Math.max(0, this.model.filtered.length - 1);
-      this.model.scrollOffset = Math.max(
-        0,
-        this.model.filtered.length - this.model.viewportHeight,
-      );
+      this.model.cursor = lastIndex(this.model.filtered.length);
+      this.model.scrollOffset = maxOffset(this.model.filtered.length, this.model.viewportHeight);
       return;
     }
 
@@ -107,12 +116,39 @@ export class BrowseScene implements Scene {
       return;
     }
 
+    // Option/Alt+Backspace deletes a word in search mode.
+    if (key.type === "deleteWord" && this.model.searchActive) {
+      this.textInput.deleteWord();
+      this.model.setQuery(this.textInput.value);
+      return;
+    }
+
+    // Paste — a pasted query lands in the search like typed characters:
+    // fold newlines/tabs to spaces, drop control chars, filter live.
+    if (key.type === "paste") {
+      const text = stripTerminalControls(key.text);
+      if (text.length > 0) {
+        if (!this.model.searchActive) {
+          this.model.searchActive = true;
+        }
+        this.textInput.insert(text);
+        this.model.setQuery(this.textInput.value);
+      }
+      return;
+    }
+
     // Type characters — activate search if not active, add to query
     if (key.type === "char" && key.char !== "q") {
+      // Sanitize the char (paste above already is): the parser emits 0x1c–0x1f,
+      // 0x7f and stray bytes as `char` events, and the query echoes in the
+      // search input. A control char is ignored outright — no insert, and no
+      // spurious search activation. Matches the intention / journal-search inputs.
+      const ch = stripTerminalControls(key.char);
+      if (ch.length === 0) return;
       if (!this.model.searchActive) {
         this.model.searchActive = true;
       }
-      this.textInput.insert(key.char);
+      this.textInput.insert(ch);
       this.model.setQuery(this.textInput.value);
       return;
     }

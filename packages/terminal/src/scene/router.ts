@@ -83,7 +83,13 @@ export class SceneRouter {
       // Anything else is delegated to the factory.
       const next = this.factory(signal);
       if (next) {
-        this.push(next);
+        // openDetail may ask to replace (detail prev/next sequence walk) so
+        // esc pops straight back to the list instead of unwinding the walk.
+        if (signal.type === "openDetail" && signal.replace) {
+          this.replace(next);
+        } else {
+          this.push(next);
+        }
         continue;
       }
       return { shouldExit: false }; // factory didn't handle — caller will dispatch

@@ -17,23 +17,26 @@ import {
   lineFromValue,
   toLineValue,
   type RandomSource,
-  type YarrowLineResult,
   type YarrowRound,
+  clamp,
 } from "@iching/core";
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
-import type { KeyEvent } from "../../input/key-parser.ts";
+import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import type { MotionPreset } from "../../animation/presets.ts";
 import { getYarrowTiming } from "../../animation/yarrow-presets.ts";
 import type { YarrowTiming, RitualDetail } from "../../animation/yarrow-presets.ts";
 import { TimelineRunner } from "../../animation/runner.ts";
 import { type Step, seq } from "../../animation/timeline.ts";
 import { YarrowModel } from "./model.ts";
+import { APERTURE_WIDTH, SWEEP_INTERVAL_MS } from "./constants.js";
 import {
   renderYarrowField,
   yarrowFieldGeometry,
   drawApertureCursor,
   bounceAperture,
+  canShowYarrowField,
+  renderYarrowTooSmall,
 } from "./field-renderer.ts";
 import { writeChromeFooter } from "../cast/ritual-chrome.ts";
 import { tr } from "../../i18n/messages.ts";
@@ -46,9 +49,7 @@ import {
 const LINES = 6;
 const ROUNDS_PER_LINE = 3;
 const TOTAL_ATOMS = LINES * ROUNDS_PER_LINE; // 18
-const APERTURE_WIDTH = 4;
 const APERTURE_MIN = 1;
-const SWEEP_INTERVAL_MS = 150;     // ms per cell of aperture travel
 const SNAP_HOLD_MS = 250;          // brief beat after snap before round plays
 
 type Phase = "gathering" | "sweeping" | "snapping" | "playing" | "complete";
@@ -92,7 +93,11 @@ export class YarrowManualScene implements Scene {
     this.model.resetActiveLine(0);
   }
 
-  update(_elapsed: number, dt: number, _ctx: SceneContext): void {
+  update(_elapsed: number, dt: number, ctx: SceneContext): void {
+    // Below the yarrow floor the field is hidden behind the too-small notice;
+    // freeze the sweep/snap/play so the ritual doesn't advance unseen. It
+    // resumes the moment there is room again.
+    if (!canShowYarrowField(ctx.cols, ctx.rows)) return;
     if (this.phase === "sweeping") {
       this.sweepAccumMs += dt;
       while (this.sweepAccumMs >= SWEEP_INTERVAL_MS) {
@@ -113,7 +118,10 @@ export class YarrowManualScene implements Scene {
     }
   }
 
-  render(frame: CellBuffer, _ctx: SceneContext): void {
+  render(frame: CellBuffer, ctx: SceneContext): void {
+    // Gate above the global too-small floor so a cramped terminal sees a calm
+    // notice, not a half-field or a stalk bar overlapping the footer.
+    if (renderYarrowTooSmall(frame, ctx, this.language)) return;
     renderYarrowField(frame, this.model, this.language);
     if (this.phase === "sweeping" || this.phase === "snapping") {
       const g = yarrowFieldGeometry(frame);
@@ -125,8 +133,8 @@ export class YarrowManualScene implements Scene {
     this.renderFooter(frame, this.language);
   }
 
-  handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
-    if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
+  handleKey(key: KeyEvent, ctx: SceneContext): SceneSignal | void {
+    if (isCtrlC(key)) return { type: "exit" };
 
     if (key.type === "escape") {
       if (this.phase === "sweeping" || this.phase === "snapping") {
@@ -139,6 +147,10 @@ export class YarrowManualScene implements Scene {
     }
 
     if (key.type === "char" && key.char === "q") return { type: "home" };
+    // Below the yarrow floor the field is hidden behind the too-small notice;
+    // ignore the cut/commit/receive key so the user can't act blind. Leaving
+    // (ctrl-c / esc / q) is handled above and stays available.
+    if (!canShowYarrowField(ctx.cols, ctx.rows)) return;
     if (key.type !== "char" || key.char !== " ") return;
 
     switch (this.phase) {
@@ -177,7 +189,7 @@ export class YarrowManualScene implements Scene {
   private commitCut(): void {
     const startCount = this.currentStartCount();
     const max = this.apertureMax();
-    const left = Math.max(APERTURE_MIN, Math.min(max, this.apertureLeft));
+    const left = clamp(this.apertureLeft, APERTURE_MIN, max);
     const offset = this.source.nextBytes(1)[0] % APERTURE_WIDTH;
     const k = left + offset;
     this.committedK = k;
@@ -266,8 +278,8 @@ export class YarrowManualScene implements Scene {
     while (this.model.transcript.length <= lineIdx) {
       // Placeholder: rounds will be filled in as they commit; line set on round 3.
       this.model.transcript.push({
-        rounds: [] as unknown as YarrowLineResult["rounds"],
-        line: null as unknown as YarrowLineResult["line"],
+        rounds: [],
+        line: null,
       });
     }
   }

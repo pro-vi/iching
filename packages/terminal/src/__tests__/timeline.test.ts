@@ -6,39 +6,45 @@ describe("timeline DSL", () => {
   test("wait() creates a wait step", () => {
     const s = wait(100);
     expect(s.kind).toBe("wait");
-    expect((s as any).ms).toBe(100);
+    if (s.kind !== "wait") throw new Error("expected wait step");
+    expect(s.ms).toBe(100);
   });
 
   test("call() creates a call step", () => {
     const fn = () => {};
     const s = call(fn);
     expect(s.kind).toBe("call");
-    expect((s as any).run).toBe(fn);
+    if (s.kind !== "call") throw new Error("expected call step");
+    expect(s.run).toBe(fn);
   });
 
   test("tween() creates a tween step with default linear easing", () => {
     const apply = () => {};
     const s = tween(200, apply);
     expect(s.kind).toBe("tween");
-    expect((s as any).ms).toBe(200);
-    expect((s as any).easing).toBe(linear);
+    if (s.kind !== "tween") throw new Error("expected tween step");
+    expect(s.ms).toBe(200);
+    expect(s.easing).toBe(linear);
   });
 
   test("tween() accepts custom easing", () => {
     const s = tween(200, () => {}, easeOut);
-    expect((s as any).easing).toBe(easeOut);
+    if (s.kind !== "tween") throw new Error("expected tween step");
+    expect(s.easing).toBe(easeOut);
   });
 
   test("seq() creates a sequence step", () => {
     const s = seq(wait(100), wait(200));
     expect(s.kind).toBe("sequence");
-    expect((s as any).steps).toHaveLength(2);
+    if (s.kind !== "sequence") throw new Error("expected sequence step");
+    expect(s.steps).toHaveLength(2);
   });
 
   test("par() creates a parallel step", () => {
     const s = par(wait(100), wait(200));
     expect(s.kind).toBe("parallel");
-    expect((s as any).steps).toHaveLength(2);
+    if (s.kind !== "parallel") throw new Error("expected parallel step");
+    expect(s.steps).toHaveLength(2);
   });
 
   describe("stepDuration", () => {

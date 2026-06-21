@@ -2,10 +2,10 @@
 
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
-import type { KeyEvent } from "../../input/key-parser.ts";
+import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import type { DailyCache } from "@iching/core";
 import { GUA, toSimplified } from "@iching/core";
-import { getTheme } from "../../color/theme.ts";
+import { getTheme, type Theme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
 import { renderTaijitu, type TaijituStyle } from "./taijitu-render.ts";
 import { tr, type MessageKey } from "../../i18n/messages.ts";
@@ -15,6 +15,25 @@ export interface HomeState {
   taijituStyle: TaijituStyle;
   devMode?: boolean;
 }
+
+/** The home menu — one source of truth for display (key, label, tone) and behavior
+ *  (signal), with optional visibility. render() and handleKey() both read it, so a
+ *  shown key always has a handler and a handled key is always shown. */
+const MENU: {
+  key: string;
+  msgKey: MessageKey;
+  tone: keyof Theme;
+  signal: SceneSignal;
+  show?: (state: HomeState) => boolean;
+}[] = [
+  { key: "c", msgKey: "menu.cast", tone: "accent", signal: { type: "startCast" } },
+  { key: "p", msgKey: "menu.play", tone: "secondary", signal: { type: "startPlay" }, show: (s) => Boolean(s.devMode) },
+  { key: "t", msgKey: "menu.today", tone: "primary", signal: { type: "openToday" }, show: (s) => s.todayCast !== null },
+  { key: "d", msgKey: "menu.dictionary", tone: "primary", signal: { type: "openDictionary" } },
+  { key: "j", msgKey: "menu.journal", tone: "secondary", signal: { type: "openJournal" } },
+  { key: "s", msgKey: "menu.settings", tone: "secondary", signal: { type: "openSettings" } },
+  { key: "q", msgKey: "menu.quit", tone: "tertiary", signal: { type: "exit" } },
+];
 
 export class HomeScene implements Scene {
   private state: HomeState;
@@ -57,22 +76,15 @@ export class HomeScene implements Scene {
     frame.writeText(row, titleCol, title, { fg: t.primary, bold: true });
     row += 3;
 
-    // Menu items
-    const items: { key: string; msgKey: MessageKey; fg: string }[] = [
-      { key: "c", msgKey: "menu.cast", fg: t.accent },
-      ...(this.state.devMode ? [{ key: "p", msgKey: "menu.play" as MessageKey, fg: t.secondary }] : []),
-      { key: "d", msgKey: "menu.dictionary", fg: t.primary },
-      { key: "j", msgKey: "menu.journal", fg: t.secondary },
-      { key: "s", msgKey: "menu.settings", fg: t.secondary },
-      { key: "q", msgKey: "menu.quit", fg: t.tertiary },
-    ];
-
-    for (const item of items) {
+    // Menu items. "Today" appears only once a reading exists for the day —
+    // returning to sit with it is the most common daily action after the cast.
+    for (const item of MENU) {
+      if (item.show && !item.show(this.state)) continue;
       const label = tr(lang, item.msgKey);
       const text = `[${item.key}]  ${label}`;
       const col = cx - Math.floor(stringWidth(text) / 2);
       frame.writeText(row, col, `[${item.key}]`, { fg: t.tertiary });
-      frame.writeText(row, col + stringWidth(`[${item.key}]`) + 1, ` ${label}`, { fg: item.fg });
+      frame.writeText(row, col + stringWidth(`[${item.key}]`) + 1, ` ${label}`, { fg: t[item.tone] });
       row += 2;
     }
 
@@ -100,16 +112,12 @@ export class HomeScene implements Scene {
 
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
     if (key.type === "char") {
-      switch (key.char) {
-        case "c": return { type: "startCast" };
-        case "p": if (this.state.devMode) return { type: "startPlay" }; break;
-        case "d": return { type: "openDictionary" };
-        case "j": return { type: "openJournal" };
-        case "s": return { type: "openSettings" };
-        case "q": return { type: "exit" };
-      }
+      const item = MENU.find((m) => m.key === key.char);
+      if (item && (!item.show || item.show(this.state))) return item.signal;
     }
-    if (key.type === "ctrl" && key.char === "c") return { type: "exit" };
-    if (key.type === "escape") return { type: "exit" };
+    if (isCtrlC(key)) return { type: "exit" };
+    // Escape is deliberately a no-op on Home: everywhere else it means "back",
+    // so a habitual extra esc after backing out of a scene must not kill the
+    // session. q and Ctrl+C remain the exits.
   }
 }

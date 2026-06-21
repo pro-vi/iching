@@ -6,30 +6,24 @@
 
 import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
-import type { GlyphAnimator } from "./types.ts";
+import { GlyphAnimatorBase } from "./animator-base.ts";
+import { BRAILLE_BASE, EMPTY_BRAILLE, brailleFromMask, isEmpty } from "./braille.ts";
 import { getTheme } from "../color/theme.ts";
+import { lerpColor } from "../color/lerp.ts";
 
-const TOTAL_MS = 3000;
+/** Total run time (ms) at durationScale 1. */
+export const DOTS_TOTAL_MS = 3000;
 
 // Braille dot positions: each braille char is a 2x4 grid encoded in 8 bits.
 // Bit layout: dot1=0x01, dot2=0x02, dot3=0x04, dot4=0x08,
 //             dot5=0x10, dot6=0x20, dot7=0x40, dot8=0x80
 const DOT_BITS = [0x01, 0x02, 0x04, 0x40, 0x08, 0x10, 0x20, 0x80];
 
-function isEmpty(ch: string): boolean {
-  return ch === "\u2800" || ch === " ";
-}
-
 /** Get the braille dot pattern (0-255) from a braille character. */
 function brailleValue(ch: string): number {
   const code = ch.codePointAt(0) ?? 0;
-  if (code >= 0x2800 && code <= 0x28ff) return code - 0x2800;
+  if (code >= BRAILLE_BASE && code <= BRAILLE_BASE + 0xff) return code - BRAILLE_BASE;
   return 0;
-}
-
-/** Convert a dot pattern back to a braille character. */
-function toBraille(pattern: number): string {
-  return String.fromCharCode(0x2800 + (pattern & 0xff));
 }
 
 /** Count the number of set bits. */
@@ -48,16 +42,6 @@ function getDots(pattern: number): number[] {
   return dots;
 }
 
-function lerpColor(a: string, b: string, t: number): string {
-  const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
-  const ar = parseInt(a.slice(1, 3), 16), ag = parseInt(a.slice(3, 5), 16), ab = parseInt(a.slice(5, 7), 16);
-  const br = parseInt(b.slice(1, 3), 16), bg = parseInt(b.slice(3, 5), 16), bb = parseInt(b.slice(5, 7), 16);
-  const r = clamp(ar + (br - ar) * t);
-  const g = clamp(ag + (bg - ag) * t);
-  const bv = clamp(ab + (bb - ab) * t);
-  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${bv.toString(16).padStart(2, "0")}`;
-}
-
 interface CellMeta {
   isContent: boolean;
   realChar: string;
@@ -70,14 +54,11 @@ interface CellMeta {
   dotInterval: number;
 }
 
-export class DotsAnimator implements GlyphAnimator {
-  private readonly glyph: GlyphEntry;
+export class DotsAnimator extends GlyphAnimatorBase {
   private cells: CellMeta[][] = [];
-  private startTime = -1;
-  private localMs = 0;
 
-  constructor(glyph: GlyphEntry) {
-    this.glyph = glyph;
+  constructor(glyph: GlyphEntry, durationScale: number = 1) {
+    super(glyph, durationScale, DOTS_TOTAL_MS);
     this.initCells();
   }
 
@@ -85,8 +66,8 @@ export class DotsAnimator implements GlyphAnimator {
     this.cells = [];
     const totalCells = this.glyph.height * this.glyph.width;
     // Stagger: each cell starts at a different time based on scan order
-    const staggerWindow = TOTAL_MS * 0.6; // first 60% is stagger window
-    const fillWindow = TOTAL_MS * 0.4;    // each cell has 40% to fill its dots
+    const staggerWindow = DOTS_TOTAL_MS * 0.6; // first 60% is stagger window
+    const fillWindow = DOTS_TOTAL_MS * 0.4;    // each cell has 40% to fill its dots
 
     let idx = 0;
     for (let r = 0; r < this.glyph.height; r++) {
@@ -116,12 +97,6 @@ export class DotsAnimator implements GlyphAnimator {
     }
   }
 
-  update(elapsed: number): boolean {
-    if (this.startTime < 0) this.startTime = elapsed;
-    this.localMs = elapsed - this.startTime;
-    return this.localMs >= TOTAL_MS;
-  }
-
   render(buf: CellBuffer, offsetR: number, offsetC: number): void {
     const th = getTheme();
     const t = this.localMs;
@@ -132,14 +107,14 @@ export class DotsAnimator implements GlyphAnimator {
 
         if (!meta.isContent) {
           // Empty cells: just write empty braille
-          buf.writeText(offsetR + r, offsetC + c, "\u2800", { fg: th.tertiary });
+          buf.writeText(offsetR + r, offsetC + c, EMPTY_BRAILLE, { fg: th.tertiary });
           continue;
         }
 
         const cellT = t - meta.startAt;
         if (cellT <= 0) {
           // Not started yet
-          buf.writeText(offsetR + r, offsetC + c, "\u2800", { fg: th.tertiary });
+          buf.writeText(offsetR + r, offsetC + c, EMPTY_BRAILLE, { fg: th.tertiary });
           continue;
         }
 
@@ -154,7 +129,7 @@ export class DotsAnimator implements GlyphAnimator {
           partial |= DOT_BITS[meta.dots[d]];
         }
 
-        const ch = toBraille(partial);
+        const ch = brailleFromMask(partial);
         const progress = dotsVisible / Math.max(meta.totalDots, 1);
         const fg = lerpColor(th.tertiary, th.primary, progress);
 
@@ -164,8 +139,7 @@ export class DotsAnimator implements GlyphAnimator {
   }
 
   reset(): void {
-    this.startTime = -1;
-    this.localMs = 0;
+    this.resetClock();
     this.initCells();
   }
 }

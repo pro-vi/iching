@@ -1,18 +1,19 @@
 // TimelineRunner — executes a Step tree against elapsed time
 
 import { type Step, stepDuration } from "./timeline.ts";
+import { clamp } from "@iching/core";
 
 /**
  * Evaluates a Step tree against elapsed time.
  * Pure: given the same Step and elapsed, produces identical side-effects on ctx.
  */
-export class TimelineRunner {
-  private root: Step;
+export class TimelineRunner<Ctx = unknown> {
+  private root: Step<Ctx>;
   private totalDuration: number;
   private state: StepState;
   private lastElapsed = 0;
 
-  constructor(root: Step) {
+  constructor(root: Step<Ctx>) {
     this.root = root;
     this.totalDuration = stepDuration(root);
     this.state = createState(root);
@@ -28,7 +29,7 @@ export class TimelineRunner {
    * Calls apply/run callbacks as the timeline progresses.
    * Returns true when the timeline is complete.
    */
-  advance(elapsed: number, ctx: any): boolean {
+  advance(elapsed: number, ctx: Ctx): boolean {
     advanceStep(this.root, this.state, elapsed, 0, ctx);
     this.lastElapsed = elapsed;
     return elapsed >= this.totalDuration;
@@ -50,7 +51,7 @@ export class TimelineRunner {
    * - sequence: children in order
    * - parallel: all children executed
    */
-  fastForward(ctx: any): void {
+  fastForward(ctx: Ctx): void {
     fastForwardStep(this.root, ctx);
     this.lastElapsed = this.totalDuration;
   }
@@ -58,7 +59,7 @@ export class TimelineRunner {
 
 // --- Fast-forward: recursive instant evaluation ---
 
-function fastForwardStep(step: Step, ctx: any): void {
+function fastForwardStep<Ctx>(step: Step<Ctx>, ctx: Ctx): void {
   switch (step.kind) {
     case "wait":
       break; // skip
@@ -90,7 +91,7 @@ type StepState =
   | { kind: "parallel"; children: StepState[] }
   | { kind: "sequence"; children: StepState[] };
 
-function createState(step: Step): StepState {
+function createState<Ctx>(step: Step<Ctx>): StepState {
   switch (step.kind) {
     case "wait":
       return { kind: "wait" };
@@ -109,12 +110,12 @@ function createState(step: Step): StepState {
  * Advance a single step. `elapsed` is absolute time, `offset` is when this step starts.
  * Returns the duration consumed by this step.
  */
-function advanceStep(
-  step: Step,
+function advanceStep<Ctx>(
+  step: Step<Ctx>,
   state: StepState,
   elapsed: number,
   offset: number,
-  ctx: any,
+  ctx: Ctx,
 ): void {
   const local = elapsed - offset;
 
@@ -135,7 +136,7 @@ function advanceStep(
     case "tween": {
       const s = state as { kind: "tween"; lastProgress: number };
       if (local >= 0) {
-        const raw = step.ms <= 0 ? 1 : Math.min(1, Math.max(0, local / step.ms));
+        const raw = step.ms <= 0 ? 1 : clamp(local / step.ms, 0, 1);
         const eased = step.easing(raw);
         // Always apply — even if same progress (idempotent)
         step.apply(eased, ctx);

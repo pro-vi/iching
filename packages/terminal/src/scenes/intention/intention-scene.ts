@@ -2,7 +2,8 @@
 
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
-import type { KeyEvent } from "../../input/key-parser.ts";
+import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
+import { stripTerminalControls } from "@iching/core";
 import { TextInput } from "../../widgets/text-input.ts";
 import { getTheme } from "../../color/theme.ts";
 import { stringWidth } from "../../layout/measure.ts";
@@ -75,7 +76,7 @@ export class IntentionScene implements Scene {
       return { type: "home" };
     }
 
-    if (key.type === "ctrl" && key.char === "c") {
+    if (isCtrlC(key)) {
       return { type: "exit" };
     }
 
@@ -90,8 +91,31 @@ export class IntentionScene implements Scene {
       return;
     }
 
+    if (key.type === "deleteWord") {
+      this.textInput.deleteWord();
+      return;
+    }
+
+    if (key.type === "delete") {
+      this.textInput.delete();
+      return;
+    }
+
     if (key.type === "char") {
-      this.textInput.insert(key.char);
+      // Sanitize single chars too, not just paste (above) — the parser emits
+      // 0x1c–0x1f (Ctrl+\/]/^/_), 0x7f and stray bytes as `char` events, and an
+      // intention is replayed to the terminal in the journal list/preview and
+      // the reading panel. Matches the search and note inputs' char handling.
+      const ch = stripTerminalControls(key.char);
+      if (ch.length > 0) this.textInput.insert(ch);
+      return;
+    }
+
+    if (key.type === "paste") {
+      // A pasted intention arrives as one block: fold newlines/tabs to
+      // spaces (enter must not submit mid-paste) and drop control chars.
+      const text = stripTerminalControls(key.text);
+      if (text.length > 0) this.textInput.insert(text);
       return;
     }
 

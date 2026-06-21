@@ -1,7 +1,7 @@
 // Glyph reveal animations — reusable animators for braille glyph display
 
 export type { GlyphAnimator, GlyphAnimStyle } from "./types.ts";
-export { createGlyphAnimator } from "./factory.ts";
+export { createGlyphAnimator, GLYPH_ANIM_DURATION_MS } from "./factory.ts";
 export { NoiseAnimator } from "./noise.ts";
 export { DotsAnimator } from "./dots.ts";
 export { RadialAnimator } from "./radial.ts";

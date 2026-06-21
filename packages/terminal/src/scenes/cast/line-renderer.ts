@@ -1,10 +1,11 @@
 // line-renderer.ts — render a single hexagram line at a given progress
 
 import type { CellBuffer } from "../../render/buffer.ts";
+import { clamp } from "@iching/core";
 import type { StyledCell } from "../../render/cell.ts";
 import { GLYPHS, LINE_WIDTH } from "../../glyphs.ts";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth } from "../../layout/measure.ts";
+import { stringWidth, centerCol } from "../../layout/measure.ts";
 
 /**
  * Render a single hexagram line centered in the buffer at the given row.
@@ -33,7 +34,7 @@ export function renderLine(
   const maxFrame = frames.length - 1;
 
   // Map progress 0-1 to frame index 0-maxFrame
-  const clamped = Math.min(1, Math.max(0, progress));
+  const clamped = clamp(progress, 0, 1);
   const frameIndex = Math.min(maxFrame, Math.floor(clamped * frames.length));
 
   // At full progress with inline mark, use the changing-line final frame
@@ -58,7 +59,7 @@ export function renderLine(
 
   const style: Partial<StyledCell> = { fg };
   const lineW = stringWidth(frameStr);
-  const col = Math.max(0, Math.floor((buf.width - lineW) / 2) + xOffset);
+  const col = centerCol(buf.width, lineW, xOffset);
   buf.writeText(row, col, frameStr, style);
 }
 
@@ -69,7 +70,7 @@ export function renderLine(
 export function lineFrame(isYang: boolean, progress: number): string {
   const frames = isYang ? GLYPHS.yangFrames : GLYPHS.yinFrames;
   const maxFrame = frames.length - 1;
-  const clamped = Math.min(1, Math.max(0, progress));
+  const clamped = clamp(progress, 0, 1);
   const frameIndex = Math.min(maxFrame, Math.floor(clamped * frames.length));
   return frames[frameIndex];
 }

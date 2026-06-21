@@ -1,11 +1,109 @@
-import type { Cast, Hexagram, Style, Structure } from "@iching/core";
+import type { Cast, CastMethod, DailyCache, Hexagram, JournalPatterns, RngProvenance, Style, Structure } from "@iching/core";
 import {
   GUA,
   STYLES,
+  formatTime,
   formatTrigrams,
   getStructure,
+  readingTexts,
 } from "@iching/core";
 import type { HistoryEntry } from "@iching/core";
+import { stripTerminalControls } from "@iching/storage";
+
+/**
+ * Quiet one-line entropy provenance, or null when there is nothing worth
+ * saying. Plain crypto stays silent — the default needs no story, and silence
+ * is calmer. "bound" and deterministic seeds get the honest label from
+ * docs/vision/entropy-sources-vision.md (local participation, never a claim
+ * of metaphysical efficacy).
+ */
+function entropyLine(rng?: RngProvenance, seed?: number): string | null {
+  if (!rng) return null;
+  if (rng.source === "seed") {
+    return seed !== undefined
+      ? `Entropy: deterministic replay from seed ${seed}.`
+      : "Entropy: deterministic replay from seed.";
+  }
+  if (rng.source === "bound") {
+    return rng.intentionBound
+      ? "Entropy: local machine entropy, bound to the intention and moment."
+      : "Entropy: local machine entropy, bound to the moment.";
+  }
+  return null; // crypto — the unremarkable default
+}
+
+/**
+ * The 啟蒙 reading as plain lines — the texts a cast turns on, ordered
+ * governing-first by the shared core rule (readingTexts), each naming its
+ * hexagram so the source is unambiguous: nothing moving → the primary 卦辭; at
+ * 1–2 the moving 爻辭; at 3 both judgments; at 4–5 the becoming's UNCHANGED 爻辭
+ * (not the moving ones); at 6 the becoming 卦辭, or 用九/用六 on 乾/坤. This is a
+ * faithful rendering of readingTexts (no case suppressed), so it matches the TUI
+ * panel exactly; the shared helper keeps formatCastPlain and formatJournalShowPlain
+ * reading the same texts freshly cast and when revisited. (formatCastPlain skips
+ * it for a static cast — its own Judgment block already prints that 卦辭.)
+ */
+function readingPlainLines(cast: Cast): string[] {
+  const reading = readingTexts(cast);
+  if (reading.length === 0) return [];
+  const lines: string[] = ["Reading (啟蒙):"];
+  for (const part of reading) {
+    const g = GUA[part.kw - 1];
+    if (part.kind === "judgment") {
+      // The reading speaks in one voice: the Wilhelm-interpretive judgment
+      // (gcEnW), the same register as the 爻辭 below and the TUI panel. The
+      // verbatim Legge anchor (gcEn) stays in formatCastPlain's reference block.
+      lines.push(`  ${g.u} ${g.n} 卦辭: ${g.gc}`);
+      lines.push(`     ${g.gcEnW}`);
+    } else if (part.kind === "line") {
+      lines.push(`  ${g.u} ${g.n} 爻${part.position}: ${g.yao[part.position - 1]}`);
+      lines.push(`     ${g.yaoEn[part.position - 1]}`);
+    } else if (g.extra) {
+      lines.push(`  ${g.extra.name}: ${g.extra.text}`);
+      lines.push(`     ${g.extra.textEn}`);
+    }
+  }
+  return lines;
+}
+
+/**
+ * The header line that names a hexagram in plain output —
+ * `䷀  乾 (Qián) — The Creative — Hexagram 1` — with the English name folded in
+ * only when present. Shared by the cast, single-hexagram, and journal-show
+ * surfaces so the format (spacing, the two " — " separators) stays identical.
+ */
+function hexagramTitleLine(hex: Hexagram, kw: number): string {
+  const ename = hex.ename ? ` — ${hex.ename}` : "";
+  return `${hex.u}  ${hex.n} (${hex.p})${ename} — Hexagram ${kw}`;
+}
+
+/**
+ * The upper/lower trigram pair as two plain lines — `Upper: ☰ 乾 (Heaven)` /
+ * `Lower: ☷ 坤 (Earth)`. Shared by every plain surface that prints a hexagram's
+ * structure (cast, single-hexagram, journal-show); spread into the line list so
+ * each caller keeps its own surrounding blank lines.
+ */
+function structureLines(structure: Pick<Structure, "upper" | "lower">): [string, string] {
+  return [
+    `Upper: ${structure.upper.sym} ${structure.upper.n} (${structure.upper.img})`,
+    `Lower: ${structure.lower.sym} ${structure.lower.n} (${structure.lower.img})`,
+  ];
+}
+
+/**
+ * The becoming-hexagram line — `Becoming: ䷁ 坤 (Kūn) — Hexagram 2 [lines 1,3]`.
+ * Shared by the cast and journal-show surfaces. The moving-line bracket is
+ * appended only when positions exist; a becoming is always derived FROM moving
+ * lines, so the guard never trips in practice — it just makes both surfaces
+ * agree (formatCastPlain previously appended the bracket unconditionally).
+ */
+function becomingLine(hex: Hexagram, kw: number, positions: number[]): string {
+  const moving =
+    positions.length > 0
+      ? ` [${positions.length === 1 ? "line" : "lines"} ${positions.join(",")}]`
+      : "";
+  return `Becoming: ${hex.u} ${hex.n} (${hex.p}) — Hexagram ${kw}${moving}`;
+}
 
 /** Format a full reading as plain text */
 export function formatCastPlain(
@@ -13,17 +111,18 @@ export function formatCastPlain(
   primary: Hexagram,
   structure: Structure,
   question?: string,
+  rng?: RngProvenance,
+  seed?: number,
 ): string {
   const lines: string[] = [];
 
   if (question) {
-    lines.push(`Question: ${question}`);
+    lines.push(`Question: ${stripTerminalControls(question)}`);
     lines.push("");
   }
 
   // Primary hexagram
-  const ename = (primary as any).ename ? ` — ${(primary as any).ename}` : "";
-  lines.push(`${primary.u}  ${primary.n} (${primary.p})${ename} — Hexagram ${cast.primary}`);
+  lines.push(hexagramTitleLine(primary, cast.primary));
   lines.push("");
 
   // Line values
@@ -42,20 +141,29 @@ export function formatCastPlain(
   lines.push("");
 
   // Structure
-  lines.push(
-    `Upper: ${structure.upper.sym} ${structure.upper.n} (${structure.upper.img})`,
-  );
-  lines.push(
-    `Lower: ${structure.lower.sym} ${structure.lower.n} (${structure.lower.img})`,
-  );
+  lines.push(...structureLines(structure));
   lines.push("");
 
   // Becoming
   if (cast.becoming !== null) {
     const b = GUA[cast.becoming - 1];
-    lines.push(
-      `Becoming: ${b.u} ${b.n} (${b.p}) — Hexagram ${cast.becoming} [lines ${cast.changingPositions.join(",")}]`,
-    );
+    lines.push(becomingLine(b, cast.becoming, cast.changingPositions));
+    lines.push("");
+  }
+
+  // Judgment (卦辭) — the hexagram's own text
+  lines.push(`Judgment (gc): ${primary.gc}`);
+  lines.push(`Judgment (gcEn): ${primary.gcEn}`);
+  lines.push("");
+
+  // The reading (啟蒙) — the texts this cast turns on, from the shared core rule
+  // (readingTexts via readingPlainLines), so plain / JSON / TUI never disagree.
+  // Skipped for a static cast: the reading is then the primary 卦辭, already
+  // printed in the Judgment block above (gc + verbatim Legge) — the Reading
+  // section would only repeat it in the Wilhelm register.
+  const readingBlock = cast.changingPositions.length > 0 ? readingPlainLines(cast) : [];
+  if (readingBlock.length > 0) {
+    lines.push(...readingBlock);
     lines.push("");
   }
 
@@ -66,6 +174,14 @@ export function formatCastPlain(
   lines.push(`  Image (en): ${primary.en}`);
   lines.push(`  Judgment (te): ${primary.te}`);
   lines.push(`  Wilhelm (w): ${primary.w}`);
+
+  // Entropy provenance — one quiet closing note, only when there is a story
+  // to tell (bound / seed). Plain crypto stays silent.
+  const entropy = entropyLine(rng, seed);
+  if (entropy) {
+    lines.push("");
+    lines.push(entropy);
+  }
 
   return lines.join("\n");
 }
@@ -79,15 +195,9 @@ export function formatHexagramPlain(
   const lines: string[] = [];
   const s = getStructure(kw);
 
-  const ename = (hex as any).ename ? ` — ${(hex as any).ename}` : "";
-  lines.push(`${hex.u}  ${hex.n} (${hex.p})${ename} — Hexagram ${kw}`);
+  lines.push(hexagramTitleLine(hex, kw));
   lines.push("");
-  lines.push(
-    `Upper: ${s.upper.sym} ${s.upper.n} (${s.upper.img})`,
-  );
-  lines.push(
-    `Lower: ${s.lower.sym} ${s.lower.n} (${s.lower.img})`,
-  );
+  lines.push(...structureLines(s));
   lines.push("");
 
   if (style && style !== "st") {
@@ -95,13 +205,63 @@ export function formatHexagramPlain(
     // the trigram block above already covers it, so we skip the commentary.
     lines.push(hex[style]);
   } else if (!style) {
-    // Show all commentary styles
+    // Show the judgment (卦辭) first, then all commentary styles
+    lines.push(`Judgment (gc): ${hex.gc}`);
+    lines.push(`Judgment (gcEn): ${hex.gcEn}`);
     lines.push(`大象 (dx): ${hex.dx}`);
     lines.push(`彖傳 (tu): ${hex.tu}`);
     lines.push(`Image (en): ${hex.en}`);
     lines.push(`Judgment (te): ${hex.te}`);
     lines.push(`Wilhelm (w): ${hex.w}`);
   }
+
+  return lines.join("\n");
+}
+
+/** Quiet human label for cast-method provenance — a note, not a badge */
+function methodLabel(method: CastMethod): string {
+  switch (method) {
+    case "coin":
+      return "coins";
+    case "coin-manual":
+      return "coins, by hand";
+    case "yarrow":
+      return "yarrow stalks";
+    case "yarrow-manual":
+      return "yarrow stalks, by hand";
+    default: {
+      // A method this build doesn't recognize — corrupt data, or a reading
+      // written by a newer version that added a cast method. Show the raw name,
+      // never "undefined" (the switch returns undefined without this). Parity
+      // with parseLine skipping unknown record kinds: tolerate, don't garble.
+      // The `never` binding keeps compile-time exhaustiveness — adding a
+      // CastMethod errors here until it gets a real label — while the String()
+      // still handles genuinely out-of-union runtime values (the erased type).
+      const unknownMethod: never = method;
+      return String(unknownMethod);
+    }
+  }
+}
+
+/**
+ * Format today's cached reading (`iching today`) as plain text — the full
+ * reading (judgment, changing-line texts, commentary via formatCastPlain)
+ * prefixed by the day's context: date, intention, method provenance.
+ */
+export function formatTodayPlain(cache: DailyCache): string {
+  const cast = cache.cast;
+  const primary = GUA[cast.primary - 1];
+  const lines: string[] = [];
+
+  lines.push(`Date: ${cache.date}`);
+  if (cache.intention) {
+    lines.push(`Intention: ${stripTerminalControls(cache.intention)}`);
+  }
+  if (cache.method) {
+    lines.push(`Method: ${methodLabel(cache.method)}`);
+  }
+  lines.push("");
+  lines.push(formatCastPlain(cast, primary, cache.structure, undefined, cache.rng));
 
   return lines.join("\n");
 }
@@ -115,56 +275,148 @@ export function formatJournalListPlain(
   const lines: string[] = [];
   for (const entry of entries) {
     const g = GUA[entry.cast.primary - 1];
+    // Name which lines moved, inline and terse ([1,4]) — parity with the TUI
+    // list, which carries the positions so you can see at a glance what turned
+    // each reading without opening `journal show`. (The worded "[line 1]" form
+    // is for the detail views; a scan list stays compact.)
     const becoming =
       entry.cast.becoming !== null
-        ? ` → ${GUA[entry.cast.becoming - 1].u} ${GUA[entry.cast.becoming - 1].n}`
+        ? ` → ${GUA[entry.cast.becoming - 1].u} ${GUA[entry.cast.becoming - 1].n}` +
+          (entry.cast.changingPositions.length > 0
+            ? ` [${entry.cast.changingPositions.join(",")}]`
+            : "")
         : "";
     const time = entry.timestamp ? `  ${formatTime(entry.timestamp)}` : "";
-    const intention = entry.intention ? `  "${entry.intention}"` : "";
-    lines.push(`${entry.date}${time}  ${g.u} ${g.n} (${g.p})${becoming}${intention}`);
+    const intention = entry.intention ? `  "${stripTerminalControls(entry.intention)}"` : "";
+    // Coins are the ambient default; only the slower rituals earn a quiet note.
+    const method =
+      entry.method && entry.method !== "coin" ? `  · ${methodLabel(entry.method)}` : "";
+    lines.push(`${entry.date}${time}  ${g.u} ${g.n} (${g.p})${becoming}${intention}${method}`);
   }
   return lines.join("\n");
 }
 
-/** Format a single journal entry (show) as plain text */
-export function formatJournalShowPlain(entry: HistoryEntry): string {
+/** Format a single journal entry (show) as plain text, reflection notes beneath */
+export function formatJournalShowPlain(
+  entry: HistoryEntry,
+  notes?: ReadonlyArray<{ date: string; text: string }>,
+): string {
   const g = GUA[entry.cast.primary - 1];
   const structure = getStructure(entry.cast.primary);
   const lines: string[] = [];
 
-  const ename = (g as any).ename ? ` — ${(g as any).ename}` : "";
   lines.push(`Date: ${entry.date}${entry.timestamp ? `  ${formatTime(entry.timestamp)}` : ""}`);
   if (entry.intention) {
-    lines.push(`Intention: ${entry.intention}`);
+    lines.push(`Intention: ${stripTerminalControls(entry.intention)}`);
   }
-  lines.push(`${g.u}  ${g.n} (${g.p})${ename} — Hexagram ${entry.cast.primary}`);
+  if (entry.method) {
+    lines.push(`Method: ${methodLabel(entry.method)}`);
+  }
+  // Quiet provenance note — only bound entries carry a story (seeded casts
+  // never reach the journal; plain crypto stays silent).
+  const entropy = entropyLine(entry.rng);
+  if (entropy) {
+    lines.push(entropy);
+  }
+  lines.push(hexagramTitleLine(g, entry.cast.primary));
   lines.push("");
-  lines.push(
-    `Upper: ${structure.upper.sym} ${structure.upper.n} (${structure.upper.img})`,
-  );
-  lines.push(
-    `Lower: ${structure.lower.sym} ${structure.lower.n} (${structure.lower.img})`,
-  );
+  lines.push(...structureLines(structure));
 
   if (entry.cast.becoming !== null) {
     const b = GUA[entry.cast.becoming - 1];
     lines.push("");
-    lines.push(
-      `Becoming: ${b.u} ${b.n} (${b.p}) — Hexagram ${entry.cast.becoming}`,
-    );
+    lines.push(becomingLine(b, entry.cast.becoming, entry.cast.changingPositions));
+  }
+
+  // The reading is the crux you sit with — the texts the cast turns on by the
+  // 啟蒙 rule. formatCastPlain prints it at cast time; revisiting the same reading
+  // via `journal show` must surface the SAME texts, or it would silently diverge
+  // (showing the raw moving lines where the rule reads both judgments at 3, or
+  // the becoming's still lines at 4–5). The shared readingPlainLines keeps the
+  // two in lockstep; the becoming line above still records which positions moved.
+  const readingBlock = readingPlainLines(entry.cast);
+  if (readingBlock.length > 0) {
+    lines.push("");
+    lines.push(...readingBlock);
   }
 
   lines.push("");
   lines.push(`大象 (dx): ${g.dx}`);
   lines.push(`Image (en): ${g.en}`);
 
+  // Reflection notes — what happened after, written later. Text is stripped
+  // of control characters at render time too: notes written by older
+  // binaries (or hand-edited into the JSONL) must not replay ESC/OSC bytes
+  // as live control sequences.
+  if (notes && notes.length > 0) {
+    lines.push("");
+    lines.push("Notes:");
+    for (const note of notes) {
+      lines.push(`  ${note.date}  ${stripTerminalControls(note.text)}`);
+    }
+  }
+
   return lines.join("\n");
 }
 
-function formatTime(iso: string): string {
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  const h = String(d.getHours()).padStart(2, "0");
-  const m = String(d.getMinutes()).padStart(2, "0");
-  return `${h}:${m}`;
+/**
+ * A concise plain-text digest of the journal patterns (`journal patterns`).
+ * The TUI 觀象 pane is the rich view; this is the calm one-screen summary —
+ * observation over what arrived, never prediction.
+ */
+export function formatJournalPatternsPlain(
+  p: JournalPatterns,
+  opts?: { omitThisMonth?: boolean },
+): string {
+  if (p.total === 0 || !p.cadence) return "No readings to observe yet.";
+  const lines: string[] = [];
+  const name = (kw: number): string => {
+    const g = GUA[kw - 1];
+    return g ? `${g.u} ${g.n} (${g.p})` : `#${kw}`;
+  };
+
+  // Under a historical window, "this month" is relative to real today, not the
+  // period — always 0 and meaningless — so the caller drops it. The other
+  // figures (span, active days, gaps) are window-internal and stand.
+  lines.push(
+    `${p.total} ${p.total === 1 ? "reading" : "readings"} · span ${p.cadence.spanDays}d · ${p.cadence.activeDays} active ${p.cadence.activeDays === 1 ? "day" : "days"}` +
+      (opts?.omitThisMonth ? "" : ` · this month ${p.thisMonth}`),
+  );
+  lines.push(
+    `Cadence: ${p.cadence.castsPerActiveDay.toFixed(1)}/active day` +
+      (p.cadence.medianGapDays !== null ? ` · usual gap ${p.cadence.medianGapDays}d` : "") +
+      (p.cadence.idleDays !== null ? ` · idle ${p.cadence.idleDays}d` : ""),
+  );
+  lines.push(
+    `Diversity: seen ${p.diversity.distinctHexagrams} of 64` +
+      (p.field.recent !== null ? ` · most recent ${name(p.field.recent)}` : ""),
+  );
+  if (p.timeOfDay) {
+    const td = p.timeOfDay;
+    // Circumstance, not a claim: the phase of day readings were recorded, over
+    // the timestamped subset (n/total discloses entries without a usable hour).
+    const timed = td.timestamped < p.total ? `${td.timestamped}/${p.total}` : `${td.timestamped}`;
+    lines.push(
+      `Phase of day (over ${timed} timed): ` +
+        `dawn ${td.counts[0]} · midday ${td.counts[1]} · dusk ${td.counts[2]} · night ${td.counts[3]}`,
+    );
+  }
+
+  if (p.topHexagrams.length > 0) {
+    lines.push("");
+    lines.push("Most seen:");
+    for (const h of p.topHexagrams.slice(0, 5)) {
+      lines.push(`  ${name(h.kw)} ×${h.count}  (${Math.round(h.share * 100)}%, last ${h.lastDate})`);
+    }
+  }
+
+  lines.push("");
+  lines.push(`Two modes (兩儀): yin ${p.lineBalance.yin} · yang ${p.lineBalance.yang}`);
+  if (p.hammingDrift) {
+    lines.push(`Drift between readings: ${p.hammingDrift.mean.toFixed(1)} of 6 lines, on average`);
+  }
+  const m = p.baseline.methods;
+  lines.push(`Methods: coin ${m.coin} · yarrow ${m.yarrow}` + (m.unknown > 0 ? ` · unmarked ${m.unknown}` : ""));
+
+  return lines.join("\n");
 }

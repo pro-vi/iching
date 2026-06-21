@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { resolvePaths } from "@iching/storage";
+import { resolvePathsFor } from "../util/paths.js";
 import { outputJson } from "../output/json.js";
 
 export function registerPathsCommand(program: Command): void {
@@ -8,9 +8,7 @@ export function registerPathsCommand(program: Command): void {
     .description("Show all resolved file locations")
     .action(() => {
       const globalOpts = program.opts();
-      const paths = resolvePaths(
-        globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
-      );
+      const paths = resolvePathsFor(globalOpts.dataDir);
 
       if (globalOpts.json) {
         outputJson(paths);

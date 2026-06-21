@@ -11,12 +11,63 @@ export type KeyEvent =
   | { type: "home" }
   | { type: "end" }
   | { type: "tab" }
-  | { type: "backspace" };
+  | { type: "backspace" }
+  | { type: "deleteWord" }
+  | { type: "delete" }
+  | { type: "paste"; text: string };
+
+/**
+ * The Ctrl-C interrupt. Every scene treats it as an immediate exit, so the
+ * compound `type === "ctrl" && char === "c"` check lives here once rather than
+ * inlined in each handler — one definition of what "interrupt" means.
+ */
+export function isCtrlC(key: KeyEvent): boolean {
+  return key.type === "ctrl" && key.char === "c";
+}
 
 export interface ParseResult {
-  event: KeyEvent;
+  /**
+   * The decoded event, or null when the sequence was consumed but
+   * intentionally swallowed (unknown CSI/SS3 sequences, F-keys). Swallowing
+   * matters: emitting a spurious escape for an unknown sequence would cancel
+   * the active scene.
+   */
+  event: KeyEvent | null;
   consumed: number;
 }
+
+// Bracketed paste markers: ESC [ 200 ~ ... ESC [ 201 ~
+const PASTE_START = new Uint8Array([0x1b, 0x5b, 0x32, 0x30, 0x30, 0x7e]);
+const PASTE_END = new Uint8Array([0x1b, 0x5b, 0x32, 0x30, 0x31, 0x7e]);
+
+// How long to wait for the rest of an escape sequence before flushing.
+const ESC_TIMEOUT_MS = 50;
+
+// An escape sequence whose final byte never arrives must not buffer stdin
+// without limit (cf. PASTE_MAX_BYTES for paste). The flush timer is cleared on
+// every feed(), so a steady stream of incomplete-CSI bytes (ESC[ followed by
+// endless param/intermediate bytes, no final byte) would otherwise grow the
+// pending buffer forever. Real CSI/SS3 sequences are tens of bytes at most;
+// past this cap the buffer is malformed input that will never complete, so it
+// is flushed as escape and normal parsing resumes.
+const MAX_ESCAPE_BYTES = 256;
+
+// Bracketed-paste guards. Paste accumulation must stay bounded: a lost
+// ESC[201~ terminator would otherwise buffer stdin forever (and look like a
+// dead app, even swallowing Ctrl-C). The byte cap is the primary bound; past
+// it the paste event is delivered with what was collected and normal parsing
+// resumes.
+const PASTE_MAX_BYTES = 64 * 1024;
+// Absolute paste-age backstop, armed ONCE when the paste starts (NOT re-armed
+// per chunk, and NOT cleared by feed()). A real paste terminates via ESC[201~
+// or the byte cap long before this fires — terminals deliver a paste to the pty
+// in milliseconds — so it never truncates a genuine paste mid-stream. It exists
+// only to recover a paste-start that is never terminated (a malformed source, a
+// truncated pipe), so the parser can't wedge. A per-CHUNK timeout (the prior
+// 500 ms) measured the inter-chunk gap, not the paste's age: a >500 ms stall
+// before ESC[201~ flushed a PARTIAL paste, then the tail (a trailing \r) parsed
+// as a real Enter and submitted the form mid-paste.
+const PASTE_FLUSH_MS = 10_000;
 
 /**
  * Determine the byte length of a single UTF-8 character from its leading byte.
@@ -30,8 +81,93 @@ function utf8CharLen(leadByte: number): number {
 }
 
 /**
+ * Find the index of the CSI final byte (0x40–0x7E) for a buffer starting with
+ * ESC [. Parameter bytes (0x30–0x3F) and intermediate bytes (0x20–0x2F) are
+ * skipped. Returns -1 when the sequence is still incomplete (no final byte in
+ * the buffer yet).
+ */
+function csiFinalIndex(buf: Uint8Array): number {
+  let i = 2;
+  while (i < buf.length && buf[i] >= 0x20 && buf[i] <= 0x3f) i++;
+  return i < buf.length ? i : -1;
+}
+
+/**
+ * Map a CSI/SS3 final byte to a cursor-key event — arrow (A–D), Home (H), or
+ * End (F) — or null if it's not one of those. Shared by the CSI and SS3 paths,
+ * which encode these identically (ESC [ A vs ESC O A).
+ */
+function cursorEventForFinal(final: number): KeyEvent | null {
+  switch (final) {
+    case 0x41: return { type: "arrow", direction: "up" };
+    case 0x42: return { type: "arrow", direction: "down" };
+    case 0x43: return { type: "arrow", direction: "right" };
+    case 0x44: return { type: "arrow", direction: "left" };
+    case 0x48: return { type: "home" };
+    case 0x46: return { type: "end" };
+    default: return null;
+  }
+}
+
+/** Map a complete CSI sequence (final byte at `finalIdx`) to a ParseResult. */
+function parseCSI(buf: Uint8Array, finalIdx: number): ParseResult {
+  const final = buf[finalIdx];
+  const consumed = finalIdx + 1;
+
+  // Arrows (ESC [ A, or modified ESC [ 1 ; 5 C), Home (H) / End (F).
+  const cursor = cursorEventForFinal(final);
+  if (cursor) return { event: cursor, consumed };
+
+  // VT-style sequences: ESC [ <n> [;<mod>] ~
+  if (final === 0x7e) {
+    let n = 0;
+    for (let i = 2; i < finalIdx && buf[i] >= 0x30 && buf[i] <= 0x39; i++) {
+      n = n * 10 + (buf[i] - 0x30);
+    }
+    if (n === 1 || n === 7) return { event: { type: "home" }, consumed };
+    if (n === 3) return { event: { type: "delete" }, consumed };
+    if (n === 4 || n === 8) return { event: { type: "end" }, consumed };
+    if (n === 5) return { event: { type: "page", direction: "up" }, consumed };
+    if (n === 6) return { event: { type: "page", direction: "down" }, consumed };
+    // Insert (2), F-keys (11–24), paste markers (200/201) — swallow
+    return { event: null, consumed };
+  }
+
+  // Any other final byte (F-keys, device reports) — swallow silently
+  return { event: null, consumed };
+}
+
+/**
+ * Map a mouse button code (the Cb field) to a scroll arrow. Wheel events set
+ * bit 6 (0x40); the low two bits give direction (0=up, 1=down, 2=left, 3=right).
+ * Vertical wheel becomes an up/down arrow so it scrolls like the keys do;
+ * horizontal wheel and all clicks/drags/releases return null (swallowed) so a
+ * mouse report never leaks as a key or as ←/→ navigation.
+ */
+function mouseWheelArrow(cb: number): KeyEvent | null {
+  if ((cb & 0x40) === 0) return null; // not a wheel event
+  const dir = cb & 0x03;
+  if (dir === 0) return { type: "arrow", direction: "up" };
+  if (dir === 1) return { type: "arrow", direction: "down" };
+  return null; // horizontal wheel — ignored
+}
+
+/** Read the leading decimal number in buf[start..end). */
+function parseDecimal(buf: Uint8Array, start: number, end: number): number {
+  let n = 0;
+  for (let i = start; i < end && buf[i] >= 0x30 && buf[i] <= 0x39; i++) {
+    n = n * 10 + (buf[i] - 0x30);
+  }
+  return n;
+}
+
+/**
  * Parse a single key event from the front of a byte buffer.
  * Returns the event and the number of bytes consumed, or null if unparseable.
+ *
+ * Truncated escape sequences (no final byte in the buffer) resolve to escape,
+ * consuming the whole tail — this is the timeout-flush behavior. Mid-stream,
+ * KeyParser.feed buffers incomplete sequences instead of calling this.
  */
 export function parseKeyWithLength(buf: Uint8Array): ParseResult | null {
   if (buf.length === 0) return null;
@@ -45,37 +181,69 @@ export function parseKeyWithLength(buf: Uint8Array): ParseResult | null {
 
     // CSI sequences: ESC [ ...
     if (buf[1] === 0x5b) {
-      if (buf.length < 3) {
-        // Incomplete CSI — treat as escape (2 bytes consumed)
-        return { event: { type: "escape" }, consumed: 2 };
+      // X10 mouse report: ESC [ M Cb Cx Cy — exactly 6 bytes, and the three
+      // coordinate bytes are RAW (not digits), so the generic CSI scan would
+      // stop at 'M' and leave Cb/Cx/Cy to be misread as character keys (a stray
+      // 'h'/'l' would even navigate). Consume all 6; map the wheel to a scroll
+      // arrow, swallow clicks. (Incomplete reports are buffered by feed().)
+      if (buf[2] === 0x4d) {
+        if (buf.length < 6) return { event: null, consumed: buf.length };
+        return { event: mouseWheelArrow(buf[3] - 32), consumed: 6 };
       }
 
-      const third = buf[2];
-
-      // Arrow keys (3 bytes)
-      if (third === 0x41) return { event: { type: "arrow", direction: "up" }, consumed: 3 };
-      if (third === 0x42) return { event: { type: "arrow", direction: "down" }, consumed: 3 };
-      if (third === 0x43) return { event: { type: "arrow", direction: "right" }, consumed: 3 };
-      if (third === 0x44) return { event: { type: "arrow", direction: "left" }, consumed: 3 };
-
-      // Home (ESC [ H) / End (ESC [ F)
-      if (third === 0x48) return { event: { type: "home" }, consumed: 3 };
-      if (third === 0x46) return { event: { type: "end" }, consumed: 3 };
-
-      // Extended sequences: ESC [ <n> ~ (4 bytes)
-      if (buf.length >= 4 && buf[3] === 0x7e) {
-        if (third === 0x35) return { event: { type: "page", direction: "up" }, consumed: 4 };
-        if (third === 0x36) return { event: { type: "page", direction: "down" }, consumed: 4 };
-        if (third === 0x31) return { event: { type: "home" }, consumed: 4 };
-        if (third === 0x34) return { event: { type: "end" }, consumed: 4 };
+      const finalIdx = csiFinalIndex(buf);
+      if (finalIdx === -1) {
+        // Truncated CSI — flush as escape, consuming everything
+        return { event: { type: "escape" }, consumed: buf.length };
+      }
+      const csiFinal = buf[finalIdx];
+      if (csiFinal < 0x40 || csiFinal > 0x7e) {
+        // Malformed CSI: the scan stopped at a byte that is neither a parameter/
+        // intermediate nor a VALID final (0x40–0x7E) — e.g. a new ESC or a C0
+        // control. Treating it as the final would swallow a following real
+        // sequence (ESC [ ESC [ A would eat the arrow). Abort: drop the ESC [ …
+        // prefix and leave the offending byte to be re-parsed as its own start.
+        return { event: null, consumed: finalIdx };
       }
 
-      // Unrecognized CSI — consume ESC [ and the third byte
-      return { event: { type: "escape" }, consumed: 3 };
+      // SGR mouse report: ESC [ < Cb ; Cx ; Cy (M=press | m=release). Map the
+      // wheel to a scroll arrow on press; swallow releases, clicks, and the
+      // horizontal wheel so no mouse report leaks as a key or navigation.
+      if (buf[2] === 0x3c) {
+        const event = csiFinal === 0x4d ? mouseWheelArrow(parseDecimal(buf, 3, finalIdx)) : null;
+        return { event, consumed: finalIdx + 1 };
+      }
+
+      return parseCSI(buf, finalIdx);
     }
 
-    // Two-byte ESC + something that isn't CSI
-    return { event: { type: "escape" }, consumed: 2 };
+    // SS3 sequences: ESC O <final> (application cursor keys, F1–F4)
+    if (buf[1] === 0x4f) {
+      if (buf.length < 3) {
+        // Truncated SS3 — flush as escape
+        return { event: { type: "escape" }, consumed: buf.length };
+      }
+      const final = buf[2];
+      if (final < 0x40 || final > 0x7e) {
+        // Malformed SS3: the "final" is a control byte (e.g. a new ESC), not a
+        // valid SS3 final. Don't consume it — drop ESC O and let the byte
+        // re-parse, so a following sequence (ESC O ESC [ A) isn't eaten.
+        return { event: null, consumed: 2 };
+      }
+      const cursor = cursorEventForFinal(final);
+      if (cursor) return { event: cursor, consumed: 3 };
+      // F1–F4 (P Q R S) and anything else — swallow
+      return { event: null, consumed: 3 };
+    }
+
+    // ESC + <byte> is the terminal convention for Alt/Option + that key (Meta
+    // prefix), NOT a press of Escape — so it must never eject the scene.
+    // Option+Backspace (macOS sends ESC DEL, some send ESC BS) deletes a word;
+    // every other Alt-combo we don't bind is swallowed (a no-op), not escaped.
+    if (buf[1] === 0x7f || buf[1] === 0x08) {
+      return { event: { type: "deleteWord" }, consumed: 2 };
+    }
+    return { event: null, consumed: 2 };
   }
 
   // Single-byte keys
@@ -89,6 +257,17 @@ export function parseKeyWithLength(buf: Uint8Array): ParseResult | null {
   if (byte >= 0x80) {
     const charLen = utf8CharLen(byte);
     if (buf.length < charLen) return null; // incomplete UTF-8 — need more bytes
+    // Verify the trailing bytes are continuation bytes (0b10xxxxxx). A valid lead
+    // followed by a non-continuation is a TRUNCATED multibyte — e.g. a lead byte
+    // cut off by a read boundary, then an ESC sequence. Decoding charLen bytes
+    // anyway would swallow that sequence (and a raw ESC) into one bogus char and
+    // eat the keypress. Instead, emit ONE replacement char for the lead and
+    // consume just it, so the following bytes (the real sequence) re-parse.
+    for (let i = 1; i < charLen; i++) {
+      if ((buf[i] & 0xc0) !== 0x80) {
+        return { event: { type: "char", char: "�" }, consumed: 1 };
+      }
+    }
     const charBuf = buf.subarray(0, charLen);
     const decoded = new TextDecoder().decode(charBuf);
     if (decoded.length > 0) {
@@ -110,17 +289,74 @@ export function parseKey(buf: Uint8Array): KeyEvent | null {
   return result ? result.event : null;
 }
 
+/** True when the buffer starts with the full byte sequence `seq`. */
+function startsWithSeq(buf: Uint8Array, seq: Uint8Array): boolean {
+  if (buf.length < seq.length) return false;
+  for (let i = 0; i < seq.length; i++) {
+    if (buf[i] !== seq[i]) return false;
+  }
+  return true;
+}
+
+/** Index of the first occurrence of `seq` in `buf`, or -1. */
+function indexOfSeq(buf: Uint8Array, seq: Uint8Array): number {
+  outer: for (let i = 0; i + seq.length <= buf.length; i++) {
+    for (let j = 0; j < seq.length; j++) {
+      if (buf[i + j] !== seq[j]) continue outer;
+    }
+    return i;
+  }
+  return -1;
+}
+
+/** Concatenate two byte buffers into a fresh Uint8Array. */
+function concatBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
+  const merged = new Uint8Array(a.length + b.length);
+  merged.set(a);
+  merged.set(b, a.length);
+  return merged;
+}
+
+/**
+ * True when the buffer is an escape sequence whose final byte hasn't arrived
+ * yet — the parser should wait for more bytes rather than misread the prefix.
+ */
+function isIncompleteEscape(buf: Uint8Array): boolean {
+  if (buf[0] !== 0x1b) return false;
+  if (buf.length === 1) return true; // lone ESC — CSI/SS3 may follow
+  if (buf[1] === 0x5b) {
+    // X10 mouse (ESC [ M …) is a fixed 6 bytes; its raw coordinate bytes can
+    // look like a CSI final, so wait for all 6 rather than parse early.
+    if (buf.length >= 3 && buf[2] === 0x4d) return buf.length < 6;
+    return csiFinalIndex(buf) === -1;
+  }
+  if (buf[1] === 0x4f) return buf.length < 3;
+  return false;
+}
+
 /**
  * KeyParser accumulates bytes and emits KeyEvents.
- * Handles incomplete escape sequences by buffering.
+ * Handles incomplete escape sequences, bracketed paste blocks, and UTF-8
+ * characters split across reads by buffering.
  */
 export class KeyParser {
   private pending: Uint8Array | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private callback: (event: KeyEvent) => void;
+  /** Non-null while inside an ESC[200~ ... ESC[201~ bracketed paste block. */
+  private pasteData: Uint8Array | null = null;
+  // Absolute paste-age backstop (see PASTE_FLUSH_MS). Separate from `timer` (the
+  // lone-ESC flush) precisely because feed() must NOT clear it — it is armed once
+  // at paste start and survives across chunks so it bounds the paste's total age,
+  // not the gap since the last chunk.
+  private pasteTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly pasteFlushMs: number;
 
-  constructor(callback: (event: KeyEvent) => void) {
+  constructor(callback: (event: KeyEvent) => void, opts?: { pasteFlushMs?: number }) {
     this.callback = callback;
+    // The absolute paste-age backstop (PASTE_FLUSH_MS). Injectable only so tests
+    // can exercise the safety valve without a 10-second wait; production omits it.
+    this.pasteFlushMs = opts?.pasteFlushMs ?? PASTE_FLUSH_MS;
   }
 
   /** Feed raw bytes from stdin */
@@ -132,68 +368,88 @@ export class KeyParser {
 
     let buf: Uint8Array;
     if (this.pending) {
-      // Concatenate pending + new data
-      const merged = new Uint8Array(this.pending.length + data.length);
-      merged.set(this.pending);
-      merged.set(data, this.pending.length);
+      buf = concatBytes(this.pending, data);
       this.pending = null;
-      buf = merged;
     } else {
       buf = data;
     }
 
     while (buf.length > 0) {
-      // Check for incomplete escape sequences at the tail — buffer them
-      if (buf[0] === 0x1b) {
-        // Lone ESC — wait for possible CSI follow-up
-        if (buf.length === 1) {
-          this.pending = buf;
-          this.timer = setTimeout(() => {
-            if (this.pending) {
-              this.pending = null;
-              this.callback({ type: "escape" });
-            }
-          }, 50);
-          return;
-        }
-
-        // ESC [ without third byte — wait for it
-        if (buf.length === 2 && buf[1] === 0x5b) {
-          this.pending = buf;
-          this.timer = setTimeout(() => {
-            if (this.pending) {
-              const result = parseKeyWithLength(this.pending);
-              this.pending = null;
-              if (result) this.callback(result.event);
-            }
-          }, 50);
-          return;
-        }
-
-        // ESC [ <digit> without ~ — could be a 4-byte sequence
-        if (
-          buf.length === 3 &&
-          buf[1] === 0x5b &&
-          buf[2] >= 0x31 && buf[2] <= 0x36
-        ) {
-          // Check if parseKeyWithLength already handles it as a 3-byte sequence
-          const immediate = parseKeyWithLength(buf);
-          if (immediate && immediate.consumed === 3) {
-            this.callback(immediate.event);
-            buf = buf.subarray(3);
-            continue;
+      // Inside a bracketed paste — accumulate until the end marker arrives.
+      if (this.pasteData !== null) {
+        const prevLen = this.pasteData.length;
+        const merged = concatBytes(this.pasteData, buf);
+        // The end marker can only NEWLY appear at the boundary onward — everything
+        // before prevLen was already scanned on earlier feeds. Start a marker-length
+        // back so a terminator split across the chunk boundary is still found. This
+        // keeps a paste delivered across many chunks linear in total size instead of
+        // re-scanning the whole accumulated buffer on every chunk (was O(N²)).
+        const scanFrom = Math.max(0, prevLen - (PASTE_END.length - 1));
+        const rel = indexOfSeq(merged.subarray(scanFrom), PASTE_END);
+        const end = rel === -1 ? -1 : scanFrom + rel;
+        if (end === -1) {
+          if (merged.length > PASTE_MAX_BYTES) {
+            // The terminator never came within the cap — deliver what was
+            // collected and return to normal parsing.
+            this.pasteData = null;
+            this.clearPasteTimer();
+            this.emitPaste(merged);
+            return;
           }
-          // Otherwise buffer for the 4th byte
-          this.pending = buf;
-          this.timer = setTimeout(() => {
-            if (this.pending) {
-              const result = parseKeyWithLength(this.pending);
-              this.pending = null;
-              if (result) this.callback(result.event);
-            }
-          }, 50);
+          // Keep accumulating across chunks. Do NOT re-arm a flush here — the
+          // absolute pasteTimer (armed once at paste start) bounds the age. A
+          // per-chunk re-arm is exactly the bug: a slow inter-chunk gap would
+          // flush a partial paste and the tail (a \r) would submit the form.
+          this.pasteData = merged;
           return;
         }
+        this.pasteData = null;
+        this.clearPasteTimer();
+        this.emitPaste(merged.subarray(0, end));
+        buf = merged.subarray(end + PASTE_END.length);
+        continue;
+      }
+
+      if (buf[0] === 0x1b) {
+        // Bracketed paste start — switch to accumulation mode
+        if (startsWithSeq(buf, PASTE_START)) {
+          this.pasteData = new Uint8Array(0);
+          // Arm the absolute age backstop once, here at the start — whether or
+          // not the start marker's chunk also carried content.
+          this.armPasteFlush();
+          buf = buf.subarray(PASTE_START.length);
+          continue;
+        }
+
+        // Escape sequence still missing its final byte — buffer and wait.
+        // The timeout flushes a lone ESC (or truncated sequence) as escape.
+        if (isIncompleteEscape(buf)) {
+          // Bound the wait: a "pending escape" longer than any real sequence is
+          // malformed input that will never complete. Flush it as escape and
+          // resume instead of buffering stdin without limit — the timer is
+          // cleared on every feed(), so a steady stream would never flush.
+          if (buf.length > MAX_ESCAPE_BYTES) {
+            const flushed = parseKeyWithLength(buf);
+            if (flushed?.event) this.callback(flushed.event);
+            return;
+          }
+          this.pending = buf.slice();
+          this.timer = setTimeout(() => {
+            if (this.pending) {
+              const flush = this.pending;
+              this.pending = null;
+              const result = parseKeyWithLength(flush);
+              if (result?.event) this.callback(result.event);
+            }
+          }, ESC_TIMEOUT_MS);
+          return;
+        }
+      }
+
+      // UTF-8 multibyte character split across reads — buffer the tail
+      if (buf[0] >= 0x80 && buf.length < utf8CharLen(buf[0])) {
+        this.pending = buf.slice();
+        return;
       }
 
       const result = parseKeyWithLength(buf);
@@ -202,8 +458,42 @@ export class KeyParser {
         buf = buf.subarray(1);
         continue;
       }
-      this.callback(result.event);
+      if (result.event) this.callback(result.event);
       buf = buf.subarray(result.consumed);
+    }
+  }
+
+  /** Decode paste bytes, normalize line endings, emit the paste event. */
+  private emitPaste(data: Uint8Array): void {
+    const raw = new TextDecoder().decode(data);
+    // Normalize line endings — terminals paste \r for newlines
+    const text = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    this.callback({ type: "paste", text });
+  }
+
+  /**
+   * Arm the absolute paste-age backstop (PASTE_FLUSH_MS), set ONCE per paste at
+   * its start. It is never re-armed and feed() never clears it, so it measures
+   * the paste's total age — not the gap since the last chunk. A genuine paste
+   * terminates via ESC[201~ or the byte cap long before it fires; it only
+   * recovers a paste-start that is never terminated, delivering whatever was
+   * collected as a single paste event so the parser can't wedge.
+   */
+  private armPasteFlush(): void {
+    if (this.pasteTimer) return; // already armed for this paste
+    this.pasteTimer = setTimeout(() => {
+      this.pasteTimer = null;
+      if (this.pasteData === null) return;
+      const data = this.pasteData;
+      this.pasteData = null;
+      if (data.length > 0) this.emitPaste(data);
+    }, this.pasteFlushMs);
+  }
+
+  private clearPasteTimer(): void {
+    if (this.pasteTimer) {
+      clearTimeout(this.pasteTimer);
+      this.pasteTimer = null;
     }
   }
 
@@ -213,6 +503,8 @@ export class KeyParser {
       clearTimeout(this.timer);
       this.timer = null;
     }
+    this.clearPasteTimer();
     this.pending = null;
+    this.pasteData = null;
   }
 }

@@ -14,7 +14,7 @@
 import type { CellBuffer } from "../../render/buffer.ts";
 import type { DisplayLanguage } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth } from "../../layout/measure.ts";
+import { stringWidth, fitLine, centerCol } from "../../layout/measure.ts";
 import { tr } from "../../i18n/messages.ts";
 
 const HEADER_ROW = 1;
@@ -36,11 +36,22 @@ export function formatLineCounter(
   return `${base}  ·  ${tr(language, "chrome.round")} ${round.idx + 1}/${round.total}`;
 }
 
+/**
+ * The action-hint footer during an ACTIVE (unpaused) reveal — pause / speed /
+ * skip / back, plus the current multiplier when faster than 1×. Shared by the
+ * cast and yarrow rituals so their pace hints stay identical; their PAUSED
+ * footers differ (yarrow adds [→] step) and stay scene-specific.
+ */
+export function activePaceFooter(speed: number, language: DisplayLanguage = "en"): string {
+  const speedTag = speed > 1 ? `  ·  ${speed}×` : "";
+  return `[space] ${tr(language, "verb.pause")}  ·  [f] ${tr(language, "verb.speed")}  ·  [s] ${tr(language, "verb.skip")}  ·  [esc] ${tr(language, "verb.back")}${speedTag}`;
+}
+
 /** Place the position counter at row 1, centered, dim tertiary color. */
 export function writeChromeHeader(buf: CellBuffer, text: string): void {
   if (!text) return;
   const t = getTheme();
-  const col = Math.max(0, Math.floor((buf.width - stringWidth(text)) / 2));
+  const col = centerCol(buf.width, stringWidth(text));
   buf.writeText(HEADER_ROW, col, text, { fg: t.tertiary, dim: true });
 }
 
@@ -50,6 +61,8 @@ export function writeChromeFooter(buf: CellBuffer, text: string): void {
   const t = getTheme();
   const row = buf.height - FOOTER_ROW_FROM_BOTTOM;
   if (row < 0) return;
-  const col = Math.max(0, Math.floor((buf.width - stringWidth(text)) / 2));
-  buf.writeText(row, col, text, { fg: t.tertiary });
+  // Center when it fits; on a narrow terminal keep the lead keybinds and
+  // truncate, rather than clip both ends off a centered hint.
+  const { text: shown, col } = fitLine(text, buf.width);
+  buf.writeText(row, col, shown, { fg: t.tertiary });
 }

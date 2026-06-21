@@ -6,6 +6,7 @@ export type {
   Style,
   DisplayLanguage,
   Hexagram,
+  HexagramExtra,
   LineValue,
   Line,
   Cast,
@@ -14,11 +15,16 @@ export type {
   Structure,
   DailyCache,
   HistoryEntry,
+  ReflectionNote,
+  CastMethod,
+  EntropySource,
+  RngProvenance,
 } from "./types.js";
 
 // RandomSource
-export type { RandomSource } from "./random.js";
+export type { RandomSource, BindingContext } from "./random.js";
 export {
+  BoundRandomSource,
   CryptoRandomSource,
   SeededRandomSource,
   TapeRandomSource,
@@ -28,7 +34,8 @@ export {
 export { castLine } from "./casting/coins.js";
 export { castHexagram, assembleCast } from "./casting/cast.js";
 export { linesToBinary } from "./casting/binary.js";
-export { castYarrowHexagram, castYarrowLine, castYarrowRound, lineFromValue, toLineValue } from "./casting/yarrow.js";
+export { castYarrowHexagram, castYarrowLine, castYarrowRound, toLineValue } from "./casting/yarrow.js";
+export { isYangValue, isChangingValue, lineFromValue } from "./casting/line-value.js";
 export type { YarrowRound, YarrowLineResult, YarrowCast } from "./casting/yarrow.js";
 
 // Derivation
@@ -39,7 +46,7 @@ export { diagonal } from "./derivation/diagonal.js";
 export { isLockedPair } from "./derivation/locked-pairs.js";
 
 // Identify
-export { BINARY_TO_KW, hexagramByBinary, hexagramByKW } from "./identify/lookup.js";
+export { BINARY_TO_KW, hexagramByBinary, hexagramByKW, kwFromLines, kwOf } from "./identify/lookup.js";
 export {
   trigramIndex,
   getStructure,
@@ -57,20 +64,72 @@ export {
   DERIVED_LABELS_CN,
 } from "./data/trigrams.js";
 export { LARGE_GLYPHS, type GlyphFont, type GlyphSize, type GlyphEntry } from "./data/large-glyphs.js";
+export { SEQUENCE, type SequenceTexts } from "./data/sequence.js";
 
 // i18n — audited Traditional -> Simplified conversion
 export { toSimplified, SIMPLIFIED_MAP, SIMPLIFIED_EXCEPTIONS } from "./i18n/simplify.js";
 
 // Format
-export { formatReading, getRandomQuoteStyle } from "./format/reading.js";
+export { formatReading, getRandomQuoteStyle, readingFocus, readingTexts } from "./format/reading.js";
+export type { ReadingFocus, ReadingPart } from "./format/reading.js";
 export { formatDerived } from "./format/derived.js";
+export { formatTime } from "./format/time.js";
 
 // Search
-export { searchHexagrams } from "./search.js";
+export { searchHexagrams, searchHexagramsScored } from "./search.js";
+export type { ScoredHexagram } from "./search.js";
+
+// Terminal-safe text
+export { stripTerminalControls } from "./terminal-text.js";
+
+// Numeric utility — clamp to [lo, hi], shared by core patterns + terminal renderers
+export { clamp } from "./clamp.js";
+
+// Type guard — value ∈ a readonly string-literal list, shared by the two config validators
+export { isOneOf } from "./is-one-of.js";
+
+// Search-fold: NFD + strip diacritics + lowercase, shared by hexagram + journal search
+export { foldForSearch } from "./text-fold.js";
 
 // Detail
-export { type HexagramDetail, buildHexagramDetail } from "./detail.js";
+export { type HexagramDetail, type KwGua, buildHexagramDetail } from "./detail.js";
 
 // Service
 export { selectDisplay } from "./service/display-select.js";
 export type { DisplayChoice } from "./service/display-select.js";
+
+// Journal pattern derivation — pure observation over past readings, shared by
+// the TUI 觀象 pane and the CLI `journal patterns` surface.
+export {
+  computeJournalPatterns,
+  phaseOfHour,
+  PHASE_MIN_TIMESTAMPED,
+  entryTimeKey,
+  compareEntryTime,
+} from "./journal/patterns.js";
+
+// Timezone-aware projections of an instant — the daily anchor + 時 phase binning
+// honor config.timezone ("system" | IANA) instead of always machine-local.
+export { dateInZone, hourInZone } from "./zone.js";
+export type {
+  JournalPatterns,
+  PhaseDistribution,
+  MethodFamily,
+  MethodFamilyCounts,
+  ExpectedComparison,
+  DirectionComparison,
+  BaselineSummary,
+  HexagramFrequency,
+  MovingLineFrequency,
+  MovingLineCountBin,
+  TrigramFrequency,
+  PairFrequency,
+  CadenceSummary,
+  DiversitySummary,
+  StructuralEchoKind,
+  StructuralEcho,
+  HammingDistanceBin,
+  HammingDriftSummary,
+  FieldSummary,
+  LineBalanceSummary,
+} from "./journal/patterns.js";

@@ -1,18 +1,19 @@
 // DetailRenderer — render hexagram detail into CellBuffer
 
 import type { CellBuffer } from "../../render/buffer.ts";
+import { isEmpty } from "../../glyph-anim/braille.ts";
+import { FOOTER_ROWS } from "./layout.ts";
 import type { SceneContext } from "../../scene/types.ts";
 import type { DetailModel, DerivedLink } from "./detail-model.ts";
 import type { DisplayLanguage } from "@iching/core";
-import { toSimplified } from "@iching/core";
+import { SEQUENCE, toSimplified } from "@iching/core";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth, centerPad } from "../../layout/measure.ts";
+import { stringWidth, centerPad, centerCol, truncateToWidth } from "../../layout/measure.ts";
 import { wordWrap } from "./word-wrap.ts";
 import { GLYPHS } from "../../glyphs.ts";
 import { tr } from "../../i18n/messages.ts";
 import { pageIndicator } from "../../widgets/scroll.ts";
 
-const FOOTER_ROWS = 2;
 const PADDING = 2;
 
 /** Build the full content as an array of {text, style} lines */
@@ -21,6 +22,9 @@ export interface ContentLine {
   fg?: string;
   bold?: boolean;
   dim?: boolean;
+  /** Set on a reserved glyph row — its index within the glyph render; the render
+   *  pass fills these in. Internal to this renderer. */
+  _glyphRow?: number;
 }
 
 export interface DetailRenderOptions {
@@ -79,7 +83,7 @@ export function buildContentLines(
   if (model.glyphEntry) {
     // Reserve rows for the glyph - render pass fills them in
     for (let r = 0; r < model.glyphEntry.height; r++) {
-      lines.push({ text: "", _glyphRow: r } as ContentLine & { _glyphRow: number });
+      lines.push({ text: "", _glyphRow: r });
     }
     lines.push({ text: "" }); // spacer after glyph
   }
@@ -101,10 +105,25 @@ export function buildContentLines(
   }
   lines.push({ text: "" });
 
-  // Line diagram (top to bottom: line 6 down to line 1)
+  // Line diagram (top to bottom: line 6 down to line 1). Cast context marks
+  // the moving lines with the same gutter markers the cast ritual uses.
   for (let i = 5; i >= 0; i--) {
     const lineChar = gua.l[i] === 1 ? GLYPHS.yangFinal : GLYPHS.yinFinal;
-    lines.push({ text: centerPad(lineChar, textWidth), fg: t.primary });
+    const changed = model.changedPositions.includes(i + 1);
+    let text = centerPad(lineChar, textWidth);
+    if (changed) {
+      const marker = gua.l[i] === 1 ? GLYPHS.changingMarkerYang : GLYPHS.changingMarkerYin;
+      // Marker 2 cols right of the line's end, like the cast hexagram gutter
+      const markerCol =
+        Math.floor(textWidth / 2) + Math.floor(stringWidth(lineChar) / 2) + 2;
+      if (markerCol < text.length) {
+        text = text.slice(0, markerCol) + marker + text.slice(markerCol + 1);
+      }
+    }
+    lines.push({
+      text,
+      fg: changed ? (gua.l[i] === 1 ? t.accent : t.changingYin) : t.primary,
+    });
     // Add gap between upper and lower trigrams (after line 4, before line 3)
     if (i === 3) {
       lines.push({ text: "" });
@@ -127,11 +146,30 @@ export function buildContentLines(
   lines.push({ text: "─".repeat(textWidth), fg: t.tertiary });
   lines.push({ text: "" });
 
-  // Commentary sections
+  // Commentary sections — the 卦辭 (the hexagram's own judgment) comes first;
+  // the Wings follow. In en mode the canonical classical text rides dim beneath
+  // the Wilhelm-interpretive judgment (gcEnW — one register with the line texts;
+  // Legge stays in the corpus as gcEn); "Judgment" labels the actual 卦辭, so the
+  // 彖傳 translation is labeled as the commentary it is.
+  lines.push({
+    text: english ? "Judgment" : zh("卦辭", language),
+    fg: t.accent,
+    bold: true,
+  });
+  if (english) {
+    pushWrapped(lines, gua.gcEnW, textWidth, { fg: t.secondary });
+    pushWrapped(lines, gua.gc, textWidth, { fg: t.tertiary, dim: true });
+  } else {
+    pushWrapped(lines, zh(gua.gc, language), textWidth, { fg: t.secondary });
+  }
+  lines.push({ text: "" });
+
   const sections: [string, string][] = english
     ? [
         ["Image", gua.en],
-        ["Judgment", gua.te],
+        // 彖傳 EN name per docs/language-glossary.md (the old bare "Judgment"
+        // label now belongs to the 卦辭 section above).
+        ["Tuan (Commentary on the Decision)", gua.te],
         // "Wilhelm-inspired" (not bare "Wilhelm"): gua.w is interpretive advice
         // after Wilhelm, NOT a direct quotation (AC-010 attribution policy; C-005).
         ["Wilhelm-inspired", gua.w],
@@ -147,7 +185,9 @@ export function buildContentLines(
     lines.push({ text: "" });
   }
 
-  // Line interpretations (爻辭)
+  // Line interpretations (爻辭), each with its 小象傳 dim beneath — the Yi
+  // commenting on its own lines. Moving lines from the cast are marked and
+  // their texts emphasized.
   if (gua.yao && gua.yao.length === 6) {
     lines.push({ text: "─".repeat(textWidth), fg: t.tertiary });
     lines.push({ text: "" });
@@ -156,13 +196,35 @@ export function buildContentLines(
 
     // Display top-to-bottom (line 6 down to line 1) to match visual diagram
     for (let i = 5; i >= 0; i--) {
+      const changed = model.changedPositions.includes(i + 1);
+      const marker = changed
+        ? ` ${gua.l[i] === 1 ? GLYPHS.changingMarkerYang : GLYPHS.changingMarkerYin}`
+        : "";
+      const changedFg = gua.l[i] === 1 ? t.accent : t.changingYin;
       if (english) {
-        lines.push({ text: `Line ${i + 1}`, fg: t.secondary, bold: true });
+        lines.push({
+          text: `Line ${i + 1}${marker}`,
+          fg: changed ? changedFg : t.secondary,
+          bold: true,
+        });
         if (gua.yaoEn?.[i]) {
-          pushWrapped(lines, gua.yaoEn[i], textWidth, { fg: t.tertiary });
+          pushWrapped(lines, gua.yaoEn[i], textWidth, {
+            fg: changed ? t.secondary : t.tertiary,
+            bold: changed || undefined,
+          });
         }
       } else {
-        pushWrapped(lines, zh(gua.yao[i], language), textWidth, { fg: t.secondary });
+        // Marker prefixes the text (a trailing marker could wrap alone)
+        pushWrapped(lines, `${marker ? marker.trimStart() + " " : ""}${zh(gua.yao[i], language)}`, textWidth, {
+          fg: changed ? changedFg : t.secondary,
+          bold: changed || undefined,
+        });
+      }
+      if (gua.yaoXiao?.[i]) {
+        pushWrapped(lines, zh(gua.yaoXiao[i], language), textWidth, {
+          fg: t.tertiary,
+          dim: true,
+        });
       }
       lines.push({ text: "" });
     }
@@ -174,15 +236,22 @@ export function buildContentLines(
 
   // Derived hexagrams
   lines.push({ text: english ? "Derived" : zh("衍卦", language), fg: t.accent, bold: true });
+  // Record where the links start so focus changes can scroll them into view
+  model.derivedStartLine = lines.length;
   for (let i = 0; i < model.derivedLinks.length; i++) {
     const link = model.derivedLinks[i];
     const isSelected = model.focus === "derived" && model.derivedCursor === i;
     const marker = isSelected ? ">" : " ";
+    // English mode keeps the Chinese name beside the symbol (placed before the
+    // English name, so truncation clips the English half — never the glyph),
+    // matching the bilingual accent the page header already carries.
     const text = english
-      ? `${marker} ${link.label.padEnd(10)} ${link.symbol} ${link.ename}`
+      ? `${marker} ${link.label.padEnd(10)} ${link.symbol} ${link.name} ${link.ename}`
       : `${marker} ${zh(link.labelCn, language)} ${link.symbol} ${zh(link.name, language)}`;
     lines.push({
-      text,
+      // A derived link is one navigable line — clip a long English name to the
+      // text budget rather than overrun the right edge on a narrow terminal.
+      text: truncateToWidth(text, textWidth),
       fg: isSelected ? t.primary : t.secondary,
     });
   }
@@ -192,14 +261,47 @@ export function buildContentLines(
     lines.push({ text: "" });
     const partner = model.detail.lockedPartner.gua;
     lines.push({
-      text: english
-        ? `Locked pair: ${partner.ename}`
-        : `${zh("鎖定對卦", language)}: ${zh(partner.n, language)}`,
+      text: truncateToWidth(
+        english
+          ? `Locked pair: ${partner.n} ${partner.ename}`
+          : `${zh("鎖定對卦", language)}: ${zh(partner.n, language)}`,
+        textWidth,
+      ),
       fg: t.tertiary,
     });
   }
 
   lines.push({ text: "" });
+
+  // Where this hexagram sits in the sequence (序卦) and its paired epigram
+  // (雜卦) — a quiet closing section, all dim. The 序卦 shows the classical
+  // snippet in every mode (Legge's translation is paragraph-segmented, not
+  // per-hexagram); the 雜卦 couplet has a pair-aligned Legge rendering.
+  const seq = SEQUENCE[model.detail.kw - 1];
+  if (seq) {
+    lines.push({ text: "─".repeat(textWidth), fg: t.tertiary });
+    lines.push({ text: "" });
+    lines.push({
+      text: english ? "Xugua (Sequence of the Hexagrams)" : zh("序卦", language),
+      fg: t.tertiary,
+      bold: true,
+    });
+    pushWrapped(lines, zh(seq.xu, language), textWidth, {
+      fg: t.tertiary,
+      dim: true,
+    });
+    lines.push({ text: "" });
+    lines.push({
+      text: english ? "Zagua (Miscellaneous Notes)" : zh("雜卦", language),
+      fg: t.tertiary,
+      bold: true,
+    });
+    pushWrapped(lines, english ? seq.zaEn : zh(seq.za, language), textWidth, {
+      fg: t.tertiary,
+      dim: true,
+    });
+    lines.push({ text: "" });
+  }
 
   // Separator before history
   lines.push({ text: "─".repeat(textWidth), fg: t.tertiary });
@@ -232,13 +334,13 @@ export function renderDetail(
   // Glyph rendering state
   const glyphEntry = model.glyphEntry;
   const glyphCol = glyphEntry
-    ? Math.max(0, Math.floor((ctx.cols - glyphEntry.width) / 2))
+    ? centerCol(ctx.cols, glyphEntry.width)
     : 0;
 
   for (let i = model.scrollOffset; i < visibleEnd; i++) {
     const row = i - model.scrollOffset;
     if (row >= visibleRows) break;
-    const line = contentLines[i] as ContentLine & { _glyphRow?: number };
+    const line = contentLines[i];
 
     // Render glyph row via animator or static
     if (line._glyphRow !== undefined && glyphEntry) {
@@ -252,14 +354,18 @@ export function renderDetail(
         const t = getTheme();
         const chars = [...(glyphEntry.rows[gr] ?? "")];
         for (let c = 0; c < chars.length; c++) {
-          if (chars[c] === "\u2800" || chars[c] === " ") continue;
+          if (isEmpty(chars[c])) continue;
           frame.writeText(row, glyphCol + c, chars[c], { fg: t.primary });
         }
       }
       continue;
     }
 
-    frame.writeText(row, PADDING, line.text, {
+    // Structural guard: clip every content line to the build budget at the
+    // render boundary, so no section — present or future — can overflow the
+    // right edge on a narrow terminal (the derived/locked lines once did). A
+    // no-op for the centered, wrapped, and rule lines already sized to fit.
+    frame.writeText(row, PADDING, truncateToWidth(line.text, ctx.cols - PADDING * 2), {
       fg: line.fg,
       bold: line.bold,
       dim: line.dim,
@@ -297,10 +403,12 @@ function renderFooter(
 
   frame.writeText(sepRow, 0, "─".repeat(ctx.cols), { fg: t.tertiary });
 
+  // Content focus omits [enter] (it only acts on the derived links, where the
+  // focused footer documents it) — the freed width carries the ←→ walk hint.
   const keys =
     model.focus === "derived"
       ? `[↑↓] ${tr(language, "verb.select")}  ·  [enter] ${tr(language, "verb.open")}  ·  [tab] ${tr(language, "verb.scroll")}  ·  [esc] ${tr(language, "verb.back")}`
-      : `[↑↓] ${tr(language, "verb.scroll")}  ·  [tab] ${tr(language, "verb.derived")}  ·  [enter] ${tr(language, "verb.open")}  ·  [esc] ${tr(language, "verb.back")}`;
+      : `[↑↓] ${tr(language, "verb.scroll")}  ·  [←→] ${tr(language, "verb.adjacent")}  ·  [tab] ${tr(language, "verb.derived")}  ·  [esc] ${tr(language, "verb.back")}`;
 
   // Hidden when content fits (vs the region's "1/1"); shows the page otherwise.
   const indicator =

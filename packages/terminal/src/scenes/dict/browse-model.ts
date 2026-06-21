@@ -2,7 +2,7 @@
 
 import type { Hexagram } from "@iching/core";
 import { GUA, searchHexagrams } from "@iching/core";
-import { offsetToShow } from "../../widgets/scroll.ts";
+import { offsetToShow, lastIndex } from "../../widgets/scroll.ts";
 
 export class BrowseModel {
   /** All 64 hexagrams */
@@ -42,7 +42,7 @@ export class BrowseModel {
     this.filtered = query.length > 0 ? searchHexagrams(query) : [...this.all];
     // Clamp cursor
     if (this.cursor >= this.filtered.length) {
-      this.cursor = Math.max(0, this.filtered.length - 1);
+      this.cursor = lastIndex(this.filtered.length);
     }
     // Reset scroll to keep cursor visible
     this.ensureCursorVisible();

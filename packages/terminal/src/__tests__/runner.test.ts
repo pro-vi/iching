@@ -213,11 +213,12 @@ describe("TimelineRunner", () => {
   });
 
   test("ctx is passed through to callbacks", () => {
-    const ctx = { callFired: false, tweenProgress: -1 };
-    const timeline = seq(
-      wait(100),
-      call((c) => { c.callFired = true; }),
-      tween(100, (p, c) => { c.tweenProgress = p; }),
+    type RunnerCtx = { callFired: boolean; tweenProgress: number };
+    const ctx: RunnerCtx = { callFired: false, tweenProgress: -1 };
+    const timeline = seq<RunnerCtx>(
+      wait<RunnerCtx>(100),
+      call((c: RunnerCtx) => { c.callFired = true; }),
+      tween(100, (p, c: RunnerCtx) => { c.tweenProgress = p; }),
     );
     const runner = new TimelineRunner(timeline);
 

@@ -1,8 +1,8 @@
 import { describe, test, expect } from "bun:test";
 import { castLine } from "../casting/coins.js";
-import { castHexagram } from "../casting/cast.js";
+import { castHexagram, assembleCast } from "../casting/cast.js";
 import { linesToBinary } from "../casting/binary.js";
-import { TapeRandomSource, SeededRandomSource } from "../random.js";
+import { CryptoRandomSource, TapeRandomSource, SeededRandomSource } from "../random.js";
 import type { Line } from "../types.js";
 
 describe("castLine", () => {
@@ -43,6 +43,36 @@ describe("castLine", () => {
     expect(line.value).toBe(9);
     expect(line.isYang).toBe(true);
     expect(line.isChanging).toBe(true);
+  });
+});
+
+describe("castLine — output distribution", () => {
+  test("reproduces the coin probabilities (6/7/8/9 = 1:3:3:1 over 8)", () => {
+    // The symmetric counterpart to yarrow's asymmetric 1:5:7:3 — three even coins
+    // give old yin and old yang 1/8 each and the young lines 3/8 each.
+    // LINE_PROBABILITIES.coin and every coin "by chance" figure in the 觀象 pane
+    // trust this; pinned here as yarrow's distribution is, so a regression in
+    // either method's sampling (or a coin/yarrow mixup) can't pass silently.
+    // Production CryptoRandomSource (uniform bits); ±0.01 is many sigma at this N.
+    const source = new CryptoRandomSource();
+    const tally: Record<number, number> = { 6: 0, 7: 0, 8: 0, 9: 0 };
+    const N = 200_000;
+    for (let i = 0; i < N; i++) tally[castLine(source).value]++;
+    expect(Math.abs(tally[6] / N - 1 / 8)).toBeLessThan(0.01); // 0.125 — 老陰 old yin
+    expect(Math.abs(tally[7] / N - 3 / 8)).toBeLessThan(0.01); // 0.375 — 少陽 young yang
+    expect(Math.abs(tally[8] / N - 3 / 8)).toBeLessThan(0.01); // 0.375 — 少陰 young yin
+    expect(Math.abs(tally[9] / N - 1 / 8)).toBeLessThan(0.01); // 0.125 — 老陽 old yang
+  });
+});
+
+describe("assembleCast — input validation", () => {
+  test("rejects a non-six-line array (would corrupt mirror/diagonal)", () => {
+    // mirror/diagonal reverse the whole array; a non-six input mirrors the wrong
+    // six. Fail fast rather than return an internally inconsistent cast.
+    const yang = { value: 7 as const, isYang: true, isChanging: false };
+    expect(() => assembleCast(Array(5).fill(yang))).toThrow(/6 lines/);
+    expect(() => assembleCast(Array(7).fill(yang))).toThrow(/6 lines/);
+    expect(() => assembleCast(Array(6).fill(yang))).not.toThrow(); // exactly six is fine
   });
 });
 

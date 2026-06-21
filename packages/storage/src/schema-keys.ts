@@ -24,15 +24,24 @@ export const SCHEMA_KEYS = {
       "taijituStyle",
       "castMethod",
       "castMode",
+      "entropy",
     ],
     optional: [],
   },
   cache: {
     required: ["date", "cast", "shown", "structure"],
-    optional: ["intention"],
+    optional: ["intention", "method", "rng"],
   },
   history: {
     required: ["date", "cast"],
-    optional: ["intention", "timestamp"],
+    optional: ["intention", "timestamp", "method", "rng"],
+  },
+  // Reflection notes are written to the notes.jsonl sidecar beside
+  // history.jsonl, so pre-note binaries never meet a record shape they cannot
+  // parse. The `kind` discriminator still keeps any LEGACY note lines (written
+  // into history.jsonl before the sidecar landed) out of entry reads.
+  note: {
+    required: ["kind", "ref", "date", "timestamp", "text"],
+    optional: [],
   },
 } as const satisfies Record<string, Shape>;

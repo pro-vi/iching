@@ -1,9 +1,10 @@
 // compose.ts — compose multi-character glyph entries side by side
 
 import type { GlyphEntry, GlyphFont, GlyphSize } from "@iching/core";
+import { EMPTY_BRAILLE } from "./braille.ts";
 import { LARGE_GLYPHS } from "@iching/core";
 
-const CHAR_GAP = 1; // braille columns between characters
+export const CHAR_GAP = 1; // braille columns between characters
 
 /**
  * Look up and compose a multi-character name into a single GlyphEntry.
@@ -38,7 +39,6 @@ export function composeGlyph(
   // Height = max height (pad shorter ones with empty rows)
   const maxHeight = Math.max(...entries.map(e => e.height));
 
-  const EMPTY_BRAILLE = "\u2800";
 
   // Compute vertical offset for each entry to center-align within maxHeight
   const offsets = entries.map(e => Math.floor((maxHeight - e.height) / 2));

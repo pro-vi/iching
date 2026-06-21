@@ -2,6 +2,8 @@ import { describe, test, expect } from "bun:test";
 import {
   canSplit,
   hexColOffset,
+  glyphRevealMode,
+  glyphTitleLineCount,
   MIN_SPLIT_WIDTH,
   SPLIT_OFFSET,
 } from "../scenes/cast/layout-calc.ts";
@@ -57,6 +59,56 @@ describe("layout-calc", () => {
     test("intermediate progress returns rounded offset", () => {
       const offset = hexColOffset("right", 0.5);
       expect(offset).toBe(Math.round(SPLIT_OFFSET * 0.5));
+    });
+  });
+
+  // The settled-reveal vertical budget: the reading texts win the fight;
+  // the glyph keeps "normal" placement, compresses to "compact" (title
+  // yields), or yields entirely ("none"). Anchor at h=24 is 15; at h=30, 18.
+  describe("glyphRevealMode", () => {
+    test("no glyph (height 0) is always none", () => {
+      expect(glyphRevealMode(40, 23, 0, 1, 2)).toBe("none");
+    });
+
+    test("24 rows: an 8-row glyph cannot coexist with any panel — none", () => {
+      // compact bound: G + P <= 24 - 15 - 2 = 7 < 8
+      expect(glyphRevealMode(24, 15, 8, 1, 1)).toBe("none");
+      expect(glyphRevealMode(24, 15, 8, 2, 4)).toBe("none");
+    });
+
+    test("30 rows: an 8-row glyph plus a 2-row panel fits compactly", () => {
+      // compact bound: 8 + 2 <= 30 - 18 - 2 = 10
+      expect(glyphRevealMode(30, 18, 8, 1, 2)).toBe("compact");
+    });
+
+    test("30 rows: a 3-row panel pushes the glyph out — none", () => {
+      expect(glyphRevealMode(30, 18, 8, 1, 3)).toBe("none");
+    });
+
+    test("40 rows: glyph, title, and panel all fit — normal", () => {
+      // normal bound: 8 + 1 + 3 <= 40 - 23 - 4 = 13
+      expect(glyphRevealMode(40, 23, 8, 1, 3)).toBe("normal");
+    });
+
+    test("boundary: exactly the normal bound is still normal", () => {
+      // G + T + P = bufHeight - anchor - 4
+      expect(glyphRevealMode(36, 21, 8, 1, 2)).toBe("normal");
+      expect(glyphRevealMode(36, 21, 8, 1, 3)).toBe("compact");
+    });
+  });
+
+  describe("glyphTitleLineCount", () => {
+    test("split shows the pinyin only", () => {
+      expect(glyphTitleLineCount(true, true)).toBe(1);
+      expect(glyphTitleLineCount(true, false)).toBe(1);
+    });
+
+    test("centered English shows pinyin/ename/translation/structure", () => {
+      expect(glyphTitleLineCount(false, true)).toBe(4);
+    });
+
+    test("centered Chinese shows pinyin and structure", () => {
+      expect(glyphTitleLineCount(false, false)).toBe(2);
     });
   });
 });

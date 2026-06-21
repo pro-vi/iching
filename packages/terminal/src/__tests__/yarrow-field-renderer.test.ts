@@ -103,7 +103,7 @@ describe("renderYarrowField — sequential count + tally", () => {
     const buf = new CellBuffer(80, 24);
     renderYarrowField(buf, m);
 
-    const round = m.transcript[0].rounds[0];
+    const round = m.requireLineResult(0).rounds[0];
     const leftMid = (round.splitAt + round.leftRemainder) / 2;
     const rightStart = round.startCount - round.splitAt - 1;
     // Left should be partially drained (between start and end);
@@ -129,7 +129,7 @@ describe("renderYarrowField — sequential count + tally", () => {
     m.activeLine = 0;
     m.activeRound = 0;
     m.beat = "tally";
-    const round = m.transcript[0].rounds[0];
+    const round = m.requireLineResult(0).rounds[0];
     // setAside = 1 + leftRem + rightRem
     expect(round.setAside).toBe(1 + round.leftRemainder + round.rightRemainder);
   });

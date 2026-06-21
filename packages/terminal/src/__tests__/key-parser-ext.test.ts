@@ -67,6 +67,61 @@ describe("KeyParser — extended key buffering", () => {
     parser.dispose();
   });
 
+  test("a malformed CSI/SS3 interrupted by a new ESC doesn't swallow the next sequence", () => {
+    // ESC [ then a new ESC (the first CSI never got a valid final 0x40-0x7E):
+    // the parser must not treat that ESC as the CSI's final and eat the arrow.
+    let ev: KeyEvent[] = [];
+    let parser = new KeyParser((e) => ev.push(e));
+    parser.feed(new Uint8Array([0x1b, 0x5b, 0x1b, 0x5b, 0x41])); // ESC[ ESC[A
+    // Exact array: the aborted CSI must leak NO extra event (a stray escape/char)
+    // alongside the arrow — toContainEqual would miss such a leak.
+    expect(ev).toEqual([{ type: "arrow", direction: "up" }]);
+    parser.dispose();
+
+    // Same for SS3: ESC O then a new ESC — the third byte isn't a valid final.
+    ev = [];
+    parser = new KeyParser((e) => ev.push(e));
+    parser.feed(new Uint8Array([0x1b, 0x4f, 0x1b, 0x5b, 0x41])); // ESC O ESC[A
+    expect(ev).toEqual([{ type: "arrow", direction: "up" }]);
+    parser.dispose();
+  });
+
+  test("a truncated multibyte lead before an ESC sequence doesn't swallow the sequence", () => {
+    // A 3-byte UTF-8 lead cut off by a read boundary, then an arrow key. The
+    // parser must not decode [lead, ESC, []] as one bogus char (eating the arrow
+    // and emitting a raw ESC) — the lead is replaced, the arrow survives.
+    const ev: KeyEvent[] = [];
+    const parser = new KeyParser((e) => ev.push(e));
+    parser.feed(new Uint8Array([0xe4])); // lone 3-byte lead (truncated multibyte)
+    parser.feed(new Uint8Array([0x1b, 0x5b, 0x41])); // ESC [ A — arrow up
+    expect(ev[0]).toEqual({ type: "char", char: "�" }); // lead → one replacement char
+    expect(ev).toContainEqual({ type: "arrow", direction: "up" }); // arrow NOT eaten
+    // No event leaked a raw ESC into its text.
+    for (const e of ev) if (e.type === "char") expect(e.char).not.toContain("");
+    parser.dispose();
+  });
+
+  test("a never-terminating escape sequence is flushed, not buffered without bound", () => {
+    const events: KeyEvent[] = [];
+    const parser = new KeyParser((e) => events.push(e));
+
+    // ESC [ followed by far more param bytes than any real CSI, with no final
+    // byte — it stays "incomplete" forever. Without a cap the parser buffers it
+    // (and every following chunk), since the flush timer is cleared on each
+    // feed; this is the unbounded-accumulation DoS the paste path already caps.
+    const garbage = new Uint8Array([0x1b, 0x5b, ...new Array(2000).fill(0x30)]); // ESC[000…
+    parser.feed(garbage);
+    // It flushed (escape) synchronously rather than swallowing it into a buffer.
+    expect(events.some((e) => e.type === "escape")).toBe(true);
+
+    // And it recovered to a clean state — a normal keystroke now parses.
+    events.length = 0;
+    parser.feed(new Uint8Array([0x61])); // 'a'
+    expect(events).toEqual([{ type: "char", char: "a" }]);
+
+    parser.dispose();
+  });
+
   test("Backspace delivered through KeyParser feed", () => {
     const events: KeyEvent[] = [];
     const parser = new KeyParser((e) => events.push(e));

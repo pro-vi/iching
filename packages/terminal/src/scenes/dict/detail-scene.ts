@@ -1,8 +1,10 @@
 // DetailScene — full hexagram reference view
 
 import type { Scene, SceneContext, SceneSignal } from "../../scene/types.ts";
+import { FOOTER_ROWS } from "./layout.ts";
+import { viewportHeight } from "../../widgets/scroll.ts";
 import type { CellBuffer } from "../../render/buffer.ts";
-import type { KeyEvent } from "../../input/key-parser.ts";
+import { type KeyEvent, isCtrlC } from "../../input/key-parser.ts";
 import type { DisplayLanguage, GlyphFont } from "@iching/core";
 import { toSimplified } from "@iching/core";
 import type { GlyphAnimStyle } from "../../glyph-anim/types.ts";
@@ -10,14 +12,13 @@ import { composeGlyph } from "../../glyph-anim/compose.ts";
 import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
 import { autoGlyphSize } from "../../glyph-anim/auto-size.ts";
 import { DetailModel } from "./detail-model.ts";
+import { maxOffset } from "../../widgets/scroll.ts";
 import { renderDetail, buildContentLines } from "./detail-renderer.ts";
 
 export interface DetailGlyphConfig {
   glyphAnim: GlyphAnimStyle;
   glyphFont: GlyphFont;
 }
-
-const FOOTER_ROWS = 2;
 
 export class DetailScene implements Scene {
   private model: DetailModel;
@@ -28,14 +29,15 @@ export class DetailScene implements Scene {
     kw: number,
     glyphConfig?: DetailGlyphConfig,
     language: DisplayLanguage = "en",
+    changedPositions?: number[],
   ) {
-    this.model = new DetailModel(kw);
+    this.model = new DetailModel(kw, changedPositions);
     this.glyphConfig = glyphConfig;
     this.language = language;
   }
 
   enter(ctx: SceneContext): void {
-    this.model.viewportHeight = ctx.rows - FOOTER_ROWS;
+    this.model.viewportHeight = viewportHeight(ctx.rows, FOOTER_ROWS);
 
     // Create glyph animator on entry (skip if already completed from prior visit)
     if (this.glyphConfig && !this.model.glyphAnimDone) {
@@ -81,7 +83,7 @@ export class DetailScene implements Scene {
   }
 
   resize(_cols: number, rows: number): void {
-    this.model.viewportHeight = rows - FOOTER_ROWS;
+    this.model.viewportHeight = viewportHeight(rows, FOOTER_ROWS);
   }
 
   handleKey(key: KeyEvent, _ctx: SceneContext): SceneSignal | void {
@@ -89,7 +91,7 @@ export class DetailScene implements Scene {
     if (key.type === "char" && key.char === "q") {
       return { type: "back" };
     }
-    if (key.type === "ctrl" && key.char === "c") {
+    if (isCtrlC(key)) {
       return { type: "exit" };
     }
 
@@ -98,11 +100,27 @@ export class DetailScene implements Scene {
       return { type: "back" };
     }
 
-    // Tab — toggle focus
+    // Tab — toggle focus; focusing the derived links scrolls them into view
+    // (they sit near the bottom of the content, off-screen on a fresh page)
     if (key.type === "tab") {
       this.model.focus =
         this.model.focus === "content" ? "derived" : "content";
+      if (this.model.focus === "derived") {
+        this.model.ensureDerivedVisible();
+      }
       return;
+    }
+
+    // Left/right (and h/l) — walk the King Wen sequence, wrapping at 1/64.
+    // `replace` keeps the router stack flat so esc pops straight back.
+    if (
+      (key.type === "arrow" && (key.direction === "left" || key.direction === "right")) ||
+      (key.type === "char" && (key.char === "h" || key.char === "l"))
+    ) {
+      const forward = key.type === "arrow" ? key.direction === "right" : key.char === "l";
+      const kw = this.model.detail.kw;
+      const neighbor = forward ? (kw % 64) + 1 : ((kw + 62) % 64) + 1;
+      return { type: "openDetail", kw: neighbor, replace: true };
     }
 
     // Arrow keys
@@ -138,10 +156,7 @@ export class DetailScene implements Scene {
       return;
     }
     if (key.type === "end") {
-      this.model.scrollOffset = Math.max(
-        0,
-        this.model.contentHeight - this.model.viewportHeight,
-      );
+      this.model.scrollOffset = maxOffset(this.model.contentHeight, this.model.viewportHeight);
       return;
     }
 

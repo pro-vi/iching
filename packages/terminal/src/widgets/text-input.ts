@@ -3,6 +3,7 @@
 import type { CellBuffer } from "../render/buffer.ts";
 import type { StyledCell } from "../render/cell.ts";
 import { stringWidth } from "../layout/measure.ts";
+import { getTheme } from "../color/theme.ts";
 
 export class TextInput {
   /** Internal storage as array of code points (handles surrogate pairs correctly) */
@@ -44,6 +45,21 @@ export class TextInput {
     this._chars.splice(this.cursorPos, 1);
   }
 
+  /**
+   * Delete the word before the cursor (Option/Alt+Backspace): skip any
+   * whitespace immediately behind the cursor, then the run of non-whitespace
+   * back to the previous boundary. A space-less run (e.g. a CJK intention)
+   * deletes back to the last space, the standard readline behaviour.
+   */
+  deleteWord(): void {
+    if (this.cursorPos <= 0) return;
+    let start = this.cursorPos;
+    while (start > 0 && /\s/.test(this._chars[start - 1])) start--;
+    while (start > 0 && !/\s/.test(this._chars[start - 1])) start--;
+    this._chars.splice(start, this.cursorPos - start);
+    this.cursorPos = start;
+  }
+
   /** Move cursor left one position */
   moveCursorLeft(): void {
     if (this.cursorPos > 0) this.cursorPos--;
@@ -78,13 +94,30 @@ export class TextInput {
     width: number,
     style?: Partial<StyledCell>,
   ): void {
-    let c = 0;
-    let charIdx = 0;
+    const t = getTheme();
     const chars = this._chars;
+
+    // Horizontal scroll: keep the cursor inside the visible window. Without it
+    // the field always renders from the head, so typing past `width` freezes on
+    // the opening text with the cursor — and every new keystroke — off screen.
+    // Scroll so the tail up to the cursor shows instead, the expected single-
+    // line behaviour. Text that fits (cursor within `width`) is unchanged:
+    // cursorCol < width → scrollCol 0 → startIdx 0.
+    let cursorCol = 0;
+    for (let i = 0; i < this.cursorPos && i < chars.length; i++) cursorCol += stringWidth(chars[i]);
+    const scrollCol = Math.max(0, cursorCol - (width - 1));
+    let startIdx = 0;
+    for (let acc = 0; startIdx < chars.length && acc < scrollCol; startIdx++) {
+      acc += stringWidth(chars[startIdx]);
+    }
+
+    let c = 0;
+    let charIdx = startIdx;
     while (c < width) {
       const isCursor = charIdx === this.cursorPos;
+      // Block cursor: inverse video, falling back to theme tokens
       const cellStyle: Partial<StyledCell> = isCursor
-        ? { ...style, bg: style?.fg ?? "#C8A96B", fg: style?.bg ?? "#0D1117" }
+        ? { ...style, bg: style?.fg ?? t.primary, fg: style?.bg ?? t.bg }
         : { ...style };
 
       if (charIdx < chars.length) {
@@ -115,10 +148,12 @@ export class TextInput {
     style?: Partial<StyledCell>,
   ): number {
     const chars = this._chars;
+    const t = getTheme();
+    // Block cursor: inverse video, falling back to theme tokens
     const cursorStyle: Partial<StyledCell> = {
       ...style,
-      bg: style?.fg ?? "#C8A96B",
-      fg: style?.bg ?? "#0D1117",
+      bg: style?.fg ?? t.primary,
+      fg: style?.bg ?? t.bg,
     };
 
     let r = 0;

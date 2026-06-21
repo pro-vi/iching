@@ -57,6 +57,7 @@ const STRING_SINK_FILES: string[] = [
   "apps/cli/src/commands/hexagram.ts",
   "apps/cli/src/commands/journal.ts",
   "apps/cli/src/commands/paths.ts",
+  "apps/cli/src/commands/today.ts",
   "apps/cli/src/output/plain.ts",
   "packages/core/src/format/reading.ts",
   "packages/core/src/format/derived.ts",
@@ -82,6 +83,7 @@ const CORPUS_DATA_FILES: string[] = [
   "packages/core/src/data/gua.ts",
   "packages/core/src/data/trigrams.ts",
   "packages/core/src/data/large-glyphs.ts",
+  "packages/core/src/data/sequence.ts",
 ];
 
 const REQUIRED_FIELD_IDS: string[] = [
@@ -96,6 +98,14 @@ const REQUIRED_FIELD_IDS: string[] = [
   "core-gua-w",
   "core-gua-yao",
   "core-gua-yaoEn",
+  "core-gua-gc",
+  "core-gua-gcEn",
+  "core-gua-gcEnW",
+  "core-gua-yaoXiao",
+  "core-gua-extra",
+  "core-sequence-xu",
+  "core-sequence-za",
+  "core-sequence-zaEn",
   "core-trigram-name",
   "core-trigram-img",
   "core-trigram-sym",
@@ -384,12 +394,27 @@ function runInventoryOnly(): void {
       fail(`sentinel not in inventory: ${JSON.stringify(str)} (source ${file})`);
   }
 
-  // 4. AR-001 guard: no enrichment fields on core Hexagram.
+  // 4. AR-001 guard (amended by reading-depth v1): the gc/gcEn/yaoXiao/extra
+  // enrichment fields are now SANCTIONED — AC-001 was reopened and each field
+  // carries an inventory field-class row (core-gua-gc et al.). The guard now
+  // verifies sanctioned fields stay inventoried, and any OTHER enrichment
+  // field still reopens AC-001.
   const types = readMaybe("packages/core/src/types.ts");
   if (types) {
     const start = types.indexOf("interface Hexagram");
     const hexBlock = start >= 0 ? types.slice(start, types.indexOf("}", start)) : "";
-    for (const field of ["gc:", "gcEn:", "yaoXiao:", "legge:"]) {
+    const sanctioned: Array<[string, string]> = [
+      ["gc:", "core-gua-gc"],
+      ["gcEn:", "core-gua-gcEn"],
+      ["gcEnW:", "core-gua-gcEnW"],
+      ["yaoXiao:", "core-gua-yaoXiao"],
+      ["extra?:", "core-gua-extra"],
+    ];
+    for (const [field, rowId] of sanctioned) {
+      if (hexBlock.includes(field) && !invRaw.includes(rowId))
+        fail(`enrichment field "${field}" on Hexagram lacks inventory row ${rowId} (AR-001)`);
+    }
+    for (const field of ["legge:"]) {
       if (hexBlock.includes(field))
         fail(`enrichment field "${field}" on Hexagram — AC-001 must REOPEN (AR-001)`);
     }
@@ -515,8 +540,13 @@ function runGlossary(): void {
 // incomplete (residue). 乾 is deliberately ABSENT — it must stay 乾, not become 干.
 const TRAD_ONLY = new Set(
   // 陽 added per C-004 adversarial audit (was missing from the map; 陰 was present).
+  // Second block: Traditional-only characters introduced by the gc (卦辭) /
+  // yaoXiao (小象傳) / extra fields and the SEQUENCE (序卦/雜卦) corpus — added
+  // when the residue scan was widened to cover those fields (it previously
+  // scanned only n/dx/tu/yao, contradicting its "ACTUAL rendered corpus" claim).
   Array.from(
-    "傳與無學萬龍風澤離錯綜對歸師謙來時開關東車馬鳥魚為義樂處觀見興養業從國圖後復陽陰險隨雜難雲電順飛餘體麗龜貞賁蠱節記過進遠違適鎖嚴喪應損敗斷會極樹殘沒災牽獲當發盜終結維縣羅聽虛號衆裏訟貫趨跡輔辭驚",
+    "傳與無學萬龍風澤離錯綜對歸師謙來時開關東車馬鳥魚為義樂處觀見興養業從國圖後復陽陰險隨雜難雲電順飛餘體麗龜貞賁蠱節記過進遠違適鎖嚴喪應損敗斷會極樹殘沒災牽獲當發盜終結維縣羅聽虛號衆裏訟貫趨跡輔辭驚" +
+      "馴貴賤縱瀆辯傷際願誰備聰試憊晝玆愛飽絕暉間輕飭飾盡爛誅稺",
   ),
 );
 // Spot-check mappings the conversion MUST get right.
@@ -575,6 +605,7 @@ async function runSimplified(): Promise<void> {
   // Residue scan over the ACTUAL rendered corpus (consumer-side oracle).
   let gmod: { GUA?: Array<Record<string, unknown>> };
   let tmod: { TRIGRAMS?: Array<Record<string, unknown>> };
+  let smod: { SEQUENCE?: Array<Record<string, unknown>> };
   try {
     gmod = (await import(resolve(ROOT, "packages/core/src/data/gua.ts"))) as {
       GUA: Array<Record<string, unknown>>;
@@ -582,16 +613,32 @@ async function runSimplified(): Promise<void> {
     tmod = (await import(resolve(ROOT, "packages/core/src/data/trigrams.ts"))) as {
       TRIGRAMS: Array<Record<string, unknown>>;
     };
+    smod = (await import(resolve(ROOT, "packages/core/src/data/sequence.ts"))) as {
+      SEQUENCE: Array<Record<string, unknown>>;
+    };
   } catch {
     fail("cannot load corpus for residue scan");
     return;
   }
   const strings: string[] = [];
+  // The FULL rendered Chinese corpus — every field a zh-Hans reader sees go
+  // through toSimplified: name, 大象傳, 彖傳, 爻辭, 卦辭, 小象傳, extra, and the
+  // 序卦/雜卦 sequence texts. (Previously only n/dx/tu/yao were scanned.)
   for (const g of gmod.GUA ?? []) {
-    strings.push(String(g.n), String(g.dx), String(g.tu));
+    strings.push(String(g.n), String(g.dx), String(g.tu), String(g.gc));
     for (const y of (g.yao as string[]) ?? []) strings.push(y);
+    for (const y of (g.yaoXiao as string[]) ?? []) strings.push(y);
+    // extra is an OBJECT ({name, text, textEn}) on 乾/坤 — the 用九/用六 statements.
+    // The old `typeof === "string"` test never fired, so the Chinese name (用九)
+    // and text (見群龍無首，吉。) escaped the residue scan. textEn is English; skip it.
+    if (g.extra && typeof g.extra === "object") {
+      const ex = g.extra as Record<string, unknown>;
+      if (typeof ex.name === "string") strings.push(ex.name);
+      if (typeof ex.text === "string") strings.push(ex.text);
+    }
   }
   for (const t of tmod.TRIGRAMS ?? []) strings.push(String(t.n));
+  for (const s of smod.SEQUENCE ?? []) strings.push(String(s.xu), String(s.za));
   const residue = new Set<string>();
   for (const s of strings) for (const ch of toS(s)) if (TRAD_ONLY.has(ch)) residue.add(ch);
   if (residue.size > 0)
@@ -674,6 +721,8 @@ async function runTerminal(): Promise<void> {
     ["settings.font", "heiti", "黑體", "黑体"],
     ["settings.castMethod", "coin", "銅錢 (coin)", "铜钱 (coin)"],
     ["settings.castMethod", "yarrow", "蓍草 (yarrow)", "蓍草 (yarrow)"],
+    ["settings.entropy", "crypto", "機器 (crypto)", "机器 (crypto)"],
+    ["settings.entropy", "bound", "繫於心念 (bound)", "系于心念 (bound)"],
     ["settings.castMode", "auto", "自動", "自动"],
     ["settings.castMode", "manual", "手動", "手动"],
     ["settings.taijitu", "dots", "點陣", "点阵"],
@@ -946,11 +995,24 @@ async function runCoreData(): Promise<void> {
   for (const id of ["core-gua-name", "core-gua-pinyin", "core-gua-yao", "core-gua-yaoEn", "core-trigram-name"])
     if (!inv.includes(id)) fail(`inventory missing corpus field-class row: ${id}`);
 
-  // 君子 harmonization (C-004): the English corpus must render 君子 consistently as
-  // "the noble one", never "superior man" ("great man" stays — that is 大人).
+  // 君子 harmonization (C-004): the interpretive English corpus must render 君子
+  // consistently as "the noble one", never "superior man" ("great man" stays —
+  // that is 大人). gcEn/textEn are VERBATIM Legge quotations (public domain,
+  // attribution policy AC-010) and are excluded — quotations are not rewritten.
   const guaSrc = readMaybe("packages/core/src/data/gua.ts") ?? "";
-  if (/superior man/.test(guaSrc))
+  const guaInterpretive = guaSrc
+    .split("\n")
+    .filter((l) => !/^\s*(gcEn|textEn):/.test(l))
+    .join("\n");
+  if (/superior man/.test(guaInterpretive))
     fail('君子 inconsistency: "superior man" still in corpus EN — harmonize to "the noble one" (C-004)');
+  // gcEnW (the displayed Wilhelm-INTERPRETIVE judgment) lives in judgment-wilhelm.ts
+  // and is merged onto GUA; it is interpretive English (not a Legge quotation), so
+  // C-004 binds it too — Wilhelm's own idiom is "the superior man", which must be
+  // harmonized to "the noble one" to match yaoEn and the rest of the corpus.
+  const wilhelmSrc = readMaybe("packages/core/src/data/judgment-wilhelm.ts") ?? "";
+  if (/superior man/.test(wilhelmSrc))
+    fail('君子 inconsistency: "superior man" in gcEnW (judgment-wilhelm.ts) — harmonize to "the noble one" (C-004)');
 }
 
 // ---------------------------------------------------------------------------

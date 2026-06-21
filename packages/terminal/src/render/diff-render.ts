@@ -2,9 +2,30 @@
 
 import { CellBuffer } from "./buffer.ts";
 import { type StyledCell, cellsEqual } from "./cell.ts";
-import { cursorTo, clearToEndOfLine } from "../ansi/codes.ts";
+import { cursorTo, clearToEndOfLine, syncOutputOn, syncOutputOff } from "../ansi/codes.ts";
 import { fgColor, bgColor, boldStyle, dimStyle, resetStyle } from "../ansi/sgr.ts";
 import { detectColorSupport, type ColorSupport } from "../color/detect.ts";
+
+/**
+ * The final output-boundary guard: a cell should only ever carry a printable
+ * glyph, but setCell bypasses writeText's stripping, so the renderer must be the
+ * last line — a stray control (ESC/CSI/OSC/CR/BEL/C1) emitted raw would be
+ * EXECUTED by the terminal. Replace any control with U+FFFD. (Render review, H5.)
+ */
+function safeCellChar(char: string): string {
+  return /[\u0000-\u001f\u007f-\u009f]/.test(char) ? "\uFFFD" : char;
+}
+
+/**
+ * Move to the start of `row` and clear it. Reset style BEFORE the clear:
+ * clearToEndOfLine erases using the current SGR background, so a leftover bg from
+ * the previous row would paint the cleared span. (Render review, H2.)
+ */
+function clearRow(chunks: string[], row: number): void {
+  chunks.push(cursorTo(row, 0));
+  chunks.push(resetStyle());
+  chunks.push(clearToEndOfLine);
+}
 
 export class DiffRenderer {
   private output: { write(data: string): boolean };
@@ -29,9 +50,8 @@ export class DiffRenderer {
     for (let row = 0; row < next.height; row++) {
       if (this.rowsEqual(prev, next, row)) continue;
 
-      // Emit cursor move to start of changed row, clear it first
-      chunks.push(cursorTo(row, 0));
-      chunks.push(clearToEndOfLine);
+      // Clear the changed row before repainting it.
+      clearRow(chunks, row);
 
       // Emit styled cells for the entire row
       let lastFg: string | undefined;
@@ -66,16 +86,26 @@ export class DiffRenderer {
           lastDim = cell.dim ?? false;
         }
 
-        chunks.push(cell.char || " ");
+        chunks.push(safeCellChar(cell.char) || " ");
       }
 
       // Reset at end of row
       chunks.push(resetStyle());
     }
 
-    // Single write for the entire frame
+    // The buffer shrank (terminal got shorter): rows from next.height up to
+    // prev.height were painted last frame but the loop above never visits them,
+    // so they'd linger as stale content below the new frame. Clear each. The
+    // scene loop also does a full clear on resize, so this is the renderer's own
+    // safety net rather than the sole guard. (Render review, H1.)
+    for (let row = next.height; row < prev.height; row++) {
+      clearRow(chunks, row);
+    }
+
+    // Single write for the entire frame, wrapped in synchronized-output
+    // guards (DEC 2026) so busy frames present atomically without tearing.
     if (chunks.length > 0) {
-      this.output.write(chunks.join(""));
+      this.output.write(syncOutputOn + chunks.join("") + syncOutputOff);
     }
   }
 

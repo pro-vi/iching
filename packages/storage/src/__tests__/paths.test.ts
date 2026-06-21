@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { resolvePaths } from "../paths.js";
 
 describe("resolvePaths", () => {
@@ -38,6 +38,9 @@ describe("resolvePaths", () => {
     expect(paths.state).toBe(
       join(home, ".local", "state", "iching", "history.jsonl"),
     );
+    expect(paths.notes).toBe(
+      join(home, ".local", "state", "iching", "notes.jsonl"),
+    );
     expect(paths.cache).toBe(join(home, ".cache", "iching", "daily-cache.json"));
   });
 
@@ -54,6 +57,9 @@ describe("resolvePaths", () => {
     expect(paths.state).toBe(
       join("/tmp/xdg-state", "iching", "history.jsonl"),
     );
+    expect(paths.notes).toBe(
+      join("/tmp/xdg-state", "iching", "notes.jsonl"),
+    );
     expect(paths.cache).toBe(
       join("/tmp/xdg-cache", "iching", "daily-cache.json"),
     );
@@ -66,6 +72,7 @@ describe("resolvePaths", () => {
 
     expect(paths.config).toBe(join("/tmp/iching-home", "config.json"));
     expect(paths.state).toBe(join("/tmp/iching-home", "history.jsonl"));
+    expect(paths.notes).toBe(join("/tmp/iching-home", "notes.jsonl"));
     expect(paths.cache).toBe(join("/tmp/iching-home", "daily-cache.json"));
   });
 
@@ -75,7 +82,22 @@ describe("resolvePaths", () => {
 
     expect(paths.config).toBe(join("/tmp/override", "config.json"));
     expect(paths.state).toBe(join("/tmp/override", "history.jsonl"));
+    expect(paths.notes).toBe(join("/tmp/override", "notes.jsonl"));
     expect(paths.cache).toBe(join("/tmp/override", "daily-cache.json"));
+  });
+
+  test("the journal store's derived notes path matches resolvePaths().notes (no drift)", () => {
+    // JsonlJournalStore independently derives notesPath = join(dirname(state),
+    // "notes.jsonl"). It agrees with resolvePaths().notes in every branch today;
+    // pin it so a future change to paths.notes (e.g. a different directory) can't
+    // silently send notes where the readers don't look.
+    process.env.XDG_STATE_HOME = "/tmp/xdg-state";
+    const branches = [resolvePaths({ dataDir: "/tmp/override" }), resolvePaths()];
+    process.env.ICHING_HOME = "/tmp/iching-home";
+    branches.push(resolvePaths());
+    for (const paths of branches) {
+      expect(join(dirname(paths.state), "notes.jsonl")).toBe(paths.notes);
+    }
   });
 
   test("uses os.homedir(), not ~", () => {

@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { castYarrowHexagram, castYarrowLine, castYarrowRound } from "../casting/yarrow.js";
-import { SeededRandomSource, TapeRandomSource } from "../random.js";
+import { CryptoRandomSource, SeededRandomSource, TapeRandomSource } from "../random.js";
 import type { LineValue } from "../types.js";
 
 function autoDomainSize(startCount: number): number {
@@ -75,6 +75,31 @@ describe("castYarrowLine — round invariants", () => {
   });
 });
 
+describe("castYarrowLine — output distribution", () => {
+  test("reproduces the authentic yarrow probabilities (6/7/8/9 = 1:5:7:3 over 16)", () => {
+    // The chance-baseline system (LINE_PROBABILITIES.yarrow in patterns.ts) trusts
+    // the stalk simulation to yield exactly these — old yin rarest, young yin
+    // commonest, the asymmetry that distinguishes yarrow from the symmetric coin.
+    // If the sim and that table ever diverge, every yarrow "by chance" figure in
+    // the 觀象 pane silently lies.
+    //
+    // Deliberately the PRODUCTION CryptoRandomSource, not SeededRandomSource: the
+    // seeded PRNG takes xorshift128+'s low byte, which is non-uniform enough that
+    // yarrow's rejection sampling visibly skews it (~0.01 off per value). That is
+    // fine for --seed's reproduce-one-cast purpose, but it would false-fail a
+    // distribution check. N and the ±0.01 band put every assertion ~9σ from its
+    // true probability, so the crypto draw effectively never flakes.
+    const source = new CryptoRandomSource();
+    const tally: Record<number, number> = { 6: 0, 7: 0, 8: 0, 9: 0 };
+    const N = 200_000;
+    for (let i = 0; i < N; i++) tally[castYarrowLine(source).line.value]++;
+    expect(Math.abs(tally[6] / N - 1 / 16)).toBeLessThan(0.01); // 0.0625 — 老陰 old yin (rarest)
+    expect(Math.abs(tally[7] / N - 5 / 16)).toBeLessThan(0.01); // 0.3125 — 少陽 young yang
+    expect(Math.abs(tally[8] / N - 7 / 16)).toBeLessThan(0.01); // 0.4375 — 少陰 young yin (commonest)
+    expect(Math.abs(tally[9] / N - 3 / 16)).toBeLessThan(0.01); // 0.1875 — 老陽 old yang
+  });
+});
+
 describe("castYarrowLine — firstSplitAt authoring (H4 manual mode)", () => {
   test("uses the supplied splitAt for round 1", () => {
     const source = new SeededRandomSource(2026);
@@ -132,6 +157,16 @@ describe("castYarrowLine — distribution", () => {
       ).toBe(domain);
       expect(castYarrowRound(new TapeRandomSource(new Uint8Array([domain])), startCount).splitAt).toBe(1);
     }
+  });
+
+  test("a byte past the acceptance limit is rejected, not folded with % (no modulo bias)", () => {
+    // domain = autoDomainSize(49) = 44; acceptedByteLimit(44) = floor(256/44)*44 = 220.
+    // A byte >= 220 must be REJECTED and the next byte drawn — never taken `% 44`,
+    // which would reintroduce modulo bias. 230 is rejected; 5 is accepted → splitAt 6.
+    // No other test exercises this branch; if the guard were deleted, 230 % 44 + 1 = 11
+    // would surface here instead.
+    const round = castYarrowRound(new TapeRandomSource(new Uint8Array([230, 5])), 49);
+    expect(round.splitAt).toBe(6);
   });
 
   test("auto round domains produce exact textbook set-aside ratios", () => {

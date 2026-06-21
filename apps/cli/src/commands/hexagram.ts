@@ -1,33 +1,91 @@
 import { Command } from "commander";
-import { GUA } from "@iching/core";
-import type { Style } from "@iching/core";
+import { die } from "../util/die.js";
+import { GUA, kwOf, searchHexagramsScored } from "@iching/core";
+import type { Hexagram, Style } from "@iching/core";
 import { formatHexagramPlain } from "../output/plain.js";
-import { outputJson, hexagramToJson } from "../output/json.js";
+import { outputJson, hexagramToJson, hexagramSummary } from "../output/json.js";
 
 const VALID_STYLES = ["dx", "tu", "en", "te", "w"];
+
+/**
+ * Resolution of a hexagram CLI argument. Shared by `hexagram` and `dict`:
+ *   - "kw":      a usable King Wen number (integer in range, or a unique search hit)
+ *   - "matches": several hexagrams answer the query
+ *   - "none":    nothing answers
+ *   - "invalid": an integer outside 1-64 (kept distinct so the classic range
+ *                error still fires instead of a futile search)
+ */
+export type HexagramQueryResolution =
+  | { kind: "kw"; kw: number }
+  | { kind: "matches"; matches: Hexagram[] }
+  | { kind: "none" }
+  | { kind: "invalid" };
+
+/**
+ * Resolve a hexagram argument: a King Wen number, or anything core
+ * searchHexagrams understands (Chinese name, pinyin, English name,
+ * trigram tokens / "X over Y" pairs).
+ */
+export function resolveHexagramQuery(arg: string): HexagramQueryResolution {
+  const trimmed = arg.trim();
+  if (/^\d+$/.test(trimmed)) {
+    const num = Number(trimmed);
+    if (num < 1 || num > 64) return { kind: "invalid" };
+    return { kind: "kw", kw: num };
+  }
+  const scored = searchHexagramsScored(trimmed);
+  if (scored.length === 0) return { kind: "none" };
+  // An exact (score-0) hit IS the answer. The single-trigram family scoring gives
+  // score 3 to every hexagram sharing a queried trigram, so the 8 hexagrams whose
+  // name equals a trigram token (乾/坤/坎/離/震/艮/巽/兌 — and their pinyin / English
+  // image word / symbol / image char) would otherwise return a shortlist instead
+  // of opening the hexagram. A unique score-0 match resolves straight to its KW;
+  // weaker family matches only matter when nothing answered exactly.
+  const exact = scored.filter((s) => s.score === 0);
+  if (exact.length === 1) return { kind: "kw", kw: exact[0].kw };
+  if (scored.length === 1) return { kind: "kw", kw: scored[0].kw };
+  return { kind: "matches", matches: scored.map((s) => s.gua) };
+}
 
 export function registerHexagramCommand(program: Command): void {
   program
     .command("hexagram")
-    .description("Look up hexagram by King Wen number (1-64)")
-    .argument("<n>", "hexagram number (1-64)")
+    .description("Look up hexagram by King Wen number, name, pinyin, or English name")
+    .argument("<query>", "hexagram number (1-64), name, pinyin, or English name")
     .option("--style <style>", "commentary style: dx|tu|en|te|w")
-    .action((n: string, cmdOpts) => {
-      const num = Number(n);
-      if (!Number.isInteger(num) || num < 1 || num > 64) {
-        console.error("Hexagram number must be an integer from 1 to 64.");
-        process.exit(1);
+    .action((query: string, cmdOpts) => {
+      const globalOpts = program.opts();
+      const resolution = resolveHexagramQuery(query);
+
+      if (resolution.kind === "invalid") {
+        die("Hexagram number must be an integer from 1 to 64.");
+      }
+      if (resolution.kind === "none") {
+        die(`No hexagram matches "${query}".`);
+      }
+      if (resolution.kind === "matches") {
+        // Several hexagrams answer — print the brief shortlist and exit 0.
+        if (globalOpts.json) {
+          outputJson({
+            query,
+            matches: resolution.matches.map((hex) => hexagramSummary(kwOf(hex), hex)),
+          });
+        } else {
+          console.log(`Multiple matches for "${query}":`);
+          for (const hex of resolution.matches) {
+            const kw = kwOf(hex);
+            console.log(`  ${String(kw).padStart(2)}  ${hex.u} ${hex.n} (${hex.p}) — ${hex.ename}`);
+          }
+        }
+        return;
       }
 
+      const num = resolution.kw;
       const hex = GUA[num - 1];
-      const globalOpts = program.opts();
 
       const style = cmdOpts.style as Style | undefined;
       if (style && !VALID_STYLES.includes(style)) {
-        console.error(
-          `Invalid style "${style}". Choose from: ${VALID_STYLES.join(", ")}`,
-        );
-        process.exit(1);
+        die(`Invalid style "${style}". Choose from: ${VALID_STYLES.join(", ")}`);
       }
 
       if (globalOpts.json) {

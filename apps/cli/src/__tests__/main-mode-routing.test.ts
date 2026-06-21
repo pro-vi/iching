@@ -6,49 +6,25 @@
 // because no unit test exercises the entrypoint.
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-
-const REPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
-const MAIN_TS = resolve(REPO_ROOT, "apps/cli/src/main.ts");
-
-interface RunResult {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}
+import { existsSync } from "node:fs";
+import { runCli as spawnCli, type RunResult } from "../testing.ts";
+import { rm } from "node:fs/promises";
+import { freshTempDir } from "../testing.ts";
+import { join } from "node:path";
 
 let dataDir: string;
 
 beforeEach(async () => {
-  dataDir = await mkdtemp(join(tmpdir(), "iching-mode-routing-test-"));
+  dataDir = await freshTempDir("iching-mode-routing-test");
 });
 
 afterEach(async () => {
   await rm(dataDir, { recursive: true, force: true });
 });
 
-async function runCli(args: string[]): Promise<RunResult> {
-  // Always pass --data-dir to an ephemeral temp dir so a regression that
-  // routes routing-mode args into hook/TUI mode can't write to the user's
-  // real ~/.local/state/iching journal or cache.
-  const proc = Bun.spawn(["bun", MAIN_TS, "--data-dir", dataDir, ...args], {
-    cwd: REPO_ROOT,
-    stdin: "pipe",
-    stdout: "pipe",
-    stderr: "pipe",
-    env: { ...process.env, NO_COLOR: "1" },
-  });
-  // Close stdin immediately so any reader (e.g. hook mode) sees EOF.
-  proc.stdin.end();
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-  const exitCode = await proc.exited;
-  return { exitCode, stdout, stderr };
-}
+// Always route through an ephemeral --data-dir so a routing-mode regression
+// can't write to the user's real ~/.local/state/iching journal or cache.
+const runCli = (args: string[]): Promise<RunResult> => spawnCli(args, { dataDir });
 
 describe("main.ts mode routing", () => {
   test("--help reaches Commander, not hook/TUI mode", async () => {
@@ -85,5 +61,25 @@ describe("main.ts mode routing", () => {
     const { exitCode, stdout } = await runCli(["--version"]);
     expect(exitCode).toBe(0);
     expect(stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
+  }, 20_000);
+
+  test("a garbage --seed exits 1 before any no-subcommand mode runs", async () => {
+    // Without the up-front guard, `iching --seed abc` fell through into
+    // hook/TUI mode: Number("abc") is NaN, NaN|0 collapses the seeded PRNG
+    // to a constant cast (always KW 2), and the result was persisted to the
+    // daily cache while skipping the journal. The seed must be refused
+    // loudly before either mode touches storage or the alt screen.
+    // ICHING_HOME pins ALL storage (hook mode ignores --data-dir) to the
+    // ephemeral temp dir so even a regression can't touch real user data.
+    const { exitCode, stdout, stderr } = await spawnCli(["--seed", "abc"], {
+      env: { ICHING_HOME: dataDir },
+    });
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('Invalid --seed "abc"');
+    expect(stdout).toBe(""); // no hook cast output
+    // …and nothing was persisted on the invalid path.
+    expect(existsSync(join(dataDir, "daily-cache.json"))).toBe(false);
+    expect(existsSync(join(dataDir, "history.jsonl"))).toBe(false);
   }, 20_000);
 });

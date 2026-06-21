@@ -15,15 +15,20 @@ export class CellBuffer {
     this.clear();
   }
 
+  /** Is (row, col) a cell inside the grid? */
+  private inBounds(row: number, col: number): boolean {
+    return row >= 0 && row < this.height && col >= 0 && col < this.width;
+  }
+
   /** Set a single cell. Out-of-bounds is a no-op. */
   setCell(row: number, col: number, cell: StyledCell): void {
-    if (row < 0 || row >= this.height || col < 0 || col >= this.width) return;
+    if (!this.inBounds(row, col)) return;
     this.cells[row * this.width + col] = cell;
   }
 
   /** Get a single cell. Out-of-bounds returns EMPTY_CELL. */
   getCell(row: number, col: number): StyledCell {
-    if (row < 0 || row >= this.height || col < 0 || col >= this.width) {
+    if (!this.inBounds(row, col)) {
       return EMPTY_CELL;
     }
     return this.cells[row * this.width + col];

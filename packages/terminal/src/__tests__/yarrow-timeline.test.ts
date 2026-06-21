@@ -63,7 +63,7 @@ describe("buildYarrowTimeline", () => {
     // Beat index 5 is the end of line 0, round 0 (gather..carry).
     runner.advance(beatOffsets[5], m);
     expect(m.activeLine).toBe(0);
-    expect(m.fieldCount).toBe(m.transcript[0].rounds[0].remaining);
+    expect(m.fieldCount).toBe(m.requireLineResult(0).rounds[0].remaining);
   });
 
   test("teach-once: line 0 count is expanded even when the preset is stepped", () => {

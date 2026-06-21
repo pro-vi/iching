@@ -14,3 +14,8 @@ export interface GlyphAnimator {
 
 /** Available glyph animation styles. */
 export type GlyphAnimStyle = "noise" | "dots" | "radial" | "sand";
+
+/** Floor for an animator's durationScale. update() divides elapsed time by the
+ *  scale, so a near-zero scale would blow the figure up; every animator clamps to
+ *  this minimum, keeping fast presets fast without dividing by ~0. */
+export const MIN_DURATION_SCALE = 0.05;

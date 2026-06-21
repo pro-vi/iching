@@ -1,6 +1,7 @@
 // auto-size.ts — pick the largest glyph size that fits the available space
 
 import type { GlyphSize } from "@iching/core";
+import { CHAR_GAP } from "./compose.js";
 
 // Per-character cell dimensions for each glyph size (matches large-glyphs.ts).
 const SIZE_DIMS: Record<GlyphSize, { rows: number; cols: number }> = {
@@ -9,7 +10,6 @@ const SIZE_DIMS: Record<GlyphSize, { rows: number; cols: number }> = {
   64: { rows: 16, cols: 32 },
 };
 
-const CHAR_GAP = 1; // matches CHAR_GAP in compose.ts
 
 /**
  * Pick the largest GlyphSize whose composed width × height fits within the

@@ -1,8 +1,8 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Cast, Structure, HistoryEntry } from "@iching/core";
+import { freshTempDir } from "../testing.ts";
+import type { Cast, Structure, HistoryEntry, ReflectionNote } from "@iching/core";
 import type { DailyCacheRecord, UserConfig } from "../types.js";
 import { JsonConfigStore } from "../json/json-config.js";
 import { JsonDailyCacheStore } from "../json/json-daily-cache.js";
@@ -53,7 +53,7 @@ function assertShape(
 describe("schema shape — config", () => {
   let dir: string;
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "schema-config-"));
+    dir = await freshTempDir("schema-config");
   });
 
   test("default config keys match SCHEMA_KEYS.config", async () => {
@@ -76,6 +76,7 @@ describe("schema shape — config", () => {
       taijituStyle: "dense",
       castMethod: "yarrow",
       castMode: "manual",
+      entropy: "bound",
     };
     await store.save(written);
     const onDisk = JSON.parse(await readFile(join(dir, "config.json"), "utf-8"));
@@ -86,7 +87,7 @@ describe("schema shape — config", () => {
 describe("schema shape — cache", () => {
   let dir: string;
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "schema-cache-"));
+    dir = await freshTempDir("schema-cache");
   });
 
   test("required-only record keys match SCHEMA_KEYS.cache", async () => {
@@ -111,6 +112,8 @@ describe("schema shape — cache", () => {
       shown: true,
       structure: FIXTURE_STRUCTURE,
       intention: "ship it?",
+      method: "yarrow",
+      rng: { source: "bound", intentionBound: true },
     };
     await store.write(record);
     const onDisk = JSON.parse(await readFile(join(dir, "cache.json"), "utf-8"));
@@ -124,7 +127,7 @@ describe("schema shape — cache", () => {
 describe("schema shape — history", () => {
   let dir: string;
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "schema-history-"));
+    dir = await freshTempDir("schema-history");
   });
 
   test("required-only entry keys match SCHEMA_KEYS.history", async () => {
@@ -144,6 +147,8 @@ describe("schema shape — history", () => {
       cast: FIXTURE_CAST,
       intention: "ship it?",
       timestamp: "2026-04-26T09:30:00.000Z",
+      method: "coin-manual",
+      rng: { source: "crypto", intentionBound: false },
     };
     await store.append(entry);
     const text = await readFile(join(dir, "history.jsonl"), "utf-8");
@@ -152,5 +157,31 @@ describe("schema shape — history", () => {
     expect(Object.keys(onDisk).sort()).toEqual(
       [...SCHEMA_KEYS.history.required, ...SCHEMA_KEYS.history.optional].sort(),
     );
+  });
+});
+
+describe("schema shape — note", () => {
+  let dir: string;
+  beforeEach(async () => {
+    dir = await freshTempDir("schema-note");
+  });
+
+  test("note record keys match SCHEMA_KEYS.note", async () => {
+    const store = new JsonlJournalStore(join(dir, "history.jsonl"));
+    const note: ReflectionNote = {
+      kind: "note",
+      ref: "2026-04-26T09:30:00.000Z",
+      date: "2026-04-26",
+      timestamp: "2026-04-26T21:14:00.000Z",
+      text: "what happened after",
+    };
+    await store.appendNote(note);
+    // Notes land in the notes.jsonl sidecar, never in history.jsonl.
+    const text = await readFile(join(dir, "notes.jsonl"), "utf-8");
+    const onDisk = JSON.parse(text.trim());
+    assertShape(Object.keys(onDisk), SCHEMA_KEYS.note);
+    expect(Object.keys(onDisk).sort()).toEqual([...SCHEMA_KEYS.note.required].sort());
+    // The discriminator is what keeps legacy in-journal notes out of entry reads
+    expect(onDisk.kind).toBe("note");
   });
 });

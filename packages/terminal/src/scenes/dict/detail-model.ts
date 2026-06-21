@@ -2,7 +2,7 @@
 
 import { type HexagramDetail, type GlyphEntry, buildHexagramDetail } from "@iching/core";
 import type { GlyphAnimator } from "../../glyph-anim/types.ts";
-import { clampOffset } from "../../widgets/scroll.ts";
+import { clampOffset, offsetToShow } from "../../widgets/scroll.ts";
 
 export type DetailFocus = "content" | "derived";
 
@@ -19,6 +19,12 @@ export class DetailModel {
   readonly detail: HexagramDetail;
   readonly derivedLinks: DerivedLink[];
 
+  /**
+   * Cast context — line positions (1-6, bottom-up) that were moving in the
+   * cast this detail was opened from. Empty when browsing the dictionary.
+   */
+  readonly changedPositions: number[];
+
   /** Scroll offset for content */
   scrollOffset: number;
 
@@ -30,6 +36,12 @@ export class DetailModel {
 
   /** Total content lines (set after building content) */
   contentHeight: number;
+
+  /**
+   * Content-line index of the first derived link (set by buildContentLines).
+   * Lets focus changes scroll the derived section into view.
+   */
+  derivedStartLine: number;
 
   /** Viewport height for scrollable content */
   viewportHeight: number;
@@ -43,12 +55,14 @@ export class DetailModel {
   glyphEntry: GlyphEntry | null;
   glyphAnimDone: boolean;
 
-  constructor(kw: number) {
+  constructor(kw: number, changedPositions: number[] = []) {
     this.detail = buildHexagramDetail(kw);
+    this.changedPositions = changedPositions;
     this.scrollOffset = 0;
     this.focus = "content";
     this.derivedCursor = 0;
     this.contentHeight = 0;
+    this.derivedStartLine = 0;
     this.viewportHeight = 20;
     this.castCount = 0;
     this.lastCastDate = null;
@@ -112,10 +126,27 @@ export class DetailModel {
 
   derivedUp(): void {
     if (this.derivedCursor > 0) this.derivedCursor--;
+    this.ensureDerivedVisible();
   }
 
   derivedDown(): void {
     if (this.derivedCursor < this.derivedLinks.length - 1) this.derivedCursor++;
+    this.ensureDerivedVisible();
+  }
+
+  /**
+   * Scroll the selected derived link into view (the derived section sits near
+   * the bottom of the content, so a fresh page has it off-screen). Mirrors
+   * browse's cursor-into-view pattern; no-op until content has been built.
+   */
+  ensureDerivedVisible(): void {
+    if (this.contentHeight === 0) return;
+    const target = this.derivedStartLine + this.derivedCursor;
+    this.scrollOffset = clampOffset(
+      offsetToShow(target, this.scrollOffset, this.viewportHeight),
+      this.contentHeight,
+      this.viewportHeight,
+    );
   }
 
   selectedDerivedKW(): number {

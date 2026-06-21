@@ -9,14 +9,17 @@
 // the form.
 
 import type { CellBuffer } from "../../render/buffer.ts";
+import type { SceneContext } from "../../scene/types.ts";
+import { renderTooSmallNotice } from "../../scene/loop.ts";
 import type { StyledCell } from "../../render/cell.ts";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth } from "../../layout/measure.ts";
+import { stringWidth, centerCol } from "../../layout/measure.ts";
 import { renderLine } from "../cast/line-renderer.ts";
 import { anchorRow, LINE_ROW_OFFSETS } from "../cast/hexagram-renderer.ts";
 import { formatLineCounter, writeChromeHeader } from "../cast/ritual-chrome.ts";
 import { tr } from "../../i18n/messages.ts";
 import type { DisplayLanguage } from "@iching/core";
+import { clamp } from "@iching/core";
 import { LINE_WIDTH } from "../../glyphs.ts";
 import type { YarrowModel } from "./model.ts";
 
@@ -28,7 +31,43 @@ import type { YarrowModel } from "./model.ts";
 const STALK = "│";
 const TOTAL_STALKS = 49;
 const GAP_CELLS = 2; // minimum visible gap between heaps during split
-const BAR_AREA_WIDTH = TOTAL_STALKS + GAP_CELLS + 1; // 52 — fits any split
+// The stalk field needs this many columns to show all 49 stalks at any split;
+// below it the field clips. Exported so the yarrow scenes can gate on it
+// (the global too-small floor of 40 is narrower than the ritual requires).
+export const BAR_AREA_WIDTH = TOTAL_STALKS + GAP_CELLS + 1; // 52
+
+// The counting field is anchored low — fieldRow = anchorRow(h) + 5 =
+// floor(h/2) + 8 (see fieldRow() below). The footer sits at h - 2, so the
+// stalk bar overlaps the footer exactly when floor(h/2) + 8 >= h - 2, i.e.
+// h <= 20. Below 21 rows the field collides with the keybinds; gate there,
+// the height analog of BAR_AREA_WIDTH's width gate.
+export const YARROW_MIN_ROWS = 21;
+
+/**
+ * Whether a terminal of `width × height` can show the 49-stalk field without
+ * clipping (the global too-small floor of 40 × 12 is smaller on both axes). The
+ * single floor predicate both yarrow scenes gate on — render measures the frame,
+ * update/handleKey measure the SceneContext, so the same check answers all three.
+ */
+export function canShowYarrowField(width: number, height: number): boolean {
+  return width >= BAR_AREA_WIDTH && height >= YARROW_MIN_ROWS;
+}
+
+/**
+ * Render the calm too-small notice (with the field's own larger requirement)
+ * when the frame can't fit the field, returning true so the caller can bail:
+ * `if (renderYarrowTooSmall(frame, ctx, this.language)) return;`. `language` is
+ * passed explicitly because the scene owns it (ctx.language may be unset).
+ */
+export function renderYarrowTooSmall(
+  frame: CellBuffer,
+  ctx: SceneContext,
+  language: DisplayLanguage,
+): boolean {
+  if (canShowYarrowField(frame.width, frame.height)) return false;
+  renderTooSmallNotice(frame, { ...ctx, language }, BAR_AREA_WIDTH, YARROW_MIN_ROWS);
+  return true;
+}
 
 /** A row of N stalks: `███████` (n cells of `█`). */
 function stalkBar(n: number): string {
@@ -51,7 +90,7 @@ const BRAILLE_BASE = 0x2800;
 /** @deprecated bar vocabulary — kept for settings preview compatibility */
 export function brailleCell(lit: number): string {
   let bits = 0;
-  const n = Math.max(0, Math.min(8, lit));
+  const n = clamp(lit, 0, 8);
   for (let i = 0; i < n; i++) bits |= BRAILLE_FILL_BITS[i];
   return String.fromCodePoint(BRAILLE_BASE + bits);
 }
@@ -83,7 +122,7 @@ function fieldRow(buf: CellBuffer): number {
 }
 
 function barAreaStartCol(buf: CellBuffer): number {
-  return Math.max(0, Math.floor((buf.width - BAR_AREA_WIDTH) / 2));
+  return centerCol(buf.width, BAR_AREA_WIDTH);
 }
 
 /**
@@ -453,7 +492,8 @@ export function renderYarrowFieldStrip(
     case "fuse": {
       const activeLine = model.activeLine;
       if (activeLine < 0) break;
-      const transcript = model.transcript[activeLine];
+      const transcript = model.lineResult(activeLine);
+      if (!transcript) break;
       const remaining = transcript.rounds[2].remaining;
       const line = transcript.line;
       const startWidth = stalkWidth(remaining);

@@ -50,4 +50,11 @@ describe("pageIndicator", () => {
     expect(pageIndicator(20, 42, 20)).toBe("2/3");
     expect(pageIndicator(40, 42, 20)).toBe("3/3");
   });
+  test("free-scroll bottom reaches the last page even at a non-aligned offset", () => {
+    // 44 rows, 19-row viewport: max line-at-a-time offset is 25, not a multiple
+    // of 19 — floor(25/19)+1 = 2 would misreport, so snap to the last page.
+    expect(pageIndicator(25, 44, 19)).toBe("3/3");
+    expect(pageIndicator(24, 44, 19)).toBe("2/3");
+    expect(pageIndicator(0, 44, 19)).toBe("1/3");
+  });
 });

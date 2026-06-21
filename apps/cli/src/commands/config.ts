@@ -1,5 +1,8 @@
 import { Command } from "commander";
-import { resolvePaths, JsonConfigStore, canonicalLanguage } from "@iching/storage";
+import { die } from "../util/die.js";
+import { isOneOf } from "@iching/core";
+import { JsonConfigStore, canonicalLanguage } from "@iching/storage";
+import { resolvePathsFor } from "../util/paths.js";
 import type { UserConfig } from "@iching/storage";
 import { outputJson, configToJson } from "../output/json.js";
 
@@ -11,12 +14,6 @@ type ConfigEntry = {
   set: (cfg: UserConfig, value: string) => boolean;
 };
 
-function isOneOf<const T extends readonly string[]>(
-  options: T,
-  value: string,
-): value is T[number] {
-  return options.includes(value as T[number]);
-}
 
 const THEME_VALUES = ["ink", "bone", "cinnabar", "jade", "river"] as const;
 const MOTION_VALUES = ["default", "brisk", "deep", "reduced"] as const;
@@ -27,6 +24,7 @@ const GLYPH_FONT_VALUES = ["kaiti", "libian", "heiti"] as const;
 const TAIJITU_STYLE_VALUES = ["dots", "dense"] as const;
 const CAST_METHOD_VALUES = ["coin", "yarrow"] as const;
 const CAST_MODE_VALUES = ["auto", "manual"] as const;
+const ENTROPY_VALUES = ["crypto", "bound"] as const;
 
 const CONFIG_SCHEMA: Record<keyof UserConfig, ConfigEntry> = {
   theme: {
@@ -119,6 +117,15 @@ const CONFIG_SCHEMA: Record<keyof UserConfig, ConfigEntry> = {
       return true;
     },
   },
+  entropy: {
+    values: ENTROPY_VALUES,
+    description: "Entropy source (machine entropy, or bound to the intention and moment)",
+    set: (cfg, value) => {
+      if (!isOneOf(ENTROPY_VALUES, value)) return false;
+      cfg.entropy = value;
+      return true;
+    },
+  },
 };
 
 const VALID_KEYS = Object.keys(CONFIG_SCHEMA) as Array<keyof typeof CONFIG_SCHEMA>;
@@ -130,122 +137,137 @@ function isConfigKey(key: string): key is keyof typeof CONFIG_SCHEMA {
   return Object.hasOwn(CONFIG_SCHEMA, key);
 }
 
+/** Narrow `key` to a config key, or die with the standard unknown-key message.
+ *  `config get` and `config set` both validate this way before touching state. */
+function assertConfigKey(key: string): asserts key is keyof typeof CONFIG_SCHEMA {
+  if (!isConfigKey(key)) {
+    die(`Unknown key "${key}". Valid keys: ${VALID_KEYS.join(", ")}`);
+  }
+}
+
 export function registerConfigCommand(program: Command): void {
+  // Shared action bodies — each subcommand AND the git-style positional
+  // shorthand (`config <key> [value]`) route through these, so both surfaces
+  // stay behaviorally identical (validation, exit codes, --json shapes).
+  const runList = async (): Promise<void> => {
+    const globalOpts = program.opts();
+    const paths = resolvePathsFor(globalOpts.dataDir);
+    const store = new JsonConfigStore(paths.config);
+    const cfg = await store.load();
+
+    if (globalOpts.json) {
+      outputJson(cfg);
+    } else {
+      for (const key of VALID_KEYS) {
+        const value = cfg[key];
+        const schema = CONFIG_SCHEMA[key];
+        const valid = schema.values ? ` (${schema.values.join("|")})` : "";
+        console.log(`  ${key.padEnd(12)} = ${value}${valid}`);
+      }
+    }
+  };
+
+  const runGet = async (key: string): Promise<void> => {
+    const globalOpts = program.opts();
+    const paths = resolvePathsFor(globalOpts.dataDir);
+    const store = new JsonConfigStore(paths.config);
+    const cfg = await store.load();
+
+    assertConfigKey(key);
+
+    const value = cfg[key];
+    if (globalOpts.json) {
+      outputJson(configToJson(key, value));
+    } else {
+      console.log(value);
+    }
+  };
+
+  const runSet = async (key: string, value: string): Promise<void> => {
+    const globalOpts = program.opts();
+    const paths = resolvePathsFor(globalOpts.dataDir);
+    const store = new JsonConfigStore(paths.config);
+
+    // Validate BEFORE touching the store: loadOrSeed() persists a seeded
+    // config on first boot, and a rejected command must not leave that side
+    // effect (or freeze the locale seed) behind.
+    assertConfigKey(key);
+
+    // Canonicalize the raw value (e.g. the 繁/简/EN labels the Settings UI
+    // shows for `language`), then validate against allowed values.
+    const schema = CONFIG_SCHEMA[key];
+    const resolved = schema.normalize ? schema.normalize(value) : value;
+    if (schema.values && !schema.values.includes(resolved)) {
+      die(`Invalid value "${value}" for ${key}. Valid: ${schema.values.join(", ")}`);
+    }
+
+    // `set` WRITES the config, so on first boot it must seed the display
+    // language — otherwise persisting the defaulted "en" would freeze the
+    // locale seed before the user ever launches the TUI. (get/list stay
+    // pure load() — they don't write.)
+    const cfg = await store.loadOrSeed();
+
+    if (!schema.set(cfg, resolved)) {
+      die(`Invalid value "${value}" for ${key}. Valid: ${schema.values?.join(", ") ?? "any string"}`);
+    }
+    try {
+      await store.save(cfg);
+    } catch {
+      // A write command must fail when it can't persist — but cleanly, not
+      // with a raw EACCES stack trace (cf. the TUI settings-save hardening).
+      die(`Couldn't write config to ${paths.config} (read-only or full data dir?).`);
+    }
+
+    if (globalOpts.json) {
+      outputJson(configToJson(key, resolved));
+    } else {
+      console.log(`${key} = ${resolved}`);
+    }
+  };
+
+  // Git-style shorthand: `config` lists, `config <key>` reads, `config <key>
+  // <value>` writes. Subcommand names win — Commander dispatches list / get /
+  // set / path before this action sees the operands (no config key collides
+  // with a subcommand name).
   const config = program
     .command("config")
-    .description("Manage configuration");
+    .description("Manage configuration")
+    .argument("[key]", "config key (shorthand for get; with a value, for set)")
+    .argument("[value]", "config value (shorthand for set)")
+    .action(async (key: string | undefined, value: string | undefined) => {
+      if (key === undefined) {
+        await runList();
+      } else if (value === undefined) {
+        await runGet(key);
+      } else {
+        await runSet(key, value);
+      }
+    });
 
   config
     .command("list")
     .description("Show all configuration values")
-    .action(async () => {
-      const globalOpts = program.opts();
-      const paths = resolvePaths(
-        globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
-      );
-      const store = new JsonConfigStore(paths.config);
-      const cfg = await store.load();
-
-      if (globalOpts.json) {
-        outputJson(cfg);
-      } else {
-        for (const key of VALID_KEYS) {
-          const value = cfg[key];
-          const schema = CONFIG_SCHEMA[key];
-          const valid = schema.values ? ` (${schema.values.join("|")})` : "";
-          console.log(`  ${key.padEnd(12)} = ${value}${valid}`);
-        }
-      }
-    });
+    .action(runList);
 
   config
     .command("get")
     .description("Read a config value")
     .argument("<key>", `config key (${VALID_KEYS.join(", ")})`)
-    .action(async (key: string) => {
-      const globalOpts = program.opts();
-      const paths = resolvePaths(
-        globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
-      );
-      const store = new JsonConfigStore(paths.config);
-      const cfg = await store.load();
-
-      if (!isConfigKey(key)) {
-        console.error(`Unknown key "${key}". Valid keys: ${VALID_KEYS.join(", ")}`);
-        process.exit(1);
-      }
-
-      const value = cfg[key];
-      if (globalOpts.json) {
-        outputJson(configToJson(key, value));
-      } else {
-        console.log(value);
-      }
-    });
+    .action(runGet);
 
   config
     .command("set")
     .description("Write a config value")
     .argument("<key>", "config key")
     .argument("<value>", "config value")
-    .action(async (key: string, value: string) => {
-      const globalOpts = program.opts();
-      const paths = resolvePaths(
-        globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
-      );
-      const store = new JsonConfigStore(paths.config);
-
-      // Validate BEFORE touching the store: loadOrSeed() persists a seeded
-      // config on first boot, and a rejected command must not leave that side
-      // effect (or freeze the locale seed) behind.
-      if (!isConfigKey(key)) {
-        console.error(`Unknown key "${key}". Valid keys: ${VALID_KEYS.join(", ")}`);
-        process.exit(1);
-      }
-
-      // Canonicalize the raw value (e.g. the 繁/简/EN labels the Settings UI
-      // shows for `language`), then validate against allowed values.
-      const schema = CONFIG_SCHEMA[key];
-      const resolved = schema.normalize ? schema.normalize(value) : value;
-      if (schema.values && !schema.values.includes(resolved)) {
-        console.error(`Invalid value "${value}" for ${key}. Valid: ${schema.values.join(", ")}`);
-        process.exit(1);
-      }
-
-      // `set` WRITES the config, so on first boot it must seed the display
-      // language — otherwise persisting the defaulted "en" would freeze the
-      // locale seed before the user ever launches the TUI. (get/list stay
-      // pure load() — they don't write.)
-      const cfg = await store.loadOrSeed();
-
-      if (!schema.set(cfg, resolved)) {
-        console.error(`Invalid value "${value}" for ${key}. Valid: ${schema.values?.join(", ") ?? "any string"}`);
-        process.exit(1);
-      }
-      try {
-        await store.save(cfg);
-      } catch {
-        // A write command must fail when it can't persist — but cleanly, not
-        // with a raw EACCES stack trace (cf. the TUI settings-save hardening).
-        console.error(`Couldn't write config to ${paths.config} (read-only or full data dir?).`);
-        process.exit(1);
-      }
-
-      if (globalOpts.json) {
-        outputJson(configToJson(key, resolved));
-      } else {
-        console.log(`${key} = ${resolved}`);
-      }
-    });
+    .action(runSet);
 
   config
     .command("path")
     .description("Show config file location")
     .action(() => {
       const globalOpts = program.opts();
-      const paths = resolvePaths(
-        globalOpts.dataDir ? { dataDir: globalOpts.dataDir } : undefined,
-      );
+      const paths = resolvePathsFor(globalOpts.dataDir);
       if (globalOpts.json) {
         outputJson({ path: paths.config });
       } else {

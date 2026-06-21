@@ -6,24 +6,21 @@
 
 import type { GlyphEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
-import type { GlyphAnimator } from "./types.ts";
+import { GlyphAnimatorBase } from "./animator-base.ts";
+import { BRAILLE_COUNT, brailleFromMask, isEmpty } from "./braille.ts";
 import { getTheme } from "../color/theme.ts";
+import { lerpColor } from "../color/lerp.ts";
 
-const TOTAL_MS = 2800;
+/** Total run time (ms) at durationScale 1. */
+export const NOISE_TOTAL_MS = 2800;
 const SETTLE_MIN = 800;
 const SETTLE_MAX = 2200;
 const EMPTY_CLEAR_MS = 400;
 
 // Braille block: U+2800..U+28FF (256 patterns)
-const BRAILLE_BASE = 0x2800;
-const BRAILLE_COUNT = 256;
 
 function randomBraille(): string {
-  return String.fromCharCode(BRAILLE_BASE + Math.floor(Math.random() * BRAILLE_COUNT));
-}
-
-function isEmpty(ch: string): boolean {
-  return ch === "\u2800" || ch === " ";
+  return brailleFromMask(Math.floor(Math.random() * BRAILLE_COUNT));
 }
 
 /** Center-biased settle time: center cells settle later. */
@@ -37,16 +34,6 @@ function settleTime(r: number, c: number, rows: number, cols: number): number {
   return SETTLE_MIN + t * (SETTLE_MAX - SETTLE_MIN) + jitter;
 }
 
-function lerpColor(a: string, b: string, t: number): string {
-  const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
-  const ar = parseInt(a.slice(1, 3), 16), ag = parseInt(a.slice(3, 5), 16), ab = parseInt(a.slice(5, 7), 16);
-  const br = parseInt(b.slice(1, 3), 16), bg = parseInt(b.slice(3, 5), 16), bb = parseInt(b.slice(5, 7), 16);
-  const r = clamp(ar + (br - ar) * t);
-  const g = clamp(ag + (bg - ag) * t);
-  const bv = clamp(ab + (bb - ab) * t);
-  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${bv.toString(16).padStart(2, "0")}`;
-}
-
 interface CellMeta {
   settleAt: number;
   isContent: boolean;
@@ -54,14 +41,11 @@ interface CellMeta {
   realChar: string;
 }
 
-export class NoiseAnimator implements GlyphAnimator {
-  private readonly glyph: GlyphEntry;
+export class NoiseAnimator extends GlyphAnimatorBase {
   private cells: CellMeta[][] = [];
-  private startTime = -1;
-  private localMs = 0;
 
-  constructor(glyph: GlyphEntry) {
-    this.glyph = glyph;
+  constructor(glyph: GlyphEntry, durationScale: number = 1) {
+    super(glyph, durationScale, NOISE_TOTAL_MS);
     this.initCells();
   }
 
@@ -109,12 +93,6 @@ export class NoiseAnimator implements GlyphAnimator {
     }
   }
 
-  update(elapsed: number): boolean {
-    if (this.startTime < 0) this.startTime = elapsed;
-    this.localMs = elapsed - this.startTime;
-    return this.localMs >= TOTAL_MS;
-  }
-
   render(buf: CellBuffer, offsetR: number, offsetC: number): void {
     const th = getTheme();
     const t = this.localMs;
@@ -142,7 +120,7 @@ export class NoiseAnimator implements GlyphAnimator {
           const progress = t / Math.max(meta.settleAt, 1);
           if (progress > 0.5) continue;
           ch = randomBraille();
-          fg = lerpColor("#141418", th.tertiary, progress * 0.5);
+          fg = lerpColor(th.dimmed, th.tertiary, progress * 0.5);
         } else {
           const progress = t / meta.settleAt;
           ch = randomBraille();
@@ -155,8 +133,7 @@ export class NoiseAnimator implements GlyphAnimator {
   }
 
   reset(): void {
-    this.startTime = -1;
-    this.localMs = 0;
+    this.resetClock();
     this.initCells();
   }
 }

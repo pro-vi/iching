@@ -30,6 +30,11 @@ const OPTION_LABELS = new Map<string, Message>([
   // token rides in the label as a hint back to the CLI value (glossary).
   ["settings.castMethod.coin", { en: "coin", zhHant: "銅錢 (coin)", zhHans: "铜钱 (coin)" }],
   ["settings.castMethod.yarrow", { en: "yarrow", zhHant: "蓍草 (yarrow)", zhHans: "蓍草 (yarrow)" }],
+  // Entropy: domain terms like castMethod — the canonical token rides in the
+  // label as a hint back to the CLI value (glossary). zh-Hans is authored
+  // (繫→系, 於→于 per the audited conversion register), never derived.
+  ["settings.entropy.crypto", { en: "crypto", zhHant: "機器 (crypto)", zhHans: "机器 (crypto)" }],
+  ["settings.entropy.bound", { en: "bound", zhHant: "繫於心念 (bound)", zhHans: "系于心念 (bound)" }],
   // Cast mode / taijitu / glyph anim: literal common words, label-only.
   ["settings.castMode.auto", { en: "auto", zhHant: "自動", zhHans: "自动" }],
   ["settings.castMode.manual", { en: "manual", zhHant: "手動", zhHans: "手动" }],

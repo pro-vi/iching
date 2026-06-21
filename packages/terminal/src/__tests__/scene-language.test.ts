@@ -2,7 +2,9 @@
 // English mode must not leak Chinese product-ui labels; Chinese modes must not
 // leak the English label they replace. Grows one describe-block per wired scene.
 import { describe, expect, test } from "bun:test";
-import { SettingsScene, type SettingsValues } from "../scenes/settings/settings-scene.ts";
+import { bufferText, sceneCtx } from "../testing.ts";
+import { SettingsScene } from "../scenes/settings/settings-scene.ts";
+import { settingsValues } from "../testing.ts";
 import { HomeScene } from "../scenes/home/home-scene.ts";
 import { IntentionScene } from "../scenes/intention/intention-scene.ts";
 import { YarrowScene } from "../scenes/yarrow/yarrow-scene.ts";
@@ -15,21 +17,13 @@ import { DetailScene } from "../scenes/dict/detail-scene.ts";
 import { DetailModel } from "../scenes/dict/detail-model.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import type { SceneContext } from "../scene/types.ts";
-import type { Cast, Line, HistoryEntry, DisplayLanguage } from "@iching/core";
+import type { Cast, HistoryEntry, DisplayLanguage } from "@iching/core";
+import { lineOf } from "@iching/core/testing";
+import { SIMPLIFIED_MAP, SIMPLIFIED_EXCEPTIONS } from "@iching/core";
 
-function makeLine(value: 7 | 8): Line {
-  return { value, isYang: value === 7, isChanging: false };
-}
-
-const ctx: SceneContext = { cols: 80, rows: 24, done: false, colorSupport: "none" };
+const ctx = sceneCtx(80, 24, "none");
 function ctxFor(language: DisplayLanguage): SceneContext {
-  return { cols: 80, rows: 24, done: false, colorSupport: "none", language };
-}
-
-function bufferText(buf: CellBuffer): string {
-  return Array.from({ length: buf.height }, (_, row) =>
-    buf.getRow(row).map((cell) => cell.char).join(""),
-  ).join("\n");
+  return sceneCtx(80, 24, "none", language);
 }
 
 function renderScene(
@@ -42,15 +36,7 @@ function renderScene(
 }
 
 function settingsText(language: DisplayLanguage): string {
-  const values: SettingsValues = {
-    theme: "bone",
-    language,
-    taijituStyle: "dots",
-    glyphAnim: "dots",
-    glyphFont: "kaiti",
-    castMethod: "coin",
-    castMode: "auto",
-  };
+  const values = settingsValues({ language });
   const scene = new SettingsScene(values);
   const buf = CellBuffer.create(ctx.cols, ctx.rows);
   scene.render(buf, ctx);
@@ -99,15 +85,7 @@ describe("SettingsScene — no bilingual stacking", () => {
   // snapshot, refreshed only on Escape), so the UI stayed in the old language
   // until save + reopen. It now reads the live getValues().language.
   test("changing the Language row re-localizes the scene live, before save", () => {
-    const values: SettingsValues = {
-      theme: "bone",
-      language: "en",
-      taijituStyle: "dots",
-      glyphAnim: "dots",
-      glyphFont: "kaiti",
-      castMethod: "coin",
-      castMode: "auto",
-    };
+    const values = settingsValues({ language: "en" });
     const scene = new SettingsScene(values);
     scene.handleKey({ type: "arrow", direction: "down" }, ctx); // focus Language row
     scene.handleKey({ type: "arrow", direction: "right" }, ctx); // en → zh-Hant
@@ -127,10 +105,7 @@ describe("SettingsScene — no bilingual stacking", () => {
     expect(text).toContain("[楷體]  隸變  黑體");
     expect(text).not.toContain("kaiti"); // label replaces the token in zh
 
-    const values: SettingsValues = {
-      theme: "bone", language: "zh-Hant", taijituStyle: "dots", glyphAnim: "dots",
-      glyphFont: "kaiti", castMethod: "coin", castMode: "auto",
-    };
+    const values = settingsValues({ language: "zh-Hant" });
     const scene = new SettingsScene(values);
     expect(scene.getValues().glyphFont).toBe("kaiti");
     // Toggle the Font row: persisted value is the next TOKEN, never a label.
@@ -154,10 +129,7 @@ describe("SettingsScene — no bilingual stacking", () => {
   // Live re-localization extends to chips: flipping the Language row swaps the
   // font labels in the same frame (labels are derived at render, not stored).
   test("flipping Language re-labels font chips immediately, before save", () => {
-    const values: SettingsValues = {
-      theme: "bone", language: "en", taijituStyle: "dots", glyphAnim: "dots",
-      glyphFont: "kaiti", castMethod: "coin", castMode: "auto",
-    };
+    const values = settingsValues({ language: "en" });
     const scene = new SettingsScene(values);
     scene.handleKey({ type: "arrow", direction: "down" }, ctx); // focus Language
     scene.handleKey({ type: "arrow", direction: "right" }, ctx); // en → zh-Hant
@@ -207,10 +179,7 @@ describe("SettingsScene — no bilingual stacking", () => {
   // Persistence: zh-mode selections still write canonical tokens (the chain
   // CLI tests pin from the other side: `config get castMethod` prints "coin").
   test("zh-Hant selections persist canonical wave-2 tokens", () => {
-    const values: SettingsValues = {
-      theme: "bone", language: "zh-Hant", taijituStyle: "dots", glyphAnim: "dots",
-      glyphFont: "kaiti", castMethod: "coin", castMode: "auto",
-    };
+    const values = settingsValues({ language: "zh-Hant" });
     const scene = new SettingsScene(values);
     for (let i = 0; i < 5; i++) scene.handleKey({ type: "arrow", direction: "down" }, ctx); // Cast Method
     scene.handleKey({ type: "arrow", direction: "right" }, ctx);
@@ -222,15 +191,7 @@ describe("SettingsScene — no bilingual stacking", () => {
   // captions in English because renderPreview() called renderYarrowFieldStrip
   // without the selected language. It now passes vals.language.
   test("yarrow preview in Settings localizes its captions (zh-Hant, no English leak)", () => {
-    const values: SettingsValues = {
-      theme: "bone",
-      language: "zh-Hant",
-      taijituStyle: "dots",
-      glyphAnim: "dots",
-      glyphFont: "kaiti",
-      castMethod: "yarrow",
-      castMode: "auto",
-    };
+    const values = settingsValues({ language: "zh-Hant", castMethod: "yarrow" });
     const scene = new SettingsScene(values);
     // focus the Cast Method row (index 5) so the preview becomes the yarrow strip
     for (let i = 0; i < 5; i++) scene.handleKey({ type: "arrow", direction: "down" }, ctx);
@@ -343,7 +304,7 @@ describe("CastScene reveal — hexagram name honors language (KW58 兌)", () => 
   // Hexagram 58 (兌 / The Joyous): both trigrams Lake, no becoming → centered
   // reveal. This is the P1-a path the structural oracle missed.
   const cast58: Cast = {
-    lines: [makeLine(7), makeLine(7), makeLine(8), makeLine(7), makeLine(7), makeLine(8)],
+    lines: [lineOf(7), lineOf(7), lineOf(8), lineOf(7), lineOf(7), lineOf(8)],
     primary: 58,
     becoming: null,
     changingPositions: [],
@@ -356,8 +317,12 @@ describe("CastScene reveal — hexagram name honors language (KW58 兌)", () => 
   function revealText(language: DisplayLanguage): string {
     const scene = new CastScene(cast58, "reduced", 80);
     scene.skipToComplete(false); // fast-forward to the fully revealed title
-    const buf = CellBuffer.create(80, 24);
-    scene.render(buf, ctxFor(language));
+    // Render tall (30 rows) so the title keeps its optional image + trigram
+    // lines: at the cramped 24-row height the reading panel correctly sheds
+    // them to keep the judgment whole (covered by cast-reading-panel.test).
+    // This test is about LANGUAGE honoring, not the constrained layout.
+    const buf = CellBuffer.create(80, 30);
+    scene.render(buf, { ...ctxFor(language), rows: 30 });
     return bufferText(buf);
   }
 
@@ -416,8 +381,9 @@ describe("BrowseScene rows — name conversion + no English in Chinese modes (KW
 describe("JournalScene rows — name conversion (KW20 觀)", () => {
   const entry: HistoryEntry = {
     date: "2026-06-02",
+    method: "coin",
     cast: {
-      lines: [makeLine(8), makeLine(8), makeLine(8), makeLine(8), makeLine(7), makeLine(7)],
+      lines: [lineOf(8), lineOf(8), lineOf(8), lineOf(8), lineOf(7), lineOf(7)],
       primary: 20, // 觀 / Contemplation
       becoming: null,
       changingPositions: [],
@@ -449,20 +415,65 @@ describe("JournalScene rows — name conversion (KW20 觀)", () => {
 
   test("English footer uses English nav verbs", () => {
     const text = journalText("en");
-    expect(text).toContain("navigate");
     expect(text).toContain("view");
-    expect(text).toContain("dictionary");
+    expect(text).toContain("note");
+    expect(text).toContain("search");
+    expect(text).toContain("patterns");
   });
 
   test("Simplified footer localizes nav verbs, no English leak", () => {
     const text = journalText("zh-Hans");
-    expect(text).toContain("导览"); // navigate
-    expect(text).toContain("检视"); // view
-    expect(text).toContain("卦典"); // dictionary
+    expect(text).toContain("检视"); // view (檢視→检视; 导览/navigate left the footer for width)
+    expect(text).toContain("注记"); // note
+    expect(text).toContain("搜寻"); // search
+    expect(text).toContain("观象"); // patterns
     expect(text).toContain("返回"); // back
-    expect(text).not.toContain("navigate");
     expect(text).not.toContain("view");
-    expect(text).not.toContain("dictionary");
+    expect(text).not.toContain("note");
+    expect(text).not.toContain("search");
+    expect(text).not.toContain("patterns");
+  });
+
+  test("Simplified patterns pane localizes seals and labels, no Traditional residue", () => {
+    const scene = new JournalScene([entry], { today: () => "2026-06-11" });
+    const language: DisplayLanguage = "zh-Hans";
+    const tallCtx = { ...ctxFor(language), rows: 40 };
+    scene.enter(tallCtx);
+    scene.handleKey({ type: "char", char: "p" }, tallCtx);
+    const buf = CellBuffer.create(80, 40);
+    scene.render(buf, tallCtx);
+    const text = bufferText(buf);
+    expect(text).toContain("观象"); // head seal (觀象 → 观象)
+    expect(text).toContain("卦象"); // faces section seal
+    expect(text).toContain("铜钱"); // method count label
+    expect(text).toContain("未有动爻"); // stillness line (a single quiet cast)
+    expect(text).toContain("占记尚少"); // too-few footnote (1 < 8 known casts)
+    expect(text).toContain("未见"); // field legend tier
+    expect(text).not.toContain("patterns");
+    expect(text).not.toContain("coin");
+    expect(text).not.toContain("chance");
+    // Pinyin is suppressed in zh (the `lang === "en"` guard) — 觀 is KW20.
+    expect(text).not.toContain("Guān");
+    expect(text).not.toContain("last");
+    // No Traditional residue anywhere in the rendered pane: sweep the whole
+    // surface against the corpus conversion table, not just one sentinel char.
+    for (const trad of Object.keys(SIMPLIFIED_MAP)) {
+      if (SIMPLIFIED_EXCEPTIONS.includes(trad)) continue;
+      expect(text).not.toContain(trad);
+    }
+  });
+
+  test("Traditional patterns pane keeps the bare seal without the English gloss", () => {
+    const scene = new JournalScene([entry], { today: () => "2026-06-11" });
+    const language: DisplayLanguage = "zh-Hant";
+    const tallCtx = { ...ctxFor(language), rows: 40 };
+    scene.enter(tallCtx);
+    scene.handleKey({ type: "char", char: "p" }, tallCtx);
+    const buf = CellBuffer.create(80, 40);
+    scene.render(buf, tallCtx);
+    const text = bufferText(buf);
+    expect(text).toContain("觀象"); // head seal, Traditional
+    expect(text).not.toContain("· patterns"); // the en gloss must not leak
   });
 });
 
@@ -474,31 +485,35 @@ describe("DetailScene footer — nav verbs honor language", () => {
     return bufferText(buf);
   }
 
-  test("English footer: scroll/derived/open/back", () => {
+  // Content focus documents ↑↓/←→/tab/esc; [enter] open lives in the
+  // derived-focus footer (enter is a no-op while content has focus).
+  test("English footer: scroll/adjacent/derived/back", () => {
     const text = detailText("en");
     expect(text).toContain("scroll");
+    expect(text).toContain("adjacent");
     expect(text).toContain("derived");
-    expect(text).toContain("open");
     expect(text).toContain("back");
   });
 
   test("Simplified footer localizes, no English leak", () => {
     const text = detailText("zh-Hans");
     expect(text).toContain("卷动"); // scroll
+    expect(text).toContain("邻卦"); // adjacent
     expect(text).toContain("衍卦"); // derived
-    expect(text).toContain("开启"); // open
     expect(text).toContain("返回"); // back
     expect(text).not.toContain("scroll");
+    expect(text).not.toContain("adjacent");
     expect(text).not.toContain("derived");
-    expect(text).not.toContain("open");
   });
 
   test("Traditional footer localizes, no Simplified residue", () => {
     const text = detailText("zh-Hant");
     expect(text).toContain("捲動"); // scroll (Traditional)
+    expect(text).toContain("鄰卦"); // adjacent (Traditional)
     expect(text).toContain("衍卦"); // derived
     expect(text).not.toContain("scroll");
     expect(text).not.toContain("卷动"); // no Simplified residue
+    expect(text).not.toContain("邻卦");
   });
 });
 
@@ -526,7 +541,7 @@ describe("Glyph composition honors language — Simplified glyphs in zh-Hans", (
   });
 
   const cast58: Cast = {
-    lines: [makeLine(7), makeLine(7), makeLine(8), makeLine(7), makeLine(7), makeLine(8)],
+    lines: [lineOf(7), lineOf(7), lineOf(8), lineOf(7), lineOf(7), lineOf(8)],
     primary: 58,
     becoming: null,
     changingPositions: [],
@@ -536,7 +551,10 @@ describe("Glyph composition honors language — Simplified glyphs in zh-Hans", (
     diagonal: 1,
   };
   function castGlyph(language: DisplayLanguage): string[] | undefined {
-    const s = new CastScene(cast58, "reduced", 80, glyphCfg, 24, undefined, { language });
+    // 40 rows: tall enough that the glyph keeps its place beside the reading
+    // panel (at 24 rows the glyph yields to the texts — see cast-reading-panel
+    // tests) so the composed entry is present to compare.
+    const s = new CastScene(cast58, "reduced", 80, glyphCfg, 40, undefined, { language });
     s.skipToComplete(false);
     return (s as unknown as { model: { primaryGlyphEntry: { rows: string[] } | null } }).model
       .primaryGlyphEntry?.rows;

@@ -1,7 +1,12 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
+import { errnoCode } from "../fs-errors.js";
 import type { UserConfig } from "../types.js";
 import type { ConfigStore } from "../config-store.js";
 import { atomicWriteJson } from "./atomic-write.js";
+import { isRecord } from "./is-record.js";
+import { quarantineCorrupt } from "./quarantine-corrupt.js";
+import { createCorruptWarner } from "./warn-once.js";
+import { isOneOf } from "@iching/core";
 
 const MOTION_OPTIONS = ["default", "brisk", "deep", "reduced"] as const;
 const LANGUAGE_OPTIONS = ["en", "zh-Hant", "zh-Hans"] as const;
@@ -12,6 +17,7 @@ const GLYPH_FONT_OPTIONS = ["kaiti", "libian", "heiti"] as const;
 const TAIJITU_STYLE_OPTIONS = ["dots", "dense"] as const;
 const CAST_METHOD_OPTIONS = ["coin", "yarrow"] as const;
 const CAST_MODE_OPTIONS = ["auto", "manual"] as const;
+const ENTROPY_OPTIONS = ["crypto", "bound"] as const;
 
 const DEFAULT_CONFIG: UserConfig = {
   motion: "default",
@@ -24,7 +30,10 @@ const DEFAULT_CONFIG: UserConfig = {
   taijituStyle: "dots",
   castMethod: "coin",
   castMode: "auto",
+  entropy: "crypto",
 };
+
+type ForwardCompatibleUserConfig = UserConfig & Record<string, unknown>;
 
 // Old castMode strings (pre split into castMethod+castMode) → new pair.
 const LEGACY_CAST_MODE: Record<string, { method: UserConfig["castMethod"]; mode: UserConfig["castMode"] }> = {
@@ -33,6 +42,15 @@ const LEGACY_CAST_MODE: Record<string, { method: UserConfig["castMethod"]; mode:
   "yarrow": { method: "yarrow", mode: "auto" },
   "yarrow-manual": { method: "yarrow", mode: "manual" },
 };
+
+/** Apply a legacy castMode string (if recognized) as the new castMethod+castMode pair. */
+function applyLegacyCastMode(merged: ForwardCompatibleUserConfig, rawCastMode: string): void {
+  const split = Object.hasOwn(LEGACY_CAST_MODE, rawCastMode) ? LEGACY_CAST_MODE[rawCastMode] : undefined;
+  if (split) {
+    merged.castMethod = split.method;
+    merged.castMode = split.mode;
+  }
+}
 
 // Legacy theme names → current canonical names.
 const THEME_ALIASES: Record<string, UserConfig["theme"]> = {
@@ -86,9 +104,15 @@ export function canonicalLanguage(raw: string): UserConfig["language"] | undefin
  * forms; an explicit script subtag wins over region. Anything non-Chinese —
  * including empty / "C" / "POSIX" — falls back to English.
  */
+/** The base of a POSIX locale token — lang_TERRITORY with the .CODESET and @MODIFIER
+ *  suffixes stripped (e.g. "en_US.UTF-8@euro" → "en_US"). */
+function localeBase(locale: string): string {
+  return locale.split(/[.@]/)[0];
+}
+
 /** Map one locale token to a supported display language, or null if unsupported. */
 function mapLocaleToken(token: string): UserConfig["language"] | null {
-  const parts = token.split(/[.@]/)[0].replace(/_/g, "-").toLowerCase().split("-");
+  const parts = localeBase(token).replace(/_/g, "-").toLowerCase().split("-");
   const lang = parts[0];
   if (lang === "en") return "en"; // app supports English — stop scanning
   if (lang !== "zh") return null; // unsupported language → try the next candidate
@@ -104,7 +128,7 @@ export function detectSystemLanguage(
 ): UserConfig["language"] {
   // Effective locale (LANGUAGE excluded — it only selects the message language).
   const locale = env.LC_ALL || env.LC_MESSAGES || env.LANG || "";
-  const localeLang = locale.split(/[.@]/)[0].toLowerCase();
+  const localeLang = localeBase(locale).toLowerCase();
   // Not localized (C / POSIX / unset): no language intent, and GNU LANGUAGE is
   // disabled in the C locale → English.
   if (localeLang === "" || localeLang === "c" || localeLang === "posix") return "en";
@@ -119,16 +143,7 @@ export function detectSystemLanguage(
   return "en";
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
-function isOneOf<const T extends readonly string[]>(
-  options: T,
-  value: unknown,
-): value is T[number] {
-  return typeof value === "string" && options.includes(value as T[number]);
-}
 
 function stringValue(
   record: Record<string, unknown>,
@@ -139,7 +154,7 @@ function stringValue(
 }
 
 function normalizeConfig(parsed: unknown): UserConfig {
-  const merged: UserConfig = { ...DEFAULT_CONFIG };
+  const merged: ForwardCompatibleUserConfig = { ...DEFAULT_CONFIG };
   if (!isRecord(parsed)) return merged;
 
   if (isOneOf(MOTION_OPTIONS, parsed.motion)) merged.motion = parsed.motion;
@@ -172,23 +187,17 @@ function normalizeConfig(parsed: unknown): UserConfig {
   const rawCastMethod = stringValue(parsed, "castMethod");
   const rawCastMode = stringValue(parsed, "castMode");
   if (rawCastMode && rawCastMethod === undefined) {
-    const split = Object.hasOwn(LEGACY_CAST_MODE, rawCastMode) ? LEGACY_CAST_MODE[rawCastMode] : undefined;
-    if (split) {
-      merged.castMethod = split.method;
-      merged.castMode = split.mode;
-    }
+    applyLegacyCastMode(merged, rawCastMode);
   } else {
     if (isOneOf(CAST_METHOD_OPTIONS, rawCastMethod)) merged.castMethod = rawCastMethod;
     if (isOneOf(CAST_MODE_OPTIONS, rawCastMode)) {
       merged.castMode = rawCastMode;
     } else if (rawCastMode) {
-      const split = Object.hasOwn(LEGACY_CAST_MODE, rawCastMode) ? LEGACY_CAST_MODE[rawCastMode] : undefined;
-      if (split) {
-        merged.castMethod = split.method;
-        merged.castMode = split.mode;
-      }
+      applyLegacyCastMode(merged, rawCastMode);
     }
   }
+
+  if (isOneOf(ENTROPY_OPTIONS, parsed.entropy)) merged.entropy = parsed.entropy;
 
   // Forward-compat (schema-keys: "schemas only expand"): carry through unknown
   // OWN keys written by a newer version / parallel install, so a settings save
@@ -200,7 +209,7 @@ function normalizeConfig(parsed: unknown): UserConfig {
   for (const k of Object.keys(parsed)) {
     if (k === "__proto__" || k === "constructor" || k === "prototype") continue;
     if (!Object.hasOwn(DEFAULT_CONFIG, k)) {
-      (merged as unknown as Record<string, unknown>)[k] = parsed[k];
+      merged[k] = parsed[k];
     }
   }
 
@@ -208,7 +217,21 @@ function normalizeConfig(parsed: unknown): UserConfig {
 }
 
 export class JsonConfigStore implements ConfigStore {
-  constructor(private readonly path: string) {}
+  /**
+   * When true, the corrupt/unreadable-config notices are suppressed. The hook
+   * runs on every shell prompt in a fresh process (so the once-per-instance
+   * `warnedCorrupt` dedup can't help across runs) and must keep its output
+   * clean — a persistently-corrupt config would otherwise spam stderr on every
+   * prompt. The interactive TUI/CLI still surface the notice, where the user
+   * can see and act on it; the hook stays silent and falls back to defaults.
+   */
+  private readonly quiet: boolean;
+  private readonly warn: (message: string) => void;
+
+  constructor(private readonly path: string, opts: { quiet?: boolean } = {}) {
+    this.quiet = opts.quiet ?? false;
+    this.warn = createCorruptWarner(this.quiet);
+  }
 
   /**
    * The session's live config when it could not be persisted (read-only / full
@@ -222,7 +245,6 @@ export class JsonConfigStore implements ConfigStore {
   /** The corrupt warning fires once per store instance — loads repeat during a
    * TUI session (startup, open-Settings, save&back) while the terminal owns the
    * screen in raw mode, and raw stderr would scramble the rendered frame. */
-  private warnedCorrupt = false;
 
   /** Whether the unreadable original is safely copied to .corrupt — healing the
    * live file is only allowed when this is true (never destroy the only copy). */
@@ -240,34 +262,36 @@ export class JsonConfigStore implements ConfigStore {
     try {
       raw = await readFile(this.path, "utf-8");
     } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
-      throw err;
+      if (errnoCode(err) === "ENOENT") return null;
+      // The config exists but can't be read at all — a directory left at the
+      // path, permission denied (a root-owned config after a sudo run). load()
+      // runs at startup, so an unguarded throw crashes the app before it draws.
+      // Fall back to defaults like a corrupt config — but with no .corrupt
+      // backup (we couldn't read the bytes), so omit the recovery note. Reuses
+      // the corrupt notice's prefix, keeping the language inventory clean.
+      this.warn(`iching: config at ${this.path} is unreadable — using defaults.`);
+      return "corrupt";
     }
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
     } catch {
-      try {
-        // wx: never clobber an existing backup — the FIRST backup is the
-        // recoverable one (a later corruption is usually garbage-on-garbage).
-        await writeFile(`${this.path}.corrupt`, raw, { encoding: "utf-8", flag: "wx" });
-        this.corruptBackupOk = true;
-      } catch (err: unknown) {
-        // EEXIST means a backup is already safe; anything else (read-only /
-        // full) means it isn't — and healing must not run.
-        this.corruptBackupOk = (err as NodeJS.ErrnoException).code === "EEXIST";
-      }
-      if (!this.warnedCorrupt) {
-        this.warnedCorrupt = true;
-        console.error(
-          `iching: config at ${this.path} is unreadable — using defaults. ` +
-            `Your old settings are saved at ${this.path}.corrupt; restore them by fixing the JSON and renaming the file back.`,
-        );
-      }
+      this.corruptBackupOk = await quarantineCorrupt(this.path, raw);
+      this.warn(
+        `iching: config at ${this.path} is unreadable — using defaults. ` +
+          `Your old settings are saved at ${this.path}.corrupt; restore them by fixing the JSON and renaming the file back.`,
+      );
       return "corrupt";
     }
     return isRecord(parsed) ? parsed : {};
   }
+
+  /**
+   * Warn once per store instance, unless quiet — both readRaw corrupt paths
+   * (can't-read, can't-parse) share one dedup flag (which flips even when quiet,
+   * exactly as the inlined guards did). Callers pass the full message so each
+   * user-facing literal stays at its site (and in the language inventory);
+   * JsonDailyCacheStore carries the same helper. */
 
   async load(): Promise<UserConfig> {
     // Unpersisted live state (failed save, or a first-boot seed that couldn't be

@@ -19,6 +19,10 @@ export interface RitualTiming {
   compareRevealMs: number;
   splitSlideMs: number;
   restMs: number;
+  /** Multiplier on the glyph-reveal animation duration (0 = no animation, settled glyph at once). */
+  glyphAnimScale: number;
+  /** Breath after the glyph settles, before the ritual continues. */
+  glyphBreathMs: number;
 }
 
 export type MotionPreset = "default" | "brisk" | "deep" | "reduced";
@@ -42,6 +46,8 @@ const DEFAULT: RitualTiming = {
   compareRevealMs: 400,
   splitSlideMs: 400,
   restMs: 200,
+  glyphAnimScale: 1,
+  glyphBreathMs: 1200,
 };
 
 const BRISK: RitualTiming = {
@@ -63,6 +69,8 @@ const BRISK: RitualTiming = {
   compareRevealMs: 200,
   splitSlideMs: 250,
   restMs: 100,
+  glyphAnimScale: 0.6,
+  glyphBreathMs: 600,
 };
 
 const DEEP: RitualTiming = {
@@ -84,6 +92,8 @@ const DEEP: RitualTiming = {
   compareRevealMs: 600,
   splitSlideMs: 600,
   restMs: 350,
+  glyphAnimScale: 1.25,
+  glyphBreathMs: 1600,
 };
 
 // Reduced motion: same ritual structure (pauses preserved), but no spin,
@@ -107,6 +117,8 @@ const REDUCED: RitualTiming = {
   compareRevealMs: 0,
   splitSlideMs: 0,
   restMs: 200,
+  glyphAnimScale: 0,
+  glyphBreathMs: 1200,
 };
 
 const PRESETS: Record<MotionPreset, RitualTiming> = {

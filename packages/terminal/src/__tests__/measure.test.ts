@@ -1,5 +1,28 @@
 import { describe, test, expect } from "bun:test";
-import { stringWidth, centerPad } from "../layout/measure.ts";
+import { stringWidth, centerPad, fitLine } from "../layout/measure.ts";
+
+describe("fitLine", () => {
+  test("centers a line that fits the width", () => {
+    const r = fitLine("abc", 11);
+    expect(r.text).toBe("abc"); // unchanged
+    expect(r.col).toBe(4); // (11 - 3) / 2
+  });
+
+  test("a line wider than the width is left-anchored and truncated, keeping the lead", () => {
+    const footer = "[↑↓] setting · [←→] option · [esc] save & exit"; // ~46 cols
+    const r = fitLine(footer, 40);
+    expect(r.col).toBe(0); // left-anchored, not centred off both ends
+    expect(stringWidth(r.text)).toBeLessThanOrEqual(40); // fits the width
+    expect(r.text.startsWith("[↑↓] setting")).toBe(true); // the lead keybind survives
+    expect(r.text.endsWith("…")).toBe(true); // the tail is elided, not clipped
+  });
+
+  test("exact fit centers at col 0 (no truncation)", () => {
+    const r = fitLine("hello", 5);
+    expect(r.text).toBe("hello");
+    expect(r.col).toBe(0);
+  });
+});
 
 describe("stringWidth", () => {
   test("ASCII string has length = width", () => {

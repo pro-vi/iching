@@ -1,32 +1,51 @@
 import { Command } from "commander";
 import {
+  BoundRandomSource,
   castHexagram,
   buildStructure,
   CryptoRandomSource,
+  type RandomSource,
   SeededRandomSource,
   GUA,
 } from "@iching/core";
-import {
-  resolvePaths,
-  JsonDailyCacheStore,
-  JsonlJournalStore,
-} from "@iching/storage";
+import { JsonConfigStore } from "@iching/storage";
+import { resolvePathsFor } from "../util/paths.js";
 import { formatCastPlain } from "../output/plain.js";
 import { outputJson, castToJson } from "../output/json.js";
-import { localToday } from "../util/today.js";
+import { parseSeed } from "../util/parse-seed.js";
+import { rngProvenanceFor } from "../util/rng-provenance.js";
 
 export function registerCastCommand(program: Command): void {
   program
     .command("cast")
     .description("Perform an I Ching casting")
     .argument("[question]", "question for the oracle")
-    .action(async (question: string | undefined) => {
+    .option("--bound", "bind the cast to the question and moment (local entropy)")
+    .action(async (question: string | undefined, cmdOpts: { bound?: boolean }) => {
       const opts = program.opts();
-      const seed = opts.seed ? Number(opts.seed) : undefined;
-      const source =
-        seed !== undefined
-          ? new SeededRandomSource(seed)
-          : new CryptoRandomSource();
+      // --seed validation (stderr + exit 1 on garbage) lives in the shared
+      // util/parse-seed.ts helper so the TUI entry refuses a bad seed the
+      // same way this command does.
+      const seed = parseSeed(opts.seed as string | undefined);
+
+      // Entropy: an explicit --seed is its own deterministic path; otherwise
+      // --bound (or the saved entropy config) mixes the question and moment
+      // into local machine entropy — chance stays primary either way.
+      let bound = cmdOpts.bound === true;
+      if (!bound && seed === undefined) {
+        const paths = resolvePathsFor(opts.dataDir);
+        const cfg = await new JsonConfigStore(paths.config).load();
+        bound = cfg.entropy === "bound";
+      }
+      let source: RandomSource;
+      if (seed !== undefined) {
+        source = new SeededRandomSource(seed);
+      } else if (bound) {
+        source = new BoundRandomSource(question ?? "");
+      } else {
+        source = new CryptoRandomSource();
+      }
+      const rng = rngProvenanceFor({ seeded: seed !== undefined, bound, boundText: question });
 
       const cast = castHexagram(source);
       const primary = GUA[cast.primary - 1];
@@ -39,9 +58,9 @@ export function registerCastCommand(program: Command): void {
 
       // Output
       if (opts.json) {
-        outputJson(castToJson(cast, primary, becoming, question));
+        outputJson(castToJson(cast, primary, becoming, question, rng, seed));
       } else {
-        console.log(formatCastPlain(cast, primary, structure, question));
+        console.log(formatCastPlain(cast, primary, structure, question, rng, seed));
       }
     });
 }

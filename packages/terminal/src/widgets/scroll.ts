@@ -6,9 +6,32 @@
 //   - cursor-into-view: a focused index that must stay within a viewport window
 //     (browse list, settings rows) — derive the offset/window from the cursor.
 
-/** Clamp a scroll offset into the valid range `[0, max(0, contentLength - viewport)]`. */
+import { clamp } from "@iching/core";
+
+/** The furthest a free-scroll region can scroll: the last offset that still fills
+ *  the viewport, or 0 when the content fits. The ceiling clampOffset enforces, the
+ *  page indicator's final page, and where "scroll to end" lands. */
+export function maxOffset(contentLength: number, viewport: number): number {
+  return Math.max(0, contentLength - viewport);
+}
+
+/** Clamp a scroll offset into the valid range `[0, maxOffset(contentLength, viewport)]`. */
 export function clampOffset(offset: number, contentLength: number, viewport: number): number {
-  return Math.max(0, Math.min(offset, Math.max(0, contentLength - viewport)));
+  return clamp(offset, 0, maxOffset(contentLength, viewport));
+}
+
+/** The highest valid index into a list of `length` items, or 0 when empty — the
+ *  ceiling for a list cursor (never -1, so an empty list keeps the cursor at 0). */
+export function lastIndex(length: number): number {
+  return Math.max(0, length - 1);
+}
+
+/** Usable viewport height: terminal rows minus the `chrome` reserved for header,
+ *  footer, and friends, floored at 1. The floor is load-bearing — a sub-chrome
+ *  terminal would otherwise feed a <=0 height into the scroll, cursor, and
+ *  percentage math. Shared so every scene's viewport agrees on it. */
+export function viewportHeight(termRows: number, chrome: number): number {
+  return Math.max(1, termRows - chrome);
 }
 
 /**
@@ -32,12 +55,19 @@ export function windowFor(
   total: number,
 ): { start: number; end: number } {
   if (viewport >= total) return { start: 0, end: total };
-  const start = Math.max(0, Math.min(cursor - viewport + 1, total - viewport));
+  const start = clamp(cursor - viewport + 1, 0, total - viewport);
   return { start, end: start + viewport };
 }
 
 /** Page indicator like `"2/5"` for a free-scroll region; `"1/1"` when it all fits. */
 export function pageIndicator(offset: number, contentLength: number, viewport: number): string {
   if (contentLength <= viewport) return "1/1";
-  return `${Math.floor(offset / viewport) + 1}/${Math.ceil(contentLength / viewport)}`;
+  const pages = Math.ceil(contentLength / viewport);
+  // Line-at-a-time scrolling lands at the last possible offset (content −
+  // viewport), which need not be a whole-page multiple — so floor(offset/
+  // viewport)+1 can never reach the final page. Snap to it once scrolled to the
+  // bottom, where the last content row is already on screen.
+  const ceiling = maxOffset(contentLength, viewport);
+  const page = offset >= ceiling ? pages : Math.floor(offset / viewport) + 1;
+  return `${page}/${pages}`;
 }

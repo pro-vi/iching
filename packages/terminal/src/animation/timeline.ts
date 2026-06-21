@@ -2,25 +2,25 @@
 
 import { type EasingFn, linear } from "./easing.ts";
 
-export type Step =
+export type Step<Ctx = unknown> =
   | { kind: "wait"; ms: number }
-  | { kind: "call"; run: (ctx: any) => unknown }
-  | { kind: "tween"; ms: number; easing: EasingFn; apply: (progress: number, ctx: any) => void }
-  | { kind: "parallel"; steps: Step[] }
-  | { kind: "sequence"; steps: Step[] };
+  | { kind: "call"; run: (ctx: Ctx) => unknown }
+  | { kind: "tween"; ms: number; easing: EasingFn; apply: (progress: number, ctx: Ctx) => void }
+  | { kind: "parallel"; steps: Step<Ctx>[] }
+  | { kind: "sequence"; steps: Step<Ctx>[] };
 
 /** Run steps one after another. */
-export function seq(...steps: Step[]): Step {
+export function seq<Ctx = unknown>(...steps: Step<Ctx>[]): Step<Ctx> {
   return { kind: "sequence", steps };
 }
 
 /** Run all steps concurrently; complete when all finish. */
-export function par(...steps: Step[]): Step {
+export function par<Ctx = unknown>(...steps: Step<Ctx>[]): Step<Ctx> {
   return { kind: "parallel", steps };
 }
 
 /** Idle for the given duration. */
-export function wait(ms: number): Step {
+export function wait<Ctx = unknown>(ms: number): Step<Ctx> {
   return { kind: "wait", ms };
 }
 
@@ -30,21 +30,21 @@ export function wait(ms: number): Step {
  * callers can write `call(() => log.push(x))` without wrapping in a block
  * to discard `Array.push`'s number return.
  */
-export function call(fn: (ctx: any) => unknown): Step {
+export function call<Ctx = unknown>(fn: (ctx: Ctx) => unknown): Step<Ctx> {
   return { kind: "call", run: fn };
 }
 
 /** Animate a value from 0 to 1 over the given duration. */
-export function tween(
+export function tween<Ctx = unknown>(
   ms: number,
-  apply: (progress: number, ctx: any) => void,
+  apply: (progress: number, ctx: Ctx) => void,
   easing: EasingFn = linear,
-): Step {
+): Step<Ctx> {
   return { kind: "tween", ms, easing, apply };
 }
 
 /** Compute the total duration of a step tree. */
-export function stepDuration(step: Step): number {
+export function stepDuration<Ctx = unknown>(step: Step<Ctx>): number {
   switch (step.kind) {
     case "wait":
       return step.ms;

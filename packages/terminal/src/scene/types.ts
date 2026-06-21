@@ -1,6 +1,6 @@
 // Scene interface — lifecycle contract for terminal scenes
 
-import type { Cast, DisplayLanguage } from "@iching/core";
+import type { Cast, DisplayLanguage, HistoryEntry } from "@iching/core";
 import type { CellBuffer } from "../render/buffer.ts";
 import type { KeyEvent } from "../input/key-parser.ts";
 import type { ColorSupport } from "../color/detect.ts";
@@ -36,12 +36,22 @@ export type SceneSignal =
   // Home-menu intents
   | { type: "startCast" }         // begin a real cast (auto or manual depending on saved mode)
   | { type: "startPlay" }         // begin the coin-toss sandbox (no persistence)
+  | { type: "openToday" }         // reopen today's reading (replay from the daily cache)
   | { type: "openDictionary" }    // open the hexagram browser
   | { type: "openJournal" }       // open the past-readings journal
   | { type: "openSettings" }      // open the settings editor
-  // Cast / dictionary navigation
-  | { type: "openDetail"; kw: number }
-  | { type: "openJournalReading"; key: string }
+  // Cast / dictionary navigation. changedPositions carries cast context:
+  // when a detail view is opened from a cast with moving lines, those line
+  // positions (1-6, bottom-up) are marked and their texts emphasized.
+  // Dictionary browsing passes none.
+  // `replace` swaps the current scene instead of pushing — used by the
+  // detail view's prev/next sequence walk so esc still pops straight back
+  // to the list (no unbounded stack growth while reading the book).
+  | { type: "openDetail"; kw: number; changedPositions?: number[]; replace?: boolean }
+  // Carries the entry by reference (the entry objects are shared with the
+  // journal factory's list), not a date/timestamp key: a key round-trip
+  // resolved the wrong reading when two legacy date-only readings shared a day.
+  | { type: "openJournalReading"; entry: HistoryEntry }
   // Inner-flow events
   | { type: "intentionConfirmed" } // intention input completed
   | { type: "tossCompleted"; cast: Cast } // coin-toss ritual produced a cast

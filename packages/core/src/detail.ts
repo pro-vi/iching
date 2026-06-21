@@ -8,16 +8,22 @@ import { polarity } from "./derivation/polarity.js";
 import { mirror } from "./derivation/mirror.js";
 import { diagonal } from "./derivation/diagonal.js";
 
+/** A King Wen number paired with its resolved hexagram. */
+export interface KwGua {
+  kw: number;
+  gua: Hexagram;
+}
+
 export interface HexagramDetail {
   kw: number;
   gua: Hexagram;
   structure: { upper: TrigramInfo; lower: TrigramInfo };
-  nuclear: { kw: number; gua: Hexagram };
-  polarity: { kw: number; gua: Hexagram };
-  mirror: { kw: number; gua: Hexagram };
-  diagonal: { kw: number; gua: Hexagram };
+  nuclear: KwGua;
+  polarity: KwGua;
+  mirror: KwGua;
+  diagonal: KwGua;
   isLocked: boolean;
-  lockedPartner?: { kw: number; gua: Hexagram };
+  lockedPartner?: KwGua;
 }
 
 /** Convert a hexagram's raw line array [0|1, ...] to Line[] for derivation functions */
@@ -27,6 +33,11 @@ function toLines(l: number[]): Line[] {
     isYang: v === 1,
     isChanging: false,
   }));
+}
+
+/** Pair a King Wen number with its hexagram (kw is 1-64, always a valid index). */
+function withGua(kw: number): KwGua {
+  return { kw, gua: GUA[kw - 1] };
 }
 
 /** Build a complete HexagramDetail for a given King Wen number (1-64) */
@@ -44,15 +55,15 @@ export function buildHexagramDetail(kw: number): HexagramDetail {
     kw,
     gua,
     structure: getStructure(kw),
-    nuclear: { kw: nuclearKw, gua: GUA[nuclearKw - 1] },
-    polarity: { kw: polarityKw, gua: GUA[polarityKw - 1] },
-    mirror: { kw: mirrorKw, gua: GUA[mirrorKw - 1] },
-    diagonal: { kw: diagonalKw, gua: GUA[diagonalKw - 1] },
+    nuclear: withGua(nuclearKw),
+    polarity: withGua(polarityKw),
+    mirror: withGua(mirrorKw),
+    diagonal: withGua(diagonalKw),
     isLocked,
   };
 
   if (isLocked) {
-    detail.lockedPartner = { kw: mirrorKw, gua: GUA[mirrorKw - 1] };
+    detail.lockedPartner = withGua(mirrorKw);
   }
 
   return detail;

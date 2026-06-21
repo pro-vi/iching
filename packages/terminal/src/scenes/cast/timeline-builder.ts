@@ -9,7 +9,7 @@ import type { CastModel } from "./model.ts";
 import { canSplit } from "./layout-calc.ts";
 import type { GlyphAnimStyle } from "../../glyph-anim/types.ts";
 import { composeGlyph } from "../../glyph-anim/compose.ts";
-import { createGlyphAnimator } from "../../glyph-anim/factory.ts";
+import { createGlyphAnimator, GLYPH_ANIM_DURATION_MS } from "../../glyph-anim/factory.ts";
 
 export interface CastGlyphConfig {
   glyphAnim: GlyphAnimStyle;
@@ -139,7 +139,7 @@ function buildRevealPhase(
     ...(glyphConfig
       ? [
           wait(200),
-          ...buildGlyphReveal(GUA[cast.primary - 1].n, "primary", model, glyphConfig),
+          ...buildGlyphReveal(GUA[cast.primary - 1].n, "primary", model, glyphConfig, timing),
         ]
       : []),
 
@@ -356,7 +356,7 @@ function buildWideBecoming(
     // Becoming glyph reveal
     ...(glyphConfig && cast.becoming !== null
       ? [
-          ...buildGlyphReveal(GUA[cast.becoming! - 1].n, "becoming", model, glyphConfig),
+          ...buildGlyphReveal(GUA[cast.becoming! - 1].n, "becoming", model, glyphConfig, timing),
           ...buildEnterExploration(model),
         ]
       : cast.becoming !== null
@@ -386,7 +386,7 @@ function buildNarrowBecoming(
     }, easeOut),
     ...(glyphConfig && cast.becoming !== null
       ? [
-          ...buildGlyphReveal(GUA[cast.becoming! - 1].n, "becoming", model, glyphConfig),
+          ...buildGlyphReveal(GUA[cast.becoming! - 1].n, "becoming", model, glyphConfig, timing),
           ...buildEnterExploration(model),
         ]
       : cast.becoming !== null
@@ -423,13 +423,21 @@ function buildMarkerPulse(cast: Cast, model: CastModel): Step[] {
   ];
 }
 
-/** Start a glyph reveal: compose + create animator. */
+/**
+ * Start a glyph reveal: compose + create animator, motion-preset aware.
+ * The hold matches the chosen style's actual run time (dilated by
+ * glyphAnimScale) so slow styles aren't truncated and fast styles don't
+ * sit in dead stillness. A scale of 0 (reduced motion) skips the animation
+ * entirely — the settled glyph appears at once, then only the breath plays.
+ */
 function buildGlyphReveal(
   hexName: string,
   target: "primary" | "becoming",
   model: CastModel,
   glyphConfig: CastGlyphConfig,
+  timing: RitualTiming,
 ): Step[] {
+  const animMs = Math.round(GLYPH_ANIM_DURATION_MS[glyphConfig.glyphAnim] * timing.glyphAnimScale);
   return [
     call(() => {
       // zh-Hans renders the Simplified glyph so it matches the Simplified text.
@@ -442,12 +450,18 @@ function buildGlyphReveal(
           model.becomingGlyphEntry = glyph;
           model.focusedHex = "becoming";
         }
-        model.glyphAnimator = createGlyphAnimator(glyphConfig.glyphAnim, glyph);
-        model.glyphAnimDone = false;
+        if (animMs > 0) {
+          model.glyphAnimator = createGlyphAnimator(glyphConfig.glyphAnim, glyph, timing.glyphAnimScale);
+          model.glyphAnimDone = false;
+        } else {
+          // Reduced motion: no animation — show the settled glyph immediately.
+          model.glyphAnimator = null;
+          model.glyphAnimDone = true;
+        }
       }
     }),
-    wait(4000), // covers all animation styles
-    wait(1200), // breath
+    ...(animMs > 0 ? [wait(animMs)] : []),
+    wait(timing.glyphBreathMs), // breath
   ];
 }
 

@@ -32,7 +32,7 @@ describe("YarrowModel", () => {
 
     m.activeLine = 2;
     m.activeRound = 1;
-    expect(m.currentRound()).toBe(m.transcript[2].rounds[1]);
+    expect(m.currentRound()).toBe(m.requireLineResult(2).rounds[1]);
 
     m.activeLine = -1;
     expect(m.currentRound()).toBeNull();

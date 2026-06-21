@@ -19,6 +19,10 @@ Set an intention. Cast a hexagram. Sit with what shows up.
   (大象傳, 彖傳), English image and judgment, and Wilhelm-inspired notes.
 - **Journal** every cast (with timestamp and intention) in
   append-only JSONL — your own divination history.
+- **Observe** quiet patterns over that history (`p` in the journal, or
+  `iching journal patterns`) — a field of all 64 lit by what you've drawn,
+  where movement falls, the yin/yang balance, the phase of day each was cast.
+  Observation, never prediction.
 - **Hook into LLMs** the assistant can read your cast for further interpretation.
 
 Raw ANSI, five hand-tuned themes (ink, bone, cinnabar, jade, river),
@@ -57,16 +61,42 @@ bun run build                # builds dist/iching for your platform
 iching                          # interactive TUI
 iching cast                     # one-shot cast (plain text)
 iching cast "should I ship?"    # with a question
+iching cast --bound "ship it?"  # bind the cast to the question and moment
 iching cast --json              # structured output
+iching today                    # today's reading (cast in the TUI)
+iching today --json             # full reading payload for scripts/assistants
 iching journal list             # recent readings
+iching journal list --hexagram 29   # readings where hexagram 29 appears
 iching journal show today       # today's reading
-iching hexagram 1               # look up hexagram by number
+iching journal note "..."       # attach a reflection note to the latest reading
+iching journal patterns         # quiet observation over every past reading
+iching journal patterns --since 2026-01-01 --until 2026-03-31  # bound it to one season
+iching journal patterns --json  # the same derivation, structured for scripts
+iching hexagram 1               # look up hexagram by number or name
+iching dict water               # open the dictionary on a search
 iching dict                     # browse all 64 in TUI
 iching config theme cinnabar    # set theme
 ```
 
-Press `c` to cast, `j` for journal, `d` for dictionary, `s` for
-settings, `q` to quit.
+Press `c` to cast, `t` to return to today's reading, `j` for journal,
+`d` for dictionary, `s` for settings, `q` to quit.
+
+### JSON for scripts and assistants
+
+`cast --json`, `today --json`, and `journal patterns --json` emit stable,
+self-describing payloads. In `journal patterns --json`, mind one contract
+(the output states it in a `basis` field): **descriptive counts tally every
+reading; chance figures live in `comparison` blocks computed only over the
+method-marked subset** (coin/yarrow casts, whose line probabilities are known —
+legacy entries have none). Never divide an all-readings `count` by an `expected`
+from a `comparison` block; use that block's own `count`/`expected`, which share
+a basis. (Every chance figure — including `topTrigrams` — lives in a
+`comparison` block over the method-marked subset; uniform trigram geometry
+still needs P(yang)=½, a property of the method, so it rests on the same basis
+as the rest.) One further basis: `timeOfDay` rests on the **timestamped**
+subset — its phase
+counts sum to `timeOfDay.timestamped`, not `total`, since readings without a
+recorded local hour are omitted rather than guessed.
 
 ## Storage
 
@@ -76,6 +106,7 @@ Files follow the [XDG Base Directory](https://specifications.freedesktop.org/bas
 |------|------|---------|
 | Cache | `~/.cache/iching/daily-cache.json` | Most recent cast |
 | Journal | `~/.local/state/iching/history.jsonl` | All casts |
+| Notes | `~/.local/state/iching/notes.jsonl` | Reflection notes (sidecar to the journal) |
 | Config | `~/.config/iching/config.json` | Theme, motion, glyph settings |
 
 Override with `ICHING_HOME` env var or `--data-dir` flag.
@@ -94,9 +125,10 @@ Bun workspace monorepo. Four packages:
 ## Development
 
 ```bash
-bun test          # run tests (382 tests, ~100ms)
+bun test          # run the test suite
 bun run typecheck # tsc --noEmit
-bun run smoke     # end-to-end smoke test
+bun run build     # compile the binary for your platform
+bun run smoke     # end-to-end smoke test of the built binary
 ```
 
 Vision notes and the current scope spec are mapped in

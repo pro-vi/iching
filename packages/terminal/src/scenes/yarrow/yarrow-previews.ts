@@ -11,23 +11,23 @@ import {
   CryptoRandomSource,
   SeededRandomSource,
   type YarrowRound,
+  clamp,
 } from "@iching/core";
 import { TimelineRunner } from "../../animation/runner.ts";
 import { seq } from "../../animation/timeline.ts";
 import { getYarrowTiming } from "../../animation/yarrow-presets.ts";
 import { bounceAperture } from "./field-renderer.ts";
 import { YarrowModel } from "./model.ts";
+import { APERTURE_WIDTH, SWEEP_INTERVAL_MS } from "./constants.js";
 import { buildYarrowRoundBeats } from "./yarrow-timeline.ts";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const PREVIEW_SEED = 42;                   // round-0 split 24|25 — balanced
 const AUTO_GAP_MS = 800;                   // quiet hold between auto loop iterations
-const SWEEP_INTERVAL_MS = 150;             // ms per cell of aperture travel
 const SWEEP_MIN_MS = 1800;                 // shortest sweep before snap
 const SWEEP_MAX_MS = 3600;                 // longest sweep before snap
 const SNAP_HOLD_MS = 500;                  // frozen aperture between snap and play
-const APERTURE_WIDTH = 4;
 const STALKS = 49;
 const APERTURE_MAX = STALKS - APERTURE_WIDTH;
 
@@ -51,7 +51,7 @@ export class YarrowAutoPreview {
 
   constructor() {
     this.model = new YarrowModel(castYarrowHexagram(new SeededRandomSource(PREVIEW_SEED)));
-    this.runner = newRoundRunner(this.model, this.model.transcript[0].rounds[0]);
+    this.runner = newRoundRunner(this.model, this.model.requireLineResult(0).rounds[0]);
   }
 
   step(dt: number): void {
@@ -84,7 +84,7 @@ export class YarrowManualPreview {
 
   constructor() {
     this.model = new YarrowModel(castYarrowHexagram(new SeededRandomSource(PREVIEW_SEED)));
-    this.runner = newRoundRunner(this.model, this.model.transcript[0].rounds[0]);
+    this.runner = newRoundRunner(this.model, this.model.requireLineResult(0).rounds[0]);
     this.model.resetActiveLine(0, STALKS);
     this.resetSweepState();
   }
@@ -123,7 +123,7 @@ export class YarrowManualPreview {
   /** Pick a uniform-random k inside the current aperture, build a fresh
    *  round, hand it to a new runner — so the played math matches the cut. */
   private commitCut(): void {
-    const left = Math.max(1, Math.min(APERTURE_MAX, this.apertureLeft));
+    const left = clamp(this.apertureLeft, 1, APERTURE_MAX);
     const k = left + Math.floor(Math.random() * APERTURE_WIDTH);
     const round = castYarrowRound(new CryptoRandomSource(), STALKS, { splitAt: k });
     this.model.transcript[0].rounds[0] = round;

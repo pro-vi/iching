@@ -48,6 +48,39 @@ describe("TextInput", () => {
     expect(input.value).toBe("abc");
   });
 
+  test("deleteWord removes the word before the cursor", () => {
+    const input = new TextInput();
+    input.insert("what needs patience");
+    input.deleteWord();
+    expect(input.value).toBe("what needs ");
+    expect(input.cursorPos).toBe(11);
+  });
+
+  test("deleteWord skips trailing spaces, then the word", () => {
+    const input = new TextInput();
+    input.insert("hello world   ");
+    input.deleteWord();
+    expect(input.value).toBe("hello ");
+    expect(input.cursorPos).toBe(6); // caret lands after "hello ", not stranded mid-string
+  });
+
+  test("deleteWord at start does nothing", () => {
+    const input = new TextInput();
+    input.insert("abc");
+    input.moveToStart();
+    input.deleteWord();
+    expect(input.value).toBe("abc");
+  });
+
+  test("deleteWord deletes only before the cursor, not after", () => {
+    const input = new TextInput();
+    input.insert("alpha beta");
+    input.cursorPos = 6; // just after "alpha "
+    input.deleteWord();
+    expect(input.value).toBe("beta");
+    expect(input.cursorPos).toBe(0);
+  });
+
   test("moveCursorLeft/Right", () => {
     const input = new TextInput();
     input.insert("hello");
@@ -170,5 +203,65 @@ describe("TextInput", () => {
     const cell2 = buf.getCell(0, 2);
     // Cursor cell has inverted colors
     expect(cell2.bg).toBe("#FFFFFF");
+  });
+
+  test("render scrolls horizontally to keep the cursor visible past the width", () => {
+    // Regression: render started from the head, so typing past the field width
+    // froze on the opening text with the cursor off screen. It now scrolls to
+    // show the tail up to the cursor.
+    const input = new TextInput();
+    input.value = "abcdefghij"; // 10 chars into a width-5 field
+    input.moveToEnd(); // cursor at position 10
+    const buf = CellBuffer.create(10, 1);
+    input.render(buf, 0, 0, 5, { fg: "#FFFFFF" });
+    // The window scrolled to the tail — the head 'a' is gone, g…j show…
+    expect(buf.getCell(0, 0).char).not.toBe("a");
+    expect(buf.getCell(0, 0).char).toBe("g");
+    expect(buf.getCell(0, 3).char).toBe("j");
+    // …and the cursor block sits on screen at the right edge (was off screen).
+    expect(buf.getCell(0, 4).bg).toBe("#FFFFFF");
+  });
+
+  test("the cursor stays on screen at every position in an overflowing field", () => {
+    // The window must follow the cursor wherever it goes — never leaving it off
+    // screen — and reset to the head when the cursor returns there (not stay
+    // stuck scrolled). Guards the whole window-tracking invariant, not just the
+    // type-at-the-end case.
+    const input = new TextInput();
+    input.value = "0123456789abcdef"; // 16 chars into a width-8 field
+    const W = 8;
+    for (const pos of [0, 4, 8, 12, 16]) {
+      input.cursorPos = pos;
+      const buf = CellBuffer.create(W, 1);
+      input.render(buf, 0, 0, W, { fg: "#FFFFFF" });
+      let cursorCol = -1;
+      for (let c = 0; c < W; c++) if (buf.getCell(0, c).bg === "#FFFFFF") cursorCol = c;
+      expect(cursorCol).toBeGreaterThanOrEqual(0); // cursor block is on screen…
+      expect(cursorCol).toBeLessThan(W); // …within the field.
+    }
+    // Home returns the view to the head — the scroll is not stuck at the tail.
+    input.moveToStart();
+    const buf = CellBuffer.create(W, 1);
+    input.render(buf, 0, 0, W, { fg: "#FFFFFF" });
+    expect(buf.getCell(0, 0).char).toBe("0");
+  });
+
+  test("cursor colors fall back to theme tokens when style omits fg/bg", () => {
+    const { getTheme } = require("../color/theme.ts");
+    const t = getTheme();
+
+    const input = new TextInput();
+    const buf = CellBuffer.create(10, 1);
+    input.render(buf, 0, 0, 5);
+    // Empty input: cursor block sits at col 0
+    const cursor = buf.getCell(0, 0);
+    expect(cursor.bg).toBe(t.primary);
+    expect(cursor.fg).toBe(t.bg);
+
+    const wrapped = CellBuffer.create(10, 2);
+    input.renderWrapped(wrapped, 0, 0, 5, 2);
+    const wCursor = wrapped.getCell(0, 0);
+    expect(wCursor.bg).toBe(t.primary);
+    expect(wCursor.fg).toBe(t.bg);
   });
 });

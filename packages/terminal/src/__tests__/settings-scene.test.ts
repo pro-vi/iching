@@ -1,28 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { bufferText, sceneCtx, settingsValues } from "../testing.ts";
 import { SettingsScene } from "../scenes/settings/settings-scene.ts";
 import { CellBuffer } from "../render/buffer.ts";
 import type { SceneContext } from "../scene/types.ts";
 
-function makeCtx(cols = 80, rows = 24): SceneContext {
-  return { cols, rows, done: false, colorSupport: "none" };
-}
-
 function makeScene(language: "zh-Hans" | "zh-Hant" | "en" = "en"): SettingsScene {
-  return new SettingsScene({
-    theme: "bone",
-    language,
-    taijituStyle: "dots",
-    glyphAnim: "dots",
-    glyphFont: "kaiti",
-    castMethod: "coin",
-    castMode: "auto",
-  });
-}
-
-function bufferText(buf: CellBuffer): string {
-  return Array.from({ length: buf.height }, (_, row) =>
-    buf.getRow(row).map((cell) => cell.char).join(""),
-  ).join("\n");
+  return new SettingsScene(settingsValues({ language }));
 }
 
 describe("SettingsScene language", () => {
@@ -33,7 +16,7 @@ describe("SettingsScene language", () => {
 
   test("renders compact language choices", () => {
     const scene = makeScene();
-    const ctx = makeCtx();
+    const ctx = sceneCtx();
     const buf = CellBuffer.create(ctx.cols, ctx.rows);
     scene.render(buf, ctx);
     const text = bufferText(buf);
@@ -43,10 +26,35 @@ describe("SettingsScene language", () => {
 
   test("left/right changes the language row", () => {
     const scene = makeScene("zh-Hant");
-    const ctx = makeCtx();
+    const ctx = sceneCtx();
     scene.handleKey({ type: "arrow", direction: "down" }, ctx);
     scene.handleKey({ type: "arrow", direction: "right" }, ctx);
     expect(scene.getValues().language).toBe("zh-Hans");
+  });
+
+  test("every option row fits the 40-col floor with a right margin", () => {
+    // The widest content rows are the bilingual-gloss settings — entropy
+    // 繫於心念 (bound), cast method 蓍草 (yarrow). At the global MIN_COLS floor (40)
+    // every chip must stay on screen with a margin so none is silently clipped
+    // at the narrowest supported terminal. Locks against a future setting or
+    // longer label quietly overflowing it (cf. the yarrow field's 52-col gap).
+    //
+    // The keybind FOOTER is excluded from the MARGIN check: it now fits the
+    // width via fitLine (centered when it fits, left-anchored + truncated when
+    // not), but a truncated footer fills the row edge-to-edge by design, so it
+    // legitimately has no right margin.
+    const cols = 40;
+    for (const lang of ["en", "zh-Hant", "zh-Hans"] as const) {
+      const buf = CellBuffer.create(cols, 30); // tall enough to show every setting
+      makeScene(lang).render(buf, { cols, rows: 30, done: false, colorSupport: "none", language: lang });
+      for (let r = 0; r < buf.height; r++) {
+        if (r === buf.height - 2) continue; // skip the shared keybind footer row
+        const cells = buf.getRow(r);
+        let lastCol = -1;
+        for (let c = 0; c < cols; c++) if (cells[c].char.trim() !== "") lastCol = c;
+        expect(lastCol).toBeLessThan(cols - 1); // a right margin remains
+      }
+    }
   });
 });
 
@@ -56,7 +64,7 @@ describe("SettingsScene layout", () => {
   // window of settings so the focused row stays visible above the footer.
   test("focused last row stays visible (and editable) at h=20", () => {
     const scene = makeScene("en");
-    const ctx = makeCtx(80, 20);
+    const ctx = sceneCtx(80, 20);
     for (let i = 0; i < 6; i++) scene.handleKey({ type: "arrow", direction: "down" }, ctx); // focus Cast Mode
     const buf = CellBuffer.create(80, 20);
     scene.render(buf, ctx);
@@ -68,15 +76,47 @@ describe("SettingsScene layout", () => {
     expect(rows[labelRow + 1]).toContain("[auto]"); // …options visible, not blind
   });
 
-  test("renders all 7 rows without scrolling at h=24", () => {
+  test("renders all 8 rows without scrolling at h=24", () => {
     const scene = makeScene("en");
-    const ctx = makeCtx(80, 24);
+    const ctx = sceneCtx(80, 24);
     const buf = CellBuffer.create(80, 24);
     scene.render(buf, ctx);
     const text = bufferText(buf);
-    for (const label of ["Theme", "Language", "Taijitu", "Font", "Cast Method", "Cast Mode"]) {
+    for (const label of ["Theme", "Language", "Taijitu", "Font", "Cast Method", "Cast Mode", "Entropy"]) {
       expect(text).toContain(label);
     }
+  });
+});
+
+describe("SettingsScene entropy row", () => {
+  test("defaults to crypto and round-trips through getValues", () => {
+    const scene = makeScene("en");
+    expect(scene.getValues().entropy).toBe("crypto");
+  });
+
+  test("left/right toggles entropy crypto ↔ bound", () => {
+    const scene = makeScene("en");
+    const ctx = sceneCtx();
+    for (let i = 0; i < 7; i++) scene.handleKey({ type: "arrow", direction: "down" }, ctx); // focus Entropy
+    scene.handleKey({ type: "arrow", direction: "right" }, ctx);
+    expect(scene.getValues().entropy).toBe("bound");
+    scene.handleKey({ type: "arrow", direction: "right" }, ctx);
+    expect(scene.getValues().entropy).toBe("crypto"); // wraps back
+  });
+
+  test("an initial bound value is preserved", () => {
+    const scene = new SettingsScene(settingsValues({ entropy: "bound" }));
+    expect(scene.getValues().entropy).toBe("bound");
+  });
+
+  test("zh chips render the ratified labels (繫於心念 / 系于心念)", () => {
+    const scene = new SettingsScene(settingsValues({ language: "zh-Hant", entropy: "bound" }));
+    const ctx = sceneCtx(100, 30);
+    const buf = CellBuffer.create(100, 30);
+    scene.render(buf, ctx);
+    const text = bufferText(buf);
+    expect(text).toContain("隨機源");
+    expect(text).toContain("繫於心念");
   });
 });
 
@@ -95,11 +135,86 @@ describe("SettingsScene getValues — identity-bound, not positional", () => {
   test("selections made after a reorder land on the right field", () => {
     const scene = makeScene("en");
     (scene as unknown as { rows: unknown[] }).rows.reverse();
-    // After reversal, focused row 0 is Cast Mode (was Theme). Toggle it.
-    const ctx = makeCtx();
+    // After reversal, focused row 0 is Entropy (was Theme). Toggle it.
+    const ctx = sceneCtx();
     scene.handleKey({ type: "arrow", direction: "right" }, ctx);
     const vals = scene.getValues();
-    expect(vals.castMode).toBe("manual"); // the toggled row's field moved…
+    expect(vals.entropy).toBe("bound"); // the toggled row's field moved…
     expect(vals.theme).toBe("bone"); // …and theme (old position 0) did not.
+  });
+});
+
+describe("SettingsScene entropy preview", () => {
+  /** Focus the Entropy row (index 7 of 8) and prime the elapsed clock. */
+  function focusEntropy(scene: SettingsScene, ctx: SceneContext, elapsed = 3000): void {
+    for (let i = 0; i < 7; i++) scene.handleKey({ type: "arrow", direction: "down" }, ctx);
+    scene.update(elapsed, 16, ctx);
+  }
+
+  function renderText(scene: SettingsScene, ctx: SceneContext): string {
+    const buf = CellBuffer.create(ctx.cols, ctx.rows);
+    scene.render(buf, ctx);
+    return bufferText(buf);
+  }
+
+  const HEX_GLYPHS = /[䷀-䷿]/;
+
+  test("crypto shows a single machine lane flowing into a hexagram stream", () => {
+    const scene = makeScene("en");
+    const ctx = sceneCtx(80, 40); // tall enough for the preview pane
+    focusEntropy(scene, ctx);
+    const text = renderText(scene, ctx);
+    expect(text).toContain("machine");
+    expect(text).not.toContain("intention");
+    expect(text).not.toContain("moment");
+    expect(text).toMatch(HEX_GLYPHS);
+    expect(text).toContain("▶");
+  });
+
+  test("bound shows machine, intention, and moment tributaries", () => {
+    const scene = makeScene("en");
+    const ctx = sceneCtx(80, 40);
+    focusEntropy(scene, ctx);
+    scene.handleKey({ type: "arrow", direction: "right" }, ctx); // crypto → bound
+    const text = renderText(scene, ctx);
+    expect(text).toContain("machine");
+    expect(text).toContain("intention");
+    expect(text).toContain("moment");
+    expect(text).toMatch(HEX_GLYPHS);
+    // Tributaries converge: both corner joiners present.
+    expect(text).toContain("╮");
+    expect(text).toContain("╯");
+  });
+
+  test("zh-Hant tributary labels render 機器/心念/此刻", () => {
+    const scene = new SettingsScene(settingsValues({ language: "zh-Hant", entropy: "bound" }));
+    const ctx = sceneCtx(80, 40);
+    focusEntropy(scene, ctx);
+    const text = renderText(scene, ctx);
+    expect(text).toContain("機器");
+    expect(text).toContain("心念");
+    expect(text).toContain("此刻");
+  });
+
+  test("the stream re-casts over time (chance keeps moving)", () => {
+    const scene = makeScene("en");
+    const ctx = sceneCtx(80, 40);
+    focusEntropy(scene, ctx, 1000);
+    const early = renderText(scene, ctx);
+    scene.update(9000, 16, ctx); // several epochs later — all six slots re-cast
+    const late = renderText(scene, ctx);
+    const streamRow = (s: string) =>
+      s.split("\n").find((line) => line.includes("▶")) ?? "";
+    expect(streamRow(early)).toMatch(HEX_GLYPHS);
+    expect(streamRow(late)).toMatch(HEX_GLYPHS);
+    expect(streamRow(late)).not.toBe(streamRow(early));
+  });
+
+  test("no hexagram stream renders while a non-entropy row is focused", () => {
+    const scene = makeScene("en");
+    const ctx = sceneCtx(80, 40);
+    scene.update(3000, 16, ctx); // focused on Theme — glyph preview, no stream arrow
+    const text = renderText(scene, ctx);
+    expect(text).not.toContain("▶");
   });
 });

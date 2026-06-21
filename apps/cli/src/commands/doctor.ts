@@ -1,7 +1,9 @@
 import { Command } from "commander";
 import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { GUA, BINARY_TO_KW, TRIGRAMS } from "@iching/core";
-import { resolvePaths } from "@iching/storage";
+import { JsonlJournalStore, isCacheShaped } from "@iching/storage";
+import { resolvePathsFor } from "../util/paths.js";
 import { outputJson } from "../output/json.js";
 
 interface CheckResult {
@@ -95,7 +97,7 @@ function checkTerminal(): CheckResult {
 }
 
 function checkPaths(dataDir?: string): CheckResult {
-  const paths = resolvePaths(dataDir ? { dataDir } : undefined);
+  const paths = resolvePathsFor(dataDir);
   const configExists = existsSync(paths.config);
   const stateExists = existsSync(paths.state);
   const cacheExists = existsSync(paths.cache);
@@ -113,6 +115,104 @@ function checkPaths(dataDir?: string): CheckResult {
   };
 }
 
+async function checkJournal(dataDir?: string): Promise<CheckResult> {
+  const paths = resolvePathsFor(dataDir);
+  if (!existsSync(paths.state)) {
+    return {
+      name: "Journal",
+      status: "pass",
+      detail: "no journal yet — cast in the TUI to begin",
+    };
+  }
+
+  // Stream the whole journal so torn/malformed lines surface as a count —
+  // path existence alone says nothing about whether the entries still read.
+  const journal = new JsonlJournalStore(paths.state);
+  let entryCount = 0;
+  try {
+    for await (const _entry of journal.stream()) {
+      entryCount++;
+    }
+  } catch {
+    // The journal exists but can't be read at all — a directory at the path,
+    // permission denied. The diagnostic must REPORT that as a failed check, not
+    // crash on the very read failure it exists to surface. (Torn LINES are a
+    // warn below; a whole-file failure is a fail.)
+    return {
+      name: "Journal",
+      status: "fail",
+      detail: "exists but can't be read (permission denied, or not a file?)",
+    };
+  }
+
+  const skipped = journal.skippedLines;
+  const counts = `${entryCount} reading(s) recorded`;
+  if (skipped > 0) {
+    // Damage is a warning, not a failure: the surrounding readings remain
+    // intact and every reader skips torn lines without crashing.
+    return {
+      name: "Journal",
+      status: "warn",
+      detail: `${counts}, ${skipped} unreadable line(s) skipped`,
+    };
+  }
+  return { name: "Journal", status: "pass", detail: counts };
+}
+
+/**
+ * Validity check for a JSON data file (config, daily cache) — the diagnostic
+ * twin of checkJournal for the single-object stores. The journal is stream-
+ * validated; these were only existence-checked, so a corrupt config/cache read
+ * as "[exists]" (healthy) when it would actually reset on next use. NON-MUTATING
+ * on purpose: a raw read + JSON.parse, never the store's read() (which would
+ * quarantine/seed as a side effect — a diagnostic must inspect, not repair).
+ * An optional isShaped predicate catches the subtler corruption: a file that
+ * parses cleanly yet isn't a usable record, which the store would quarantine
+ * and reset. Passed for the cache; config is permissive and takes none.
+ */
+async function checkJsonFile(
+  name: string,
+  path: string,
+  isShaped?: (parsed: unknown) => boolean,
+): Promise<CheckResult> {
+  if (!existsSync(path)) {
+    return { name, status: "pass", detail: "not present yet — uses defaults" };
+  }
+  let raw: string;
+  try {
+    raw = await readFile(path, "utf-8");
+  } catch {
+    return { name, status: "fail", detail: "exists but can't be read (permission denied, or not a file?)" };
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    // Self-healing (the store quarantines and starts fresh), so a warning, not a
+    // failure — but a user running doctor to understand a reset deserves to see it.
+    return { name, status: "warn", detail: "corrupt JSON — resets to defaults on next use" };
+  }
+  if (isShaped && !isShaped(parsed)) {
+    // Parseable but not a usable record — the store will quarantine and reset it
+    // on next use, exactly like corrupt bytes, so surface it the same calm way.
+    return { name, status: "warn", detail: "valid JSON but not a usable record — resets to defaults on next use" };
+  }
+  return { name, status: "pass", detail: "valid" };
+}
+
+async function checkConfig(dataDir?: string): Promise<CheckResult> {
+  const paths = resolvePathsFor(dataDir);
+  return checkJsonFile("Config", paths.config);
+}
+
+async function checkCache(dataDir?: string): Promise<CheckResult> {
+  const paths = resolvePathsFor(dataDir);
+  // Pass the store's own shape predicate: a parseable but non-record cache (e.g.
+  // just `{"date":…}`) would be quarantined and reset, so it is not "valid".
+  // Config takes none — its loader merges known keys onto defaults, never resets.
+  return checkJsonFile("Cache", paths.cache, isCacheShaped);
+}
+
 const STATUS_ICONS: Record<string, string> = {
   pass: "OK",
   warn: "WARN",
@@ -123,7 +223,7 @@ export function registerDoctorCommand(program: Command): void {
   program
     .command("doctor")
     .description("Verify environment and configuration")
-    .action(() => {
+    .action(async () => {
       const globalOpts = program.opts();
       const checks: CheckResult[] = [
         checkGlyphs(),
@@ -131,10 +231,17 @@ export function registerDoctorCommand(program: Command): void {
         checkColor(),
         checkTerminal(),
         checkPaths(globalOpts.dataDir),
+        await checkJournal(globalOpts.dataDir),
+        await checkConfig(globalOpts.dataDir),
+        await checkCache(globalOpts.dataDir),
       ];
 
       if (globalOpts.json) {
         outputJson(checks);
+        // Parity with the human path's exit(1): a script reading --json must be
+        // able to branch on the exit code, not re-derive failure from the
+        // payload. Set exitCode (not exit()) so the JSON flushes first.
+        if (checks.some((c) => c.status === "fail")) process.exitCode = 1;
         return;
       }
 

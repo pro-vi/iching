@@ -1,11 +1,12 @@
 // morph-renderer.ts — render becoming transformation (line flip animation)
 
 import type { CellBuffer } from "../../render/buffer.ts";
+import { clamp } from "@iching/core";
 import type { StyledCell } from "../../render/cell.ts";
 import type { CastModel } from "./model.ts";
 import { GLYPHS, LINE_WIDTH } from "../../glyphs.ts";
 import { getTheme } from "../../color/theme.ts";
-import { stringWidth } from "../../layout/measure.ts";
+import { stringWidth, centerCol } from "../../layout/measure.ts";
 import { anchorRow, LINE_ROW_OFFSETS } from "./hexagram-renderer.ts";
 
 /**
@@ -20,7 +21,7 @@ export function morphFrame(isYangToYin: boolean, progress: number): string {
     ? GLYPHS.changingYangToYin
     : GLYPHS.changingYinToYang;
 
-  const clamped = Math.min(1, Math.max(0, progress));
+  const clamped = clamp(progress, 0, 1);
   const maxFrame = frames.length - 1;
   const frameIndex = Math.min(maxFrame, Math.floor(clamped * frames.length));
   return frames[Math.min(frameIndex, maxFrame)];
@@ -67,7 +68,7 @@ export function renderMorph(
 
     const style: Partial<StyledCell> = { fg };
     const lineW = stringWidth(frameStr);
-    const col = Math.max(0, Math.floor((buf.width - lineW) / 2) + xOffset);
+    const col = centerCol(buf.width, lineW, xOffset);
     buf.writeText(row, col, frameStr, style);
   }
 }

@@ -5,6 +5,7 @@ export type { DailyCacheRecord, UserConfig, HistoryQuery } from "./types.js";
 
 // Paths
 export { resolvePaths } from "./paths.js";
+export { errnoCode } from "./fs-errors.js";
 export type { ResolvedPaths } from "./paths.js";
 
 // Store interfaces
@@ -14,16 +15,23 @@ export type { ConfigStore } from "./config-store.js";
 
 // JSON implementations
 export { JsonlJournalStore } from "./json/jsonl-journal.js";
-export { JsonDailyCacheStore } from "./json/json-daily-cache.js";
+export { JsonDailyCacheStore, isCacheShaped } from "./json/json-daily-cache.js";
 export { JsonConfigStore, detectSystemLanguage, canonicalLanguage } from "./json/json-config.js";
 export { atomicWriteJson } from "./json/atomic-write.js";
 
 // Journal query
-export { type HexagramHistory, getHexagramHistory } from "./journal-query.js";
+export {
+  type HexagramHistory,
+  type AnnotatedEntry,
+  loadHexagramHistory,
+  loadHexagramHistories,
+  loadEntriesWithNotes,
+  noteMatchesEntry,
+  entryNoteRef,
+} from "./journal-query.js";
 
-// Legacy discovery
-export { discoverLegacyPaths } from "./legacy/discovery.js";
-export type { LegacyPaths } from "./legacy/discovery.js";
+// Terminal-safe text (journal notes are replayed to terminals)
+export { stripTerminalControls } from "./sanitize.js";
 
 // Schema shape (source of truth for persisted keys)
 export { SCHEMA_KEYS } from "./schema-keys.js";
