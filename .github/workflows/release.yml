@@ -87,7 +87,7 @@ jobs:
       - name: Prepare publish manifest
         run: |
           set -euo pipefail
-          cp README.md LICENSE publish/
+          cp README.md LICENSE TEXT_SOURCES.md publish/
           VERSION=$(node -p "require('./package.json').version")
           cat > publish/package.json <<EOF
           {
@@ -95,7 +95,7 @@ jobs:
             "version": "$VERSION",
             "description": "A contemplative I Ching TUI for the terminal.",
             "bin": "./iching.js",
-            "files": ["iching.js", "README.md", "LICENSE"],
+            "files": ["iching.js", "README.md", "LICENSE", "TEXT_SOURCES.md"],
             "type": "module",
             "engines": { "node": ">=18", "bun": ">=1.0.0" },
             "keywords": ["iching", "i-ching", "yijing", "tui", "terminal", "divination", "node", "bun"],
